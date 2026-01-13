@@ -7,6 +7,7 @@ nav:
   - Getting Started: getting-started.md
   - Project Audits:
     - Consistency Audit Report: CONSISTENCY_AUDIT_REPORT.md
+    - Documentation Consistency Review: DOCUMENTATION_CONSISTENCY_REVIEW.md
     - Issues Backlog: ISSUES_BACKLOG.md
     - Team Split Readiness: TEAM_SPLIT_READINESS.md
 

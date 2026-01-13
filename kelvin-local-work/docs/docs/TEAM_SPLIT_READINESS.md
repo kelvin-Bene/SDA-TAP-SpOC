@@ -43,13 +43,19 @@ Based on comprehensive analysis of the official project briefs, LLNL paper, and 
 
 | Component | Owner | Status | Completeness | Blocking Issues |
 |-----------|-------|--------|--------------|-----------------|
-| **API Integration** | Shared | COMPLETE | 100% | None |
-| **Data Labelling** | SDA TAP Lab | COMPLETE | 100% | None |
-| **Data Storage** | SDA TAP Lab | PARTIAL | 70% | No centralized database |
+| **API Integration** | Shared | COMPLETE | 95% | Minor: retry/cache logic |
+| **Dataset Categorization** | SDA TAP Lab | COMPLETE | 100% | None (tier system working) |
+| **Event Labelling** | SDA TAP Lab | NOT STARTED | 0% | Launch/maneuver detection needed |
+| **Local File Storage** | SDA TAP Lab | COMPLETE | 100% | Working (Parquet/JSON) |
+| **Centralized Database** | SDA TAP Lab | NOT STARTED | 0% | **CRITICAL BLOCKER** |
 | **Dataset Creation** | Shared | OPERATIONAL | 85% | T3/T4 processing incomplete |
 | **UCTP Algorithm** | N/A* | STUB | 5% | Only dummy implementation |
 | **Evaluation Metrics** | SpOC | COMPLETE | 90% | Minor integration issues |
 | **Web UI** | SpOC | NOT STARTED | 0% | **CRITICAL BLOCKER** |
+
+**Important Terminology Clarification:**
+- **Dataset Categorization** = Tier system (T1-T5), orbital regime classification, sensor type classification - **COMPLETE**
+- **Event Labelling** = Classifying observations by event type (launch, maneuver, proximity, breakup) - **NOT STARTED**
 
 *Note: The UCTP algorithm itself is what external developers will submit - it's the "prediction task" in the Common Task Framework. The current dummy implementation is only for testing the evaluation pipeline.
 
