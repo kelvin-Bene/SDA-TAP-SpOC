@@ -5,7 +5,8 @@
       "Bash(gh repo create:*)",
       "Bash(git add:*)",
       "Bash(git reset:*)",
-      "Bash(git update-ref:*)"
+      "Bash(git update-ref:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit\n\nAdd project files including UCT processing documentation, benchmarking tools, and refactored codebase.\nLarge files tracked with Git LFS.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

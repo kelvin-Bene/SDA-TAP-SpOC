@@ -1,0 +1,16 @@
+site_name: UCT Benchmark Documentation
+site_author: UCT Benchmark Team, SDA TAP Lab Cohort 7
+site_description: Documentation for the UCT Benchmark framework - a shared codebase between SDA TAP Lab and SpOC teams.
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Project Audits:
+    - Consistency Audit Report: CONSISTENCY_AUDIT_REPORT.md
+    - Issues Backlog: ISSUES_BACKLOG.md
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections

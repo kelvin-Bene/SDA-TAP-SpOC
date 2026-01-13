@@ -1,0 +1,11 @@
+Parameter,Value
+Target Objects,"{'HAMR': 1, 'Close Relative Objects': 1, 'Close Apparent Objects': 1, 'Unspecified': 0, 'Calibration': 0}"
+Object Distribution,"[20, 10]"
+Orbital Regime,"{'LEO': 0, 'MEO': 1, 'GEO': 1, 'HEO': 0, 'ALL': 0, 'LMO': 0, 'LGO': 0, 'LHO': 0, 'MGO': 0, 'MHO': 0, 'GHO': 0, 'LMG': 0, 'LMH': 0, 'LGH': 0, 'MGH': 0}"
+Events,"{'Maneuvers Between Observations': 0, 'Breakup': 0, 'Long Duration Low Thrust': 0, 'No Events': 1}"
+Sensor Type,"{'Optical': 0, 'Radar': 0, 'RF': 0, 'Fusion': 0, 'Optical and RF': 1, 'Optical and Radar': 0, 'Radar and RF': 0}"
+Percent Orbit,"{'All Low Coverage': 1, 'Some Low Coverage': 0, 'No Low Coverage': 0}"
+Period Between Tracks,"{'All Long Track Gap': 1, 'Some Long Trap Gap': 0, 'No Long Track Gap': 0}"
+Observation Count,"{'All Low Obs Count': 1, 'Some Low Obs Count': 0, 'No Low Obs Count': 0}"
+Total Object Count,"{'High Object Count': 0, 'Standard Object Count': 1, 'Low Object Count': 0}"
+Time Window,['02']

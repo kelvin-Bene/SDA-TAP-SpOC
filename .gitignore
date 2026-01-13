@@ -1,1 +1,9 @@
 tmpclaude-*
+
+# Large files that exceed GitHub's 100MB limit
+*.zip
+documentation/SDA x SpOC UCT Processing/UDL Queries/*.json
+documentation/SDA x SpOC UCT Processing/video*.mp4
+
+# Large data files
+*.mp4

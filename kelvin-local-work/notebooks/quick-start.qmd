@@ -1,0 +1,46 @@
+---
+title: "uct-benchmark Quick Start"
+author: "Jon Cline"
+date: " 05 Nov 2025"
+format:
+  html:
+    toc: true
+    embed-resources: true
+jupyter: uct-benchmark
+---
+## Introduction
+This is an introduction to the `uct-benchmark` project.
+
+## Analysis
+### Load input data
+#### Load satellite data
+Set up
+```{python setup-environment}
+import pandas as pd
+import polars as pl
+import duckdb
+from pathlib import Path
+
+from uct_benchmark.config import (
+    PROJ_ROOT,
+    EXTERNAL_DATA_DIR
+)
+# input data paths
+satellite_data_old_path = \
+    PROJ_ROOT / \
+        "src" / \
+            "data" / \
+                "satelliteData_full.csv"
+
+satellite_data_df = pl.read_csv(satellite_data_old_path)
+
+# output data path
+satellite_data_new_path = \
+    EXTERNAL_DATA_DIR / \
+        "satellite_data_full.parquet"
+
+satellite_data_df.shape
+
+satellite_data_df.write_parquet(satellite_data_new_path)
+```
+
