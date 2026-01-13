@@ -1,0 +1,68 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "uct_benchmark"
+version = "0.0.1"
+description = "A framework for UCT benchmark dataset generation and UCTP evaluation"
+authors = [
+  { name = "UCT Benchmark Team, SDA TAP Lab Cohort 7" },
+]
+
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    
+]
+dependencies = [
+    "aiohttp>=3.13.0",
+    "astropy>=7.1.1",
+    "customtkinter>=5.2.2",
+    "duckdb>=1.4.1",
+    "ipython",
+    "jupyterlab",
+    "loguru",
+    "matplotlib",
+    "mkdocs",
+    "notebook",
+    "numpy",
+    "orekit-jpype>=13.1.2.1",
+    "orekitdata",
+    "pandas",
+    "pip",
+    "polars>=1.35.1",
+    "pyarrow>=22.0.0",
+    "pytest",
+    "python-dotenv",
+    "requests>=2.32.5",
+    "ruff",
+    "scikit-learn",
+    "solara>=1.51.1",
+    "tqdm",
+    "typer",
+]
+requires-python = "~=3.12.0"
+
+
+[tool.ruff]
+line-length = 99
+src = ["uct_benchmark"]
+include = ["pyproject.toml", "uct_benchmark/**/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["I"]  # Add import sorting
+ignore = ["E402"]  # Allow imports after code for Orekit VM initialization
+
+[tool.ruff.lint.isort]
+known-first-party = ["uct_benchmark"]
+force-sort-within-sections = true
+
+[tool.uv.sources]
+orekitdata = { git = "https://gitlab.orekit.org/orekit/orekit-data.git" }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.0",
+]
+

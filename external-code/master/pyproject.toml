@@ -1,0 +1,62 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "uctbenchmark"
+version = "0.0.3"
+description = "f a packaged representation of the SDA TAP Lab UCTBenchmark MVP still in-process."
+authors = [
+  { name = "Jovan Bergh" },
+]
+
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    
+]
+dependencies = [
+    "aiohttp>=3.13.1",
+    "astropy>=7.1.1",
+    "customtkinter>=5.2.2",
+    "dotenv>=0.9.9",
+    "fpdf>=1.7.2",
+    "ipython",
+    "jdk4py>=21.0.8.0",
+    "jupyterlab",
+    "loguru",
+    "matplotlib",
+    "mkdocs",
+    "notebook",
+    "numpy",
+    "orekit-jpype>=13.1.2.1",
+    "pandas",
+    "pip",
+    "pyld>=2.0.4",
+    "pyparsing>=3.2.5",
+    "pytest",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv",
+    "requests>=2.32.5",
+    "ruff",
+    "scikit-learn",
+    "scipy>=1.16.2",
+    "tqdm",
+    "typer",
+    "urllib3>=2.5.0",
+]
+requires-python = "~=3.12.0"
+
+
+[tool.ruff]
+line-length = 99
+src = ["uctbenchmark"]
+include = ["pyproject.toml", "uctbenchmark/**/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["I"]  # Add import sorting
+
+[tool.ruff.lint.isort]
+known-first-party = ["uctbenchmark"]
+force-sort-within-sections = true
+
