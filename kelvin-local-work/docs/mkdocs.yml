@@ -8,6 +8,7 @@ nav:
   - Project Audits:
     - Consistency Audit Report: CONSISTENCY_AUDIT_REPORT.md
     - Issues Backlog: ISSUES_BACKLOG.md
+    - Team Split Readiness: TEAM_SPLIT_READINESS.md
 
 theme:
   name: material
