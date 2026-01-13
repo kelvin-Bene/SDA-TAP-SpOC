@@ -1,0 +1,92 @@
+# UCT Benchmark Documentation
+
+Welcome to the project documentation for the SDA TAP Lab & SpOC UCT Processing project.
+
+## Project Overview
+
+A framework for UCT (Uncorrelated Track) benchmark dataset generation and UCTP (UCT Processing) algorithm evaluation, developed as part of the SDA TAP Lab initiative.
+
+**Goal:** Build a Web-hosted User Interface where algorithm developers can generate benchmark datasets, train algorithms, and compare performance.
+
+## Team Structure
+
+This codebase is **shared between two teams**:
+
+| Team | Primary Focus |
+|------|---------------|
+| **SDA TAP Lab** | Labelling & Data Storage |
+| **SpOC** | Benchmark Dataset Generation & Evaluation Criteria |
+
+**Note:** During Semester 1 (Fall 2025), both teams functioned as one unified team. In Semester 2 (Spring 2026), teams are splitting responsibilities.
+
+## Documentation Sections
+
+### Technical Reference
+Detailed documentation about the codebase and system architecture.
+
+- [Architecture](technical/ARCHITECTURE.md) - Code structure and modules
+- [Pipeline](technical/PIPELINE.md) - Data flow documentation
+- [Data Sources](technical/DATA_SOURCES.md) - API integrations
+- [Configuration](technical/CONFIGURATION.md) - System settings
+- [Evaluation Metrics](technical/EVALUATION_METRICS.md) - Scoring algorithms
+- [Team Roles](technical/TEAM_ROLES.md) - Responsibilities breakdown
+
+### Project Planning
+Project management and planning documents.
+
+- [Project Status](planning/PROJECT_STATUS.md) - Current state assessment
+- [Integrated Roadmap](planning/INTEGRATED_ROADMAP.md) - Project timeline
+- [Dependencies](planning/DEPENDENCIES.md) - Inter-team dependencies
+- [SDA TAP Lab Plan](planning/SDA_TAP_LAB_PLAN.md) - SDA team tasks
+- [SpOC Plan](planning/SPOC_PLAN.md) - SpOC team tasks
+
+### Project Reports
+Analysis reports and audits.
+
+- [Team Split Readiness](reports/TEAM_SPLIT_READINESS.md) - What's needed before teams split
+- [Consistency Audit](reports/CONSISTENCY_AUDIT_REPORT.md) - Codebase review findings
+- [Documentation Review](reports/DOCUMENTATION_CONSISTENCY_REVIEW.md) - Doc consistency check
+- [Issues Backlog](reports/ISSUES_BACKLOG.md) - Known issues to address
+
+## Repository Structure
+
+```
+SDA-TAP-SpOC/
+├── kelvin-local-work/      # Active development codebase
+├── generated-docs/         # This documentation (you are here)
+├── provided-materials/     # Reference materials provided to us
+└── reference-code/         # Code from other branches
+```
+
+## Pipeline Overview
+
+The project implements a 3-phase pipeline:
+
+1. **Phase 1 - Create_Dataset.py**: Dataset creation from UDL data
+2. **Phase 2 - MainMVP.py**: UCTP algorithm simulation
+3. **Phase 3 - Evaluation.py**: Performance evaluation and metrics
+
+## Current Status
+
+**Overall Progress: ~45%**
+
+| Phase | Status | Progress |
+|-------|--------|----------|
+| Foundation (APIs, Evaluation, Propagators) | Complete | 90% |
+| Data Pipeline (T3/T4, Event Labelling, Database) | In Progress | 25% |
+| Web Platform (UI, Backend, Auth) | Not Started | 0% |
+
+## Quick Start
+
+1. Clone the repository
+2. Navigate to `kelvin-local-work/`
+3. Follow the [Installation Instructions](getting-started.md)
+4. Review the [Architecture](technical/ARCHITECTURE.md)
+
+## Framework Reference
+
+This project follows the **Common Task Framework** as defined in Donoho's 2017 paper "50 Years of Data Science":
+
+1. Provide training data set
+2. Define common prediction task
+3. Define benchmark metrics, evaluate submissions

@@ -1,0 +1,35 @@
+site_name: UCT Benchmark Documentation
+site_author: UCT Benchmark Team, SDA TAP Lab Cohort 7
+site_description: Documentation for the UCT Benchmark framework - a shared codebase between SDA TAP Lab and SpOC teams.
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Technical Reference:
+    - Overview: technical/README.md
+    - Architecture: technical/ARCHITECTURE.md
+    - Pipeline: technical/PIPELINE.md
+    - Data Sources: technical/DATA_SOURCES.md
+    - Configuration: technical/CONFIGURATION.md
+    - Evaluation Metrics: technical/EVALUATION_METRICS.md
+    - Team Roles: technical/TEAM_ROLES.md
+  - Project Planning:
+    - Overview: planning/README.md
+    - Project Status: planning/PROJECT_STATUS.md
+    - Integrated Roadmap: planning/INTEGRATED_ROADMAP.md
+    - Dependencies: planning/DEPENDENCIES.md
+    - SDA TAP Lab Plan: planning/SDA_TAP_LAB_PLAN.md
+    - SpOC Plan: planning/SPOC_PLAN.md
+  - Project Reports:
+    - Team Split Readiness: reports/TEAM_SPLIT_READINESS.md
+    - Consistency Audit: reports/CONSISTENCY_AUDIT_REPORT.md
+    - Documentation Review: reports/DOCUMENTATION_CONSISTENCY_REVIEW.md
+    - Issues Backlog: reports/ISSUES_BACKLOG.md
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - toc.integrate

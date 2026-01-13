@@ -2,8 +2,13 @@ tmpclaude-*
 
 # Large files that exceed GitHub's 100MB limit
 *.zip
-documentation/SDA x SpOC UCT Processing/UDL Queries/*.json
-documentation/SDA x SpOC UCT Processing/video*.mp4
 
-# Large data files
+# Large JSON files from UDL queries
+provided-materials/SDA x SpOC UCT Processing/UDL Queries/*.json
+
+# Large video files
+provided-materials/SDA x SpOC UCT Processing/video*.mp4
 *.mp4
+
+# Large PowerPoint files (over 50MB)
+provided-materials/Purdue-branded-powerpoint-template-reduced*.pptx

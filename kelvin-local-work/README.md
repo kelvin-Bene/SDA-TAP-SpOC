@@ -1,15 +1,23 @@
-# uct-benchmark
+# UCT Benchmark - Active Development
 
 <a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-A framework for UCT benchmark dataset generation and UCTP evaluation
+**This is the active development codebase** for the UCT Benchmark project. All new development should happen here.
+
+## What This Contains
+
+This folder contains the Python codebase for:
+- **Dataset Creation** - Pulling and processing UCT observation data
+- **UCTP Simulation** - Running the Uncorrelated Track Processing pipeline
+- **Evaluation** - Computing metrics and scoring algorithm performance
 
 ## Getting Started
-First review the overall [Project Organization](#project-organization).
 
-Next, follow the [Installation Instructions](INSTALLATION.md) to set up your development environment.
+1. Review the overall [Project Organization](#project-organization)
+2. Follow the [Installation Instructions](INSTALLATION.md) to set up your environment
+3. See the [generated-docs](../generated-docs/) folder for detailed documentation
 
 ## Project Organization
 

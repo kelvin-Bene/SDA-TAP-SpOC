@@ -1,12 +1,16 @@
-Generating the docs
-----------
+# Documentation
 
-Use [mkdocs](http://www.mkdocs.org/) structure to update the documentation. 
+Documentation has been moved to the `generated-docs/` folder at the repository root for better organization.
 
-Build locally with:
+## Where to Find Documentation
 
-    mkdocs build
+- **All Project Documentation:** `../generated-docs/`
+- **Build the docs site:** `cd ../generated-docs && mkdocs serve`
 
-Serve locally with:
+## Quick Links
 
-    mkdocs serve
+| Document | Path |
+|----------|------|
+| Technical Reference | `../generated-docs/docs/technical/` |
+| Project Planning | `../generated-docs/docs/planning/` |
+| Project Reports | `../generated-docs/docs/reports/` |
