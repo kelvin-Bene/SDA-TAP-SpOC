@@ -4,13 +4,15 @@
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~45% Complete** *(Updated 2026-01-18)*
+**Overall Progress: ~55% Complete** *(Updated 2026-01-18)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
 
 ### Recent Updates (2026-01-18)
+- ✅ **T3 Simulation**: Fully implemented - epochsToSim() rewritten, integrated into pipeline
 - ✅ **T1/T2 Downsampling**: Fully implemented and integrated
 - ✅ **Pipeline Test**: End-to-end test created, 8/8 stages pass
+- ✅ **Simulation Test**: test_simulation.py created, 3/3 tests pass
 - ✅ **Bug Fixes**: generatePDF.py and dataManipulation.py bugs fixed
 
 ---
@@ -223,29 +225,33 @@ Required for classifying data by event type:
 ---
 
 #### 10. Tier Processing (T1-T4)
-**Status: PARTIAL (35%)**
+**Status: PARTIAL (75%)**
 **Owner: SDA TAP Lab**
 
 | Tier | Processing Required | Status |
 |------|---------------------|--------|
 | T1 | Downsampling (optional) | ✅ **Implemented** (2026-01-18) |
 | T2 | Downsampling (required) | ✅ **Implemented** (2026-01-18) |
-| T3 | Observation simulation | Partial (framework exists) |
+| T3 | Observation simulation | ✅ **Implemented** (2026-01-18) |
 | T4 | Object simulation | Not Started |
 
 **T1/T2 Implementation Details** (2026-01-18):
 - Configuration in `uct_benchmark/config.py` (lines 142-163)
-- Integration in `src/Create_Dataset.py` (lines 71-120)
+- Integration in `src/Create_Dataset.py` (lines 177-225)
 - Uses existing `downsampleData()` from `dataManipulation.py`
 - Test coverage: `test_downsampling.py` (3/3 pass), `test_pipeline_e2e.py` (8/8 pass)
 
-**Remaining code reference** (`Create_Dataset.py:61-69`):
+**T3 Implementation Details** (2026-01-18):
+- Complete `epochsToSim()` function (`simulateObservations.py:358-507`)
+- Time-bin based approach for epoch selection
+- Configuration in `uct_benchmark/config.py` (lines 164-188)
+- Integration in `src/Create_Dataset.py` (lines 66-175)
+- Test coverage: `test_simulation.py` (3/3 pass), `test_pipeline_e2e.py` (8/8 pass)
+
+**Remaining code reference** (`Create_Dataset.py:61-64`):
 ```python
 if tierThreshold == "T4":
     print('T4 NOT implemented. Moving On')
-    pass
-if tierThreshold == "T3":
-    print('T3 NOT implemented. Moving On')
     pass
 ```
 
