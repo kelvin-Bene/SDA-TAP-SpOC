@@ -4,10 +4,34 @@
 
 This folder contains detailed planning documents for the SDA TAP Lab and SpOC UCT Benchmarking project. The plans are organized by team responsibility and include current status assessments, task breakdowns, and an integrated roadmap.
 
+---
+
+## V1 Fixes (Current Sprint Priority)
+
+Based on the initial meeting with tech lead Lewis (August 28, 2025), the following documents guide V1 completion:
+
+| Document | Purpose |
+|----------|---------|
+| **[V1_FIXES_MASTER_PLAN.md](./V1_FIXES_MASTER_PLAN.md)** | Comprehensive plan with full details, rationale, code examples, and Lewis quotes |
+| **[V1_ACTION_CHECKLIST.md](./V1_ACTION_CHECKLIST.md)** | Quick reference checklist for tracking daily progress |
+
+### V1 Priority Summary
+| Priority | Focus | Status |
+|----------|-------|--------|
+| **P0** | UCTP Validation with Aerospace Corp (Patrick Ramsey) | Not Started |
+| **P1** | Complete T1-T4 tier processing (downsampling + simulation) | Not Started |
+| **P2** | PDF report improvements + realistic noise modeling | Not Started |
+| **P3** | Event labeling integration + performance optimization | Not Started |
+| **P4** | Open Evolve architecture (stretch goal) | Not Started |
+
+---
+
 ## Document Index
 
 | Document | Description |
 |----------|-------------|
+| [V1 Fixes Master Plan](./V1_FIXES_MASTER_PLAN.md) | **START HERE** - Comprehensive V1 completion plan |
+| [V1 Action Checklist](./V1_ACTION_CHECKLIST.md) | Quick checklist for tracking progress |
 | [Project Status](./PROJECT_STATUS.md) | Current state of all components - what's done vs pending |
 | [SDA TAP Lab Plan](./SDA_TAP_LAB_PLAN.md) | Detailed plan and TODO list for SDA TAP Lab team |
 | [SpOC Plan](./SPOC_PLAN.md) | Detailed plan and TODO list for SpOC team |
