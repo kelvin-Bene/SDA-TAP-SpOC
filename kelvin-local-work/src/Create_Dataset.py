@@ -59,18 +59,65 @@ if __name__ == "__main__":
 
         # Remove satellites with obs < min threshold
         if tierThreshold == 'T4':
-            # Need to simulate objects to reach desired object type dnesity
+            # Need to simulate objects to reach desired object type density
             print('T4 NOT implemented. Moving On')
-            pass # logic not yet implemented in basicScoringFunction
+            pass  # logic not yet implemented in basicScoringFunction
+
         if tierThreshold == 'T3':
             # Need to simulate observations to reach desired data quality
             print('T3 NOT implemented. Moving On')
             pass
-        #if tierThreshold == 'T2':
-        # Everything will be passed to downsample, if no downsample required, function will pass
-        # Need to downsample to reach desired data quality
-        print('T2 NOT implemented. Moving On')
-        pass
+
+        # T1/T2 Processing: Apply downsampling
+        if tierThreshold in ['T1', 'T2']:
+            print(f'Applying {tierThreshold} downsampling...')
+
+            # Import config for downsampling parameters
+            import sys
+            sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            import uct_benchmark.config as config
+
+            # Build downsampling parameters from config
+            orbit_coverage_params = {
+                'sats': None,  # Apply to all satellites
+                'p_bounds': config.downsample_coverage_bounds,
+                'p_coverage': config.downsample_coverage_target
+            }
+            track_length_params = {
+                'sats': None,
+                'p_bounds': config.downsample_gap_bounds,
+                'p_track': config.downsample_gap_target
+            }
+            obs_count_params = {
+                'sats': None,
+                'p_bounds': config.downsample_obs_bounds,
+                'obs_max': config.downsample_obs_max
+            }
+
+            # Get observation count before downsampling
+            obs_before = len(observations)
+
+            # Apply downsampling
+            try:
+                observations, p_reached = dataM.downsampleData(
+                    observations,
+                    orbElms,
+                    orbit_coverage_params,
+                    track_length_params,
+                    obs_count_params,
+                    bins=10,
+                    rand=42  # Fixed seed for reproducibility
+                )
+
+                obs_after = len(observations)
+                print(f'Downsampling complete: {obs_before} -> {obs_after} observations')
+                print(f'Reduction: {100 * (1 - obs_after/obs_before):.1f}%')
+                print(f'Percentages reached: {p_reached}')
+            except Exception as e:
+                print(f'Downsampling failed: {e}')
+                print('Continuing with original observations...')
+        else:
+            print(f'{tierThreshold} does not require downsampling')
 
 
         # Get reference state vectors and TLEs

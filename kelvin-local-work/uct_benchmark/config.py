@@ -138,3 +138,25 @@ monteCarloPoints = 100
 positionNoise = 0.01
 arcseconds2radians = 3600
 angularNoise = (1) * arcseconds2radians
+
+## --- Downsampling Configuration --- ##
+# Parameters for T1/T2 downsampling to reduce data quality to target levels
+# p_bounds: (min%, max%) of satellites to apply downsampling to
+# Coverage target: fraction of orbit to target (lower = less coverage)
+# Gap target: max track gap in orbital periods (higher = larger gaps)
+# Obs max: maximum observations per satellite per 3 days
+
+# Orbital coverage downsampling
+downsample_coverage_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats to downsample
+downsample_coverage_target = (0.15, 0.05)     # (max, min) orbital coverage threshold
+
+# Track gap downsampling
+downsample_gap_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
+downsample_gap_target = 2.0                   # Target max gap (2 orbital periods)
+
+# Observation count downsampling
+downsample_obs_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
+downsample_obs_max = 50                       # Max observations per sat per 3 days
+
+# Minimum observations to keep per satellite (safety threshold)
+downsample_min_obs = 5

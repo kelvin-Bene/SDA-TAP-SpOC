@@ -624,7 +624,7 @@ def _increaseTrackDistance(ref_obs, sat_params, objp, trackp, rng, chosen_sats=N
     # Process satellites dynamically until the desired number is met
     grouped_obs = {sat: df for sat, df in ref_obs.groupby("satNo", observed=True)}
     remaining_candidates = (
-        gap_df.loc[insufficient_sats]
+        gap_df.loc[list(insufficient_sats)]
         .assign(delta=lambda df: (df["target_gap"] - df["max_gap"]).dt.total_seconds())
         .sort_values("delta")
         .index.tolist()
