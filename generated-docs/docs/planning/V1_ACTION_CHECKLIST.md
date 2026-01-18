@@ -84,26 +84,29 @@
 
 ---
 
-### 1.3 Downsampling (T1/T2)
+### 1.3 Downsampling (T1/T2) ✅ COMPLETE (2026-01-18)
 
-#### 1.3.1 Create downsample.py
-**File**: New `uct_benchmark/data/downsample.py`
-- [ ] Create file with module structure
-- [ ] Implement `downsample_random()`
-- [ ] Implement `downsample_systematic()`
-- [ ] Implement `downsample_track_aware()`
-- [ ] Implement `downsample_coverage_preserving()`
-- [ ] Implement main `downsample()` dispatcher
+**Note:** Existing `downsampleData()` function in `uct_benchmark/data/dataManipulation.py` was already implemented but not integrated. Integration completed 2026-01-18.
 
-#### 1.3.2 Integrate into Create_Dataset.py
-- [ ] Add T1/T2 processing branches
-- [ ] Apply downsampling per satellite
-- [ ] Log reduction statistics
+#### 1.3.1 ~~Create downsample.py~~ (Used existing implementation)
+**File**: `uct_benchmark/data/dataManipulation.py` (existing)
+- [x] `downsampleData()` function already exists with:
+  - Coverage-based downsampling
+  - Track gap downsampling
+  - Observation count downsampling
+- [x] Fixed bug at line 627 (set indexer → list conversion)
 
-#### 1.3.3 Test Downsampling
-- [ ] Test each strategy
-- [ ] Verify correct counts
-- [ ] Verify evaluation works
+#### 1.3.2 Integrate into Create_Dataset.py ✅
+- [x] Add T1/T2 processing branches (lines 71-120)
+- [x] Apply downsampling using `dataM.downsampleData()`
+- [x] Log reduction statistics
+- [x] Added config parameters to `uct_benchmark/config.py`
+
+#### 1.3.3 Test Downsampling ✅
+- [x] Created `test_downsampling.py` - 3/3 tests pass
+- [x] Created `test_pipeline_e2e.py` - 8/8 stages pass
+- [x] Verify correct counts - PASS
+- [x] Verify evaluation works - PASS
 
 ---
 
@@ -185,8 +188,8 @@
 | 0.3 Run Validation | Blocked | | Needs 0.1, 0.2 |
 | 1.1 T3 Processing | Not Started | | |
 | 1.2 T4 Processing | Not Started | | Needs 1.1 |
-| 1.3 Downsampling | Not Started | | |
-| 2.1 PDF Report | Not Started | | |
+| 1.3 Downsampling | ✅ **Complete** | Team | 2026-01-18, 3/3 + 8/8 tests pass |
+| 2.1 PDF Report | Not Started | | Fixed bug in generatePDF.py |
 | 2.2 Noise Modeling | Not Started | | |
 | 3.1 Event Labeling | Not Started | | |
 | 3.2 Performance | Not Started | | |
@@ -196,21 +199,37 @@
 
 ## Files to Create
 
-| File | Priority | Purpose |
-|------|----------|---------|
-| `simulation/simulateObjects.py` | P1 | T4 object simulation |
-| `data/downsample.py` | P1 | T1/T2 downsampling |
-| `simulation/noiseModels.py` | P2 | Realistic noise |
-| `labelling/eventIntegration.py` | P3 | IU team integration |
+| File | Priority | Purpose | Status |
+|------|----------|---------|--------|
+| `simulation/simulateObjects.py` | P1 | T4 object simulation | Not Started |
+| ~~`data/downsample.py`~~ | ~~P1~~ | ~~T1/T2 downsampling~~ | ✅ Used existing `dataManipulation.py` |
+| `simulation/noiseModels.py` | P2 | Realistic noise | Not Started |
+| `labelling/eventIntegration.py` | P3 | IU team integration | Not Started |
 
-## Files to Modify
+## Files Modified (2026-01-18)
+
+| File | Changes Made | Status |
+|------|--------------|--------|
+| `uct_benchmark/config.py` | Added downsampling config parameters | ✅ Done |
+| `src/Create_Dataset.py` | T1/T2 downsampling integration (lines 71-120) | ✅ Done |
+| `uct_benchmark/data/dataManipulation.py` | Fixed set indexer bug at line 627 | ✅ Done |
+| `src/libraries/generatePDF.py` | Fixed hardcoded path bug at line 419 | ✅ Done |
+
+## Files to Modify (Remaining)
 
 | File | Priority | Changes |
 |------|----------|---------|
-| `Create_Dataset.py` | P1 | T1-T4 processing |
+| `Create_Dataset.py` | P1 | T3/T4 processing (downsampling done) |
 | `simulateObservations.py` | P1 | Complete epochsToSim() |
-| `generatePDF.py` | P2 | Report improvements |
+| `generatePDF.py` | P2 | Report visual improvements |
+
+## Test Files Created (2026-01-18)
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `test_downsampling.py` | Standalone downsampling test | ✅ 3/3 pass |
+| `test_pipeline_e2e.py` | End-to-end pipeline test | ✅ 8/8 pass |
 
 ---
 
-*Last Updated: 2026-01-17*
+*Last Updated: 2026-01-18*

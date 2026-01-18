@@ -1,8 +1,12 @@
 # Downsampling Implementation Plan
 
+## Status: ✅ COMPLETE (2026-01-18)
+
 ## Overview
 
 This document details the plan to integrate the existing downsampling functionality into the dataset creation pipeline.
+
+> **Implementation completed 2026-01-18.** All tests passing (3/3 downsampling tests, 8/8 pipeline tests).
 
 ---
 
@@ -136,12 +140,12 @@ Modify `test_pipeline_e2e.py` to include a downsampling stage.
 ## Execution Order
 
 1. ✅ Analyze existing code (DONE)
-2. [ ] Add config parameters
-3. [ ] Update Create_Dataset.py integration
-4. [ ] Create standalone downsampling test
-5. [ ] Update end-to-end pipeline test
-6. [ ] Run tests and verify
-7. [ ] Push changes to v1-fixes branch
+2. ✅ Add config parameters (DONE - `uct_benchmark/config.py`)
+3. ✅ Update Create_Dataset.py integration (DONE - lines 71-120)
+4. ✅ Create standalone downsampling test (DONE - `test_downsampling.py`)
+5. ✅ Update end-to-end pipeline test (DONE - `test_pipeline_e2e.py`)
+6. ✅ Run tests and verify (DONE - 3/3 + 8/8 tests pass)
+7. ✅ Push changes to v1-fixes branch (DONE)
 
 ---
 
@@ -165,3 +169,4 @@ Modify `test_pipeline_e2e.py` to include a downsampling stage.
 ---
 
 *Created: 2026-01-18*
+*Completed: 2026-01-18*

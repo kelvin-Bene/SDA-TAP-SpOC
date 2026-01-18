@@ -4,9 +4,14 @@
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~40% Complete**
+**Overall Progress: ~45% Complete** *(Updated 2026-01-18)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
+
+### Recent Updates (2026-01-18)
+- ✅ **T1/T2 Downsampling**: Fully implemented and integrated
+- ✅ **Pipeline Test**: End-to-end test created, 8/8 stages pass
+- ✅ **Bug Fixes**: generatePDF.py and dataManipulation.py bugs fixed
 
 ---
 
@@ -25,7 +30,7 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 | Event Labelling | Not Started | SDA TAP | 0% |
 | Centralized Database | Not Started | SDA TAP | 0% |
 | T3/T4 Processing | Not Started | SDA TAP | 5% |
-| Downsampling (T1/T2) | Not Started | SDA TAP | 0% |
+| **Downsampling (T1/T2)** | ✅ **Complete** | SDA TAP | **100%** |
 | Web UI | Not Started | SpOC | 0% |
 | Algorithm Submission | Not Started | SpOC | 0% |
 | Leaderboard | Not Started | SpOC | 0% |
@@ -218,22 +223,30 @@ Required for classifying data by event type:
 ---
 
 #### 10. Tier Processing (T1-T4)
-**Status: MINIMAL (5%)**
+**Status: PARTIAL (35%)**
 **Owner: SDA TAP Lab**
 
 | Tier | Processing Required | Status |
 |------|---------------------|--------|
-| T1 | Downsampling (optional) | Not Started |
-| T2 | Downsampling (required) | Not Started |
+| T1 | Downsampling (optional) | ✅ **Implemented** (2026-01-18) |
+| T2 | Downsampling (required) | ✅ **Implemented** (2026-01-18) |
 | T3 | Observation simulation | Partial (framework exists) |
 | T4 | Object simulation | Not Started |
 
-**Current code reference** (`Create_Dataset.py:104-107`):
+**T1/T2 Implementation Details** (2026-01-18):
+- Configuration in `uct_benchmark/config.py` (lines 142-163)
+- Integration in `src/Create_Dataset.py` (lines 71-120)
+- Uses existing `downsampleData()` from `dataManipulation.py`
+- Test coverage: `test_downsampling.py` (3/3 pass), `test_pipeline_e2e.py` (8/8 pass)
+
+**Remaining code reference** (`Create_Dataset.py:61-69`):
 ```python
 if tierThreshold == "T4":
-    logger.info("T4 processing not implemented; continuing")
+    print('T4 NOT implemented. Moving On')
+    pass
 if tierThreshold == "T3":
-    logger.info("T3 processing not implemented; continuing")
+    print('T3 NOT implemented. Moving On')
+    pass
 ```
 
 ---
@@ -314,10 +327,17 @@ Required components:
 
 ## Files Requiring Attention
 
+### Recently Completed (2026-01-18)
+| File | Issue | Resolution |
+|------|-------|------------|
+| `src/Create_Dataset.py` | T1/T2 not implemented | ✅ Downsampling integrated (lines 71-120) |
+| `dataManipulation.py:627` | Set indexer bug | ✅ Changed to `list(insufficient_sats)` |
+| `generatePDF.py:419` | Hardcoded path bug | ✅ Changed to `output_path` parameter |
+
 ### High Priority
 | File | Issue | Action Needed |
 |------|-------|---------------|
-| `Create_Dataset.py:104-107` | T3/T4 not implemented | Implement tier processing |
+| `Create_Dataset.py:61-69` | T3/T4 not implemented | Implement tier processing |
 | `simulateObservations.py:360-428` | `epochsToSim()` incomplete | Complete function |
 | `windowCheck.py` | Error handling gaps | Add try/except blocks |
 

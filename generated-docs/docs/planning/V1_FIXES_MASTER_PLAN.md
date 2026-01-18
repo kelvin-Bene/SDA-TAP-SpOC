@@ -15,7 +15,7 @@ Based on Lewis's meeting transcript, the project has strong foundational infrast
 | P0 | UCTP Validation | Not validated | Validated with Aerospace Corp UCTP |
 | P1 | T3 Processing | 60% (incomplete) | 100% functional |
 | P1 | T4 Processing | 0% | 100% functional |
-| P1 | T1/T2 Downsampling | 0% | 100% functional |
+| P1 | T1/T2 Downsampling | **✅ 100% functional** | 100% functional |
 | P2 | PDF Report Quality | 80% ("needs work") | Professional quality |
 | P2 | Noise Modeling | Basic Gaussian | Realistic (atm. refraction, aberration) |
 | P3 | Event Labeling | 0% (IU team work pending) | Integrated |
@@ -128,8 +128,8 @@ Lewis identified several incomplete pieces of the data generation pipeline. The 
 
 | Tier | Quality | Processing Required | Current Status |
 |------|---------|---------------------|----------------|
-| T1 | High | May need downsampling | **Not implemented** |
-| T2 | Good | Requires downsampling | **Not implemented** |
+| T1 | High | May need downsampling | **✅ Implemented** (2026-01-18) |
+| T2 | Good | Requires downsampling | **✅ Implemented** (2026-01-18) |
 | T3 | Moderate | Requires observation simulation | **Partially implemented** |
 | T4 | Low | Requires object simulation | **Not implemented** |
 | T5 | Unusable | Cannot create valid dataset | N/A |
@@ -382,17 +382,61 @@ if tierThreshold == "T4":
 
 ---
 
-### TODO 1.3: Implement Downsampling (T1/T2)
+### TODO 1.3: Implement Downsampling (T1/T2) ✅ COMPLETE
 **Importance**: HIGH - Core functionality
 **Effort**: Medium
 **Dependencies**: None
+**Status**: ✅ **COMPLETED 2026-01-18**
 
 **Problem Description** (per Lewis):
 > "If we've got a lot of data and we need to emulate a sparser data set, we can downsample."
 
 T1 and T2 data has MORE observations than needed, requiring intelligent removal.
 
-**Actions**:
+---
+
+#### Implementation Summary (Completed 2026-01-18)
+
+**What was implemented:**
+
+1. **Configuration parameters added to `uct_benchmark/config.py`:**
+   - `downsample_coverage_bounds = (0.3, 0.5, 0.7)` - (min%, target%, max%) of sats to downsample
+   - `downsample_coverage_target = (0.15, 0.05)` - (max, min) orbital coverage threshold
+   - `downsample_gap_bounds = (0.3, 0.5, 0.7)` - (min%, target%, max%) of sats to downsample
+   - `downsample_gap_target = 2.0` - Target max gap (2 orbital periods)
+   - `downsample_obs_bounds = (0.3, 0.5, 0.7)` - (min%, target%, max%) of sats to downsample
+   - `downsample_obs_max = 50` - Max observations per sat per 3 days
+   - `downsample_min_obs = 5` - Minimum observations to keep per satellite
+
+2. **Integration in `src/Create_Dataset.py` (lines 71-120):**
+   ```python
+   if tierThreshold in ['T1', 'T2']:
+       print(f'Applying {tierThreshold} downsampling...')
+       observations, p_reached = dataM.downsampleData(
+           observations, orbElms,
+           orbit_coverage_params, track_length_params, obs_count_params,
+           bins=10, rand=42
+       )
+   ```
+
+3. **Bug fixes during implementation:**
+   - Fixed `dataManipulation.py:627` - pandas set indexer bug (changed `gap_df.loc[insufficient_sats]` to `gap_df.loc[list(insufficient_sats)]`)
+   - Fixed `generatePDF.py:419` - hardcoded path bug (changed `pdf.output(path, 'F')` to `pdf.output(output_path, 'F')`)
+
+4. **Testing:**
+   - Created `test_downsampling.py` - standalone downsampling test (3/3 tests pass)
+   - Created `test_pipeline_e2e.py` - end-to-end pipeline test (8/8 stages pass)
+   - All tests passing on v1-fixes branch
+
+**Test Results:**
+```
+RESULT: 3/3 tests passed (downsampling test)
+RESULT: 8/8 stages passed (pipeline test)
+```
+
+---
+
+**Original Actions (for reference):**
 
 #### 1.3.1: Create `downsample.py` Module
 **File**: New file `uct_benchmark/data/downsample.py`
@@ -1186,4 +1230,5 @@ Week 9+: Priority 3-4 (Integration/Future)
 | Date | Version | Author | Changes |
 |------|---------|--------|---------|
 | 2026-01-17 | 1.0 | Team | Initial plan based on Lewis transcript |
+| 2026-01-18 | 1.1 | Team | **T1/T2 Downsampling COMPLETE**: Integrated existing downsampleData() into pipeline, added config parameters, fixed bugs in dataManipulation.py and generatePDF.py, created test suite (3/3 + 8/8 passing) |
 
