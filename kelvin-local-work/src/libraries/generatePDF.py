@@ -416,4 +416,4 @@ def generatePDF(data, output_path = path, path_flag = False):
 
 
 
-    pdf.output(path, 'F')
+    pdf.output(output_path, 'F')
