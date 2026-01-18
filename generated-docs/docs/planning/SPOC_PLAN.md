@@ -498,6 +498,26 @@ Separate leaderboards per:
 
 ---
 
+## Critical: UCTP Validation
+
+Before the evaluation pipeline can be considered production-ready, it must be validated with actual UCT processor output. Per tech lead Lewis:
+
+> "We still need to verify that our pipeline works with actual UCT processor output."
+
+**Key Contact for Validation**:
+- **Patrick Ramsey** (Aerospace Corp) - Has expressed interest in helping validate our software
+- Aerospace Corp runs a UCT processor in the lab
+- Can help process our generated datasets to provide real UCTP output for testing
+
+### Validation Workflow
+1. Generate benchmark datasets using our pipeline
+2. Send datasets to Patrick Ramsey / Aerospace Corp
+3. Receive actual UCTP output
+4. Run our evaluation pipeline on real results
+5. Verify metrics are accurate and meaningful
+
+---
+
 ## Integration with SDA TAP Lab
 
 ### Required Interfaces

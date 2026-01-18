@@ -2,7 +2,20 @@
 
 ## Overview
 
-This project is a partnership between two organizations, each with distinct but complementary responsibilities in developing the UCT Processing benchmarking framework.
+This project is a partnership between multiple organizations, each with distinct but complementary responsibilities in developing the UCT Processing benchmarking framework.
+
+## Historical Context: Prior Team Contributions
+
+During the summer internship period, there was another team from **Indiana University (IU)** that worked alongside the main team. Per tech lead Lewis:
+
+> "The other internship group that we were working with, they were working on creating a labeled database of these events and the observations that go together with these events."
+
+The IU team specifically worked on:
+- **Parsing NOTSOs** (Notice to Space Operator) - text documents describing space events
+- **Creating a labeled database** of space events (breakups, launches, proximity events, maneuvers)
+- **Associating observations with events** - linking observation data to classified events
+
+This work provides the foundation for the event labeling system that needs to be integrated into the current pipeline.
 
 ## SDA TAP Lab (Space Systems Command)
 

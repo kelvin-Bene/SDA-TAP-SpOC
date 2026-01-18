@@ -16,6 +16,19 @@ The Unified Data Library (UDL) is the primary data source, providing access to:
 - Element sets (TLEs)
 - Space event data
 
+### Current Usage Note
+
+Per tech lead Lewis, the project currently focuses on **optical observations** (azimuth and elevation from telescopes):
+
+> "We in particular have been looking at optical observations, so from a telescope, and the reason is because in the UDL we only had access to optical observations. Radar observations and passive RF observations are a lot more difficult to come by. We didn't have a lot of government purpose rights access to radar observations."
+
+The infrastructure is being designed to support radar and RF observations when they become available, but the current pipeline presupposes optical observations.
+
+**Observation Definition**: A single measurement from a telescope, consisting of:
+- Azimuth (angle in the horizontal plane)
+- Elevation (angle above the horizon)
+- Timestamp
+
 ### Authentication
 ```python
 # Generate token from credentials

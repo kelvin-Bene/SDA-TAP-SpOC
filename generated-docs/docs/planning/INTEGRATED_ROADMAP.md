@@ -43,7 +43,21 @@ Phase 5: Production
 ├── Performance Optimization
 ├── Documentation
 └── Launch
+
+Phase 6: Open Evolve Integration (Stretch Goal)
+├── Evaluation Script Validation with Real UCTP
+├── Open Evolve Architecture Design
+├── LLM Integration
+└── Iterative Optimization Testing
 ```
+
+### Critical Validation Milestone
+
+**Before proceeding to later phases**, the pipeline must be validated with actual UCT processor output. Per tech lead Lewis:
+
+> "We still need to verify that our pipeline works with actual UCT processor output."
+
+**Key Contact**: Patrick Ramsey (Aerospace Corp) has expressed interest in helping validate our software by running datasets through their UCT processor. This validation should occur as soon as the data generation pipeline is stable.
 
 ---
 

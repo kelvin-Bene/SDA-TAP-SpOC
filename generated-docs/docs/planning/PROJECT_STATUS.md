@@ -2,9 +2,11 @@
 
 ## Executive Summary
 
-The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach the final goal of a Web-hosted Common Task Framework UI.
+The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
 **Overall Progress: ~40% Complete**
+
+> **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
 
 ---
 

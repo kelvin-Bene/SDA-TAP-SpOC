@@ -407,6 +407,23 @@ positionNoise = 0.01  # km
 angularNoise = 1 * 3600  # arcseconds to radians
 ```
 
+### Noise Modeling: Current vs Desired
+
+Per tech lead Lewis, the current simulation uses a simplified noise model:
+
+**Current Implementation:**
+- Constant Gaussian blur added to simulated observations
+- Basic noise term added to position
+
+**Desired Improvements (Future Work):**
+- **Atmospheric refraction** - Light bending through Earth's atmosphere
+- **Stellar aberration** - Apparent shift due to observer motion
+- More realistic sensor-specific noise characteristics
+
+> "We want to be able to more accurately represent sources of uncertainty and noise in the telescope systems. Right now we just added a constant Gaussian blur... there's also other sources of uncertainty, such as atmospheric refraction or stellar aberration that were not accounted for in the simulation." - Lewis
+
+Research and papers on more accurate optical noise characteristics are available in the project documentation.
+
 ---
 
 ## Data Structures

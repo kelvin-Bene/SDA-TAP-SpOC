@@ -42,17 +42,22 @@ The evaluation system assesses UCTP algorithm performance through three categori
 
 ## 1. Orbit Association
 
-Before computing metrics, UCTP output must be associated with reference orbits.
+Before computing metrics, UCTP output must be associated with reference orbits. The UCTP does not tell us which reference object corresponds to which candidate - it just says "these observations are correlated and this is the orbit."
 
-### Algorithm: Hungarian Method
+Per tech lead Lewis:
+> "The UCT processor is not going to tell us 'Oh, we think this is this object.' It's just gonna say all of these observations are correlated with each other and this is the orbit the object is in. So we need to figure out which one of the candidate orbits that the UCT processor identified corresponds to which one of the reference objects that we put into the initial data set."
+
+### Algorithm: Hungarian Method (with Euclidean Norm)
 
 The association process uses the Hungarian algorithm (linear sum assignment) to find globally optimal matches.
 
-**Process**:
-1. Build cost matrix C[i,j] = position error between estimated orbit i and reference orbit j
-2. Propagate reference states to estimated orbit epochs
-3. Compute Euclidean distance for each pair
-4. Solve assignment problem to minimize total error
+**Process** (as described by Lewis):
+1. Take the candidate orbit from UCTP output
+2. Propagate it to the same time epoch as the reference orbit
+3. Compute the Euclidean norm (closest in position/velocity space)
+4. Build cost matrix C[i,j] = position error between estimated orbit i and reference orbit j
+5. Solve assignment problem to minimize total error
+6. Each candidate orbit maps one-to-one with reference orbits
 
 **Code Location**: `uct_benchmark/evaluation/orbitAssociation.py`
 

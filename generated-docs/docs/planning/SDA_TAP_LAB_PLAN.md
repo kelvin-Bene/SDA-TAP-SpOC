@@ -413,3 +413,28 @@ The following items must be delivered to SpOC:
 | Dataset format spec | Output format requirements | Complete |
 | Web API requirements | Database query needs | Pending |
 | Algorithm interface spec | Data format for algorithms | Pending |
+
+---
+
+## Stretch Goal: Open Evolve Integration
+
+As outlined by tech lead Lewis in the initial project meeting, once the evaluation pipeline is fully validated, a potential future use case is **Open Evolve** integration:
+
+> "There's this program called Open Evolve, which is a way to optimize code bases using an AI agent. It's an iterative cycle of querying LLM to suggest modifications to a code base followed by an evaluation program that'll say how well the code performed."
+
+### Vision
+1. Use our evaluation script + benchmark datasets
+2. LLM suggests modifications to a UCT processor
+3. Evaluate how well those edits performed
+4. Iterate to optimize UCT processors using AI
+
+### Prerequisites
+- Evaluation script must be fully validated with real UCTP output
+- Pipeline must be in a "good enough spot" (per Lewis)
+- Integration architecture design needed
+
+### Success Criteria
+- Can an AI agent suggest improvements that actually optimize uncorrelated track processors?
+- Does the iterative process produce meaningful performance gains?
+
+**Timeline**: "Towards the end of the semester if things are in a good spot" - Lewis

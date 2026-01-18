@@ -90,3 +90,19 @@ This project follows the **Common Task Framework** as defined in Donoho's 2017 p
 1. Provide training data set
 2. Define common prediction task
 3. Define benchmark metrics, evaluate submissions
+
+## Future Direction: Open Evolve Integration
+
+As discussed in the initial project meeting with tech lead Lewis, a key future goal is integrating with **Open Evolve** - a program for optimizing codebases using AI agents. The vision:
+
+1. Use the evaluation script and benchmark datasets we're building
+2. Have an LLM suggest modifications to UCT processors
+3. Evaluate how well those edits performed using our metrics
+4. Determine if AI agents can optimize uncorrelated track processors
+
+This represents a potential "stretch goal" once the evaluation pipeline is fully validated.
+
+## Key Contacts
+
+- **Patrick Ramsey** (Aerospace Corp) - Key contact for UCTP validation. Has expressed interest in helping validate our software by running our datasets through their UCT processor.
+- **Atulya** - Project coordinator for documentation and communication
