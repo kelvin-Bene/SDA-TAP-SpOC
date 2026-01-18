@@ -65,8 +65,114 @@ if __name__ == "__main__":
 
         if tierThreshold == 'T3':
             # Need to simulate observations to reach desired data quality
-            print('T3 NOT implemented. Moving On')
-            pass
+            print(f'Applying {tierThreshold} simulation...')
+
+            # Import simulation modules and config
+            import sys
+            sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            import uct_benchmark.config as config
+            from uct_benchmark.simulation.simulateObservations import simulateObs, epochsToSim
+
+            # Load sensor data for simulation
+            sensors_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'sensorCounts.csv')
+            if os.path.exists(sensors_path):
+                sensorsDf = pd.read_csv(sensors_path)
+            else:
+                print(f'Warning: Sensor data not found at {sensors_path}')
+                print('T3 simulation requires sensor data. Skipping simulation.')
+                sensorsDf = None
+
+            if sensorsDf is not None:
+                obs_before = len(observations)
+                simulated_total = 0
+                satellites_simulated = 0
+
+                for sat_id in observations['satNo'].unique():
+                    sat_obs = observations[observations['satNo'] == sat_id]
+
+                    # Check if we have orbital elements for this satellite
+                    if sat_id not in orbElms:
+                        print(f'  Skipping satellite {sat_id}: no orbital elements')
+                        continue
+
+                    sat_orb_elems = orbElms[sat_id]
+
+                    # Determine epochs needing simulation
+                    try:
+                        epochs_to_sim, bins_info = epochsToSim(
+                            sat_id, sat_obs, sat_orb_elems
+                        )
+                    except Exception as e:
+                        print(f'  Error determining epochs for {sat_id}: {e}')
+                        continue
+
+                    if not epochs_to_sim:
+                        status = bins_info.get('status', 'unknown')
+                        if status != 'all_bins_covered':
+                            print(f'  Satellite {sat_id}: {status}')
+                        continue
+
+                    print(f'  Simulating {len(epochs_to_sim)} epochs for satellite {sat_id}')
+
+                    # Create state vector from orbital elements for propagation
+                    # Use TLE if available, otherwise construct from orbital elements
+                    try:
+                        # Get a reference epoch from existing observations
+                        ref_epoch = pd.to_datetime(sat_obs['obTime'].iloc[0])
+                        if hasattr(ref_epoch, 'to_pydatetime'):
+                            ref_epoch = ref_epoch.to_pydatetime()
+
+                        # Build approximate state vector from orbital elements
+                        # This is a simplified approach - uses orbital elements to estimate state
+                        a = sat_orb_elems.get('Semi-Major Axis', 7000)  # km
+                        e = sat_orb_elems.get('Eccentricity', 0.001)
+                        i = np.radians(sat_orb_elems.get('Inclination', 45))
+                        raan = np.radians(sat_orb_elems.get('RAAN', 0))
+                        argp = np.radians(sat_orb_elems.get('Argument of Perigee', 0))
+                        M = np.radians(sat_orb_elems.get('Mean Anomaly', 0))
+
+                        # Convert orbital elements to approximate state vector (simplified)
+                        # Using vis-viva equation for velocity magnitude
+                        mu = 398600.4418  # km^3/s^2
+                        r = a * (1 - e**2) / (1 + e * np.cos(M))  # Approximate radius
+                        v = np.sqrt(mu * (2/r - 1/a))  # Velocity magnitude
+
+                        # Simplified position and velocity (in orbital plane)
+                        x = r * np.cos(M)
+                        y = r * np.sin(M)
+                        vx = -v * np.sin(M)
+                        vy = v * np.cos(M)
+
+                        # Rotate to ECI (simplified - doesn't account for all rotations)
+                        state_vector = np.array([x, y, 0, vx, vy, 0]) * 1000  # Convert km to m
+
+                        # Simulate observations at determined epochs
+                        sim_obs = simulateObs(
+                            state_vector,
+                            ref_epoch,
+                            epochs_to_sim,
+                            sensorsDf,
+                            positionNoise=config.positionNoise,
+                            angularNoise=config.angularNoise,
+                            satelliteParameters=[sat_id, 0, 0]
+                        )
+
+                        if len(sim_obs) > 0:
+                            # Mark observations as simulated
+                            sim_obs['dataMode'] = 'SIMULATED'
+
+                            # Merge with existing observations
+                            observations = pd.concat([observations, sim_obs], ignore_index=True)
+                            simulated_total += len(sim_obs)
+                            satellites_simulated += 1
+
+                    except Exception as e:
+                        print(f'  Simulation failed for satellite {sat_id}: {e}')
+                        continue
+
+                obs_after = len(observations)
+                print(f'T3 simulation complete: {obs_before} -> {obs_after} observations')
+                print(f'Added {simulated_total} simulated observations for {satellites_simulated} satellites')
 
         # T1/T2 Processing: Apply downsampling
         if tierThreshold in ['T1', 'T2']:

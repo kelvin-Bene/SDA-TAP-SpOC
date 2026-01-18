@@ -160,3 +160,29 @@ downsample_obs_max = 50                       # Max observations per sat per 3 d
 
 # Minimum observations to keep per satellite (safety threshold)
 downsample_min_obs = 5
+
+## --- T3 Simulation Configuration --- ##
+# Parameters for T3 simulation to increase data quality by adding synthetic observations
+
+# Time bins per orbital period for epoch selection
+# Higher = finer granularity but more computation
+simulation_bins_per_period = 10
+
+# Minimum observations per bin to consider "covered"
+simulation_min_obs_per_bin = 1
+
+# Maximum ratio of simulated observations to total (prevents over-simulation)
+simulation_max_ratio = 0.5
+
+# Target increase in observation count (percentage)
+simulation_target_increase = 0.5  # 50% more observations
+
+# Observations per simulated track (realistic grouping)
+# Real observations come in tracks of 3-5 obs within minutes
+simulation_track_size = 3
+
+# Seconds between observations in a track
+simulation_track_spacing = 30
+
+# Minimum observations required before simulation is worthwhile
+simulation_min_existing_obs = 3
