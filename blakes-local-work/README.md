@@ -1,10 +1,19 @@
-# Blake's Local Work - UCT Benchmark Database Module
+# Blake's Local Work - UCT Benchmark Enhancements
 
-This folder contains the Database & Data Storage Architecture implementation for the UCT Benchmark project.
+This folder contains comprehensive enhancements to the UCT (Uncorrelated Tracks) Benchmarking system, including:
 
-## Overview
+1. **Database & Data Storage Architecture** - DuckDB-based storage layer
+2. **UCT Benchmarking Enhancement** - Physics-based simulation, improved downsampling, enhanced API
 
-This implementation provides a robust database layer using DuckDB for the UCT (Uncorrelated Track) Benchmarking project. It enables efficient storage, querying, and management of space surveillance data including satellite observations, state vectors, TLEs, and event labels.
+**Author:** Blake Mister
+**Date:** January 2026
+**Branch:** `blakes-local-work`
+
+---
+
+# Part 1: Database & Data Storage Architecture
+
+This implementation provides a robust database layer using DuckDB for the UCT Benchmarking project. It enables efficient storage, querying, and management of space surveillance data including satellite observations, state vectors, TLEs, and event labels.
 
 ## Key Features
 
@@ -131,3 +140,177 @@ Blake Mister - 2026-01-19
 
 - See `DATABASE_ARCHITECTURE.md` for full technical specification
 - See `CHANGELOG.md` for detailed change history
+
+---
+
+# Part 2: UCT Benchmarking Enhancement
+
+Comprehensive enhancements to the UCT Benchmarking system with improved UDL data access, physics-based downsampling, advanced simulation models, and flexible dataset generation.
+
+## Implementation Summary
+
+### Phase 1: API Enhancements
+
+**File:** `uct_benchmark/api/apiIntegration.py`
+
+| Feature | Description |
+|---------|-------------|
+| Response Caching | `QueryCache` class with TTL-based caching to reduce redundant API calls |
+| Count-First Strategy | `smart_query()` checks record count before fetching, splits large queries |
+| Adaptive Batch Sizing | `get_batch_size_for_regime()` uses regime-specific time windows |
+| New Service Wrappers | `queryRadarObservations()`, `queryRFObservations()`, `queryConjunctions()`, `queryManeuvers()` |
+| Parallel Queries | `pullComprehensiveData()` for concurrent multi-service data fetching |
+| API Logging | `_log_api_call()`, `get_api_metrics()` for performance tracking |
+| Maneuver Flags | `addManeuverFlags()` to flag observations near detected maneuvers |
+
+### Phase 2: Downsampling Improvements
+
+**File:** `uct_benchmark/data/dataManipulation.py`
+
+| Feature | Description |
+|---------|-------------|
+| Regime Detection | `determine_orbital_regime()` classifies LEO/MEO/GEO/HEO based on SMA and eccentricity |
+| Track Identification | `identify_tracks()` groups observations into pseudo-tracks using 90-min gap criterion |
+| Track Preservation | `thin_within_tracks()` preserves first/last observations for OD quality |
+| Regime-Specific Profiles | `DOWNSAMPLING_PROFILES` dict with LEO/MEO/GEO/HEO parameters |
+| 3D Coverage | `compute_3d_coverage()` uses arc-length instead of 2D polygon area |
+
+### Phase 3: Simulation Enhancements
+
+**New Files:** `uct_benchmark/simulation/atmospheric.py`, `uct_benchmark/simulation/noise_models.py`
+
+| Feature | Description |
+|---------|-------------|
+| Atmospheric Refraction | Bennett's formula with temperature, pressure, and chromatic corrections |
+| Velocity Aberration | Classical aberration correction for observer/satellite motion |
+| Sensor Noise Models | `OpticalNoiseModel`, `RadarNoiseModel`, `RFNoiseModel` classes |
+| GEODSS, SBSS, Commercial | Pre-defined noise parameters for major sensor types |
+| Photometric Simulation | `simulate_magnitude()` with Lambertian phase function |
+| Illumination Check | `is_satellite_illuminated()` for eclipse detection |
+
+### Phase 4: Dataset Configuration System
+
+**New Files:** `uct_benchmark/config.py` (enhanced), `uct_benchmark/config/dataset_schema.py`
+
+| Feature | Description |
+|---------|-------------|
+| Configuration Dataclasses | `APIConfig`, `DownsampleConfig`, `SimulationConfig`, `DatasetConfig`, `LoggingConfig` |
+| Enhanced Dataset Codes | Format: `HAMR_LEO_MAN_EO_T2S_07D_001` |
+| YAML Configuration | `load_dataset_config()` and `save_dataset_config()` |
+| Metadata Generation | `generate_dataset_metadata()` with config hash and stats |
+| Reproducibility | `verify_reproducibility()` for dataset verification |
+
+### Phase 5: Logging & Monitoring
+
+**New File:** `uct_benchmark/logging_config.py`
+
+| Feature | Description |
+|---------|-------------|
+| Structured Logging | `setup_logging()` with file rotation and retention |
+| Metrics Collection | `MetricsCollector` class for API calls and processing stats |
+| Performance Timing | `PerformanceTimer` context manager |
+| Log Analysis | `parse_api_log()` and `summarize_api_performance()` |
+
+## Enhanced File Structure
+
+```
+blakes-local-work/
+├── README.md                          # This file
+├── CHANGELOG.md                       # Detailed change history
+├── DATABASE_ARCHITECTURE.md           # Database technical spec
+├── docs/
+│   └── IMPLEMENTATION_DETAILS.md      # UCT enhancement details
+├── uct_benchmark/
+│   ├── config.py                      # Enhanced configuration dataclasses
+│   ├── logging_config.py              # Structured logging setup
+│   ├── api/
+│   │   └── apiIntegration.py          # Enhanced API with caching, logging
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── dataset_schema.py          # YAML config and metadata
+│   ├── data/
+│   │   └── dataManipulation.py        # Track-preserving downsampling
+│   ├── database/                      # Database module
+│   │   ├── __init__.py
+│   │   ├── connection.py
+│   │   ├── schema.py
+│   │   ├── repository.py
+│   │   ├── export.py
+│   │   ├── ingestion.py
+│   │   └── cli.py
+│   └── simulation/
+│       ├── simulateObservations.py    # Enhanced simulation
+│       ├── atmospheric.py             # Refraction & aberration
+│       └── noise_models.py            # Sensor noise & photometry
+└── tests/
+    ├── test_database.py               # Database tests
+    ├── test_api_enhancements.py       # API enhancement tests
+    ├── test_downsampling_enhancements.py
+    ├── test_simulation_enhancements.py
+    └── test_dataset_config.py
+```
+
+## Usage Examples
+
+### API with Caching and Logging
+
+```python
+from uct_benchmark.api.apiIntegration import smart_query, pullComprehensiveData
+
+# Smart query with automatic count-first and caching
+obs = smart_query(token, 'eoobservation', {
+    'satNo': '25544',
+    'obTime': '>now-7 days',
+})
+
+# Parallel multi-service query
+data = pullComprehensiveData(
+    token, [25544, 48274], '>now-7 days',
+    services=['eoobservation', 'radarobservation', 'statevector']
+)
+```
+
+### Regime-Specific Downsampling
+
+```python
+from uct_benchmark.data.dataManipulation import downsample_by_regime
+from uct_benchmark.config import DownsampleConfig
+
+config = DownsampleConfig(
+    target_coverage=0.05,
+    target_gap=2.0,
+    preserve_track_boundaries=True,
+    seed=42,
+)
+downsampled = downsample_by_regime(obs_df, sat_params, config)
+```
+
+### Physics-Based Simulation
+
+```python
+from uct_benchmark.simulation.simulateObservations import simulateObsEnhanced
+from uct_benchmark.config import SimulationConfig
+
+config = SimulationConfig(
+    apply_atmospheric_refraction=True,
+    apply_velocity_aberration=True,
+    apply_sensor_noise=True,
+    sensor_model='GEODSS',
+    simulate_magnitude=True,
+)
+simulated_obs = simulateObsEnhanced(tle_line1, tle_line2, 3600, sensors_df, sim_config=config)
+```
+
+## Running Tests
+
+```bash
+cd blakes-local-work
+pytest tests/ -v
+```
+
+## Key Design Decisions
+
+1. **Multi-Phenomenology Support**: Both combined (EO + Radar) and separate dataset modes
+2. **Maneuver Event Flags**: Observations flagged within N hours of detected maneuvers
+3. **Simulation Priority**: Sensor noise (highest), refraction (second), photometry (third)
+4. **TLE Selection**: Support for both historical and current TLEs

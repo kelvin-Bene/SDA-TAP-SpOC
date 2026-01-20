@@ -1,6 +1,72 @@
 # Changelog
 
-All notable changes to the UCT Benchmark Database Module.
+All notable changes to the UCT Benchmark project.
+
+## [1.1.0] - 2026-01-19
+
+### Added
+
+#### UCT Benchmarking Enhancements
+
+**API Enhancements (`uct_benchmark/api/apiIntegration.py`)**
+- `QueryCache` class with TTL-based caching (default 15 min, max 1000 entries)
+- `smart_query()` function with count-first strategy for large datasets
+- `get_batch_size_for_regime()` for adaptive batch sizing by orbital regime
+- New service wrappers: `queryRadarObservations()`, `queryRFObservations()`, `queryConjunctions()`, `queryManeuvers()`, `querySensorCalibration()`
+- `pullComprehensiveData()` for parallel multi-service queries using asyncio
+- `addManeuverFlags()` to flag observations near detected maneuvers
+- API call logging with `_log_api_call()` and `get_api_metrics()`
+
+**Downsampling Improvements (`uct_benchmark/data/dataManipulation.py`)**
+- `determine_orbital_regime()` classifies LEO/MEO/GEO/HEO based on orbital elements
+- `identify_tracks()` groups observations using 90-minute gap criterion
+- `thin_within_tracks()` preserves first/last observations for OD quality
+- `DOWNSAMPLING_PROFILES` with regime-specific parameters
+- `compute_3d_coverage()` uses arc-length instead of 2D polygon area
+- `downsample_by_regime()` and `downsample_preserve_tracks()` functions
+
+**Simulation Enhancements (NEW files)**
+- `uct_benchmark/simulation/atmospheric.py`:
+  - `apply_atmospheric_refraction()` using Bennett's formula with corrections
+  - `compute_velocity_aberration()` for classical aberration correction
+  - `compute_observer_velocity()` for Earth rotation effects
+- `uct_benchmark/simulation/noise_models.py`:
+  - `OpticalNoiseModel`, `RadarNoiseModel`, `RFNoiseModel` dataclasses
+  - Pre-defined models for GEODSS, SBSS, Commercial EO, Radar
+  - `simulate_magnitude()` with Lambertian phase function
+  - `is_satellite_illuminated()` for eclipse detection
+
+**Dataset Configuration System (NEW files)**
+- `uct_benchmark/config/__init__.py` - Module exports
+- `uct_benchmark/config/dataset_schema.py`:
+  - `EnhancedDatasetCode` class for new code format: `{OBJ}_{REG}_{EVT}_{SEN}_{QTY}_{WIN}_{VER}`
+  - `load_dataset_config()` and `save_dataset_config()` for YAML support
+  - `generate_dataset_metadata()` with config hash and processing stats
+  - `verify_reproducibility()` for dataset verification
+
+**Logging & Monitoring (NEW file)**
+- `uct_benchmark/logging_config.py`:
+  - `setup_logging()` with file rotation and retention
+  - `MetricsCollector` class for API calls and processing statistics
+  - `PerformanceTimer` context manager
+
+**Configuration Dataclasses (`uct_benchmark/config.py`)**
+- `APIConfig`, `DownsampleConfig`, `SimulationConfig`, `DatasetConfig`, `LoggingConfig`
+- `DatasetMetrics` for run tracking
+- `DOWNSAMPLING_PROFILES` dict with LEO/MEO/GEO/HEO parameters
+- `SENSOR_NOISE_MODELS` dict with sensor characteristics
+
+**Tests**
+- `tests/test_api_enhancements.py` - Caching, regime detection, metrics
+- `tests/test_downsampling_enhancements.py` - Track ID, preservation, coverage
+- `tests/test_simulation_enhancements.py` - Refraction, aberration, noise, photometry
+- `tests/test_dataset_config.py` - YAML loading, metadata generation
+
+**Documentation**
+- `docs/IMPLEMENTATION_DETAILS.md` - Comprehensive implementation details
+- Updated `README.md` with usage examples
+
+---
 
 ## [1.0.0] - 2026-01-19
 
