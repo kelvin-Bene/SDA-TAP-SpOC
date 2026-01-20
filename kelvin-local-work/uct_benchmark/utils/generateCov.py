@@ -10,9 +10,9 @@ import ast
 import numpy as np
 
 # Import Orekit
-import orekit
-from orekit import JArray_double
-from orekit.pyhelpers import JArray_double2D, setup_orekit_curdir
+import orekit_jpype as orekit
+from orekit_jpype import JArray_double
+from orekit_jpype.pyhelpers import JArray_double2D, setup_orekit_curdir
 from org.orekit.bodies import CelestialBodyFactory
 from org.orekit.frames import FramesFactory
 from org.orekit.orbits import EquinoctialOrbit, PositionAngleType
@@ -21,7 +21,7 @@ from org.orekit.utils import PVCoordinates
 import pandas as pd
 
 orekit.initVM()
-setup_orekit_curdir()
+setup_orekit_curdir(from_pip_library=True)
 FRAME = FramesFactory.getEME2000()
 earth = CelestialBodyFactory.getEarth()
 MU_EARTH = earth.getGM()

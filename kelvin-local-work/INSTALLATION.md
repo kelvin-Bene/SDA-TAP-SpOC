@@ -89,32 +89,47 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 ### 1. Java Environment for Orekit
 
-Orekit requires Java Runtime Environment:
+Orekit-jpype requires **Java 17 or higher** (JDK, not just JRE):
 
 ```bash
-# Check Java installation
+# Check Java installation (must be version 17+)
 java -version
 
-# If not installed, install Java:
+# If not installed or wrong version, install Java 17:
+
 # macOS (using Homebrew):
-brew install openjdk
+brew install openjdk@17
 
 # Ubuntu/Debian:
-sudo apt update && sudo apt install default-jre
+sudo apt update && sudo apt install openjdk-17-jdk
 
-# Windows: Download from https://adoptium.net/
+# Windows (using winget - recommended):
+winget install EclipseAdoptium.Temurin.17.JDK
+
+# Windows (manual): Download from https://adoptium.net/
+```
+
+**Windows Users:** After installing Java, set the `JAVA_HOME` environment variable:
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
 ```
 
 ### 2. Orekit Data Files
 
-Download and place Orekit ephemeris data:
+Orekit requires ephemeris data for orbit propagation. The recommended approach is to install via pip:
 
 ```bash
-# The project includes orekit-data in multiple locations:
-# - src/orekit-data-main/
-# - data/external/orekit-data-main/
+# Install orekitdata package (recommended)
+pip install orekitdata
 
-# Verify data exists:
+# This automatically provides required ephemeris data when using:
+# setup_orekit_curdir(from_pip_library=True)
+```
+
+Alternatively, the project includes orekit-data in multiple locations:
+```bash
+# Verify data exists (if using local data):
 ls src/orekit-data-main/
 ls data/external/orekit-data-main/
 ```
@@ -162,14 +177,17 @@ print('✓ Core imports successful')
 ### 2. Test Orekit Integration
 
 ```bash
-# Test orbital mechanics
+# Test orbital mechanics (requires Java 17+)
 python -c "
-import orekit
-from org.orekit.python import PythonUtils
-PythonUtils.initializeJVM()
+import orekit_jpype as orekit
+orekit.initVM()
+from orekit_jpype.pyhelpers import setup_orekit_curdir
+setup_orekit_curdir(from_pip_library=True)
 print('✓ Orekit integration successful')
 "
 ```
+
+**Note:** The initialization order is critical - `orekit.initVM()` must be called BEFORE importing from `orekit_jpype.pyhelpers`.
 
 ### 3. Test GUI Components
 
@@ -234,13 +252,30 @@ pip list | grep uct-benchmark
 
 **2. Java/Orekit Issues**
 ```bash
-# Check Java path
-which java
-echo $JAVA_HOME
+# Check Java version (must be 17+)
+java -version
 
-# Reinstall orekit-jpype
-pip uninstall orekit-jpype
-pip install orekit-jpype
+# Check JAVA_HOME is set correctly
+echo $JAVA_HOME  # Linux/macOS
+# OR in PowerShell: $env:JAVA_HOME
+
+# Common fix: Ensure initialization order is correct
+# WRONG: from orekit_jpype.pyhelpers import setup_orekit_curdir
+# RIGHT: Must call orekit.initVM() FIRST
+
+# Reinstall orekit packages
+pip uninstall orekit-jpype orekitdata
+pip install orekit-jpype orekitdata
+```
+
+**Windows-specific Orekit issues:**
+```powershell
+# Ensure JAVA_HOME points to JDK 17+ directory
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+
+# Verify Java is accessible
+java -version
 ```
 
 **3. GUI Display Issues**

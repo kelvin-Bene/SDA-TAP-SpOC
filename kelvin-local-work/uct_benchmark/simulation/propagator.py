@@ -62,12 +62,12 @@ def monteCarloPropagator(
         covariance = 1e9 * covariance
         convertFlag = True
 
-    # Set up orekit enviornment, import orekit classes
-    import orekit
-    from orekit.pyhelpers import setup_orekit_curdir
+    # Set up orekit environment, import orekit classes
+    import orekit_jpype as orekit
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
     orekit.initVM()
-    setup_orekit_curdir()
+    setup_orekit_curdir(from_pip_library=True)
 
     # orekit class imports
     from org.hipparchus.geometry.euclidean.threed import Vector3D
@@ -197,7 +197,7 @@ def monteCarloPropagator(
                         )
                     )
                 )
-            except orekit.JavaError:  # Skip failed point, continue with rest of sample point
+            except Exception:  # Skip failed point, continue with rest of sample point (JavaError or similar)
                 failedProps += 1
                 continue
         # print(failedProps)
@@ -260,12 +260,12 @@ def ephemerisPropagator(
         stateVector = stateVector * 1000
         convertFlag = True
 
-    # Set up orekit enviornment, import orekit classes
-    import orekit
-    from orekit.pyhelpers import setup_orekit_curdir
+    # Set up orekit environment, import orekit classes
+    import orekit_jpype as orekit
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
     orekit.initVM()
-    setup_orekit_curdir()
+    setup_orekit_curdir(from_pip_library=True)
 
     # orekit class imports
     from org.hipparchus.geometry.euclidean.threed import Vector3D
@@ -419,13 +419,13 @@ def TLEpropagator(input1, input2, finalEpoch):
     finalStateList: list of 6x1 numpy array, state vector at each epoch in finalEpoch
     """
     import numpy as np
-    import orekit
+    import orekit_jpype as orekit
 
     orekit.initVM()
 
-    from orekit.pyhelpers import setup_orekit_curdir
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
-    setup_orekit_curdir()
+    setup_orekit_curdir(from_pip_library=True)
 
     from org.orekit.frames import FramesFactory
     from org.orekit.propagation.analytical.tle import TLE, TLEPropagator

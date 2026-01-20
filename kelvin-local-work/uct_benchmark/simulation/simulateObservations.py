@@ -39,6 +39,9 @@ def simulateObs(
 
     import numpy as np
 
+    # Import propagator functions
+    from uct_benchmark.simulation.propagator import TLEpropagator, ephemerisPropagator
+
     # Use ephemeris propagator functions that already exists
     if isinstance(input1, str):  # TLE input
         # Convert timespan (in seconds) to a list of datetime objects centered on epoch if necessary
@@ -217,6 +220,8 @@ def radec2azel(ra_deg, dec_deg, rangeVal, sensorPosition, obs_time):
     This conversion accounts for the Earth's rotation and observer position at the given time.
     Assumes geodetic coordinates for the observer and equatorial coordinates for the RA/Dec input.
     """
+    from datetime import datetime
+
     import numpy as np
     from org.hipparchus.geometry.euclidean.threed import Vector3D
     from org.orekit.bodies import GeodeticPoint, OneAxisEllipsoid

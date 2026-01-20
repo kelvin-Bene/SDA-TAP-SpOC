@@ -369,8 +369,8 @@ def basicScoring(datasetCode, allObs, satData):
 
 if __name__ == "__main__":
 
-    import orekit
-    from orekit.pyhelpers import setup_orekit_curdir
+    import orekit_jpype as orekit
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
     import pandas as pd
 
     orekit.initVM()
