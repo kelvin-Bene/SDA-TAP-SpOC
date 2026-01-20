@@ -3,6 +3,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentSubmissions } from '@/components/dashboard/RecentSubmissions';
 import { LeaderboardSnapshot } from '@/components/dashboard/LeaderboardSnapshot';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { OrbitViewer } from '@/components/cesium/OrbitViewer';
 
 export function DashboardPage() {
   return (
@@ -47,6 +48,9 @@ export function DashboardPage() {
 
       {/* Quick Actions */}
       <QuickActions />
+
+      {/* 3D Orbit Visualization - temporarily disabled for debugging */}
+      {/* <OrbitViewer /> */}
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">

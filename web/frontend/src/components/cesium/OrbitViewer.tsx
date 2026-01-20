@@ -23,8 +23,8 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 
-// Set Cesium Ion default access token (you should use your own token)
-Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzciLCJpZCI6NTc0MCwiaWF0IjoxNTQzOTM0NjM0fQ.aoTRCNgq4pfU_g';
+// Set Cesium Ion default access token from environment variable
+Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || '';
 
 interface Satellite {
   id: string;
