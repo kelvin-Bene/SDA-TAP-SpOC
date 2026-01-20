@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, ExternalLink, Satellite, Database, Calendar } from 'lucide-react';
+import { Download, Satellite, Database, Calendar } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
 import type { Dataset } from '@/types';
 

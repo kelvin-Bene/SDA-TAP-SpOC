@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -9,9 +8,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import {
   LineChart,
@@ -323,7 +321,7 @@ export function LeaderboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedLeaderboard.map((entry, index) => (
+                  {sortedLeaderboard.map((entry) => (
                     <TableRow
                       key={entry.submissionId}
                       className={cn(

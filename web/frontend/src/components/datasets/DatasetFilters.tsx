@@ -41,13 +41,6 @@ const sensorOptions: { value: SensorType | 'all'; label: string }[] = [
   { value: 'rf', label: 'RF' },
 ];
 
-const dateRangeOptions = [
-  { value: 'all', label: 'All Time' },
-  { value: '7', label: 'Last 7 Days' },
-  { value: '30', label: 'Last 30 Days' },
-  { value: '90', label: 'Last 90 Days' },
-];
-
 export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFiltersProps) {
   const hasFilters =
     filters.regime !== 'all' ||

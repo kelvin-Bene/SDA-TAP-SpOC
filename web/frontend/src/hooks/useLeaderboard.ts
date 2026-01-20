@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
 import type { LeaderboardEntry, LeaderboardFilters } from '@/types';
 
 export function useLeaderboard(filters?: LeaderboardFilters) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Viewer, Entity, CameraFlyTo, Clock } from 'resium';
 import {
   Ion,
@@ -15,7 +15,6 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   NearFarScalar,
-  ConstantProperty,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

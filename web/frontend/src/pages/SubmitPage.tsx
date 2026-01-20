@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,10 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import {
   Upload,
-  File,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -59,23 +57,6 @@ export function SubmitPage() {
     { id: 'covariance', label: 'Covariance positive-definiteness', status: 'pending' },
   ]);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      const uploadedFile = acceptedFiles[0];
-      setFile(uploadedFile);
-      runValidation();
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/json': ['.json'],
-    },
-    maxSize: 50 * 1024 * 1024, // 50MB
-    multiple: false,
-  });
-
   const runValidation = async () => {
     setIsValidating(true);
 
@@ -106,6 +87,23 @@ export function SubmitPage() {
 
     setIsValidating(false);
   };
+
+  const onDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      const uploadedFile = acceptedFiles[0];
+      setFile(uploadedFile);
+      runValidation();
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/json': ['.json'],
+    },
+    maxSize: 50 * 1024 * 1024, // 50MB
+    multiple: false,
+  });
 
   const clearFile = () => {
     setFile(null);

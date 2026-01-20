@@ -1,8 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Book, Code, FileJson, BarChart3, Rocket, ExternalLink } from 'lucide-react';
+import { Code, FileJson, BarChart3, Rocket } from 'lucide-react';
 
 export function DocumentationPage() {
   return (

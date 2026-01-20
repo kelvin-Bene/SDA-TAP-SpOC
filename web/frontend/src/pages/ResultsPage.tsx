@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   ArrowLeft,
   Download,
-  FileText,
   Target,
   TrendingUp,
   TrendingDown,
@@ -26,7 +25,6 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  Cell,
 } from 'recharts';
 import { useState } from 'react';
 
@@ -100,7 +98,7 @@ const positionErrorData = [
 ];
 
 export function ResultsPage() {
-  const { submissionId } = useParams();
+  const { submissionId: _submissionId } = useParams();
   const [expandedSatellites, setExpandedSatellites] = useState(false);
 
   const rankChange = mockResults.previousRank - mockResults.rank;

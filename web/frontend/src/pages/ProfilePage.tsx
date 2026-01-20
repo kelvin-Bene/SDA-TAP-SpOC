@@ -9,10 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   User,
-  Mail,
   Building2,
   Key,
-  Bell,
   Shield,
   Copy,
   RefreshCw,
