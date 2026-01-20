@@ -2,7 +2,7 @@
 
 ## Module Structure
 
-The main codebase is located in `uct-benchmark-refactor-joncline/uct_benchmark/`:
+The main codebase is located in `kelvin-local-work/uct_benchmark/`:
 
 ```
 uct_benchmark/
@@ -402,9 +402,28 @@ solarRadPresCoef = 1.5
 dragCoef = 2.5
 monteCarloPoints = 100
 
-# Simulation Parameters
-positionNoise = 0.01  # km
-angularNoise = 1 * 3600  # arcseconds to radians
+# Simulation Noise Parameters
+positionNoise = 0.01  # km (10 meters)
+arcseconds2radians = 3600  # Conversion factor
+angularNoise = 1 * arcseconds2radians  # ~1 arcsecond noise (scaled)
+
+# Downsampling Configuration (T1/T2)
+downsample_coverage_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats
+downsample_coverage_target = (0.15, 0.05)     # (max, min) orbital coverage
+downsample_gap_bounds = (0.3, 0.5, 0.7)
+downsample_gap_target = 2.0                   # Target max gap (orbital periods)
+downsample_obs_bounds = (0.3, 0.5, 0.7)
+downsample_obs_max = 50                       # Max obs per sat per 3 days
+downsample_min_obs = 5                        # Safety threshold
+
+# T3 Simulation Configuration
+simulation_bins_per_period = 10
+simulation_min_obs_per_bin = 1
+simulation_max_ratio = 0.5
+simulation_target_increase = 0.5  # 50% more observations
+simulation_track_size = 3
+simulation_track_spacing = 30
+simulation_min_existing_obs = 3
 ```
 
 ### Noise Modeling: Current vs Desired

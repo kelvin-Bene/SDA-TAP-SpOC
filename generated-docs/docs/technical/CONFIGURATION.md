@@ -237,17 +237,17 @@ The propagator includes:
 
 ---
 
-## Simulation Parameters
+## Simulation Noise Parameters
 
 Configure noise for synthetic observation generation.
 
 ```python
 # Position noise standard deviation (km)
-positionNoise = 0.01   # 10 meters
+positionNoise = 0.01   # 10 meters (0.01 km)
 
-# Angular noise (arcseconds, converted to radians)
-arcseconds2radians = 3600
-angularNoise = 1 * arcseconds2radians   # 1 arcsecond
+# Angular noise conversion factor and value
+arcseconds2radians = 3600  # Conversion factor (used for scaling)
+angularNoise = 1 * arcseconds2radians   # ~1 arcsecond noise (scaled)
 ```
 
 ### Usage
@@ -256,6 +256,79 @@ When simulating observations:
 noisy_position = true_position + np.random.normal(0, positionNoise, 3)
 noisy_angle = true_angle + np.random.normal(0, angularNoise)
 ```
+
+---
+
+## Downsampling Configuration (T1/T2)
+
+Parameters for reducing data quality to target levels for T1/T2 tier datasets.
+
+```python
+## --- Downsampling Configuration --- ##
+# p_bounds: 3-tuple of (min%, target%, max%) of satellites to apply downsampling to
+
+# Orbital coverage downsampling
+downsample_coverage_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats to downsample
+downsample_coverage_target = (0.15, 0.05)     # (max, min) orbital coverage threshold
+
+# Track gap downsampling
+downsample_gap_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
+downsample_gap_target = 2.0                   # Target max gap (2 orbital periods)
+
+# Observation count downsampling
+downsample_obs_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
+downsample_obs_max = 50                       # Max observations per sat per 3 days
+
+# Minimum observations to keep per satellite (safety threshold)
+downsample_min_obs = 5
+```
+
+### Three-Stage Downsampling Pipeline
+
+1. **Coverage Reduction** (`_lowerOrbitCoverage()`): Removes observations to reduce orbital coverage
+2. **Gap Widening** (`_increaseTrackDistance()`): Increases gaps between observation tracks
+3. **Count Reduction** (`_downsampleAbsolute()`): Reduces total observation count using time-binned sampling
+
+---
+
+## T3 Simulation Configuration
+
+Parameters for T3 simulation to increase data quality by adding synthetic observations.
+
+```python
+## --- T3 Simulation Configuration --- ##
+
+# Time bins per orbital period for epoch selection
+# Higher = finer granularity but more computation
+simulation_bins_per_period = 10
+
+# Minimum observations per bin to consider "covered"
+simulation_min_obs_per_bin = 1
+
+# Maximum ratio of simulated observations to total (prevents over-simulation)
+simulation_max_ratio = 0.5
+
+# Target increase in observation count (percentage)
+simulation_target_increase = 0.5  # 50% more observations
+
+# Observations per simulated track (realistic grouping)
+# Real observations come in tracks of 3-5 obs within minutes
+simulation_track_size = 3
+
+# Seconds between observations in a track
+simulation_track_spacing = 30
+
+# Minimum observations required before simulation is worthwhile
+simulation_min_existing_obs = 3
+```
+
+### T3 Simulation Pipeline
+
+1. **Gap Detection**: `epochsToSim()` identifies time bins with insufficient observations
+2. **Epoch Selection**: Selects epochs at center of empty bins
+3. **Propagation**: Uses `ephemerisPropagator()` or `TLEpropagator()` to generate state vectors
+4. **Observation Generation**: `simulateObs()` creates synthetic observations with realistic noise
+5. **Merge**: Simulated observations marked with `dataMode='SIMULATED'` and combined with real data
 
 ---
 

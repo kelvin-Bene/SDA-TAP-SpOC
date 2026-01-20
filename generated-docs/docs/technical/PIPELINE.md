@@ -101,6 +101,59 @@ Evaluates data quality based on:
 - **Track Gap**: Longest duration between observations
 - **Object Completeness**: Number of objects meeting criteria
 
+Returns a tier classification (T1-T5) that determines subsequent processing.
+
+### Step 5b: Tier-Based Processing
+
+Based on the tier classification, additional processing is applied:
+
+#### T1/T2: Downsampling
+**File**: `uct_benchmark/data/dataManipulation.py` → `downsampleData()`
+
+When data quality is too high, downsampling reduces it to target levels:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              THREE-STAGE DOWNSAMPLING PIPELINE                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Stage 1: Coverage Reduction                                     │
+│  └── _lowerOrbitCoverage() - polygon-based point removal        │
+├─────────────────────────────────────────────────────────────────┤
+│  Stage 2: Gap Widening                                           │
+│  └── _increaseTrackDistance() - sliding window gap increase     │
+├─────────────────────────────────────────────────────────────────┤
+│  Stage 3: Count Reduction                                        │
+│  └── _downsampleAbsolute() - time-binned sampling               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### T3: Observation Simulation
+**File**: `uct_benchmark/simulation/simulateObservations.py` → `epochsToSim()`, `simulateObs()`
+
+When data quality is insufficient, synthetic observations are added:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              T3 SIMULATION PIPELINE                              │
+├─────────────────────────────────────────────────────────────────┤
+│  Step 1: Gap Detection                                           │
+│  └── epochsToSim() - time-bin analysis for sparse bins          │
+├─────────────────────────────────────────────────────────────────┤
+│  Step 2: Epoch Selection                                         │
+│  └── Select epochs at center of empty bins                      │
+├─────────────────────────────────────────────────────────────────┤
+│  Step 3: Propagation                                             │
+│  └── TLEpropagator() or ephemerisPropagator()                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Step 4: Observation Generation                                  │
+│  └── simulateObs() - generate RA/Dec with realistic noise       │
+├─────────────────────────────────────────────────────────────────┤
+│  Step 5: Merge                                                   │
+│  └── Combine with dataMode='SIMULATED' marker                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### T4: Object Simulation (Not Yet Implemented)
+For very sparse data, entire synthetic satellites may need to be generated.
+
 ### Step 6: Reference State Pull
 **File**: `uct_benchmark/api/apiIntegration.py` → `pullStates()`
 
@@ -290,6 +343,9 @@ Creates PDF report containing:
 | 1 | `windowTools.py` | GUI and code generation |
 | 1 | `basicScoringFunction.py` | Data quality scoring |
 | 1 | `apiIntegration.py` | API calls and data saving |
+| 1 | `dataManipulation.py` | **T1/T2 Downsampling** (3-stage pipeline) |
+| 1 | `simulateObservations.py` | **T3 Simulation** (epoch selection + obs generation) |
+| 1 | `propagator.py` | Orbit propagation for simulation |
 | 2 | `MainMVP.py` | UCTP execution driver |
 | 2 | `dummyUCTP.py` | Test UCTP implementation |
 | 3 | `Evaluation.py` | Main evaluation driver |
@@ -307,4 +363,14 @@ See `uct_benchmark/config.py` for adjustable parameters:
 - Orbital regime thresholds
 - Scoring thresholds
 - Propagator settings
-- Simulation parameters
+- Simulation noise parameters
+- **Downsampling configuration** (T1/T2):
+  - `downsample_coverage_bounds`, `downsample_coverage_target`
+  - `downsample_gap_bounds`, `downsample_gap_target`
+  - `downsample_obs_bounds`, `downsample_obs_max`
+- **T3 Simulation configuration**:
+  - `simulation_bins_per_period`, `simulation_min_obs_per_bin`
+  - `simulation_max_ratio`, `simulation_target_increase`
+  - `simulation_track_size`, `simulation_track_spacing`
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed parameter documentation.

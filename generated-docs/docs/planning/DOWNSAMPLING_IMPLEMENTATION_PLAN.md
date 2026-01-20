@@ -70,15 +70,17 @@ downsampleData() needs:
 
 **File:** `uct_benchmark/config.py`
 
-Add default downsampling parameters:
+Downsampling parameters (implemented in config.py lines 142-162):
 ```python
 # Downsampling configuration
-downsample_coverage_bounds = (0.3, 0.7)    # (min%, max%) of sats to affect
-downsample_coverage_target = 0.25          # Target orbital coverage
-downsample_gap_bounds = (0.3, 0.7)         # (min%, max%) of sats to affect
-downsample_gap_target = 2.0                # Target max gap (in periods)
-downsample_obs_bounds = (0.3, 0.7)         # (min%, max%) of sats to affect
-downsample_obs_max = 50                    # Target max observations per sat
+# p_bounds use 3-tuple format: (min%, target%, max%) of sats to affect
+downsample_coverage_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats to downsample
+downsample_coverage_target = (0.15, 0.05)     # (max, min) orbital coverage threshold
+downsample_gap_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
+downsample_gap_target = 2.0                   # Target max gap (2 orbital periods)
+downsample_obs_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
+downsample_obs_max = 50                       # Max observations per sat per 3 days
+downsample_min_obs = 5                        # Minimum observations to keep (safety threshold)
 ```
 
 ### Step 2: Update Create_Dataset.py
@@ -92,23 +94,27 @@ if tierThreshold in ['T1', 'T2']:
     import uct_benchmark.config as config
 
     # Build downsampling parameters
+    # Note: p_bounds is a 3-tuple (min%, target%, max%) and p_coverage is a 2-tuple (max, min)
     orbit_coverage_params = {
-        'sats': None,  # All satellites
-        'p_bounds': config.downsample_coverage_bounds,
-        'p_coverage': config.downsample_coverage_target
+        'sats': None,  # All satellites (or list of satNos)
+        'p_bounds': config.downsample_coverage_bounds,  # (0.3, 0.5, 0.7)
+        'p_coverage': config.downsample_coverage_target  # (0.15, 0.05) = (max, min) coverage
     }
     track_length_params = {
         'sats': None,
-        'p_bounds': config.downsample_gap_bounds,
-        'p_track': config.downsample_gap_target
+        'p_bounds': config.downsample_gap_bounds,  # (0.3, 0.5, 0.7)
+        'p_track': config.downsample_gap_target    # 2.0 (orbital periods)
     }
     obs_count_params = {
         'sats': None,
-        'p_bounds': config.downsample_obs_bounds,
-        'obs_max': config.downsample_obs_max
+        'p_bounds': config.downsample_obs_bounds,  # (0.3, 0.5, 0.7)
+        'obs_max': config.downsample_obs_max       # 50
     }
 
-    # Apply downsampling
+    # Apply downsampling - runs three stages:
+    # 1. _lowerOrbitCoverage() - reduce orbital coverage
+    # 2. _increaseTrackDistance() - widen gaps between tracks
+    # 3. _downsampleAbsolute() - reduce absolute observation count
     observations, p_reached = downsampleData(
         observations,
         orbElms,
