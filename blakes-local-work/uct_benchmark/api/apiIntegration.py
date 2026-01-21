@@ -8,11 +8,15 @@ Created on Fri Jun  6 08:51:11 2025
 import asyncio
 import base64
 import datetime
+import hashlib
 import json
 import os
 import re
 import time
 import warnings
+from dataclasses import asdict
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiohttp
 import numpy as np
@@ -35,21 +39,763 @@ setup_orekit_curdir(from_pip_library=True)
 
 from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
 from uct_benchmark.data.dataManipulation import binTracks
-from uct_benchmark.config import INTERIM_DATA_DIR
-
-# Optional database integration (opt-in)
-# Import database module if available, but don't fail if not present
-_DATABASE_AVAILABLE = False
-try:
-    from uct_benchmark.database import DatabaseManager
-    _DATABASE_AVAILABLE = True
-except ImportError:
-    DatabaseManager = None
+from uct_benchmark.config import (
+    INTERIM_DATA_DIR,
+    api_config,
+    APIConfig,
+    SENSOR_NOISE_MODELS,
+    semiMajorAxis_LEO,
+    semiMajorAxis_GEO,
+)
 
 
 # Because HTTPS is annoying
 def _supressWarn():
     warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+
+
+# =============================================================================
+# API CALL LOGGING AND METRICS
+# =============================================================================
+
+# Global API call metrics
+_api_call_metrics: Dict[str, Any] = {
+    'total_calls': 0,
+    'total_records': 0,
+    'total_errors': 0,
+    'call_history': [],
+}
+
+# API logger (separate from main logger for filtering)
+api_logger = logger.bind(name="udl.api")
+
+
+def _log_api_call(
+    service: str,
+    params: Dict,
+    response_size: int,
+    elapsed_time: float,
+    success: bool = True,
+    error_msg: Optional[str] = None
+) -> None:
+    """Log each UDL API call with metrics."""
+    call_record = {
+        'timestamp': datetime.datetime.utcnow().isoformat(),
+        'service': service,
+        'params': {k: str(v)[:100] for k, v in params.items()},  # Truncate long values
+        'response_records': response_size,
+        'elapsed_ms': elapsed_time * 1000,
+        'success': success,
+        'error': error_msg,
+    }
+
+    _api_call_metrics['total_calls'] += 1
+    _api_call_metrics['total_records'] += response_size
+    if not success:
+        _api_call_metrics['total_errors'] += 1
+
+    # Keep last 100 calls for debugging
+    _api_call_metrics['call_history'].append(call_record)
+    if len(_api_call_metrics['call_history']) > 100:
+        _api_call_metrics['call_history'].pop(0)
+
+    if success:
+        api_logger.debug(f"API call: {service} returned {response_size} records in {elapsed_time*1000:.1f}ms")
+    else:
+        api_logger.warning(f"API call failed: {service} - {error_msg}")
+
+
+def get_api_metrics() -> Dict[str, Any]:
+    """Return current API call metrics."""
+    return _api_call_metrics.copy()
+
+
+def reset_api_metrics() -> None:
+    """Reset API call metrics."""
+    global _api_call_metrics
+    _api_call_metrics = {
+        'total_calls': 0,
+        'total_records': 0,
+        'total_errors': 0,
+        'call_history': [],
+    }
+
+
+# =============================================================================
+# RESPONSE CACHING
+# =============================================================================
+
+class QueryCache:
+    """Thread-safe cache for UDL query responses."""
+
+    def __init__(self, max_size: int = 1000, ttl_seconds: int = 900):
+        self._cache: Dict[str, Tuple[Any, float]] = {}
+        self._max_size = max_size
+        self._ttl_seconds = ttl_seconds
+
+    def _make_key(self, service: str, params: Dict) -> str:
+        """Generate cache key from service and params."""
+        params_str = json.dumps(params, sort_keys=True, default=str)
+        return hashlib.md5(f"{service}:{params_str}".encode()).hexdigest()
+
+    def get(self, service: str, params: Dict) -> Optional[Any]:
+        """Get cached response if available and not expired."""
+        key = self._make_key(service, params)
+        if key in self._cache:
+            data, timestamp = self._cache[key]
+            if time.time() - timestamp < self._ttl_seconds:
+                logger.debug(f"Cache hit for {service}")
+                return data
+            else:
+                del self._cache[key]
+        return None
+
+    def set(self, service: str, params: Dict, data: Any) -> None:
+        """Cache response data."""
+        if len(self._cache) >= self._max_size:
+            # Remove oldest entries
+            oldest_keys = sorted(
+                self._cache.keys(),
+                key=lambda k: self._cache[k][1]
+            )[:self._max_size // 4]
+            for k in oldest_keys:
+                del self._cache[k]
+
+        key = self._make_key(service, params)
+        self._cache[key] = (data, time.time())
+
+    def clear(self) -> None:
+        """Clear all cached data."""
+        self._cache.clear()
+
+
+# Global cache instance
+_query_cache = QueryCache(
+    max_size=api_config.cache_max_size,
+    ttl_seconds=api_config.cache_ttl_seconds
+)
+
+
+# =============================================================================
+# ORBITAL REGIME DETECTION
+# =============================================================================
+
+def determine_orbital_regime(semi_major_axis_km: float, eccentricity: float = 0.0) -> str:
+    """
+    Determine the orbital regime based on semi-major axis and eccentricity.
+
+    Args:
+        semi_major_axis_km: Semi-major axis in kilometers
+        eccentricity: Orbital eccentricity (default 0)
+
+    Returns:
+        str: One of 'LEO', 'MEO', 'GEO', 'HEO'
+    """
+    if eccentricity >= 0.7:
+        return 'HEO'
+    elif semi_major_axis_km < semiMajorAxis_LEO:
+        return 'LEO'
+    elif semi_major_axis_km >= semiMajorAxis_GEO:
+        return 'GEO'
+    else:
+        return 'MEO'
+
+
+def get_batch_size_for_regime(regime: str) -> datetime.timedelta:
+    """Get the recommended batch query size for a given orbital regime."""
+    return api_config.batch_sizes.get(regime, datetime.timedelta(hours=6))
+
+
+# =============================================================================
+# COUNT-FIRST QUERY STRATEGY
+# =============================================================================
+
+def UDLQueryCount(token: str, service: str, params: Dict) -> int:
+    """
+    Perform a count query to check how many records would be returned.
+
+    Args:
+        token: UDL authentication token
+        service: UDL service name
+        params: Query parameters
+
+    Returns:
+        int: Count of matching records
+    """
+    return UDLQuery(token, service, params, count=True)
+
+
+def smart_query(
+    token: str,
+    service: str,
+    params: Dict,
+    threshold: int = None
+) -> pd.DataFrame:
+    """
+    Perform an intelligent query that checks count first and splits if needed.
+
+    Args:
+        token: UDL authentication token
+        service: UDL service name
+        params: Query parameters
+        threshold: Max records per query (default from config)
+
+    Returns:
+        pd.DataFrame: Query results
+    """
+    if threshold is None:
+        threshold = api_config.count_first_threshold
+
+    # Check cache first
+    if api_config.enable_cache:
+        cached = _query_cache.get(service, params)
+        if cached is not None:
+            return cached
+
+    # Get count first
+    try:
+        count = UDLQueryCount(token, service, params)
+    except Exception as e:
+        logger.warning(f"Count query failed, proceeding with direct query: {e}")
+        count = 0
+
+    if count > threshold:
+        logger.info(f"Large result set ({count} records), splitting query...")
+        result = _chunked_time_query(token, service, params, count)
+    else:
+        result = UDLQuery(token, service, params)
+
+    # Cache result
+    if api_config.enable_cache and not result.empty:
+        _query_cache.set(service, params, result)
+
+    return result
+
+
+def _chunked_time_query(
+    token: str,
+    service: str,
+    params: Dict,
+    expected_count: int
+) -> pd.DataFrame:
+    """
+    Split a large query into smaller time-based chunks.
+
+    Args:
+        token: UDL authentication token
+        service: UDL service name
+        params: Query parameters (must contain time field like 'obTime' or 'epoch')
+        expected_count: Expected total record count
+
+    Returns:
+        pd.DataFrame: Combined results from all chunks
+    """
+    # Find time field in params
+    time_fields = ['obTime', 'epoch', 'createdAt', 'time']
+    time_field = None
+    time_range = None
+
+    for field in time_fields:
+        if field in params:
+            time_range = params[field]
+            time_field = field
+            break
+
+    if time_field is None or '..' not in str(time_range):
+        # Can't chunk, try with pagination
+        logger.warning("Cannot chunk query - no time range found. Using pagination.")
+        return _paginated_query(token, service, params)
+
+    # Parse time range
+    start_str, end_str = str(time_range).split('..')
+    start_time = UDLToDatetime(start_str)
+    end_time = UDLToDatetime(end_str)
+
+    # Calculate chunk size based on expected count
+    num_chunks = max(2, expected_count // api_config.max_results_per_query + 1)
+    total_seconds = (end_time - start_time).total_seconds()
+    chunk_seconds = total_seconds / num_chunks
+
+    # Build chunk params list
+    params_list = []
+    current_start = start_time
+    for i in range(num_chunks):
+        current_end = current_start + datetime.timedelta(seconds=chunk_seconds)
+        if i == num_chunks - 1:
+            current_end = end_time
+
+        chunk_params = params.copy()
+        chunk_params[time_field] = f"{datetimeToUDL(current_start)}..{datetimeToUDL(current_end)}"
+        params_list.append(chunk_params)
+        current_start = current_end
+
+    # Execute batch query
+    return asyncUDLBatchQuery(token, service, params_list)
+
+
+def _paginated_query(
+    token: str,
+    service: str,
+    params: Dict,
+    page_size: int = None
+) -> pd.DataFrame:
+    """
+    Perform paginated query for large result sets.
+
+    Args:
+        token: UDL authentication token
+        service: UDL service name
+        params: Query parameters
+        page_size: Results per page (default from config)
+
+    Returns:
+        pd.DataFrame: All results combined
+    """
+    if page_size is None:
+        page_size = api_config.max_results_per_query
+
+    all_results = []
+    offset = 0
+
+    while True:
+        page_params = params.copy()
+        page_params['maxResults'] = page_size
+        page_params['firstResult'] = offset
+
+        result = UDLQuery(token, service, page_params)
+
+        if result.empty:
+            break
+
+        all_results.append(result)
+        offset += len(result)
+
+        if len(result) < page_size:
+            break
+
+    if all_results:
+        return pd.concat(all_results, ignore_index=True)
+    return pd.DataFrame()
+
+
+# =============================================================================
+# NEW UDL SERVICE WRAPPERS
+# =============================================================================
+
+def queryRadarObservations(
+    token: str,
+    sat_ids: List[int],
+    time_range: str,
+    additional_params: Optional[Dict] = None
+) -> pd.DataFrame:
+    """
+    Query radar observations from UDL.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: List of satellite NORAD IDs
+        time_range: UDL time range string (e.g., '>now-7 days' or 'start..end')
+        additional_params: Optional additional query parameters
+
+    Returns:
+        pd.DataFrame: Radar observation records
+    """
+    params = {
+        'satNo': ','.join(map(str, sat_ids)),
+        'obTime': time_range,
+        'uct': 'false',
+        'dataMode': 'REAL',
+    }
+    if additional_params:
+        params.update(additional_params)
+
+    return smart_query(token, 'radarobservation', params)
+
+
+def queryRFObservations(
+    token: str,
+    sat_ids: List[int],
+    time_range: str,
+    additional_params: Optional[Dict] = None
+) -> pd.DataFrame:
+    """
+    Query RF observations from UDL.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: List of satellite NORAD IDs
+        time_range: UDL time range string
+        additional_params: Optional additional query parameters
+
+    Returns:
+        pd.DataFrame: RF observation records
+    """
+    params = {
+        'satNo': ','.join(map(str, sat_ids)),
+        'obTime': time_range,
+        'uct': 'false',
+        'dataMode': 'REAL',
+    }
+    if additional_params:
+        params.update(additional_params)
+
+    return smart_query(token, 'rfobservation', params)
+
+
+def queryConjunctions(
+    token: str,
+    sat_ids: Optional[List[int]] = None,
+    time_range: Optional[str] = None,
+    min_probability: Optional[float] = None,
+    additional_params: Optional[Dict] = None
+) -> pd.DataFrame:
+    """
+    Query conjunction data messages (CDMs) from UDL.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: Optional list of satellite NORAD IDs
+        time_range: Optional UDL time range string
+        min_probability: Optional minimum collision probability filter
+        additional_params: Optional additional query parameters
+
+    Returns:
+        pd.DataFrame: Conjunction data records
+    """
+    params = {}
+    if sat_ids:
+        params['satNo1'] = ','.join(map(str, sat_ids))
+    if time_range:
+        params['tca'] = time_range
+    if min_probability is not None:
+        params['collisionProbability'] = f'>{min_probability}'
+
+    if additional_params:
+        params.update(additional_params)
+
+    return smart_query(token, 'conjunction', params)
+
+
+def queryManeuvers(
+    token: str,
+    sat_ids: List[int],
+    time_range: str,
+    additional_params: Optional[Dict] = None
+) -> pd.DataFrame:
+    """
+    Query detected/planned maneuver data from UDL.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: List of satellite NORAD IDs
+        time_range: UDL time range string
+        additional_params: Optional additional query parameters
+
+    Returns:
+        pd.DataFrame: Maneuver records
+    """
+    params = {
+        'satNo': ','.join(map(str, sat_ids)),
+        'maneuverTime': time_range,
+    }
+    if additional_params:
+        params.update(additional_params)
+
+    return smart_query(token, 'maneuver', params)
+
+
+def querySensorCalibration(
+    token: str,
+    sensor_ids: Optional[List[str]] = None,
+    time_range: Optional[str] = None,
+    additional_params: Optional[Dict] = None
+) -> pd.DataFrame:
+    """
+    Query sensor calibration data from UDL.
+
+    Args:
+        token: UDL authentication token
+        sensor_ids: Optional list of sensor IDs
+        time_range: Optional UDL time range string
+        additional_params: Optional additional query parameters
+
+    Returns:
+        pd.DataFrame: Sensor calibration records
+    """
+    params = {}
+    if sensor_ids:
+        params['idSensor'] = ','.join(sensor_ids)
+    if time_range:
+        params['calibrationTime'] = time_range
+
+    if additional_params:
+        params.update(additional_params)
+
+    return smart_query(token, 'sensorcalibration', params)
+
+
+# =============================================================================
+# PARALLEL SERVICE QUERIES
+# =============================================================================
+
+async def _async_pull_comprehensive_data(
+    token: str,
+    sat_ids: List[int],
+    time_range: str,
+    services: List[str] = None
+) -> Dict[str, pd.DataFrame]:
+    """
+    Pull data from multiple UDL services concurrently.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: List of satellite NORAD IDs
+        time_range: UDL time range string
+        services: List of services to query (default: eo, radar, statevector, elset)
+
+    Returns:
+        Dict mapping service names to DataFrames
+    """
+    if services is None:
+        services = ['eoobservation', 'radarobservation', 'statevector', 'elset']
+
+    sat_list = ','.join(map(str, sat_ids))
+
+    # Build params for each service
+    service_params = {
+        'eoobservation': {
+            'satNo': sat_list,
+            'obTime': time_range,
+            'uct': 'false',
+            'dataMode': 'REAL',
+        },
+        'radarobservation': {
+            'satNo': sat_list,
+            'obTime': time_range,
+            'uct': 'false',
+            'dataMode': 'REAL',
+        },
+        'rfobservation': {
+            'satNo': sat_list,
+            'obTime': time_range,
+            'uct': 'false',
+            'dataMode': 'REAL',
+        },
+        'statevector': {
+            'satNo': sat_list,
+            'epoch': time_range,
+            'uct': 'false',
+            'dataMode': 'REAL',
+            'sort': 'epoch,DESC',
+        },
+        'elset': {
+            'satNo': sat_list,
+            'epoch': time_range,
+            'uct': 'false',
+            'dataMode': 'REAL',
+            'sort': 'epoch,DESC',
+        },
+    }
+
+    async def query_service(service: str) -> Tuple[str, pd.DataFrame]:
+        params = service_params.get(service, {'satNo': sat_list})
+        try:
+            result = await _asyncUDLQuery(token, service, params)
+            return service, result
+        except Exception as e:
+            logger.warning(f"Failed to query {service}: {e}")
+            return service, pd.DataFrame()
+
+    # Run all queries concurrently
+    tasks = [query_service(svc) for svc in services if svc in service_params]
+    results = await asyncio.gather(*tasks)
+
+    return dict(results)
+
+
+def pullComprehensiveData(
+    token: str,
+    sat_ids: List[int],
+    time_range: str,
+    services: List[str] = None
+) -> Dict[str, pd.DataFrame]:
+    """
+    Pull data from multiple UDL services concurrently.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: List of satellite NORAD IDs
+        time_range: UDL time range string
+        services: List of services to query
+
+    Returns:
+        Dict mapping service names to DataFrames
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_async_pull_comprehensive_data(token, sat_ids, time_range, services))
+    else:
+        import nest_asyncio
+        nest_asyncio.apply()
+        return asyncio.get_event_loop().run_until_complete(
+            _async_pull_comprehensive_data(token, sat_ids, time_range, services)
+        )
+
+
+def pullMultiPhenomenologyData(
+    token: str,
+    sat_ids: List[int],
+    time_range: str
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Pull EO, Radar, and RF observations for multi-phenomenology datasets.
+
+    Args:
+        token: UDL authentication token
+        sat_ids: List of satellite NORAD IDs
+        time_range: UDL time range string
+
+    Returns:
+        Tuple of (eo_obs, radar_obs, rf_obs) DataFrames
+    """
+    results = pullComprehensiveData(
+        token, sat_ids, time_range,
+        services=['eoobservation', 'radarobservation', 'rfobservation']
+    )
+    return (
+        results.get('eoobservation', pd.DataFrame()),
+        results.get('radarobservation', pd.DataFrame()),
+        results.get('rfobservation', pd.DataFrame())
+    )
+
+
+# =============================================================================
+# ADAPTIVE BATCH SIZING
+# =============================================================================
+
+def generateAdaptiveBatchParams(
+    sat_ids: List[int],
+    sat_params: Dict[int, Dict],
+    timeframe: int,
+    timeunit: str,
+    end_time: datetime.datetime = None
+) -> List[Tuple[List[int], str]]:
+    """
+    Generate batch query parameters with regime-adaptive time windows.
+
+    Groups satellites by orbital regime and creates appropriate batch sizes.
+
+    Args:
+        sat_ids: List of satellite NORAD IDs
+        sat_params: Dict mapping satNo to orbital parameters (needs 'Semi-Major Axis')
+        timeframe: Total timeframe
+        timeunit: Timeframe unit (days, hours, etc.)
+        end_time: End time for queries (default: now)
+
+    Returns:
+        List of (sat_ids_batch, time_range_str) tuples
+    """
+    if end_time is None:
+        end_time = datetime.datetime.utcnow()
+
+    total_duration = pd.Timedelta(**{timeunit: timeframe})
+    start_time = end_time - total_duration
+
+    # Group satellites by regime
+    regime_sats: Dict[str, List[int]] = {'LEO': [], 'MEO': [], 'GEO': [], 'HEO': []}
+
+    for sat_id in sat_ids:
+        params = sat_params.get(sat_id, {})
+        sma = params.get('Semi-Major Axis', 7000)  # Default to LEO
+        ecc = params.get('Eccentricity', 0.0)
+        regime = determine_orbital_regime(sma, ecc)
+        regime_sats[regime].append(sat_id)
+
+    batch_params = []
+
+    for regime, sats in regime_sats.items():
+        if not sats:
+            continue
+
+        batch_duration = get_batch_size_for_regime(regime)
+        current_start = start_time
+
+        while current_start < end_time:
+            current_end = min(current_start + batch_duration, end_time)
+            time_range = f"{datetimeToUDL(current_start)}..{datetimeToUDL(current_end)}"
+            batch_params.append((sats, time_range))
+            current_start = current_end
+
+    return batch_params
+
+
+def addManeuverFlags(
+    obs_df: pd.DataFrame,
+    token: str,
+    hours_threshold: int = 24
+) -> pd.DataFrame:
+    """
+    Add maneuver proximity flags to observations.
+
+    Queries the maneuver service and flags observations within N hours of a detected maneuver.
+
+    Args:
+        obs_df: DataFrame of observations with 'satNo' and 'obTime' columns
+        token: UDL authentication token
+        hours_threshold: Hours before/after maneuver to flag
+
+    Returns:
+        DataFrame with 'nearManeuver' boolean column added
+    """
+    if obs_df.empty:
+        obs_df['nearManeuver'] = False
+        return obs_df
+
+    # Get unique satellites and time range
+    sat_ids = obs_df['satNo'].unique().tolist()
+
+    # Ensure obTime is datetime
+    if obs_df['obTime'].dtype == 'object':
+        obs_df = obs_df.copy()
+        obs_df['obTime'] = pd.to_datetime(obs_df['obTime'])
+
+    start_time = obs_df['obTime'].min() - pd.Timedelta(hours=hours_threshold)
+    end_time = obs_df['obTime'].max() + pd.Timedelta(hours=hours_threshold)
+    time_range = f"{datetimeToUDL(start_time)}..{datetimeToUDL(end_time)}"
+
+    # Query maneuvers
+    try:
+        maneuvers = queryManeuvers(token, sat_ids, time_range)
+    except Exception as e:
+        logger.warning(f"Failed to query maneuvers: {e}")
+        obs_df['nearManeuver'] = False
+        return obs_df
+
+    if maneuvers.empty:
+        obs_df['nearManeuver'] = False
+        return obs_df
+
+    # Parse maneuver times
+    if 'maneuverTime' in maneuvers.columns:
+        maneuvers['maneuverTime'] = pd.to_datetime(maneuvers['maneuverTime'])
+
+        # Create threshold timedelta
+        threshold = pd.Timedelta(hours=hours_threshold)
+
+        # Check each observation against maneuvers
+        def is_near_maneuver(row):
+            sat_maneuvers = maneuvers[maneuvers['satNo'] == row['satNo']]
+            if sat_maneuvers.empty:
+                return False
+            time_diffs = abs(sat_maneuvers['maneuverTime'] - row['obTime'])
+            return (time_diffs <= threshold).any()
+
+        obs_df['nearManeuver'] = obs_df.apply(is_near_maneuver, axis=1)
+    else:
+        obs_df['nearManeuver'] = False
+
+    return obs_df
 
 
 def UDLTokenGen(username, password):
@@ -153,28 +899,42 @@ def UDLQuery(token, service, params, count=False, history=False):
     if count:
         url = url + "/count"
 
-    # Call
+    # Call with timing
+    start_time = time.perf_counter()
     logger.info(f"Performing UDL query on service '{service}' with parameters={params}...")
-    resp = requests.get(url, headers={"Authorization": basicAuth}, params=params, verify=False)
 
-    # If call worked, return data
-    if resp.status_code != 200:
-        if resp.status_code == 400:
-            raise requests.exceptions.HTTPError(resp, "Query failed due to bad parameters.")
-        elif resp.status_code == 401:
-            raise requests.exceptions.HTTPError(resp, "Query failed due to invalid login.")
-        elif resp.status_code == 500:
-            raise requests.exceptions.HTTPError(
-                resp,
-                "Query failed due to internal error; if UDL isn't down, likely a time-out for excessive data request.",
-            )
+    try:
+        resp = requests.get(url, headers={"Authorization": basicAuth}, params=params, verify=False)
+        elapsed = time.perf_counter() - start_time
+
+        # If call worked, return data
+        if resp.status_code != 200:
+            error_msg = None
+            if resp.status_code == 400:
+                error_msg = "Query failed due to bad parameters."
+            elif resp.status_code == 401:
+                error_msg = "Query failed due to invalid login."
+            elif resp.status_code == 500:
+                error_msg = "Query failed due to internal error; if UDL isn't down, likely a time-out for excessive data request."
+            else:
+                error_msg = "Query failed for unknown reason."
+
+            _log_api_call(service, params, 0, elapsed, success=False, error_msg=error_msg)
+            raise requests.exceptions.HTTPError(resp, error_msg)
+
+        result = resp.json()
+        response_size = result if count else len(result)
+        _log_api_call(service, params, response_size if isinstance(response_size, int) else len(result), elapsed)
+
+        if not count:
+            return pd.DataFrame(result)
         else:
-            raise requests.exceptions.HTTPError(resp, "Query failed for unknown reason.")
+            return result
 
-    if not count:
-        return pd.DataFrame(resp.json())
-    else:
-        return resp.json()
+    except requests.exceptions.RequestException as e:
+        elapsed = time.perf_counter() - start_time
+        _log_api_call(service, params, 0, elapsed, success=False, error_msg=str(e))
+        raise
 
 
 def TLEToSV(line1, line2):
@@ -628,8 +1388,7 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
 
 
 def generateDataset(
-    UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
-    use_database=False, db_path=None, dataset_name=None
+    UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now"
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -643,9 +1402,6 @@ def generateDataset(
         dt (float): Rate limit for UDL calls in sec. Please check EULA or contact Bluestack before making this very small. Defaults to 0.1.
         max_datapoints (int): If > 0, limit of obs data return per satellite, returning newest obs. Defaults to 0 (disabled), max 10000.
         end_time (datetime.datetime): Sets the end time of the data timespan. Defaults to 'now' which sets end to current time.
-        use_database (bool): If True, persist data to DuckDB database. Defaults to False. Requires database module to be installed.
-        db_path (string): Path to database file. If None, uses default path. Only used if use_database=True.
-        dataset_name (string): Name for the dataset in database. Auto-generated if None. Only used if use_database=True.
 
     Returns:
         Pandas DataFrame: A dataset of "uct" observations.
@@ -658,7 +1414,6 @@ def generateDataset(
     Raises:
         TypeError: If input types are incorrect.
         HTTPError/ClientResponseError: If a query fails.
-        ImportError: If use_database=True but database module is not available.
     """
 
     # Start timing the entire operation
@@ -876,124 +1631,6 @@ def generateDataset(
         "Observed Satellites with SV Information": orbit_sats,
         "Observed Satellites with SV and TLE Information": elset_sats,
     }
-
-    # Optional: Persist to database if requested
-    if use_database:
-        if not _DATABASE_AVAILABLE:
-            raise ImportError(
-                "Database module not available. Install uct_benchmark with database support "
-                "or ensure the database module is in your Python path."
-            )
-
-        logger.info("Persisting dataset to database...")
-        db_start_time = time.perf_counter()
-
-        try:
-            # Initialize database manager
-            db = DatabaseManager(db_path=db_path)
-            db.initialize()  # Ensure schema exists
-
-            # Generate dataset name if not provided
-            if dataset_name is None:
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                dataset_name = f"dataset_{timestamp}"
-
-            # Persist satellites
-            for sat_no in satIDs:
-                try:
-                    db.satellites.get_by_sat_no(int(sat_no))
-                except Exception:
-                    db.satellites.create(sat_no=int(sat_no))
-
-            # Persist observations
-            if not obs_truth_data.empty:
-                # Prepare observation data for bulk insert
-                obs_for_db = obs_truth_data.copy()
-                obs_for_db = obs_for_db.rename(columns={
-                    "satNo": "sat_no",
-                    "obTime": "ob_time",
-                    "declination": "declination",
-                    "ra": "ra",
-                    "sensorName": "sensor_name",
-                    "dataMode": "data_mode",
-                    "trackId": "track_id",
-                })
-                db.observations.bulk_insert(obs_for_db)
-                logger.debug(f"Inserted {len(obs_for_db)} observations")
-
-            # Persist state vectors
-            if not state_truth_data.empty:
-                for _, row in state_truth_data.iterrows():
-                    try:
-                        db.state_vectors.create(
-                            sat_no=int(row["satNo"]),
-                            epoch=row["epoch"],
-                            x_pos=row.get("xpos", row.get("x", 0)),
-                            y_pos=row.get("ypos", row.get("y", 0)),
-                            z_pos=row.get("zpos", row.get("z", 0)),
-                            x_vel=row.get("xvel", row.get("vx", 0)),
-                            y_vel=row.get("yvel", row.get("vy", 0)),
-                            z_vel=row.get("zvel", row.get("vz", 0)),
-                            covariance=row.get("cov_matrix"),
-                            source="UDL",
-                            data_mode=row.get("dataMode", "REAL"),
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to insert state vector for sat {row['satNo']}: {e}")
-                logger.debug(f"Inserted {len(state_truth_data)} state vectors")
-
-            # Persist TLEs/element sets
-            if not elset_truth_data.empty:
-                for _, row in elset_truth_data.iterrows():
-                    try:
-                        elset = row.get("elset", {})
-                        db.element_sets.create(
-                            sat_no=int(row["satNo"]),
-                            line1=row["line1"],
-                            line2=row["line2"],
-                            epoch=elset.get("epoch", row.get("epoch")),
-                            inclination=elset.get("inclination"),
-                            raan=elset.get("RAAN"),
-                            eccentricity=elset.get("eccentricity"),
-                            arg_perigee=elset.get("perigee"),
-                            mean_anomaly=elset.get("mean_anomaly"),
-                            mean_motion=elset.get("mean_motion"),
-                            b_star=elset.get("B_star"),
-                            source="UDL",
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to insert TLE for sat {row['satNo']}: {e}")
-                logger.debug(f"Inserted {len(elset_truth_data)} element sets")
-
-            # Create dataset record
-            dataset_id = db.datasets.create(
-                name=dataset_name,
-                params={
-                    "timeframe": timeframe,
-                    "timeunit": timeunit,
-                    "satIDs": [int(s) for s in satIDs],
-                    "end_time": str(end_time),
-                    "max_datapoints": max_datapoints,
-                },
-            )
-
-            # Link observations to dataset
-            if not obs_truth_data.empty:
-                obs_ids = obs_truth_data["id"].tolist()
-                track_assignments = {
-                    row["id"]: row.get("trackId") for _, row in obs_truth_data.iterrows()
-                }
-                db.datasets.add_observations(dataset_id, obs_ids, track_assignments)
-
-            db_elapsed_time = time.perf_counter() - db_start_time
-            performance_data["Database Persistence Time"] = db_elapsed_time
-            performance_data["Database Dataset ID"] = dataset_id
-            performance_data["Database Dataset Name"] = dataset_name
-            logger.info(f"Dataset '{dataset_name}' (ID: {dataset_id}) persisted to database in {db_elapsed_time:.2f}s")
-
-        except Exception as e:
-            logger.error(f"Failed to persist to database: {e}")
-            performance_data["Database Error"] = str(e)
 
     return dataset, obs_truth_data, state_truth_data, elset_truth_data, satIDs, performance_data
 
