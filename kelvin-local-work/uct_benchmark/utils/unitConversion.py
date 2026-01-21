@@ -7,14 +7,14 @@ Created on Tue 10 June 2025
 
 
 import numpy as np
-import orekit
-from orekit.pyhelpers import setup_orekit_curdir
+import orekit_jpype as orekit
+from orekit_jpype.pyhelpers import setup_orekit_curdir
 import pandas as pd
 
 from uct_benchmark.utils.generateCov import generateCov
 
 orekit.initVM()
-setup_orekit_curdir()
+setup_orekit_curdir(from_pip_library=True)
 from org.hipparchus.geometry.euclidean.threed import Vector3D
 from org.hipparchus.linear import Array2DRowRealMatrix
 from org.orekit.bodies import CelestialBodyFactory

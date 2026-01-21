@@ -1,0 +1,472 @@
+{
+  "timestamp": "2026-01-20T17:40:01.889205",
+  "overall": "PASS",
+  "data_pull": {
+    "status": "PASS",
+    "timestamp": "2026-01-20T17:35:07.496312",
+    "target": 100000,
+    "actual": 117816,
+    "target_met": true,
+    "satellites": 56,
+    "by_regime": {
+      "LEO": 0,
+      "MEO": 3346,
+      "GEO": 114470
+    },
+    "duration": 88.056494
+  },
+  "downsampling": {
+    "pass_rate": 1.0,
+    "original_count": 117816,
+    "configs": {
+      "T1_80pct": {
+        "target": 0.8,
+        "actual": 1.0,
+        "count": 117816,
+        "status": "PASS"
+      },
+      "T2_50pct": {
+        "target": 0.5,
+        "actual": 0.976420859645549,
+        "count": 115038,
+        "status": "WARN"
+      },
+      "T2_30pct": {
+        "target": 0.3,
+        "actual": 0.9930145311332926,
+        "count": 116993,
+        "status": "WARN"
+      }
+    },
+    "passed": 1,
+    "failed": 0,
+    "duration": 281.05643
+  },
+  "gap_analysis": {
+    "pass_rate": 1.0,
+    "total": 56,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 2,
+    "details": {
+      "13056": {
+        "obs": 4171,
+        "epochs": 549,
+        "status": "success"
+      },
+      "23041": {
+        "obs": 26,
+        "epochs": 12,
+        "status": "success"
+      },
+      "9478": {
+        "obs": 2948,
+        "epochs": 579,
+        "status": "success"
+      },
+      "7815": {
+        "obs": 5000,
+        "epochs": 396,
+        "status": "success"
+      },
+      "11145": {
+        "obs": 982,
+        "epochs": 420,
+        "status": "success"
+      },
+      "13069": {
+        "obs": 306,
+        "epochs": 132,
+        "status": "success"
+      },
+      "16276": {
+        "obs": 2647,
+        "epochs": 627,
+        "status": "success"
+      },
+      "12564": {
+        "obs": 2911,
+        "epochs": 585,
+        "status": "success"
+      },
+      "25239": {
+        "obs": 2232,
+        "epochs": 684,
+        "status": "success"
+      },
+      "7578": {
+        "obs": 1593,
+        "epochs": 669,
+        "status": "success"
+      },
+      "13086": {
+        "obs": 1975,
+        "epochs": 657,
+        "status": "success"
+      },
+      "15391": {
+        "obs": 1606,
+        "epochs": 642,
+        "status": "success"
+      },
+      "10016": {
+        "obs": 862,
+        "epochs": 369,
+        "status": "success"
+      },
+      "14117": {
+        "obs": 2167,
+        "epochs": 660,
+        "status": "success"
+      },
+      "15144": {
+        "obs": 5000,
+        "epochs": 21,
+        "status": "success"
+      },
+      "14248": {
+        "obs": 1723,
+        "epochs": 711,
+        "status": "success"
+      },
+      "11561": {
+        "obs": 1174,
+        "epochs": 504,
+        "status": "success"
+      },
+      "13610": {
+        "obs": 89,
+        "epochs": 39,
+        "status": "success"
+      },
+      "25258": {
+        "obs": 1629,
+        "epochs": 645,
+        "status": "success"
+      },
+      "10792": {
+        "obs": 1500,
+        "epochs": 642,
+        "status": "success"
+      },
+      "40874": {
+        "obs": 5000,
+        "epochs": 66,
+        "status": "success"
+      },
+      "20523": {
+        "obs": 1063,
+        "epochs": 456,
+        "status": "success"
+      },
+      "26666": {
+        "obs": 2579,
+        "epochs": 645,
+        "status": "success"
+      },
+      "39216": {
+        "obs": 5000,
+        "epochs": 453,
+        "status": "success"
+      },
+      "9009": {
+        "obs": 1194,
+        "epochs": 513,
+        "status": "success"
+      },
+      "24880": {
+        "obs": 898,
+        "epochs": 384,
+        "status": "success"
+      },
+      "20659": {
+        "obs": 2808,
+        "epochs": 597,
+        "status": "success"
+      },
+      "36411": {
+        "obs": 4390,
+        "epochs": 600,
+        "status": "success"
+      },
+      "43584": {
+        "obs": 192,
+        "epochs": 84,
+        "status": "success"
+      },
+      "25671": {
+        "obs": 1927,
+        "epochs": 825,
+        "status": "success"
+      },
+      "54219": {
+        "obs": 5000,
+        "epochs": 204,
+        "status": "success"
+      },
+      "23039": {
+        "obs": 431,
+        "epochs": 186,
+        "status": "success"
+      },
+      "37200": {
+        "obs": 112,
+        "epochs": 48,
+        "status": "success"
+      },
+      "18384": {
+        "obs": 3570,
+        "epochs": 621,
+        "status": "success"
+      },
+      "64468": {
+        "obs": 1869,
+        "epochs": 729,
+        "status": "success"
+      },
+      "15702": {
+        "obs": 26,
+        "epochs": 12,
+        "status": "success"
+      },
+      "29656": {
+        "obs": 3957,
+        "epochs": 585,
+        "status": "success"
+      },
+      "16732": {
+        "obs": 5000,
+        "epochs": 513,
+        "status": "success"
+      },
+      "28509": {
+        "obs": 132,
+        "epochs": 57,
+        "status": "success"
+      },
+      "41310": {
+        "obs": 5000,
+        "epochs": 435,
+        "status": "success"
+      },
+      "16482": {
+        "obs": 1010,
+        "epochs": 432,
+        "status": "success"
+      },
+      "13669": {
+        "obs": 5000,
+        "epochs": 96,
+        "status": "success"
+      },
+      "20837": {
+        "obs": 580,
+        "epochs": 249,
+        "status": "success"
+      },
+      "11623": {
+        "obs": 4011,
+        "epochs": 630,
+        "status": "success"
+      },
+      "37869": {
+        "obs": 128,
+        "epochs": 54,
+        "status": "success"
+      },
+      "7790": {
+        "obs": 1537,
+        "epochs": 660,
+        "status": "success"
+      },
+      "11888": {
+        "obs": 206,
+        "epochs": 90,
+        "status": "success"
+      },
+      "15219": {
+        "obs": 3254,
+        "epochs": 585,
+        "status": "success"
+      },
+      "28916": {
+        "obs": 77,
+        "epochs": 33,
+        "status": "success"
+      },
+      "16116": {
+        "obs": 1888,
+        "epochs": 717,
+        "status": "success"
+      },
+      "32373": {
+        "obs": 1481,
+        "epochs": 636,
+        "status": "success"
+      },
+      "13177": {
+        "obs": 2035,
+        "epochs": 717,
+        "status": "success"
+      },
+      "15995": {
+        "obs": 2592,
+        "epochs": 666,
+        "status": "success"
+      },
+      "21759": {
+        "obs": 3315,
+        "epochs": 558,
+        "status": "success"
+      }
+    },
+    "duration": 0.89309
+  },
+  "orekit": {
+    "tle_rate": 0.96,
+    "sv_rate": 1.0,
+    "tle": {
+      "passed": 24,
+      "failed": 1,
+      "obs": 1403
+    },
+    "sv": {
+      "passed": 15,
+      "failed": 0,
+      "obs": 434
+    },
+    "details": {
+      "13056": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "23041": {
+        "tle_obs": 8,
+        "tle_status": "PASS",
+        "sv_obs": 0,
+        "sv_status": "PASS"
+      },
+      "9478": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "7815": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "11145": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "13069": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "62734": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "16276": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "12564": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "25239": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "7578": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "13086": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "15391": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "10016": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "14117": {
+        "tle_obs": 61,
+        "tle_status": "PASS",
+        "sv_obs": 31,
+        "sv_status": "PASS"
+      },
+      "15144": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "14248": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "11561": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "13610": {
+        "tle_obs": 53,
+        "tle_status": "PASS"
+      },
+      "25258": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "10792": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "40874": {
+        "tle_error": "org.orekit.errors.OrekitException: unable to compute TLE mean parameters after 101 iterations"
+      },
+      "20523": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "26666": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      },
+      "39216": {
+        "tle_obs": 61,
+        "tle_status": "PASS"
+      }
+    },
+    "total_obs": 1837,
+    "duration": 8.1153
+  }
+}

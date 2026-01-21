@@ -39,6 +39,9 @@ def simulateObs(
 
     import numpy as np
 
+    # Import propagator functions
+    from uct_benchmark.simulation.propagator import TLEpropagator, ephemerisPropagator
+
     # Use ephemeris propagator functions that already exists
     if isinstance(input1, str):  # TLE input
         # Convert timespan (in seconds) to a list of datetime objects centered on epoch if necessary
@@ -217,6 +220,8 @@ def radec2azel(ra_deg, dec_deg, rangeVal, sensorPosition, obs_time):
     This conversion accounts for the Earth's rotation and observer position at the given time.
     Assumes geodetic coordinates for the observer and equatorial coordinates for the RA/Dec input.
     """
+    from datetime import datetime
+
     import numpy as np
     from org.hipparchus.geometry.euclidean.threed import Vector3D
     from org.orekit.bodies import GeodeticPoint, OneAxisEllipsoid
@@ -355,76 +360,156 @@ def toObsSchema(results, satNo, noiseCharacteristics):
     return df
 
 
-# Funciton not finished, need to loop thru to find when enough epochs added to simlist
-# one iteration implemented but not tested
-def epochsToSim(satNo, satObs, orbElems):
+def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=None):
     """
-    Function to determine what epochs opbervations need to be simulated at for each satellite
-    Inputs:
-        satNo: NORAD ID of satellite data being simulated for
-        satObs: list of observations for the given satellite
-        orbElems: dict with orbital Elements, orbital coverage, track gap, etc for given satNo
+    Determine epochs at which to simulate observations for a satellite.
 
-    Outputs:
-        epochs[list]: list of times to be simmed at
+    Uses time-bin based approach: divides observation window into bins
+    based on orbital period, identifies bins with insufficient observations,
+    and returns epochs at the center of each gap bin.
+
+    Args:
+        satNo: NORAD ID of satellite
+        satObs: DataFrame of existing observations (must have 'obTime' column)
+        orbElems: Dict with orbital elements including 'Period' (seconds)
+        target_obs_count: Target total observation count (default: current + 50%)
+        max_sim_ratio: Maximum ratio of simulated to total (default: from config)
+
+    Returns:
+        epochs: List of datetime objects for simulation
+        bins_info: Dict with bin statistics for logging
     """
+    from datetime import timedelta
+
+    import numpy as np
+    import pandas as pd
+
+    # Use config defaults if not specified
+    if max_sim_ratio is None:
+        max_sim_ratio = config.simulation_max_ratio
+
+    bins_per_period = config.simulation_bins_per_period
+    min_obs_per_bin = config.simulation_min_obs_per_bin
+    track_size = config.simulation_track_size
+    track_spacing = config.simulation_track_spacing
+    min_existing = config.simulation_min_existing_obs
+
+    # Validate inputs
+    if len(satObs) < min_existing:
+        return [], {'status': 'insufficient_existing_obs', 'existing': len(satObs)}
+
+    # Convert obTime to datetime if needed
+    satObs = satObs.copy()
+    if satObs['obTime'].dtype == 'object':
+        # Try multiple datetime formats
+        try:
+            satObs['obTime'] = pd.to_datetime(satObs['obTime'], format="%Y-%m-%dT%H:%M:%S.%fZ")
+        except ValueError:
+            try:
+                satObs['obTime'] = pd.to_datetime(satObs['obTime'], format="%Y-%m-%dT%H:%M:%SZ")
+            except ValueError:
+                satObs['obTime'] = pd.to_datetime(satObs['obTime'])
+
+    satObs = satObs.sort_values(by='obTime').reset_index(drop=True)
+
+    # Get orbital period
+    if 'Period' in orbElems:
+        period_sec = orbElems['Period']
+    else:
+        # Estimate from semi-major axis using Kepler's law
+        # T = 2*pi*sqrt(a^3/mu) where mu = 398600.4418 km^3/s^2
+        a_km = orbElems.get('Semi-Major Axis', 7000)  # Default to ~630km altitude
+        mu = 398600.4418  # km^3/s^2
+        period_sec = 2 * np.pi * np.sqrt((a_km ** 3) / mu)
+
+    # Get observation time window
+    start_time = satObs['obTime'].min()
+    end_time = satObs['obTime'].max()
+    window_duration = (end_time - start_time).total_seconds()
+
+    # Calculate number of orbital periods in window
+    num_periods = window_duration / period_sec
+    if num_periods < 0.5:
+        # Window too short for meaningful simulation
+        return [], {'status': 'window_too_short', 'periods': num_periods}
+
+    # Calculate bin size (in seconds)
+    bin_size_sec = period_sec / bins_per_period
+    total_bins = int(np.ceil(window_duration / bin_size_sec))
+
+    # Create time bins
+    bin_edges = [start_time + timedelta(seconds=i * bin_size_sec) for i in range(total_bins + 1)]
+
+    # Count observations in each bin
+    bin_counts = np.zeros(total_bins, dtype=int)
+    for obs_time in satObs['obTime']:
+        bin_idx = int((obs_time - start_time).total_seconds() / bin_size_sec)
+        if 0 <= bin_idx < total_bins:
+            bin_counts[bin_idx] += 1
+
+    # Find bins with insufficient observations
+    empty_bins = np.where(bin_counts < min_obs_per_bin)[0]
+
+    if len(empty_bins) == 0:
+        return [], {'status': 'all_bins_covered', 'total_bins': total_bins}
+
+    # Calculate target observation count
+    current_count = len(satObs)
+    if target_obs_count is None:
+        target_obs_count = int(current_count * (1 + config.simulation_target_increase))
+
+    # Calculate maximum simulated observations allowed
+    max_simulated = int(current_count * max_sim_ratio / (1 - max_sim_ratio))
+    obs_to_add = min(target_obs_count - current_count, max_simulated)
+
+    if obs_to_add <= 0:
+        return [], {'status': 'already_at_target', 'current': current_count, 'target': target_obs_count}
+
+    # Number of tracks to simulate (each track has track_size observations)
+    tracks_to_add = int(np.ceil(obs_to_add / track_size))
+
+    # Prioritize bins by how empty they are (least observations first)
+    # Sort empty bins by their observation count (ascending)
+    bin_priorities = [(bin_idx, bin_counts[bin_idx]) for bin_idx in empty_bins]
+    bin_priorities.sort(key=lambda x: x[1])
+
+    # Generate epochs for simulation
     epochs = []
+    bins_used = 0
 
-    # if has long track gap, preserve long gap
-    if orbElems["Max Track Gap"] > config.longTrackGap:
-        # find gap
-        satObs["obTime"] = pd.to_datetime(satObs["obTime"], format="%Y-%m-%dT%H:%M:%S.%fZ")
-        satObs = satObs.sort_values(by="obTime").reset_index(drop=True)
-        timeDeltas = satObs["obTime"].diff()
-        maxGap = timeDeltas.max()
-        timeDeltas = timeDeltas[timeDeltas != maxGap]
-        idx = timeDeltas.idxmax()
-        startTime, endTime = satObs["obTime"][idx - 1 : idx + 1]
+    for bin_idx, _ in bin_priorities:
+        if bins_used >= tracks_to_add:
+            break
 
-    # find midpoint between (next) longest track gap
-    idxSecond = timeDeltas[timeDeltas != timeDeltas.max()].idxmax()
-    start, end = satObs["obTime"][idxSecond - 1 : idxSecond + 1]
-    midpoint = (start + (end - start) / 2).to_pydatetime()
-    epochs.append(midpoint)
+        # Calculate center of bin
+        bin_start = start_time + timedelta(seconds=bin_idx * bin_size_sec)
+        bin_center = bin_start + timedelta(seconds=bin_size_sec / 2)
 
-    # Find orbital coverage added by simulated point
-    # eccentricity and semimajor
-    a = orbElems["Semi-Major Axis"]
-    e = orbElems["Eccentricity"]
+        # Add track of observations centered on bin center
+        track_start = bin_center - timedelta(seconds=(track_size - 1) * track_spacing / 2)
 
-    # location of first vertex
-    temp = orbElems["Orbital Polygon"]
-    temp2 = temp[temp["id"] == satObs.iloc[idxSecond]["id"]]
-    x1 = float(temp2["x"].values[0])
-    x1C = x1 - a * e
-    y1 = float(temp2["y"].values[0])
-    r1 = np.sqrt(x1C**2 + y1**2)
-    theta1 = np.arctan2(y1, x1C)
+        for i in range(track_size):
+            epoch = track_start + timedelta(seconds=i * track_spacing)
+            # Ensure epoch is within observation window
+            if start_time <= epoch <= end_time:
+                epochs.append(epoch.to_pydatetime())
 
-    # location of second vertex
-    temp = orbElems["Orbital Polygon"]
-    temp2 = temp[temp["id"] == satObs.iloc[idxSecond - 1]["id"]]
-    x2 = float(temp2["x"].values[0])
-    x2C = x2 - a * e  # shift origin to geometric center of circle from focus of ellipse
-    y2 = float(temp2["y"].values[0])
-    r2 = np.sqrt(x2C**2 + y2**2)
-    theta2 = np.arctan2(y2, x2C)
+        bins_used += 1
 
-    # location of simulated vertex
-    thetaMid = (theta1 + theta2) / 2
-    rMid = (r1 + r2) / 2
-    xMid = rMid * np.cos(thetaMid)
-    yMid = rMid * np.sin(thetaMid)
+    # Build info dict for logging
+    bins_info = {
+        'status': 'success',
+        'satNo': satNo,
+        'period_sec': period_sec,
+        'total_bins': total_bins,
+        'empty_bins': len(empty_bins),
+        'tracks_added': bins_used,
+        'epochs_count': len(epochs),
+        'existing_obs': current_count,
+        'target_obs': target_obs_count
+    }
 
-    # Area of triangle made by three verticies
-    def triangleArea(x1, y1, x2, y2, x3, y3):
-        area = abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2
-        return float(area)
-
-    areaAdded = triangleArea(x1C, y1, x2C, y2, xMid, yMid)
-    coverageAdded = areaAdded / (
-        2 * np.pi * a
-    )  # Normalize area of triangle by area of great circle
+    return epochs, bins_info
 
 
 # Test Cases

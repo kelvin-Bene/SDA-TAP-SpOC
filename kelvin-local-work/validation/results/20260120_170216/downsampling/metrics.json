@@ -1,0 +1,20 @@
+{
+  "original_count": 117804,
+  "configs": {
+    "T1_80pct": {
+      "status": "ERROR",
+      "error": "unsupported operand type(s) for -: 'str' and 'str'"
+    },
+    "T2_50pct": {
+      "status": "ERROR",
+      "error": "unsupported operand type(s) for -: 'str' and 'str'"
+    },
+    "T2_30pct": {
+      "status": "ERROR",
+      "error": "unsupported operand type(s) for -: 'str' and 'str'"
+    }
+  },
+  "passed": 0,
+  "failed": 3,
+  "duration": 133.01706
+}

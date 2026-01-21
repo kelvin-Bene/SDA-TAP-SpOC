@@ -9,7 +9,7 @@ Created on Mon July 2 2025
 import time as time
 
 # initialize orekit and JVM
-import orekit
+import orekit_jpype as orekit
 import pandas as pd
 
 from uct_benchmark.data.dataManipulation import binTracks
@@ -17,9 +17,9 @@ from uct_benchmark.simulation.gauss import gaussSorter
 
 orekit.initVM()
 
-from orekit.pyhelpers import setup_orekit_curdir
+from orekit_jpype.pyhelpers import setup_orekit_curdir
 
-setup_orekit_curdir()
+setup_orekit_curdir(from_pip_library=True)
 
 from org.hipparchus.geometry.euclidean.threed import Vector3D
 from org.hipparchus.optim.nonlinear.vector.leastsquares import LevenbergMarquardtOptimizer

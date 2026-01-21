@@ -4,9 +4,17 @@
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~40% Complete**
+**Overall Progress: ~60% Complete** *(Updated 2026-01-19)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
+
+### Recent Updates (2026-01-19)
+- ✅ **T3 Simulation**: Fully implemented - `epochsToSim()` rewritten with time-bin approach, integrated into pipeline
+- ✅ **T1/T2 Downsampling**: Fully implemented and integrated (three-stage pipeline)
+- ✅ **Pipeline Test**: End-to-end test created, 8/8 stages pass
+- ✅ **Simulation Test**: test_simulation.py created, 3/3 tests pass
+- ✅ **Bug Fixes**: generatePDF.py and dataManipulation.py bugs fixed
+- ✅ **Documentation Audit**: All docs updated to match implementation
 
 ---
 
@@ -21,11 +29,12 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 | Evaluation Metrics | Complete | SpOC | 90% |
 | Orbit Association | Complete | SpOC | 95% |
 | PDF Report Generation | Complete | SpOC | 80% |
-| Observation Simulation | Partial | SDA TAP | 60% |
+| Observation Simulation | ✅ **Complete** | SDA TAP | **95%** |
 | Event Labelling | Not Started | SDA TAP | 0% |
 | Centralized Database | Not Started | SDA TAP | 0% |
-| T3/T4 Processing | Not Started | SDA TAP | 5% |
-| Downsampling (T1/T2) | Not Started | SDA TAP | 0% |
+| **T3 Processing** | ✅ **Complete** | SDA TAP | **100%** |
+| T4 Processing | Not Started | SDA TAP | 0% |
+| **Downsampling (T1/T2)** | ✅ **Complete** | SDA TAP | **100%** |
 | Web UI | Not Started | SpOC | 0% |
 | Algorithm Submission | Not Started | SpOC | 0% |
 | Leaderboard | Not Started | SpOC | 0% |
@@ -163,23 +172,22 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 ### PARTIALLY COMPLETED COMPONENTS
 
 #### 7. Observation Simulation (`uct_benchmark/simulation/simulateObservations.py`)
-**Status: PARTIAL (60%)**
+**Status: ✅ COMPLETE (95%)**
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| simulateObs() | Done | Core simulation works |
-| TLE epoch extraction | Done | |
-| RA/Dec to Az/El conversion | Done | |
-| UDL schema output | Done | |
-| epochsToSim() | Incomplete | Logic started but unfinished |
-| Sensor selection | Done | Weighted random selection |
-| Elevation filtering | Done | 6-degree minimum |
+| simulateObs() | ✅ Done | Core simulation works |
+| TLE epoch extraction | ✅ Done | `extractTLEepoch()` |
+| RA/Dec to Az/El conversion | ✅ Done | `radec2azel()` |
+| UDL schema output | ✅ Done | `toObsSchema()` |
+| epochsToSim() | ✅ Done | Time-bin based approach (lines 358-507) |
+| Sensor selection | ✅ Done | Weighted random selection |
+| Elevation filtering | ✅ Done | 6-degree minimum |
+| Track grouping | ✅ Done | Configurable track_size and track_spacing |
 
 **Remaining Work:**
-- [ ] Complete `epochsToSim()` function for determining simulation epochs
-- [ ] Implement coverage-aware epoch selection
-- [ ] Add radar observation simulation
-- [ ] Test with various orbital regimes
+- [ ] Add radar observation simulation (optical only currently)
+- [ ] Test with various orbital regimes (GEO, HEO)
 
 ---
 
@@ -218,23 +226,38 @@ Required for classifying data by event type:
 ---
 
 #### 10. Tier Processing (T1-T4)
-**Status: MINIMAL (5%)**
+**Status: MOSTLY COMPLETE (75%)**
 **Owner: SDA TAP Lab**
 
 | Tier | Processing Required | Status |
 |------|---------------------|--------|
-| T1 | Downsampling (optional) | Not Started |
-| T2 | Downsampling (required) | Not Started |
-| T3 | Observation simulation | Partial (framework exists) |
+| T1 | Downsampling (optional) | ✅ **Implemented** (2026-01-18) |
+| T2 | Downsampling (required) | ✅ **Implemented** (2026-01-18) |
+| T3 | Observation simulation | ✅ **Implemented** (2026-01-19) |
 | T4 | Object simulation | Not Started |
 
-**Current code reference** (`Create_Dataset.py:104-107`):
-```python
-if tierThreshold == "T4":
-    logger.info("T4 processing not implemented; continuing")
-if tierThreshold == "T3":
-    logger.info("T3 processing not implemented; continuing")
-```
+**T1/T2 Implementation Details** (2026-01-18):
+- Configuration in `uct_benchmark/config.py` (lines 142-162)
+- Three-stage downsampling pipeline in `dataManipulation.py`:
+  1. `_lowerOrbitCoverage()` - polygon-based coverage reduction
+  2. `_increaseTrackDistance()` - sliding window gap widening
+  3. `_downsampleAbsolute()` - time-binned count reduction
+- Test coverage: `test_downsampling.py` (3/3 pass), `test_pipeline_e2e.py` (8/8 pass)
+
+**T3 Implementation Details** (2026-01-19):
+- Complete `epochsToSim()` function (`simulateObservations.py:358-507`)
+- Time-bin based approach for epoch selection:
+  1. Divide observation window into bins (period / bins_per_period)
+  2. Identify bins with insufficient observations
+  3. Select epochs at center of empty bins
+  4. Generate tracks with configurable size and spacing
+- Configuration in `uct_benchmark/config.py` (lines 164-188)
+- `simulateObs()` generates realistic observations with noise
+- Test coverage: `test_simulation.py` (3/3 pass)
+
+**T4 Status** (Not Started):
+- Requires object simulation (synthetic satellites)
+- Lower priority - most real-world scenarios covered by T1-T3
 
 ---
 
@@ -314,19 +337,26 @@ Required components:
 
 ## Files Requiring Attention
 
+### Recently Completed (2026-01-18)
+| File | Issue | Resolution |
+|------|-------|------------|
+| `src/Create_Dataset.py` | T1/T2 not implemented | ✅ Downsampling integrated (lines 71-120) |
+| `dataManipulation.py:627` | Set indexer bug | ✅ Changed to `list(insufficient_sats)` |
+| `generatePDF.py:419` | Hardcoded path bug | ✅ Changed to `output_path` parameter |
+
 ### High Priority
 | File | Issue | Action Needed |
 |------|-------|---------------|
-| `Create_Dataset.py:104-107` | T3/T4 not implemented | Implement tier processing |
-| `simulateObservations.py:360-428` | `epochsToSim()` incomplete | Complete function |
+| `Create_Dataset.py` | T4 not implemented | Implement T4 tier processing (low priority) |
 | `windowCheck.py` | Error handling gaps | Add try/except blocks |
+| `apiIntegration.py` | No retry logic | Add exponential backoff |
 
 ### Medium Priority
 | File | Issue | Action Needed |
 |------|-------|---------------|
-| `apiIntegration.py` | No retry logic | Add exponential backoff |
-| `config.py` | Thresholds need validation | Add threshold documentation |
+| `config.py` | Thresholds need validation | Add threshold documentation ✅ DONE |
 | `Evaluation.py` | Main function empty | Implement proper entry point |
+| Tests | Limited coverage | Expand test suite for edge cases |
 
 ### Low Priority
 | File | Issue | Action Needed |

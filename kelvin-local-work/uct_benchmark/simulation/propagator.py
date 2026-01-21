@@ -62,12 +62,12 @@ def monteCarloPropagator(
         covariance = 1e9 * covariance
         convertFlag = True
 
-    # Set up orekit enviornment, import orekit classes
-    import orekit
-    from orekit.pyhelpers import setup_orekit_curdir
+    # Set up orekit environment, import orekit classes
+    import orekit_jpype as orekit
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
     orekit.initVM()
-    setup_orekit_curdir()
+    setup_orekit_curdir(from_pip_library=True)
 
     # orekit class imports
     from org.hipparchus.geometry.euclidean.threed import Vector3D
@@ -197,7 +197,7 @@ def monteCarloPropagator(
                         )
                     )
                 )
-            except orekit.JavaError:  # Skip failed point, continue with rest of sample point
+            except Exception:  # Skip failed point, continue with rest of sample point (JavaError or similar)
                 failedProps += 1
                 continue
         # print(failedProps)
@@ -260,12 +260,12 @@ def ephemerisPropagator(
         stateVector = stateVector * 1000
         convertFlag = True
 
-    # Set up orekit enviornment, import orekit classes
-    import orekit
-    from orekit.pyhelpers import setup_orekit_curdir
+    # Set up orekit environment, import orekit classes
+    import orekit_jpype as orekit
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
     orekit.initVM()
-    setup_orekit_curdir()
+    setup_orekit_curdir(from_pip_library=True)
 
     # orekit class imports
     from org.hipparchus.geometry.euclidean.threed import Vector3D
@@ -419,13 +419,13 @@ def TLEpropagator(input1, input2, finalEpoch):
     finalStateList: list of 6x1 numpy array, state vector at each epoch in finalEpoch
     """
     import numpy as np
-    import orekit
+    import orekit_jpype as orekit
 
     orekit.initVM()
 
-    from orekit.pyhelpers import setup_orekit_curdir
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
-    setup_orekit_curdir()
+    setup_orekit_curdir(from_pip_library=True)
 
     from org.orekit.frames import FramesFactory
     from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
@@ -583,9 +583,14 @@ def orbit2OE(input1, input2):
     - input 2: epoch (datetime) or TLE line2 (str)
 
     Returns:
-    - Keplerian Orbital Elements (dict): Dictionary containing the orbital elements 'Semi-Major Axis', 'Eccentricity', 'Inclination', 'RAAN', 'Argument of Perigee', and 'Mean Anomaly'. Units are km and degrees as appropriate.
-    - Period (float): Orbital Period in seconds
+    - Keplerian Orbital Elements (dict): Dictionary containing:
+        - Keplerian elements: 'Semi-Major Axis', 'Eccentricity', 'Inclination', 'RAAN',
+          'Argument of Perigee', 'Mean Anomaly'. Units are km and degrees.
+        - Cartesian state vector: 'X', 'Y', 'Z' (km), 'Vx', 'Vy', 'Vz' (km/s)
+        - 'Period': Orbital Period in seconds
+        - 'Epoch': Python datetime object (UTC)
     """
+    from datetime import datetime, timezone
 
     import numpy as np
     from org.hipparchus.geometry.euclidean.threed import Vector3D
@@ -617,21 +622,46 @@ def orbit2OE(input1, input2):
         # Create orekit PVcoordinates object from state vector components
         position = Vector3D(float(stateVector[0]), float(stateVector[1]), float(stateVector[2]))
         velocity = Vector3D(float(stateVector[3]), float(stateVector[4]), float(stateVector[5]))
-        pvCoordinates = PVCoordinates(position, velocity)
+        pvCoord = PVCoordinates(position, velocity)
 
         # Create Keplerian Orbit object from state vector and initial epoch
         initialEpoch = datetime2AbsDate(epoch, utc)
         orbit = CartesianOrbit(
-            pvCoordinates, FramesFactory.getEME2000(), initialEpoch, Constants.WGS84_EARTH_MU
+            pvCoord, FramesFactory.getEME2000(), initialEpoch, Constants.WGS84_EARTH_MU
         )
         kep_orbit = KeplerianOrbit(orbit)
 
     # Find period from semi major axis using kepler laws
     period = 2 * np.pi * np.sqrt(kep_orbit.getA() ** 3 / Constants.WGS84_EARTH_MU)
 
-    # Build return dictionary of orbital elements and period
+    # Extract Cartesian state vector (position and velocity in km and km/s)
+    pos = pvCoord.getPosition()
+    vel = pvCoord.getVelocity()
+    x_km = float(pos.getX()) / 1000.0
+    y_km = float(pos.getY()) / 1000.0
+    z_km = float(pos.getZ()) / 1000.0
+    vx_kms = float(vel.getX()) / 1000.0
+    vy_kms = float(vel.getY()) / 1000.0
+    vz_kms = float(vel.getZ()) / 1000.0
+
+    # Convert Orekit AbsoluteDate to Python datetime
+    epoch_components = initialEpoch.getComponents(utc)
+    date_comp = epoch_components.getDate()
+    time_comp = epoch_components.getTime()
+    epoch_datetime = datetime(
+        date_comp.getYear(),
+        date_comp.getMonth(),
+        date_comp.getDay(),
+        time_comp.getHour(),
+        time_comp.getMinute(),
+        int(time_comp.getSecond()),
+        int((time_comp.getSecond() % 1) * 1e6),
+        tzinfo=timezone.utc
+    )
+
+    # Build return dictionary of orbital elements, state vector, and period
     return {
-        "Semi-Major Axis": float(kep_orbit.getA() / 1000),  # semi-major axis (meters)
+        "Semi-Major Axis": float(kep_orbit.getA() / 1000),  # semi-major axis (km)
         "Eccentricity": float(kep_orbit.getE()),  # eccentricity
         "Inclination": float(np.degrees(kep_orbit.getI())),  # inclination (degrees)
         "RAAN": float(np.degrees(kep_orbit.getRightAscensionOfAscendingNode())),  # RAAN (degrees)
@@ -640,7 +670,14 @@ def orbit2OE(input1, input2):
         ),  # Argument of perigee (degrees)
         "Mean Anomaly": float(np.degrees(kep_orbit.getMeanAnomaly())),  # Mean anomaly (degrees)
         "Period": float(period),
-        "Epoch": initialEpoch,  # Epoch of state vector or TLE
+        # Cartesian state vector components
+        "X": x_km,  # X position (km)
+        "Y": y_km,  # Y position (km)
+        "Z": z_km,  # Z position (km)
+        "Vx": vx_kms,  # X velocity (km/s)
+        "Vy": vy_kms,  # Y velocity (km/s)
+        "Vz": vz_kms,  # Z velocity (km/s)
+        "Epoch": epoch_datetime,  # Python datetime (UTC)
     }
 
 
