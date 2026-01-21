@@ -45,6 +45,7 @@ from .export import (
     import_dataset_from_json,
 )
 from .ingestion import DataIngestionPipeline, IngestionReport
+from .migration import DataMigration, MigrationReport, migrate_existing_data
 
 __all__ = [
     # Connection management
@@ -70,4 +71,8 @@ __all__ = [
     # Ingestion
     "DataIngestionPipeline",
     "IngestionReport",
+    # Migration
+    "DataMigration",
+    "MigrationReport",
+    "migrate_existing_data",
 ]

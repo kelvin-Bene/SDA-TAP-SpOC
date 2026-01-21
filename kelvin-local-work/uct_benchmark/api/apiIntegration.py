@@ -37,6 +37,15 @@ from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
 from uct_benchmark.data.dataManipulation import binTracks
 from uct_benchmark.config import INTERIM_DATA_DIR
 
+# Optional database integration (opt-in)
+# Import database module if available, but don't fail if not present
+_DATABASE_AVAILABLE = False
+try:
+    from uct_benchmark.database import DatabaseManager
+    _DATABASE_AVAILABLE = True
+except ImportError:
+    DatabaseManager = None
+
 
 # Because HTTPS is annoying
 def _supressWarn():
@@ -619,7 +628,8 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
 
 
 def generateDataset(
-    UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now"
+    UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
+    use_database=False, db_path=None, dataset_name=None
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -633,6 +643,9 @@ def generateDataset(
         dt (float): Rate limit for UDL calls in sec. Please check EULA or contact Bluestack before making this very small. Defaults to 0.1.
         max_datapoints (int): If > 0, limit of obs data return per satellite, returning newest obs. Defaults to 0 (disabled), max 10000.
         end_time (datetime.datetime): Sets the end time of the data timespan. Defaults to 'now' which sets end to current time.
+        use_database (bool): If True, persist data to DuckDB database. Defaults to False. Requires database module to be installed.
+        db_path (string): Path to database file. If None, uses default path. Only used if use_database=True.
+        dataset_name (string): Name for the dataset in database. Auto-generated if None. Only used if use_database=True.
 
     Returns:
         Pandas DataFrame: A dataset of "uct" observations.
@@ -645,6 +658,7 @@ def generateDataset(
     Raises:
         TypeError: If input types are incorrect.
         HTTPError/ClientResponseError: If a query fails.
+        ImportError: If use_database=True but database module is not available.
     """
 
     # Start timing the entire operation
@@ -862,6 +876,124 @@ def generateDataset(
         "Observed Satellites with SV Information": orbit_sats,
         "Observed Satellites with SV and TLE Information": elset_sats,
     }
+
+    # Optional: Persist to database if requested
+    if use_database:
+        if not _DATABASE_AVAILABLE:
+            raise ImportError(
+                "Database module not available. Install uct_benchmark with database support "
+                "or ensure the database module is in your Python path."
+            )
+
+        logger.info("Persisting dataset to database...")
+        db_start_time = time.perf_counter()
+
+        try:
+            # Initialize database manager
+            db = DatabaseManager(db_path=db_path)
+            db.initialize()  # Ensure schema exists
+
+            # Generate dataset name if not provided
+            if dataset_name is None:
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                dataset_name = f"dataset_{timestamp}"
+
+            # Persist satellites
+            for sat_no in satIDs:
+                try:
+                    db.satellites.get_by_sat_no(int(sat_no))
+                except Exception:
+                    db.satellites.create(sat_no=int(sat_no))
+
+            # Persist observations
+            if not obs_truth_data.empty:
+                # Prepare observation data for bulk insert
+                obs_for_db = obs_truth_data.copy()
+                obs_for_db = obs_for_db.rename(columns={
+                    "satNo": "sat_no",
+                    "obTime": "ob_time",
+                    "declination": "declination",
+                    "ra": "ra",
+                    "sensorName": "sensor_name",
+                    "dataMode": "data_mode",
+                    "trackId": "track_id",
+                })
+                db.observations.bulk_insert(obs_for_db)
+                logger.debug(f"Inserted {len(obs_for_db)} observations")
+
+            # Persist state vectors
+            if not state_truth_data.empty:
+                for _, row in state_truth_data.iterrows():
+                    try:
+                        db.state_vectors.create(
+                            sat_no=int(row["satNo"]),
+                            epoch=row["epoch"],
+                            x_pos=row.get("xpos", row.get("x", 0)),
+                            y_pos=row.get("ypos", row.get("y", 0)),
+                            z_pos=row.get("zpos", row.get("z", 0)),
+                            x_vel=row.get("xvel", row.get("vx", 0)),
+                            y_vel=row.get("yvel", row.get("vy", 0)),
+                            z_vel=row.get("zvel", row.get("vz", 0)),
+                            covariance=row.get("cov_matrix"),
+                            source="UDL",
+                            data_mode=row.get("dataMode", "REAL"),
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to insert state vector for sat {row['satNo']}: {e}")
+                logger.debug(f"Inserted {len(state_truth_data)} state vectors")
+
+            # Persist TLEs/element sets
+            if not elset_truth_data.empty:
+                for _, row in elset_truth_data.iterrows():
+                    try:
+                        elset = row.get("elset", {})
+                        db.element_sets.create(
+                            sat_no=int(row["satNo"]),
+                            line1=row["line1"],
+                            line2=row["line2"],
+                            epoch=elset.get("epoch", row.get("epoch")),
+                            inclination=elset.get("inclination"),
+                            raan=elset.get("RAAN"),
+                            eccentricity=elset.get("eccentricity"),
+                            arg_perigee=elset.get("perigee"),
+                            mean_anomaly=elset.get("mean_anomaly"),
+                            mean_motion=elset.get("mean_motion"),
+                            b_star=elset.get("B_star"),
+                            source="UDL",
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to insert TLE for sat {row['satNo']}: {e}")
+                logger.debug(f"Inserted {len(elset_truth_data)} element sets")
+
+            # Create dataset record
+            dataset_id = db.datasets.create(
+                name=dataset_name,
+                params={
+                    "timeframe": timeframe,
+                    "timeunit": timeunit,
+                    "satIDs": [int(s) for s in satIDs],
+                    "end_time": str(end_time),
+                    "max_datapoints": max_datapoints,
+                },
+            )
+
+            # Link observations to dataset
+            if not obs_truth_data.empty:
+                obs_ids = obs_truth_data["id"].tolist()
+                track_assignments = {
+                    row["id"]: row.get("trackId") for _, row in obs_truth_data.iterrows()
+                }
+                db.datasets.add_observations(dataset_id, obs_ids, track_assignments)
+
+            db_elapsed_time = time.perf_counter() - db_start_time
+            performance_data["Database Persistence Time"] = db_elapsed_time
+            performance_data["Database Dataset ID"] = dataset_id
+            performance_data["Database Dataset Name"] = dataset_name
+            logger.info(f"Dataset '{dataset_name}' (ID: {dataset_id}) persisted to database in {db_elapsed_time:.2f}s")
+
+        except Exception as e:
+            logger.error(f"Failed to persist to database: {e}")
+            performance_data["Database Error"] = str(e)
 
     return dataset, obs_truth_data, state_truth_data, elset_truth_data, satIDs, performance_data
 
