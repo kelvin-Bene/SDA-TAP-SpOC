@@ -171,6 +171,11 @@ def pull_observations(target_obs: int, days: int, sats_per_regime: int) -> Tuple
     obs_df = pd.concat(all_obs, ignore_index=True)
     tle_df = pd.DataFrame(all_tles)
 
+    # Convert obTime to datetime
+    if 'obTime' in obs_df.columns:
+        obs_df['obTime'] = pd.to_datetime(obs_df['obTime'], utc=True)
+        print(f"  Converted obTime to datetime")
+
     # Rename TLE columns
     if 'tle1' in tle_df.columns:
         tle_df = tle_df.rename(columns={'tle1': 'line1', 'tle2': 'line2'})
@@ -344,7 +349,7 @@ def test_gap_analysis(obs_df: pd.DataFrame, tle_df: pd.DataFrame, results_dir: P
                 'status': bins_info.get('status', 'unknown')
             }
 
-            if bins_info.get('status') in ['ok', 'sufficient_coverage', 'max_ratio_limited']:
+            if bins_info.get('status') in ['ok', 'success', 'sufficient_coverage', 'max_ratio_limited']:
                 results['passed'] += 1
             else:
                 results['failed'] += 1
