@@ -444,10 +444,18 @@ def test_orekit_simulation(obs_df: pd.DataFrame, tle_df: pd.DataFrame, results_d
             line2 = tle_row.get('line2', tle_row.get('tle2', ''))
 
             orb_elems = orbit2OE(line1, line2)
-            sv = [orb_elems.get(k, 0) for k in ['X', 'Y', 'Z', 'Vx', 'Vy', 'Vz']]
-            epoch = orb_elems.get('Epoch', datetime.utcnow().isoformat())
 
-            sim_obs = simulateObs(sv, epoch, 1800, sensors_df, 0.01, 1/3600, 60)
+            # Extract state vector as numpy array (required by ephemerisPropagator)
+            sv = np.array([
+                orb_elems['X'], orb_elems['Y'], orb_elems['Z'],
+                orb_elems['Vx'], orb_elems['Vy'], orb_elems['Vz']
+            ])
+            epoch = orb_elems['Epoch']  # Now returns Python datetime
+
+            # Use satellite parameters for propagation
+            sat_params = [int(sat_id), 1000, 10]  # [satNo, mass, area]
+
+            sim_obs = simulateObs(sv, epoch, 1800, sensors_df, 0.01, 1/3600, 60, sat_params)
             obs_count = len(sim_obs) if sim_obs is not None else 0
 
             results['sv']['passed'] += 1
@@ -467,6 +475,11 @@ def test_orekit_simulation(obs_df: pd.DataFrame, tle_df: pd.DataFrame, results_d
 
         except Exception as e:
             results['sv']['failed'] += 1
+            # Log error details for debugging
+            if int(sat_id) in results['details']:
+                results['details'][int(sat_id)]['sv_error'] = str(e)
+            else:
+                results['details'][int(sat_id)] = {'sv_error': str(e)}
 
     # Save simulated observations
     if all_sim_obs:
