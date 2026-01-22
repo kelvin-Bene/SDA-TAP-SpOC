@@ -721,10 +721,7 @@ export function DatasetGeneratorPage() {
                     </div>
                     <Progress value={generationProgress} className="w-full" />
                     <p className="text-center text-sm text-muted-foreground">
-                      {generationProgress < 30 && 'Initializing data pipeline...'}
-                      {generationProgress >= 30 && generationProgress < 60 && 'Fetching observation data...'}
-                      {generationProgress >= 60 && generationProgress < 90 && 'Processing truth catalog...'}
-                      {generationProgress >= 90 && 'Finalizing dataset...'}
+                      {jobStatus?.stage || 'Initializing...'}
                     </p>
                   </div>
                 ) : (

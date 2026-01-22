@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from . import Job, JobManager, JobStatus, JobType, get_job_manager
+from .progress import create_job_progress_callback, DatasetStage
 
 
 def _convert_numpy_to_native(obj: Any) -> Any:
@@ -98,8 +99,24 @@ def run_dataset_generation(
                 "Please set these in your .env file."
             )
 
-        # Update progress - starting
-        job_manager.update_job(job_id, progress=10)
+        # Check if downsampling/simulation are enabled for progress weights
+        downsampling_enabled = bool(
+            config.get("downsampling") and config["downsampling"].get("enabled", False)
+        )
+        simulation_enabled = bool(
+            config.get("simulation") and config["simulation"].get("enabled", False)
+        )
+
+        # Create progress callback for granular progress updates
+        progress_callback = create_job_progress_callback(
+            job_id,
+            job_manager,
+            downsampling_enabled=downsampling_enabled,
+            simulation_enabled=simulation_enabled,
+        )
+
+        # Update progress - initializing
+        progress_callback(DatasetStage.INITIALIZING, 0.0)
 
         # Get satellite list from config or auto-select
         satellites = config.get("satellites", [])
@@ -116,8 +133,8 @@ def run_dataset_generation(
         timeframe = config.get("timeframe", 7)
         timeunit = config.get("timeunit", "days")
 
-        # Update progress - calling API
-        job_manager.update_job(job_id, progress=20)
+        # Mark initialization complete
+        progress_callback(DatasetStage.INITIALIZING, 1.0)
 
         logger.info(
             f"Starting dataset generation for job {job_id}: "
@@ -176,10 +193,11 @@ def run_dataset_generation(
             simulation_config=simulation_config,
             tier=tier,
             dataset_id=dataset_id,
+            progress_callback=progress_callback,
         )
 
-        # Update progress - processing results
-        job_manager.update_job(job_id, progress=80)
+        # Update progress - persisting to database
+        progress_callback(DatasetStage.PERSISTING_DATABASE, 0.0)
 
         # Update dataset record in database
         db = get_db()
@@ -208,6 +226,7 @@ def run_dataset_generation(
         )
 
         # Link observations to dataset if we have observation data
+        progress_callback(DatasetStage.PERSISTING_DATABASE, 0.5)
         logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
         if obs_truth is not None and not obs_truth.empty and 'id' in obs_truth.columns:
             obs_ids = obs_truth['id'].tolist()
@@ -221,6 +240,10 @@ def run_dataset_generation(
                 logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
             except Exception as e:
                 logger.warning(f"Failed to link observations to dataset: {e}")
+
+        # Finalize
+        progress_callback(DatasetStage.PERSISTING_DATABASE, 1.0)
+        progress_callback(DatasetStage.FINALIZING, 0.5)
 
         # Complete the job
         result = {

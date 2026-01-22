@@ -355,6 +355,7 @@ class JobResponse(BaseModel):
     job_type: str
     status: JobStatusEnum
     progress: int = Field(ge=0, le=100)
+    stage: Optional[str] = None  # Current stage description for progress display
     result: Optional[Any] = None
     error: Optional[str] = None
     created_at: datetime

@@ -34,6 +34,7 @@ class Job:
     job_type: JobType
     status: JobStatus = JobStatus.PENDING
     progress: int = 0  # 0-100
+    stage: Optional[str] = None  # Current stage description for progress display
     result: Optional[Any] = None
     error: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -48,6 +49,7 @@ class Job:
             "job_type": self.job_type.value,
             "status": self.status.value,
             "progress": self.progress,
+            "stage": self.stage,
             "result": self.result,
             "error": self.error,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -114,6 +116,7 @@ class JobManager:
         job_id: str,
         status: Optional[JobStatus] = None,
         progress: Optional[int] = None,
+        stage: Optional[str] = None,
         result: Optional[Any] = None,
         error: Optional[str] = None,
     ) -> Optional[Job]:
@@ -124,6 +127,7 @@ class JobManager:
             job_id: The job's unique identifier
             status: New status (optional)
             progress: New progress value 0-100 (optional)
+            stage: Current stage description (optional)
             result: Result data (optional)
             error: Error message (optional)
 
@@ -144,6 +148,9 @@ class JobManager:
 
             if progress is not None:
                 job.progress = min(100, max(0, progress))
+
+            if stage is not None:
+                job.stage = stage
 
             if result is not None:
                 job.result = result

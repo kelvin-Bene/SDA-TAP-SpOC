@@ -210,6 +210,7 @@ interface JobStatus {
   job_type: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number;
+  stage?: string;  // Current stage description from backend
   result?: unknown;
   error?: string;
 }

@@ -1443,7 +1443,7 @@ def generateDataset(
     UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
     use_database=False, db_path=None, dataset_name=None,
     downsample_config=None, simulation_config=None, tier="T2",
-    dataset_id=None
+    dataset_id=None, progress_callback=None
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1479,9 +1479,23 @@ def generateDataset(
         HTTPError/ClientResponseError: If a query fails.
         ImportError: If use_database=True but database module is not available.
     """
+    # Import DatasetStage enum for progress reporting
+    try:
+        from backend_api.jobs.progress import DatasetStage
+    except ImportError:
+        DatasetStage = None
 
     # Start timing the entire operation
     start_time = time.perf_counter()
+
+    # Helper function to safely call progress callback
+    def report_progress(stage, stage_progress=0.0):
+        """Report progress if callback is provided."""
+        if progress_callback is not None and stage is not None:
+            try:
+                progress_callback(stage, stage_progress)
+            except Exception as e:
+                logger.warning(f"Progress callback failed: {e}")
 
     # Determine the time window for observation data based on the user-specified end_time
     if end_time != "now":
@@ -1511,6 +1525,10 @@ def generateDataset(
     if max_datapoints <= 0:
         params_list = [{k: v for k, v in d.items() if k != "maxResults"} for d in params_list]
 
+    # Report progress: collecting observations
+    if DatasetStage is not None:
+        report_progress(DatasetStage.COLLECTING_OBSERVATIONS, 0.0)
+
     # Perform asynchronous UDL query for observational truth data
     obs_truth_data = asyncUDLBatchQuery(UDL_token, "eoobservation", params_list, dt)
 
@@ -1532,6 +1550,11 @@ def generateDataset(
 
     # Compute elapsed time for the observation query step
     obs_elapsed_time = time.perf_counter() - start_time
+
+    # Report progress: observation collection complete, starting state vectors
+    if DatasetStage is not None:
+        report_progress(DatasetStage.COLLECTING_OBSERVATIONS, 1.0)
+        report_progress(DatasetStage.COLLECTING_STATE_VECTORS, 0.0)
 
     # Grabs state vector data
     # Required to do batch call (no access to statevector/current)
@@ -1617,6 +1640,11 @@ def generateDataset(
     # Compute elapsed time for state vector query step
     sv_elapsed_time = time.perf_counter() - obs_elapsed_time - start_time
 
+    # Report progress: state vector collection complete, starting TLE query
+    if DatasetStage is not None:
+        report_progress(DatasetStage.COLLECTING_STATE_VECTORS, 1.0)
+        report_progress(DatasetStage.COLLECTING_TLES, 0.0)
+
     # Grab TLE data. Assumes that you can get it if a state vector exists
     # Use "current" call if allowed, else grab individuals
     if end_time == "now":
@@ -1655,6 +1683,10 @@ def generateDataset(
     # Compute elapsed time for TLE query step
     elset_elapsed_time = time.perf_counter() - sv_elapsed_time - obs_elapsed_time - start_time
 
+    # Report progress: TLE collection complete
+    if DatasetStage is not None:
+        report_progress(DatasetStage.COLLECTING_TLES, 1.0)
+
     # =========================================================================
     # OPTIONAL: Apply downsampling to reduce observation quality
     # =========================================================================
@@ -1671,6 +1703,10 @@ def generateDataset(
             from uct_benchmark.data.dataManipulation import apply_downsampling
             from uct_benchmark.settings import DownsampleConfig as DSConfig
             from uct_benchmark.simulation.propagator import orbit2OE
+
+            # Report progress: starting downsampling
+            if DatasetStage is not None:
+                report_progress(DatasetStage.APPLYING_DOWNSAMPLING, 0.0)
 
             logger.info(f"Applying {tier} downsampling to {len(obs_truth_data)} observations...")
             ds_start = time.perf_counter()
@@ -1740,6 +1776,10 @@ def generateDataset(
                        f"{downsampling_metadata.get('final_count', 0)} observations "
                        f"({downsampling_metadata.get('retention_ratio', 0):.1%} retained) in {ds_elapsed:.2f}s")
 
+            # Report progress: downsampling complete
+            if DatasetStage is not None:
+                report_progress(DatasetStage.APPLYING_DOWNSAMPLING, 1.0)
+
             # Update satIDs to only include satellites that still have observations
             satIDs = obs_truth_data['satNo'].unique()
 
@@ -1758,6 +1798,10 @@ def generateDataset(
         if sim_enabled:
             from uct_benchmark.data.dataManipulation import apply_simulation_to_gaps
             from uct_benchmark.settings import SimulationConfig as SimConfig
+
+            # Report progress: starting simulation
+            if DatasetStage is not None:
+                report_progress(DatasetStage.RUNNING_SIMULATION, 0.0)
 
             logger.info(f"Applying gap-filling simulation to {len(obs_truth_data)} observations...")
             sim_start = time.perf_counter()
@@ -1796,6 +1840,10 @@ def generateDataset(
             logger.info(f"Simulation complete: {simulation_metadata.get('original_count', 0)} original + "
                        f"{simulation_metadata.get('simulated_count', 0)} simulated = "
                        f"{simulation_metadata.get('total_count', 0)} total in {sim_elapsed:.2f}s")
+
+            # Report progress: simulation complete
+            if DatasetStage is not None:
+                report_progress(DatasetStage.RUNNING_SIMULATION, 1.0)
 
             # Update satIDs
             satIDs = obs_truth_data['satNo'].unique()
