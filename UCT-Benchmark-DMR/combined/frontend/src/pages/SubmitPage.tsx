@@ -57,7 +57,7 @@ export function SubmitPage() {
   // Filter to only available datasets
   const availableDatasets = datasets.filter((d) => d.id);
 
-  const runValidation = async () => {
+  const runValidation = async (uploadedFile: File) => {
     setIsValidating(true);
 
     // Reset all steps to pending
@@ -65,24 +65,129 @@ export function SubmitPage() {
       steps.map((step) => ({ ...step, status: 'pending' }))
     );
 
-    // Simulate validation steps
-    const stepDelays = [500, 800, 600, 1000, 700];
-    for (let i = 0; i < validationSteps.length; i++) {
-      // Set current step to checking
+    // Helper to update step status
+    const updateStep = (id: string, status: 'checking' | 'passed' | 'failed', message?: string) => {
       setValidationSteps((steps) =>
-        steps.map((step, idx) =>
-          idx === i ? { ...step, status: 'checking' } : step
-        )
+        steps.map((step) => (step.id === id ? { ...step, status, message } : step))
       );
+    };
 
-      await new Promise((resolve) => setTimeout(resolve, stepDelays[i]));
+    // Helper to add delay for visual feedback
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-      // Set step result (simulated - all pass for demo)
-      setValidationSteps((steps) =>
-        steps.map((step, idx) =>
-          idx === i ? { ...step, status: 'passed' } : step
-        )
-      );
+    try {
+      // Step 1: File format validation
+      updateStep('format', 'checking');
+      await delay(300);
+
+      const fileText = await uploadedFile.text();
+      let parsedJson: unknown;
+
+      try {
+        parsedJson = JSON.parse(fileText);
+        updateStep('format', 'passed');
+      } catch {
+        updateStep('format', 'failed', 'Invalid JSON format');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 2: Schema validation
+      updateStep('schema', 'checking');
+      await delay(400);
+
+      const data = parsedJson as Record<string, unknown>;
+      const hasRequiredFields =
+        data &&
+        typeof data === 'object' &&
+        ('satellites' in data || 'tracks' in data || 'results' in data || 'ucds' in data);
+
+      if (hasRequiredFields) {
+        updateStep('schema', 'passed');
+      } else {
+        updateStep('schema', 'failed', 'Missing required fields (satellites, tracks, or results)');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 3: Observation ID references
+      updateStep('references', 'checking');
+      await delay(350);
+
+      // Check if there are any satellite/track entries with IDs
+      const satellites = (data.satellites || data.tracks || data.results || data.ucds) as unknown[];
+      const hasValidReferences = Array.isArray(satellites) && satellites.length > 0;
+
+      if (hasValidReferences) {
+        updateStep('references', 'passed');
+      } else {
+        updateStep('references', 'failed', 'No valid satellite or track entries found');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 4: State vector reasonableness
+      updateStep('state', 'checking');
+      await delay(500);
+
+      // Check if state vectors exist and have reasonable values
+      let stateVectorValid = true;
+      if (Array.isArray(satellites)) {
+        for (const sat of satellites) {
+          const s = sat as Record<string, unknown>;
+          const state = s.state || s.state_vector || s.position;
+          if (state) {
+            const stateArr = state as number[];
+            // Basic check: state values shouldn't be NaN or Infinity
+            if (Array.isArray(stateArr)) {
+              const hasInvalidValues = stateArr.some(
+                (v) => typeof v !== 'number' || !Number.isFinite(v)
+              );
+              if (hasInvalidValues) {
+                stateVectorValid = false;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (stateVectorValid) {
+        updateStep('state', 'passed');
+      } else {
+        updateStep('state', 'failed', 'State vectors contain invalid values');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 5: Covariance check
+      updateStep('covariance', 'checking');
+      await delay(400);
+
+      // Check if covariance matrices exist (optional but check format if present)
+      let covarianceValid = true;
+      if (Array.isArray(satellites)) {
+        for (const sat of satellites) {
+          const s = sat as Record<string, unknown>;
+          const cov = s.covariance || s.cov;
+          if (cov) {
+            // Basic check: covariance should be an array or matrix
+            if (!Array.isArray(cov)) {
+              covarianceValid = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (covarianceValid) {
+        updateStep('covariance', 'passed');
+      } else {
+        updateStep('covariance', 'failed', 'Invalid covariance matrix format');
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
+      updateStep('format', 'failed', 'Error reading file');
     }
 
     setIsValidating(false);
@@ -92,7 +197,7 @@ export function SubmitPage() {
     if (acceptedFiles.length > 0) {
       const uploadedFile = acceptedFiles[0];
       setFile(uploadedFile);
-      runValidation();
+      runValidation(uploadedFile);
     }
   };
 
@@ -116,7 +221,7 @@ export function SubmitPage() {
     if (!file || !datasetId || !algorithmName || !version) return;
 
     try {
-      const result = await createSubmission.mutateAsync({
+      await createSubmission.mutateAsync({
         datasetId,
         algorithmName,
         version,
@@ -226,18 +331,23 @@ export function SubmitPage() {
                 <h4 className="font-medium">Validation Status</h4>
                 <div className="space-y-2">
                   {validationSteps.map((step) => (
-                    <div key={step.id} className="flex items-center gap-3">
-                      {getStepIcon(step.status)}
-                      <span
-                        className={cn(
-                          'text-sm',
-                          step.status === 'passed' && 'text-green-600',
-                          step.status === 'failed' && 'text-red-600',
-                          step.status === 'pending' && 'text-muted-foreground'
+                    <div key={step.id} className="flex items-start gap-3">
+                      <div className="mt-0.5">{getStepIcon(step.status)}</div>
+                      <div>
+                        <span
+                          className={cn(
+                            'text-sm',
+                            step.status === 'passed' && 'text-green-600',
+                            step.status === 'failed' && 'text-red-600',
+                            step.status === 'pending' && 'text-muted-foreground'
+                          )}
+                        >
+                          {step.label}
+                        </span>
+                        {step.status === 'failed' && step.message && (
+                          <p className="text-xs text-red-500 mt-0.5">{step.message}</p>
                         )}
-                      >
-                        {step.label}
-                      </span>
+                      </div>
                     </div>
                   ))}
                 </div>

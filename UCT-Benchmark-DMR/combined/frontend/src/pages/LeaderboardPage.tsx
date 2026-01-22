@@ -22,7 +22,7 @@ import {
   Legend,
 } from 'recharts';
 import { useLeaderboard, useLeaderboardHistory } from '@/hooks/useLeaderboard';
-import type { LeaderboardEntry, OrbitalRegime, DataTier, LeaderboardFilters } from '@/types';
+import type { LeaderboardFilters } from '@/types';
 
 function getRankIcon(rank: number) {
   switch (rank) {

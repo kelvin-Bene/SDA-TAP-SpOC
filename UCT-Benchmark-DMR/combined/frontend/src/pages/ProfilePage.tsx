@@ -19,16 +19,25 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLeaderboardStatistics } from '@/hooks/useLeaderboard';
+import { useSubmissions } from '@/hooks/useSubmissions';
 
 export function ProfilePage() {
   const { toast } = useToast();
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
 
-  const mockApiKey = 'sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  // Fetch real stats from API
+  const { data: stats } = useLeaderboardStatistics();
+  const { data: submissions = [] } = useSubmissions();
+
+  // Calculate user stats from real data
+  const totalSubmissions = submissions.length;
+
+  const placeholderApiKey = 'sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
   const handleCopyApiKey = () => {
-    navigator.clipboard.writeText(mockApiKey);
+    navigator.clipboard.writeText(placeholderApiKey);
     setCopiedKey(true);
     toast({
       title: 'API Key Copied',
@@ -109,15 +118,15 @@ export function ProfilePage() {
               <div className="grid gap-4 sm:grid-cols-3 pt-4 border-t">
                 <div>
                   <p className="text-sm text-muted-foreground">Member Since</p>
-                  <p className="font-medium">January 2025</p>
+                  <p className="font-medium">January 2026</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Submissions</p>
-                  <p className="font-medium">12</p>
+                  <p className="font-medium">{totalSubmissions}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Best Rank</p>
-                  <p className="font-medium">#3</p>
+                  <p className="text-sm text-muted-foreground">Best Score</p>
+                  <p className="font-medium">{stats?.bestScore ? stats.bestScore.toFixed(4) : '--'}</p>
                 </div>
               </div>
 
@@ -155,7 +164,7 @@ export function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-muted px-3 py-2 rounded font-mono text-sm">
-                    {showApiKey ? mockApiKey : '•'.repeat(40)}
+                    {showApiKey ? placeholderApiKey : '•'.repeat(40)}
                   </code>
                   <Button variant="outline" size="icon" onClick={handleCopyApiKey}>
                     {copiedKey ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -183,18 +192,21 @@ export function ProfilePage() {
 
               <div>
                 <h4 className="font-medium mb-2">API Usage</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  API usage tracking coming soon
+                </p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <div className="rounded-lg border p-3">
                     <p className="text-sm text-muted-foreground">Requests Today</p>
-                    <p className="text-2xl font-bold">142</p>
+                    <p className="text-2xl font-bold text-muted-foreground">--</p>
                   </div>
                   <div className="rounded-lg border p-3">
                     <p className="text-sm text-muted-foreground">This Month</p>
-                    <p className="text-2xl font-bold">2,847</p>
+                    <p className="text-2xl font-bold text-muted-foreground">--</p>
                   </div>
                   <div className="rounded-lg border p-3">
                     <p className="text-sm text-muted-foreground">Rate Limit</p>
-                    <p className="text-2xl font-bold">1000/hr</p>
+                    <p className="text-2xl font-bold">Unlimited</p>
                   </div>
                 </div>
               </div>

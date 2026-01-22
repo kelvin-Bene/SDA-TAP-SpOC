@@ -3,9 +3,23 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentSubmissions } from '@/components/dashboard/RecentSubmissions';
 import { LeaderboardSnapshot } from '@/components/dashboard/LeaderboardSnapshot';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { OrbitViewer } from '@/components/cesium/OrbitViewer';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 
 export function DashboardPage() {
+  const { data: stats, isLoading } = useDashboardStats();
+
+  // Format values for display
+  const rankDisplay = stats?.topRank ? `#${stats.topRank}` : '--';
+  const submissionsDisplay = stats?.totalSubmissions?.toString() || '0';
+  const processingSubtitle = stats?.processingCount
+    ? `${stats.processingCount} processing`
+    : 'none processing';
+  const f1Display = stats?.bestF1Score ? stats.bestF1Score.toFixed(4) : '--';
+  const f1Subtitle = stats?.bestDatasetName || 'No submissions yet';
+  const improvementDisplay = stats?.improvementVsAverage
+    ? `${stats.improvementVsAverage > 0 ? '+' : ''}${stats.improvementVsAverage}%`
+    : '--';
+
   return (
     <div className="space-y-8">
       {/* Welcome Header */}
@@ -19,29 +33,28 @@ export function DashboardPage() {
       {/* Stat Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Your Rank"
-          value="#3"
-          change={2}
-          changeLabel="this week"
+          title="Top Rank"
+          value={isLoading ? '...' : rankDisplay}
+          subtitle={stats?.topAlgorithmName || 'Loading...'}
           icon={<Trophy className="h-5 w-5" />}
         />
         <StatCard
           title="Submissions"
-          value="7"
-          subtitle="2 processing"
+          value={isLoading ? '...' : submissionsDisplay}
+          subtitle={processingSubtitle}
           icon={<FileText className="h-5 w-5" />}
         />
         <StatCard
           title="Best F1-Score"
-          value="0.9234"
-          subtitle="LEO-T2 dataset"
+          value={isLoading ? '...' : f1Display}
+          subtitle={f1Subtitle}
           icon={<Target className="h-5 w-5" />}
         />
         <StatCard
-          title="Improvement"
-          value="+4.2%"
-          change={4.2}
-          changeLabel="vs. previous"
+          title="vs. Average"
+          value={isLoading ? '...' : improvementDisplay}
+          change={stats?.improvementVsAverage || 0}
+          changeLabel="above average"
           icon={<TrendingUp className="h-5 w-5" />}
         />
       </div>

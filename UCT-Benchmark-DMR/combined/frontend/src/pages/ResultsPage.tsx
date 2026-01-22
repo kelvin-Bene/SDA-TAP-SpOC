@@ -95,30 +95,59 @@ export function ResultsPage() {
     );
   }
 
-  // Calculate changes (mock previous values for now)
-  const previousF1Score = results.f1Score > 0 ? results.f1Score * 0.95 : 0;
-  const f1Change = results.f1Score - previousF1Score;
-  const previousRank = results.previousRank || results.rank + 2;
-  const rankChange = previousRank - (results.rank || 0);
+  // Only show previous comparisons when real data exists
+  const hasPreviousRank = results.previousRank !== undefined && results.previousRank !== null;
+  const rankChange = hasPreviousRank ? (results.previousRank as number) - (results.rank || 0) : 0;
 
-  // Mock chart data based on actual results
+  // Generate distribution data based on actual metrics
+  // These are estimated distributions - actual histogram data would come from raw_results
+  const totalSamples = results.truePositives + results.falsePositives;
+  const raRms = results.raResidualRmsArcsec || 1;
+  const decRms = results.decResidualRmsArcsec || 1;
+
+  // Generate Gaussian-like distribution based on RMS values
+  const generateGaussianBins = (rms: number, samples: number) => {
+    const sigma = rms;
+    const bins = [-3, -2, -1, 0, 1, 2, 3];
+    return bins.map((bin) => {
+      const density = Math.exp(-0.5 * Math.pow(bin / (sigma || 1), 2));
+      return Math.round(samples * density * 0.15);
+    });
+  };
+
+  const raBins = generateGaussianBins(raRms, totalSamples);
+  const decBins = generateGaussianBins(decRms, totalSamples);
+
   const residualData = [
-    { range: '-3', ra: 2, dec: 1 },
-    { range: '-2', ra: 8, dec: 5 },
-    { range: '-1', ra: 25, dec: 22 },
-    { range: '0', ra: 45, dec: 48 },
-    { range: '1', ra: 28, dec: 30 },
-    { range: '2', ra: 10, dec: 8 },
-    { range: '3', ra: 3, dec: 2 },
+    { range: '-3', ra: raBins[0], dec: decBins[0] },
+    { range: '-2', ra: raBins[1], dec: decBins[1] },
+    { range: '-1', ra: raBins[2], dec: decBins[2] },
+    { range: '0', ra: raBins[3], dec: decBins[3] },
+    { range: '1', ra: raBins[4], dec: decBins[4] },
+    { range: '2', ra: raBins[5], dec: decBins[5] },
+    { range: '3', ra: raBins[6], dec: decBins[6] },
   ];
 
+  // Generate position error distribution based on actual position RMS
+  const posRms = results.positionRmsKm || 1;
+  const generateErrorDistribution = (rms: number, samples: number) => {
+    // Chi distribution approximation for 3D position errors
+    const ranges = [0.5, 1.5, 2.5, 3.5, 4.5, 6];
+    return ranges.map((r) => {
+      const x = r / rms;
+      const density = x * x * Math.exp(-0.5 * x * x);
+      return Math.max(1, Math.round(samples * density * 0.3));
+    });
+  };
+
+  const errorBins = generateErrorDistribution(posRms, results.truePositives);
   const positionErrorData = [
-    { range: '0-1', count: Math.round(results.truePositives * 0.3) },
-    { range: '1-2', count: Math.round(results.truePositives * 0.4) },
-    { range: '2-3', count: Math.round(results.truePositives * 0.15) },
-    { range: '3-4', count: Math.round(results.truePositives * 0.1) },
-    { range: '4-5', count: Math.round(results.truePositives * 0.04) },
-    { range: '5+', count: Math.round(results.truePositives * 0.01) },
+    { range: '0-1', count: errorBins[0] },
+    { range: '1-2', count: errorBins[1] },
+    { range: '2-3', count: errorBins[2] },
+    { range: '3-4', count: errorBins[3] },
+    { range: '4-5', count: errorBins[4] },
+    { range: '5+', count: errorBins[5] },
   ];
 
   return (
@@ -158,15 +187,9 @@ export function ResultsPage() {
               <div>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide">F1-Score</p>
                 <p className="text-3xl font-bold mt-1">{results.f1Score.toFixed(4)}</p>
-                {f1Change !== 0 && (
-                  <div className={cn(
-                    'flex items-center gap-1 text-sm mt-1',
-                    f1Change > 0 ? 'text-green-600' : 'text-red-600'
-                  )}>
-                    {f1Change > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {f1Change > 0 ? '+' : ''}{(f1Change * 100).toFixed(1)}% vs previous
-                  </div>
-                )}
+                <p className="text-sm text-muted-foreground mt-1">
+                  {(results.f1Score * 100).toFixed(1)}% accuracy
+                </p>
               </div>
               <Target className="h-8 w-8 text-primary" />
             </div>
@@ -207,11 +230,17 @@ export function ResultsPage() {
               <div>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide">Rank</p>
                 <p className="text-3xl font-bold mt-1">#{results.rank || '-'}</p>
-                {rankChange > 0 && (
-                  <div className="flex items-center gap-1 text-sm mt-1 text-green-600">
-                    <TrendingUp className="h-4 w-4" />
-                    +{rankChange} positions
+                {hasPreviousRank && rankChange !== 0 && (
+                  <div className={cn(
+                    'flex items-center gap-1 text-sm mt-1',
+                    rankChange > 0 ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    {rankChange > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {rankChange > 0 ? '+' : ''}{rankChange} positions
                   </div>
+                )}
+                {!hasPreviousRank && (
+                  <p className="text-sm text-muted-foreground mt-1">on this dataset</p>
                 )}
               </div>
             </div>
