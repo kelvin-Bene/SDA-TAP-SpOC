@@ -91,7 +91,7 @@ The discrepancy exists because:
 
 **Actual structure after reorganization:**
 ```
-├── kelvin-local-work/          # Active development
+├── UCT-Benchmark-DMR/combined/          # Active development
 ├── documentation/              # Provided docs (moved)
 │   ├── UCT Benchmarking/
 │   └── SDA x SpOC UCT Processing/
@@ -117,18 +117,18 @@ The discrepancy exists because:
 |----------|---------------------|
 | `docs/ARCHITECTURE.md` | `uct-benchmark-refactor-joncline/uct_benchmark/` |
 | `docs/README.md` | `uct-benchmark-refactor-joncline/` |
-| `kelvin-local-work/README.md` | `kelvin-local-work/uct_benchmark/` |
+| `UCT-Benchmark-DMR/combined/README.md` | `UCT-Benchmark-DMR/combined/uct_benchmark/` |
 
 ### Resolution
 
 **Authoritative Answer:** The primary development codebase is now at:
 ```
-kelvin-local-work/uct_benchmark/
+UCT-Benchmark-DMR/combined/uct_benchmark/
 ```
 
 The `external-code/uct-benchmark-refactor-joncline/` is a reference copy of the upstream refactored branch.
 
-**Action Required:** Update `docs/ARCHITECTURE.md` and `docs/README.md` to reference `kelvin-local-work/uct_benchmark/`.
+**Action Required:** Update `docs/ARCHITECTURE.md` and `docs/README.md` to reference `UCT-Benchmark-DMR/combined/uct_benchmark/`.
 
 ---
 
@@ -232,7 +232,7 @@ These are different things. The project currently uses local files, which works 
 
 | Location | Package Name |
 |----------|--------------|
-| `kelvin-local-work/pyproject.toml` | `uct_benchmark` |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | `uct_benchmark` |
 | `external-code/master/pyproject.toml` | `uctbenchmark` |
 | `external-code/jovan-linuxTesting/pyproject.toml` | `uctbenchmark` |
 
@@ -250,7 +250,7 @@ These are different things. The project currently uses local files, which works 
 
 Documentation exists in multiple locations:
 - `docs/` - Root level documentation
-- `kelvin-local-work/docs/docs/` - Kelvin's documentation
+- `UCT-Benchmark-DMR/combined/docs/docs/` - Kelvin's documentation
 - `planning/` - Planning documents
 - `documentation/` - Provided documentation
 
@@ -261,7 +261,7 @@ Documentation exists in multiple locations:
 | Location | Purpose | Owner |
 |----------|---------|-------|
 | `docs/` | Technical reference docs (Architecture, Pipeline, etc.) | Shared |
-| `kelvin-local-work/docs/docs/` | Audit reports, issues backlog, team split analysis | Kelvin |
+| `UCT-Benchmark-DMR/combined/docs/docs/` | Audit reports, issues backlog, team split analysis | Kelvin |
 | `planning/` | Roadmaps, team plans, project status | Shared |
 | `documentation/` | Provided PDFs and legacy docs (read-only) | N/A |
 

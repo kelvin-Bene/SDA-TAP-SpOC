@@ -46,7 +46,7 @@ This explains why the current implementation covers the full pipeline (labelling
 
 | Location | Package Name | Version |
 |----------|--------------|---------|
-| `kelvin-local-work/pyproject.toml` | `uct_benchmark` (underscore) | 0.0.1 |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | `uct_benchmark` (underscore) | 0.0.1 |
 | `external-code/master/pyproject.toml` | `uctbenchmark` (no underscore) | 0.0.3 |
 | `external-code/jovan-linuxTesting/pyproject.toml` | `uctbenchmark` (no underscore) | 0.0.4 |
 
@@ -79,7 +79,7 @@ Note: The README in `jovan-linuxTesting` has the correct capitalization, but the
 
 | Location | Authors Field |
 |----------|---------------|
-| `kelvin-local-work/pyproject.toml` | "UCT Benchmark Team, SDA TAP Lab Cohort 7" |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | "UCT Benchmark Team, SDA TAP Lab Cohort 7" |
 | `external-code/jovan-linuxTesting/pyproject.toml` | "Jovan Bergh" |
 | `external-code/master/pyproject.toml` | "Jovan Bergh" |
 
@@ -91,8 +91,8 @@ Note: The README in `jovan-linuxTesting` has the correct capitalization, but the
 
 | Location | Stated Requirement |
 |----------|-------------------|
-| `kelvin-local-work/INSTALLATION.md` | Python 3.9-3.12 (3.12 recommended) |
-| `kelvin-local-work/pyproject.toml` | `~=3.12.0` (3.12 ONLY) |
+| `UCT-Benchmark-DMR/combined/INSTALLATION.md` | Python 3.9-3.12 (3.12 recommended) |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | `~=3.12.0` (3.12 ONLY) |
 | `external-code/jovan-linuxTesting/README.md` | Python >=3.12 |
 
 **Issue:** INSTALLATION.md claims 3.9+ support, but pyproject.toml restricts to 3.12 only.
@@ -150,7 +150,7 @@ if [ -d "data" ]; then   # Space required
 
 ### 2.7 Dependency Differences (MEDIUM)
 
-**`kelvin-local-work` has but others don't:**
+**`UCT-Benchmark-DMR/combined` has but others don't:**
 - `solara>=1.51.1` (Web GUI)
 - `pyarrow>=22.0.0` (Data format)
 
@@ -168,7 +168,7 @@ if [ -d "data" ]; then   # Space required
 
 ### 2.8 Project Structure Differences (MEDIUM)
 
-**`kelvin-local-work` structure:**
+**`UCT-Benchmark-DMR/combined` structure:**
 ```
 uct_benchmark/
 ├── api/
@@ -260,7 +260,7 @@ The following `.docx` files exist but couldn't be analyzed in this audit:
 ### Short-term Actions (MEDIUM Priority):
 
 6. **Clarify team responsibilities** with mentors - is this team doing full pipeline or just labelling/storage?
-7. **Align dependencies** between kelvin-local-work and external branches
+7. **Align dependencies** between UCT-Benchmark-DMR/combined and external branches
 8. **Standardize author attribution** to team name
 9. **Create a CONTRIBUTING.md** with naming conventions
 
@@ -281,8 +281,8 @@ The following `.docx` files exist but couldn't be analyzed in this audit:
 - `documentation/UCT Benchmarking/Learning Docs/A common task framework for testing and evaluation at the Space Domain Awareness.pdf`
 
 ### Markdown/Text Files:
-- `kelvin-local-work/README.md`
-- `kelvin-local-work/INSTALLATION.md`
+- `UCT-Benchmark-DMR/combined/README.md`
+- `UCT-Benchmark-DMR/combined/INSTALLATION.md`
 - `external-code/master/README.md`
 - `external-code/jovan-linuxTesting/README.md`
 - `documentation/SDA x SpOC UCT Processing/Documentation(s)/Jovan Documentation/README.md`
@@ -290,7 +290,7 @@ The following `.docx` files exist but couldn't be analyzed in this audit:
 - `documentation/UCT Benchmarking/Documentation/_readMe.txt`
 
 ### Configuration Files:
-- `kelvin-local-work/pyproject.toml`
+- `UCT-Benchmark-DMR/combined/pyproject.toml`
 - `external-code/master/pyproject.toml`
 - `external-code/jovan-linuxTesting/pyproject.toml`
 - `external-code/jovan-linuxTesting/setup.sh`

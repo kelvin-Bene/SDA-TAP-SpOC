@@ -51,7 +51,7 @@ A standardized methodology (based on Donoho's 2017 "50 Years of Data Science" pa
 
 ```
 SDA-TAP-SpOC/
-├── kelvin-local-work/             # Primary active development
+├── UCT-Benchmark-DMR/combined/             # Primary active development
 │   ├── uct_benchmark/             # Main Python package
 │   │   ├── api/                   # API integrations (UDL, Space-Track, etc.)
 │   │   ├── data/                  # Data manipulation and windowing
@@ -96,14 +96,15 @@ SDA-TAP-SpOC/
 
 ## Current Status (January 2026)
 
-**Overall Progress: ~45% toward final Web-hosted CTF platform**
+**Overall Progress: ~60% toward final Web-hosted CTF platform**
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Foundation (APIs, Evaluation, Propagators) | Complete | 90% |
-| Data Pipeline (T3/T4, Event Labelling, Database) | In Progress | 25% |
-| Web Platform (UI, Backend, Auth) | Not Started | 0% |
-| Algorithm Framework (Submission, Leaderboard) | Not Started | 0% |
+| Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
+| Data Pipeline (T1-T3 Downsampling/Simulation) | Complete | 85% |
+| Database (DuckDB) | Complete | 100% |
+| Web Platform (React UI, FastAPI Backend) | Complete | 95% |
+| Algorithm Framework (Submission, Leaderboard) | In Progress | 60% |
 
 **Completed:**
 - API integrations (UDL, Space-Track, CelesTrak, ESA DiscoWeb)
@@ -111,16 +112,20 @@ SDA-TAP-SpOC/
 - Dataset categorization system (tiers T1-T5)
 - Evaluation metrics (binary, state, residual)
 - Orbit propagators (Monte Carlo, Ephemeris, TLE)
+- T1/T2 downsampling pipeline
+- T3 observation simulation
+- DuckDB database with repository pattern
+- React + Vite + shadcn/ui frontend
+- FastAPI backend with REST endpoints
 
 **In Progress:**
-- T3/T4 tier processing (observation/object simulation)
+- T4 tier processing (synthetic object simulation)
 - Event labelling system (launch, maneuver, proximity detection)
+- Leaderboard ranking algorithm
 
 **Not Started:**
-- Centralized database
-- Web UI (NextJS/React frontend)
-- Algorithm submission system
-- Leaderboard
+- User authentication (OAuth/JWT)
+- Full production deployment
 
 ## Contributors
 

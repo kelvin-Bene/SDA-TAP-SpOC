@@ -128,7 +128,7 @@ if tierThreshold in ['T1', 'T2']:
 
 ### Step 3: Create Standalone Test
 
-**File:** `kelvin-local-work/test_downsampling.py`
+**File:** `UCT-Benchmark-DMR/combined/test_downsampling.py`
 
 Create a test that:
 1. Loads sample data from `src/data/`

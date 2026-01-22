@@ -217,7 +217,7 @@ Before splitting, the teams should consolidate the three existing branches:
 | `jovan-linuxTesting` | Merge features | DuckDB, Polars, setup automation |
 | `uct-benchmark-refactor-joncline` | **PRIMARY** | Best architecture, Solara UI |
 
-**Recommended:** Use `kelvin-local-work` as the unified codebase, which is based on the refactored version.
+**Recommended:** Use `UCT-Benchmark-DMR/combined` as the unified codebase, which is based on the refactored version.
 
 ---
 

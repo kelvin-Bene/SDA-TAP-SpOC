@@ -10,9 +10,19 @@ nav:
     - Architecture: technical/ARCHITECTURE.md
     - Pipeline: technical/PIPELINE.md
     - Data Sources: technical/DATA_SOURCES.md
+    - Database: technical/DATABASE.md
+    - Frontend: technical/FRONTEND.md
+    - Backend API: technical/BACKEND_API.md
     - Configuration: technical/CONFIGURATION.md
     - Evaluation Metrics: technical/EVALUATION_METRICS.md
+    - Validation Suite: technical/VALIDATION.md
     - Team Roles: technical/TEAM_ROLES.md
+  - User Guides:
+    - Overview: guides/README.md
+    - Orekit Setup: guides/OREKIT_SETUP.md
+    - Dataset Generation: guides/DATASET_GENERATION.md
+    - Evaluation Guide: guides/EVALUATION_GUIDE.md
+    - Web UI Guide: guides/UI_GUIDE.md
   - Project Planning:
     - Overview: planning/README.md
     - V1 Fixes Master Plan: planning/V1_FIXES_MASTER_PLAN.md
@@ -23,10 +33,16 @@ nav:
     - SDA TAP Lab Plan: planning/SDA_TAP_LAB_PLAN.md
     - SpOC Plan: planning/SPOC_PLAN.md
   - Project Reports:
+    - Overview: reports/README.md
+    - Changelog: reports/CHANGELOG.md
     - Team Split Readiness: reports/TEAM_SPLIT_READINESS.md
     - Consistency Audit: reports/CONSISTENCY_AUDIT_REPORT.md
     - Documentation Review: reports/DOCUMENTATION_CONSISTENCY_REVIEW.md
     - Issues Backlog: reports/ISSUES_BACKLOG.md
+  - Reference:
+    - Overview: reference/README.md
+    - Glossary: reference/GLOSSARY.md
+    - Provided Materials: reference/PROVIDED_MATERIALS_INDEX.md
 
 theme:
   name: material
@@ -34,4 +50,36 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
     - toc.integrate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search

@@ -27,9 +27,22 @@ Detailed documentation about the codebase and system architecture.
 - [Architecture](technical/ARCHITECTURE.md) - Code structure and modules
 - [Pipeline](technical/PIPELINE.md) - Data flow documentation
 - [Data Sources](technical/DATA_SOURCES.md) - API integrations
+- [Database](technical/DATABASE.md) - DuckDB storage architecture
+- [Frontend](technical/FRONTEND.md) - React web interface
+- [Backend API](technical/BACKEND_API.md) - FastAPI integration
 - [Configuration](technical/CONFIGURATION.md) - System settings
 - [Evaluation Metrics](technical/EVALUATION_METRICS.md) - Scoring algorithms
+- [Validation Suite](technical/VALIDATION.md) - Testing framework
 - [Team Roles](technical/TEAM_ROLES.md) - Responsibilities breakdown
+
+### User Guides
+How-to guides for common tasks.
+
+- [Getting Started](getting-started.md) - Installation and setup
+- [Orekit Setup](guides/OREKIT_SETUP.md) - Windows Orekit configuration
+- [Dataset Generation](guides/DATASET_GENERATION.md) - Creating datasets
+- [Evaluation Guide](guides/EVALUATION_GUIDE.md) - Running evaluations
+- [Web UI Guide](guides/UI_GUIDE.md) - Using the web interface
 
 ### Project Planning
 Project management and planning documents.
@@ -43,44 +56,62 @@ Project management and planning documents.
 ### Project Reports
 Analysis reports and audits.
 
+- [Changelog](reports/CHANGELOG.md) - Version history
 - [Team Split Readiness](reports/TEAM_SPLIT_READINESS.md) - What's needed before teams split
 - [Consistency Audit](reports/CONSISTENCY_AUDIT_REPORT.md) - Codebase review findings
 - [Documentation Review](reports/DOCUMENTATION_CONSISTENCY_REVIEW.md) - Doc consistency check
 - [Issues Backlog](reports/ISSUES_BACKLOG.md) - Known issues to address
 
+### Reference
+Reference materials and glossaries.
+
+- [Glossary](reference/GLOSSARY.md) - UCT/SDA terminology
+- [Provided Materials](reference/PROVIDED_MATERIALS_INDEX.md) - Index of PDFs and documents
+
 ## Repository Structure
 
 ```
 SDA-TAP-SpOC/
-├── kelvin-local-work/      # Active development codebase
-├── generated-docs/         # This documentation (you are here)
-├── provided-materials/     # Reference materials provided to us
-└── reference-code/         # Code from other branches
+├── UCT-Benchmark-DMR/combined/  # Active development codebase
+├── generated-docs/              # This documentation (you are here)
+├── provided-materials/          # Reference materials provided to us
+└── reference-code/              # Code from other branches
 ```
 
 ## Pipeline Overview
 
-The project implements a 3-phase pipeline:
+The project implements a tiered pipeline system:
 
-1. **Phase 1 - Create_Dataset.py**: Dataset creation from UDL data
-2. **Phase 2 - MainMVP.py**: UCTP algorithm simulation
-3. **Phase 3 - Evaluation.py**: Performance evaluation and metrics
+| Tier | Processing | Description |
+|------|------------|-------------|
+| T1 | Light Downsampling | Real data with optional thinning |
+| T2 | Heavy Downsampling | Real data with significant gaps |
+| T3 | Observation Simulation | Fill gaps with simulated observations |
+| T4 | Object Simulation | Synthetic satellites (not implemented) |
+
+### Core Components
+
+1. **Create_Dataset.py**: Dataset creation from UDL data
+2. **MainMVP.py**: UCTP algorithm simulation
+3. **Evaluation.py**: Performance evaluation and metrics
 
 ## Current Status
 
-**Overall Progress: ~45%**
+**Overall Progress: ~60%**
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Foundation (APIs, Evaluation, Propagators) | Complete | 90% |
-| Data Pipeline (T3/T4, Event Labelling, Database) | In Progress | 25% |
-| Web Platform (UI, Backend, Auth) | Not Started | 0% |
+| Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
+| Data Pipeline (T1-T3, Downsampling, Database) | Complete | 85% |
+| Web Platform (UI, Backend, Auth) | Complete | 95% |
+
+See [Project Status](planning/PROJECT_STATUS.md) for detailed breakdown.
 
 ## Quick Start
 
 1. Clone the repository
-2. Navigate to `kelvin-local-work/`
-3. Follow the [Installation Instructions](getting-started.md)
+2. Navigate to `UCT-Benchmark-DMR/combined/`
+3. Follow the [Getting Started Guide](getting-started.md)
 4. Review the [Architecture](technical/ARCHITECTURE.md)
 
 ## Framework Reference

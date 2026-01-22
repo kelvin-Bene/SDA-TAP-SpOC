@@ -1,13 +1,9 @@
-> **Note:** This documentation has moved to `generated-docs/docs/`.
-> Please see [generated-docs/docs/technical/DATABASE.md](../../../generated-docs/docs/technical/DATABASE.md) for the latest version.
-
-# Database Architecture Documentation
+# Database Architecture
 
 ## UCT Benchmark - Data Storage Layer
 
 **Version:** 1.0.0
-**Date:** 2026-01-19
-**Author:** Blake Mister
+**Updated:** January 2026
 
 ---
 
@@ -103,7 +99,6 @@ This document describes the database and data storage architecture implemented f
        │    ┌──────────────────┐ ┌──────────────────┐   │
        │    │    datasets      │ │     events       │   │
        │    ├──────────────────┤ ├──────────────────┤   │
-       │    │ id (PK)          │ │ id (PK)          │   │
        └────│ name             │ │ event_type_id    │───┘
             │ code             │ │ primary_sat_no   │
             │ tier             │ │ confidence       │
@@ -380,3 +375,11 @@ def main():
 - Query caching layer
 - Automated daily backups
 - Real-time sync capabilities
+
+---
+
+## Related Documentation
+
+- [Architecture Overview](ARCHITECTURE.md)
+- [Backend API](BACKEND_API.md)
+- [Pipeline](PIPELINE.md)

@@ -1,3 +1,6 @@
+> **Note:** This documentation has moved to `generated-docs/docs/`.
+> Please see [generated-docs/docs/getting-started.md](../../../generated-docs/docs/getting-started.md) for the latest version.
+
 # Installation Guide
 
 This guide provides step-by-step instructions for setting up the UCT (Uncorrelated Track) Benchmark framework for satellite tracking system evaluation.

@@ -1,15 +1,12 @@
-> **Note:** This documentation has moved to `generated-docs/docs/`.
-> Please see [generated-docs/docs/technical/BACKEND_API.md](../../../generated-docs/docs/technical/BACKEND_API.md) for the latest version.
-
-# SpOC API Integration Guide
+# Backend API Documentation
 
 ## Overview
 
-This document describes the API integration patterns used in the SpOC frontend, including the HTTP client configuration, React Query hooks, and data types.
+The UCT Benchmark backend is built with FastAPI and provides RESTful endpoints for dataset management, algorithm submissions, and evaluation results.
 
 ## API Client Configuration
 
-### Axios Setup
+### Axios Setup (Frontend)
 
 ```typescript
 // src/api/client.ts
@@ -46,43 +43,54 @@ apiClient.interceptors.response.use(
 );
 ```
 
-### API Endpoints
+## API Endpoints
 
-```typescript
-export const api = {
-  // Datasets
-  getDatasets: (params?) => apiClient.get('/datasets', { params }),
-  getDataset: (id) => apiClient.get(`/datasets/${id}`),
-  generateDataset: (config) => apiClient.post('/datasets/generate', config),
-  downloadDataset: (id) => apiClient.get(`/datasets/${id}/download`, { responseType: 'blob' }),
+### Datasets
 
-  // Submissions
-  getSubmissions: (params?) => apiClient.get('/submissions', { params }),
-  getSubmission: (id) => apiClient.get(`/submissions/${id}`),
-  createSubmission: (formData) => apiClient.post('/submissions', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/datasets` | List datasets with optional filters |
+| GET | `/api/v1/datasets/:id` | Get single dataset |
+| POST | `/api/v1/datasets/generate` | Generate new dataset |
+| GET | `/api/v1/datasets/:id/download` | Download dataset file |
 
-  // Results
-  getResults: (submissionId) => apiClient.get(`/results/${submissionId}`),
-  exportResults: (submissionId, format) => apiClient.get(`/results/${submissionId}/export`, {
-    params: { format },
-    responseType: 'blob',
-  }),
+### Submissions
 
-  // Leaderboard
-  getLeaderboard: (params?) => apiClient.get('/leaderboard', { params }),
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/submissions` | List user submissions |
+| GET | `/api/v1/submissions/:id` | Get submission details |
+| POST | `/api/v1/submissions` | Create submission (multipart form) |
 
-  // User
-  getCurrentUser: () => apiClient.get('/users/me'),
-  updateProfile: (data) => apiClient.patch('/users/me', data),
+### Results
 
-  // Auth
-  login: (credentials) => apiClient.post('/auth/login', credentials),
-  logout: () => apiClient.post('/auth/logout'),
-  refreshToken: () => apiClient.post('/auth/refresh'),
-};
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/results/:submissionId` | Get evaluation results |
+| GET | `/api/v1/results/:submissionId/export` | Export results (PDF/CSV/JSON) |
+
+### Leaderboard
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/leaderboard` | Get rankings with optional filters |
+
+### Auth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/auth/login` | Login with email/password |
+| POST | `/api/v1/auth/logout` | Logout |
+| POST | `/api/v1/auth/refresh` | Refresh JWT token |
+
+### Users
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/users/me` | Get current user profile |
+| PATCH | `/api/v1/users/me` | Update profile |
+
+---
 
 ## React Query Hooks
 
@@ -128,24 +136,6 @@ export function useGenerateDataset() {
       queryClient.invalidateQueries({ queryKey: ['datasets'] });
     },
   });
-}
-```
-
-**Usage:**
-
-```tsx
-function DatasetBrowserPage() {
-  const [filters, setFilters] = useState<DatasetFilters>({});
-  const { data: datasets, isLoading, error } = useDatasets(filters);
-
-  if (isLoading) return <LoadingSkeleton />;
-  if (error) return <ErrorMessage error={error} />;
-
-  return (
-    <DatasetGrid>
-      {datasets?.map(d => <DatasetCard key={d.id} dataset={d} />)}
-    </DatasetGrid>
-  );
 }
 ```
 
@@ -200,27 +190,6 @@ export function useResults(submissionId: string) {
 }
 ```
 
-**Usage:**
-
-```tsx
-function SubmitPage() {
-  const { mutate: createSubmission, isPending } = useCreateSubmission();
-
-  const handleSubmit = (data: SubmissionForm) => {
-    createSubmission(data, {
-      onSuccess: () => {
-        navigate('/submit/my-submissions');
-      },
-      onError: (error) => {
-        toast({ variant: 'destructive', title: 'Submission failed' });
-      },
-    });
-  };
-
-  return <SubmissionForm onSubmit={handleSubmit} isLoading={isPending} />;
-}
-```
-
 ### useLeaderboard
 
 Fetch leaderboard rankings:
@@ -238,6 +207,8 @@ export function useLeaderboard(filters?: LeaderboardFilters) {
   });
 }
 ```
+
+---
 
 ## Type Definitions
 
@@ -365,6 +336,8 @@ export interface LeaderboardFilters {
 }
 ```
 
+---
+
 ## Auth Store (Zustand)
 
 ```typescript
@@ -405,48 +378,50 @@ export const useAuthStore = create<AuthState>()(
 );
 ```
 
-**Usage:**
+---
 
-```tsx
-function Header() {
-  const { user, logout } = useAuthStore();
+## FastAPI Backend Structure
 
-  return (
-    <header>
-      <span>Welcome, {user?.username}</span>
-      <Button onClick={logout}>Logout</Button>
-    </header>
-  );
-}
+```
+backend_api/
+├── __init__.py
+├── main.py           # Application entry point
+├── models/           # Pydantic models
+│   ├── dataset.py
+│   ├── submission.py
+│   └── user.py
+├── routers/          # API route handlers
+│   ├── datasets.py
+│   ├── submissions.py
+│   ├── leaderboard.py
+│   └── auth.py
+├── jobs/             # Background jobs
+│   ├── evaluation.py
+│   └── generation.py
+└── tests/            # API tests
 ```
 
-## Backend API Contract (Expected)
+---
 
-The frontend expects the backend to implement these endpoints:
+## Running the Backend
 
-### Datasets
-- `GET /api/v1/datasets` - List datasets with optional filters
-- `GET /api/v1/datasets/:id` - Get single dataset
-- `POST /api/v1/datasets/generate` - Generate new dataset
-- `GET /api/v1/datasets/:id/download` - Download dataset file
+```bash
+# Navigate to combined directory
+cd UCT-Benchmark-DMR/combined
 
-### Submissions
-- `GET /api/v1/submissions` - List user submissions
-- `GET /api/v1/submissions/:id` - Get submission details
-- `POST /api/v1/submissions` - Create submission (multipart form)
+# Start FastAPI backend
+uvicorn backend_api.main:app --reload --port 8000
 
-### Results
-- `GET /api/v1/results/:submissionId` - Get evaluation results
-- `GET /api/v1/results/:submissionId/export` - Export results (PDF/CSV/JSON)
+# With hot reload for development
+uvicorn backend_api.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-### Leaderboard
-- `GET /api/v1/leaderboard` - Get rankings with optional filters
+Access the API documentation at http://localhost:8000/docs
 
-### Auth
-- `POST /api/v1/auth/login` - Login with email/password
-- `POST /api/v1/auth/logout` - Logout
-- `POST /api/v1/auth/refresh` - Refresh JWT token
+---
 
-### Users
-- `GET /api/v1/users/me` - Get current user profile
-- `PATCH /api/v1/users/me` - Update profile
+## Related Documentation
+
+- [Frontend Architecture](FRONTEND.md)
+- [Database Schema](DATABASE.md)
+- [Architecture Overview](ARCHITECTURE.md)

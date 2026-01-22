@@ -257,7 +257,7 @@ if tierThreshold == 'T3':
 
 ### Step 4: Create Test Script
 
-**File:** `kelvin-local-work/test_simulation.py`
+**File:** `UCT-Benchmark-DMR/combined/test_simulation.py`
 
 Test:
 1. `epochsToSim()` returns correct epochs for sparse data

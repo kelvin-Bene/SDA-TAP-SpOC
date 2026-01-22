@@ -1,11 +1,20 @@
-> **Note:** This documentation has moved to `generated-docs/docs/`.
-> Please see [generated-docs/docs/technical/ARCHITECTURE.md](../../../generated-docs/docs/technical/ARCHITECTURE.md) for the latest version.
-
-# SpOC Frontend Architecture
+# Frontend Architecture
 
 ## Overview
 
 The SpOC frontend follows a modern React architecture with clear separation of concerns, type safety, and scalable patterns.
+
+## Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Framework | React 18 | UI Components |
+| Build Tool | Vite | Fast development/build |
+| Styling | Tailwind CSS | Utility-first CSS |
+| Components | shadcn/ui + Radix | Accessible components |
+| State | React Query + Zustand | Server & client state |
+| Routing | React Router | SPA navigation |
+| Forms | React Hook Form + Zod | Form handling & validation |
 
 ## Architecture Diagram
 
@@ -56,7 +65,7 @@ The SpOC frontend follows a modern React architecture with clear separation of c
                                ▼
                     ┌─────────────────────┐
                     │    Backend API      │
-                    │  (FastAPI - TBD)    │
+                    │     (FastAPI)       │
                     └─────────────────────┘
 ```
 
@@ -195,6 +204,47 @@ export const useAuthStore = create<AuthState>()(
 </Routes>
 ```
 
+## Component Library
+
+The SpOC frontend uses shadcn/ui as the base component library, built on Radix UI primitives with Tailwind CSS styling.
+
+### UI Components
+
+#### Form Components
+- Button (variants: default, outline, ghost, destructive)
+- Input, Textarea
+- Select, Radio Group, Switch, Slider
+
+#### Display Components
+- Card, Badge, Progress, Table, Skeleton
+
+#### Overlay Components
+- Dialog, Dropdown Menu, Tooltip, Toast
+
+#### Navigation Components
+- Tabs, Scroll Area
+
+### Custom Application Components
+
+#### Dashboard Components
+- StatCard - Statistics with trend indicators
+- RecentSubmissions - Submission activity feed
+- LeaderboardSnapshot - Top 5 rankings
+- QuickActions - Primary action buttons
+
+#### Dataset Components
+- DatasetCard - Dataset preview card
+- DatasetFilters - Filter controls
+- DatasetPreviewDialog - Detailed preview modal
+
+#### Layout Components
+- MainLayout - App shell
+- Header - Top navigation
+- Sidebar - Collapsible navigation
+
+#### Visualization Components
+- OrbitViewer - Cesium-based 3D orbit visualization
+
 ## Styling Architecture
 
 ### Tailwind CSS + CSS Variables
@@ -205,13 +255,11 @@ export const useAuthStore = create<AuthState>()(
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
   --primary: 221.2 83.2% 53.3%;
-  /* ... */
 }
 
 .dark {
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
-  /* ... */
 }
 ```
 
@@ -299,15 +347,34 @@ return <DatasetList data={data} />;
 
 ## Performance Considerations
 
-1. **Code Splitting** - Route-based lazy loading (to be implemented)
+1. **Code Splitting** - Route-based lazy loading
 2. **Memoization** - useMemo/useCallback for expensive operations
 3. **Virtual Lists** - For large data tables (TanStack Table)
 4. **Image Optimization** - Lazy loading, proper sizing
 5. **Bundle Analysis** - Vite build analyzer
 
-## Testing Strategy (To Be Implemented)
+## Running the Frontend
 
-1. **Unit Tests** - Vitest for hooks and utilities
-2. **Component Tests** - React Testing Library
-3. **E2E Tests** - Playwright for critical flows
-4. **Visual Regression** - Storybook + Chromatic
+```bash
+# Navigate to frontend directory
+cd UCT-Benchmark-DMR/combined/frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+Access the application at http://localhost:5173
+
+---
+
+## Related Documentation
+
+- [Backend API](BACKEND_API.md)
+- [Architecture Overview](ARCHITECTURE.md)
+- [Getting Started](../getting-started.md)

@@ -15,7 +15,7 @@ This document tracks issues identified during the documentation consistency audi
 
 | Location | Package Name | Version |
 |----------|--------------|---------|
-| `kelvin-local-work/pyproject.toml` | `uct_benchmark` (underscore) | 0.0.1 |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | `uct_benchmark` (underscore) | 0.0.1 |
 | `external-code/master/pyproject.toml` | `uctbenchmark` (no underscore) | 0.0.3 |
 | `external-code/jovan-linuxTesting/pyproject.toml` | `uctbenchmark` (no underscore) | 0.0.4 |
 
@@ -35,8 +35,8 @@ This document tracks issues identified during the documentation consistency audi
 
 | Location | Stated Requirement |
 |----------|-------------------|
-| `kelvin-local-work/INSTALLATION.md` | Python 3.9-3.12 (3.12 recommended) |
-| `kelvin-local-work/pyproject.toml` | `~=3.12.0` (3.12 ONLY) |
+| `UCT-Benchmark-DMR/combined/INSTALLATION.md` | Python 3.9-3.12 (3.12 recommended) |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | `~=3.12.0` (3.12 ONLY) |
 
 **Fix Required:**
 - [ ] Update INSTALLATION.md to state Python 3.12 requirement correctly
@@ -107,7 +107,7 @@ description = "A packaged representation..."
 
 | Location | Authors Field |
 |----------|---------------|
-| `kelvin-local-work/pyproject.toml` | "UCT Benchmark Team, SDA TAP Lab Cohort 7" |
+| `UCT-Benchmark-DMR/combined/pyproject.toml` | "UCT Benchmark Team, SDA TAP Lab Cohort 7" |
 | `external-code/jovan-linuxTesting/pyproject.toml` | "Jovan Bergh" |
 | `external-code/master/pyproject.toml` | "Jovan Bergh" |
 
@@ -121,11 +121,11 @@ description = "A packaged representation..."
 **Status:** Deferred
 **Identified:** January 13, 2026
 
-**`kelvin-local-work` has but others don't:**
+**`UCT-Benchmark-DMR/combined` has but others don't:**
 - `solara>=1.51.1` (Web GUI)
 - `pyarrow>=22.0.0` (Data format)
 
-**`jovan-linuxTesting` has but `kelvin-local-work` doesn't:**
+**`jovan-linuxTesting` has but `UCT-Benchmark-DMR/combined` doesn't:**
 - `jdk4py>=21.0.8.0` (Java runtime)
 - `fpdf>=1.7.2` (PDF generation)
 - `scipy>=1.16.2` (Scientific computing)

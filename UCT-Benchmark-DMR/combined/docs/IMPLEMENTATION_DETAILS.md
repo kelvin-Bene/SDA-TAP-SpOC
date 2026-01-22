@@ -1,3 +1,6 @@
+> **Note:** This documentation has moved to `generated-docs/docs/`.
+> Please see [generated-docs/docs/technical/](../../../generated-docs/docs/technical/) for the latest version.
+
 # UCT Benchmarking Enhancement - Implementation Details
 
 ## Executive Summary

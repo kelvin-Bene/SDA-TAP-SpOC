@@ -1,3 +1,6 @@
+> **Note:** This documentation has moved to `generated-docs/docs/`.
+> Please see [generated-docs/docs/technical/FRONTEND.md](../../../generated-docs/docs/technical/FRONTEND.md) for the latest version.
+
 # SpOC Component Library
 
 ## Overview

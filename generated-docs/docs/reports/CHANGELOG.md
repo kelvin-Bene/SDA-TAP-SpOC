@@ -1,6 +1,3 @@
-> **Note:** This documentation has moved to `generated-docs/docs/`.
-> Please see [generated-docs/docs/reports/CHANGELOG.md](../../../generated-docs/docs/reports/CHANGELOG.md) for the latest version.
-
 # Changelog
 
 All notable changes to the UCT Benchmark project.
@@ -196,3 +193,11 @@ No new dependencies added. Uses existing:
 - Query caching layer
 - Automated daily backups
 - Performance optimization
+
+---
+
+## Related Documentation
+
+- [Project Status](../planning/PROJECT_STATUS.md)
+- [Database Architecture](../technical/DATABASE.md)
+- [Architecture Overview](../technical/ARCHITECTURE.md)

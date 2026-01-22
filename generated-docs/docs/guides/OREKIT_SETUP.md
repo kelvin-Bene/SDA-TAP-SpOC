@@ -1,7 +1,4 @@
-> **Note:** This documentation has moved to `generated-docs/docs/`.
-> Please see [generated-docs/docs/guides/OREKIT_SETUP.md](../../../generated-docs/docs/guides/OREKIT_SETUP.md) for the latest version.
-
-# Windows Orekit Setup Guide
+# Orekit Setup Guide (Windows)
 
 This guide provides step-by-step instructions for setting up Orekit on Windows for the UCT Benchmark simulation module.
 
@@ -68,7 +65,7 @@ If JAVA_HOME is not set, add it manually:
 ### Navigate to Project Directory
 
 ```powershell
-cd C:\Users\kelvi\Documents\SDAxSpOCUCTProcessing\kelvin-local-work
+cd C:\path\to\UCT-Benchmark-DMR\combined
 ```
 
 ### Create/Activate Virtual Environment
@@ -265,13 +262,11 @@ pip uninstall orekit
 
 ---
 
-## For Team Members
-
-### Quick Start (After Initial Setup)
+## Quick Start (After Initial Setup)
 
 ```powershell
 # 1. Navigate to project
-cd C:\Users\kelvi\Documents\SDAxSpOCUCTProcessing\kelvin-local-work
+cd C:\path\to\UCT-Benchmark-DMR\combined
 
 # 2. Activate virtual environment
 .\.venv\Scripts\Activate.ps1
@@ -282,7 +277,7 @@ python tests/test_orekit_installation.py
 # 4. Ready to use!
 ```
 
-### Important Notes
+## Important Notes
 
 1. **Always activate the virtual environment** before running Python code
 2. **Initialize Orekit first** in any script that uses orbital mechanics
@@ -291,9 +286,8 @@ python tests/test_orekit_installation.py
 
 ---
 
-## Contact
+## Related Documentation
 
-If you encounter issues not covered here:
-1. Check the error message carefully
-2. Run `python tests/test_orekit_installation.py` to identify the failing component
-3. Search the error in the Orekit forum: https://forum.orekit.org/
+- [Getting Started](../getting-started.md)
+- [Pipeline Documentation](../technical/PIPELINE.md)
+- [Validation Suite](../technical/VALIDATION.md)

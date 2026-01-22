@@ -9,10 +9,10 @@ This repository is organized into **4 clear folders**:
 ```
 SDA-TAP-SpOC/
 │
-├── kelvin-local-work/      # YOUR CODE - Active development
-├── generated-docs/         # OUR DOCUMENTATION - Created by the team
-├── provided-materials/     # GIVEN TO US - Reference materials and briefs
-└── reference-code/         # OTHERS' CODE - Previous implementations
+├── UCT-Benchmark-DMR/combined/  # YOUR CODE - Active development
+├── generated-docs/              # OUR DOCUMENTATION - Created by the team
+├── provided-materials/          # GIVEN TO US - Reference materials and briefs
+└── reference-code/              # OTHERS' CODE - Previous implementations
 ```
 
 ---
@@ -21,7 +21,7 @@ SDA-TAP-SpOC/
 
 | Folder | What's Inside | When to Use |
 |--------|---------------|-------------|
-| [`kelvin-local-work/`](./kelvin-local-work/) | Active Python codebase | **Develop here** |
+| [`UCT-Benchmark-DMR/combined/`](./UCT-Benchmark-DMR/combined/) | Active Python codebase | **Develop here** |
 | [`generated-docs/`](./generated-docs/) | All project documentation | Read docs, build MkDocs site |
 | [`provided-materials/`](./provided-materials/) | Official briefs, learning materials | Reference only |
 | [`reference-code/`](./reference-code/) | Code from master, jovan, joncline branches | Feature reference |
@@ -30,18 +30,20 @@ SDA-TAP-SpOC/
 
 ## Folder Details
 
-### 1. `kelvin-local-work/` - Active Development
+### 1. `UCT-Benchmark-DMR/combined/` - Active Development
 **This is where all new code development happens.**
 
 ```
-kelvin-local-work/
+UCT-Benchmark-DMR/combined/
 ├── uct_benchmark/          # Main Python package
 │   ├── api/                # API integrations (UDL, Space-Track, etc.)
 │   ├── data/               # Data manipulation and windowing
+│   ├── database/           # DuckDB storage layer
 │   ├── evaluation/         # Metrics and evaluation
 │   ├── simulation/         # Orbit propagation
 │   └── uctp/               # UCTP implementations
-├── src/                    # Legacy source code
+├── backend_api/            # FastAPI backend
+├── frontend/               # React web application
 ├── data/                   # Data directories
 ├── notebooks/              # Jupyter notebooks
 └── tests/                  # Test files
@@ -53,14 +55,16 @@ kelvin-local-work/
 ```
 generated-docs/
 ├── docs/
-│   ├── technical/          # Architecture, Pipeline, APIs, Configuration
+│   ├── technical/          # Architecture, Pipeline, APIs, Database
 │   ├── planning/           # Status, Roadmap, Team Plans
-│   └── reports/            # Team Split Analysis, Audits, Issues
+│   ├── reports/            # Changelog, Audits, Issues
+│   ├── guides/             # User guides and tutorials
+│   └── reference/          # Glossary, provided materials index
 └── mkdocs.yml              # Build docs with: mkdocs serve
 ```
 
 **Key documents:**
-- [Team Split Readiness](./generated-docs/docs/reports/TEAM_SPLIT_READINESS.md) - What's needed before teams work independently
+- [Getting Started](./generated-docs/docs/getting-started.md) - Installation and setup guide
 - [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) - Current state of all components
 - [Architecture](./generated-docs/docs/technical/ARCHITECTURE.md) - Code structure overview
 
@@ -83,7 +87,7 @@ provided-materials/
 reference-code/
 ├── master/                 # Original implementation
 ├── jovan-linuxTesting/     # DuckDB, Polars, Linux automation
-└── uct-benchmark-refactor-joncline/  # Refactored architecture (basis for kelvin-local-work)
+└── uct-benchmark-refactor-joncline/  # Refactored architecture
 ```
 
 ---
@@ -109,14 +113,14 @@ Build a **Web-hosted User Interface** where algorithm developers can:
 
 ## Current Status (January 2026)
 
-**Overall Progress: ~45%**
+**Overall Progress: ~60%**
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Foundation (APIs, Evaluation, Propagators) | Complete | 90% |
-| Data Pipeline (T3/T4, Event Labelling, Database) | In Progress | 25% |
-| Web Platform (UI, Backend, Auth) | Not Started | 0% |
-| Algorithm Framework (Submission, Leaderboard) | Not Started | 0% |
+| Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
+| Data Pipeline (T1-T3, Downsampling, Database) | Complete | 85% |
+| Web Platform (UI, Backend, Auth) | Complete | 95% |
+| Event Labelling | Not Started | 0% |
 
 See [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) for detailed breakdown.
 
@@ -125,7 +129,7 @@ See [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) for detai
 ## Getting Started
 
 1. **Review documentation:** Start with [`generated-docs/`](./generated-docs/)
-2. **Set up development:** Follow [Installation Instructions](./kelvin-local-work/INSTALLATION.md)
+2. **Set up development:** Follow the [Getting Started Guide](./generated-docs/docs/getting-started.md)
 3. **Understand the pipeline:** Read [Pipeline Overview](./generated-docs/docs/technical/PIPELINE.md)
 4. **Check team tasks:** See [SDA TAP Plan](./generated-docs/docs/planning/SDA_TAP_LAB_PLAN.md) or [SpOC Plan](./generated-docs/docs/planning/SPOC_PLAN.md)
 
@@ -140,6 +144,25 @@ mkdocs serve
 ```
 
 Then open http://localhost:8000
+
+---
+
+## Running the Application
+
+### Backend API
+```bash
+cd UCT-Benchmark-DMR/combined
+uvicorn backend_api.main:app --reload --port 8000
+```
+
+### Frontend
+```bash
+cd UCT-Benchmark-DMR/combined/frontend
+npm install
+npm run dev
+```
+
+Access the application at http://localhost:5173
 
 ---
 
