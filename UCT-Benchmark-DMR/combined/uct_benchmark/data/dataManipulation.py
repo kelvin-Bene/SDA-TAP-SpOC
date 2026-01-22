@@ -1760,7 +1760,16 @@ def apply_simulation_to_gaps(
 
         # Ensure obTime is datetime (simulated obs may have string timestamps)
         if 'obTime' in merged_df.columns:
-            merged_df['obTime'] = pd.to_datetime(merged_df['obTime'], utc=True)
+            # Fix malformed datetime strings with both +00:00 and Z suffix (v7)
+            # Use Python native str.replace via apply() for reliable replacement
+            def fix_datetime_str(x):
+                s = str(x)
+                if '+00:00Z' in s:
+                    return s.replace('+00:00Z', 'Z')
+                return s
+            obtime_fixed = merged_df['obTime'].apply(fix_datetime_str)
+            # Use format='mixed' to handle multiple datetime formats in the column
+            merged_df['obTime'] = pd.to_datetime(obtime_fixed, utc=True, format='mixed')
 
         # Sort by satellite and time
         if 'obTime' in merged_df.columns:

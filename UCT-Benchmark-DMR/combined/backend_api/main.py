@@ -7,6 +7,8 @@ This module provides REST endpoints for:
 - Result retrieval
 - Leaderboard data
 - Job status tracking
+
+Note: Auto-links observations when retrieving dataset observations.
 """
 
 from contextlib import asynccontextmanager

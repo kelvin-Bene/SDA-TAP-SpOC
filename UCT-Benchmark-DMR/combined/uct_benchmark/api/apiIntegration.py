@@ -1442,7 +1442,8 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
 def generateDataset(
     UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
     use_database=False, db_path=None, dataset_name=None,
-    downsample_config=None, simulation_config=None, tier="T2"
+    downsample_config=None, simulation_config=None, tier="T2",
+    dataset_id=None
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1512,6 +1513,14 @@ def generateDataset(
 
     # Perform asynchronous UDL query for observational truth data
     obs_truth_data = asyncUDLBatchQuery(UDL_token, "eoobservation", params_list, dt)
+
+    # Check for empty observation data
+    if obs_truth_data.empty or "obTime" not in obs_truth_data.columns:
+        raise ValueError(
+            f"No observation data returned for satellites {satIDs}. "
+            "The selected satellites may not have recent observation data. "
+            "Try increasing the timeframe or selecting different satellites."
+        )
 
     # Convert observation times to datetime objects
     obs_truth_data["obTime"] = [UDLToDatetime(t) for t in obs_truth_data["obTime"]]
@@ -1946,17 +1955,20 @@ def generateDataset(
                         logger.warning(f"Failed to insert TLE for sat {row['satNo']}: {e}")
                 logger.debug(f"Inserted {len(elset_truth_data)} element sets")
 
-            # Create dataset record
-            dataset_id = db.datasets.create_dataset(
-                name=dataset_name,
-                generation_params={
-                    "timeframe": timeframe,
-                    "timeunit": timeunit,
-                    "satIDs": [int(s) for s in satIDs],
-                    "end_time": str(end_time),
-                    "max_datapoints": max_datapoints,
-                },
-            )
+            # Create dataset record if not already provided by backend API
+            # NOTE: When called from backend, dataset_id should already exist
+            logger.info(f"dataset_id parameter value: {dataset_id} (type: {type(dataset_id).__name__})")
+            if dataset_id is None:
+                dataset_id = db.datasets.create_dataset(
+                    name=dataset_name,
+                    generation_params={
+                        "timeframe": timeframe,
+                        "timeunit": timeunit,
+                        "satIDs": [int(s) for s in satIDs],
+                        "end_time": str(end_time),
+                        "max_datapoints": max_datapoints,
+                    },
+                )
 
             # Link observations to dataset
             if not obs_truth_data.empty:
@@ -1964,7 +1976,7 @@ def generateDataset(
                 track_assignments = {
                     row["id"]: row.get("trackId") for _, row in obs_truth_data.iterrows()
                 }
-                db.datasets.add_observations(dataset_id, obs_ids, track_assignments)
+                db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
 
             db_elapsed_time = time.perf_counter() - db_start_time
             performance_data["Database Persistence Time"] = db_elapsed_time

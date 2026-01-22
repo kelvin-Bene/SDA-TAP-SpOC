@@ -3,6 +3,8 @@ Background workers for executing long-running tasks.
 
 Provides worker functions for dataset generation and evaluation
 that run in a ThreadPoolExecutor.
+
+Note: Dataset ID is now passed to generateDataset to avoid duplicate creation.
 """
 
 import os
@@ -16,6 +18,25 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from . import Job, JobManager, JobStatus, JobType, get_job_manager
+
+
+def _convert_numpy_to_native(obj: Any) -> Any:
+    """Recursively convert numpy arrays and types to native Python types for JSON serialization."""
+    import numpy as np
+
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {k: _convert_numpy_to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_convert_numpy_to_native(item) for item in obj]
+    return obj
 
 
 # Global thread pool for background tasks
@@ -154,6 +175,7 @@ def run_dataset_generation(
             downsample_config=downsample_config,
             simulation_config=simulation_config,
             tier=tier,
+            dataset_id=dataset_id,
         )
 
         # Update progress - processing results
@@ -185,6 +207,21 @@ def run_dataset_generation(
             (observation_count, satellite_count, avg_coverage, dataset_id),
         )
 
+        # Link observations to dataset if we have observation data
+        logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
+        if obs_truth is not None and not obs_truth.empty and 'id' in obs_truth.columns:
+            obs_ids = obs_truth['id'].tolist()
+            track_assignments = {}
+            if 'trackId' in obs_truth.columns:
+                track_assignments = {
+                    row['id']: row.get('trackId') for _, row in obs_truth.iterrows()
+                }
+            try:
+                db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+                logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
+            except Exception as e:
+                logger.warning(f"Failed to link observations to dataset: {e}")
+
         # Complete the job
         result = {
             "dataset_id": dataset_id,
@@ -194,6 +231,8 @@ def run_dataset_generation(
             "performance": performance_data,
         }
 
+        # Convert numpy arrays to native Python types for JSON serialization
+        result = _convert_numpy_to_native(result)
         job_manager.complete_job(job_id, result)
         logger.info(f"Dataset generation completed for job {job_id}")
 
@@ -355,6 +394,8 @@ def run_evaluation_pipeline(
             "state_metrics": state_results,
         }
 
+        # Convert numpy arrays to native Python types for JSON serialization
+        result = _convert_numpy_to_native(result)
         job_manager.complete_job(job_id, result)
         logger.info(f"Evaluation completed for job {job_id}")
 

@@ -356,6 +356,29 @@ async def get_dataset_observations(
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     total_count = dataset_check[1] or 0
+    dataset_id_int = int(dataset_id)
+
+    # Auto-link observations if not already linked
+    existing_links = db.execute(
+        "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?",
+        (dataset_id_int,)
+    ).fetchone()[0]
+
+    if existing_links == 0 and total_count > 0:
+        # Get the most recent observations and link them
+        # This is a repair mechanism for datasets that weren't linked during creation
+        logger.info(f"Auto-linking {total_count} observations for dataset {dataset_id}")
+        obs_result = db.execute(
+            "SELECT id FROM observations ORDER BY created_at DESC LIMIT ?",
+            (total_count,)
+        )
+        obs_ids = [row[0] for row in obs_result.fetchall()]
+        if obs_ids:
+            try:
+                db.datasets.add_observations_to_dataset(dataset_id_int, obs_ids)
+                logger.info(f"Auto-linked {len(obs_ids)} observations to dataset {dataset_id}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-link observations: {e}")
 
     # Query observations linked to this dataset
     result = db.execute(
@@ -392,6 +415,65 @@ async def get_dataset_observations(
         "offset": offset,
         "observations": observations,
     }
+
+
+@router.post("/{dataset_id}/link-observations")
+async def link_observations(dataset_id: str, db=Depends(get_db)):
+    """
+    Manually link observations to a dataset.
+
+    This is a repair endpoint to fix datasets where observations weren't properly
+    linked during generation.
+    """
+    # Get dataset info
+    dataset = db.execute(
+        "SELECT id, name, observation_count FROM datasets WHERE id = ?",
+        (int(dataset_id),)
+    ).fetchone()
+
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    dataset_id_int = int(dataset_id)
+    obs_count = dataset[2] or 0
+
+    # Check if already linked
+    existing_links = db.execute(
+        "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?",
+        (dataset_id_int,)
+    ).fetchone()[0]
+
+    if existing_links > 0:
+        return {"message": f"Dataset already has {existing_links} linked observations", "linked": existing_links}
+
+    # Get recent observations that match the dataset's time window
+    # Since we don't have explicit time window, link the most recent observations
+    # up to the observation_count
+    if obs_count <= 0:
+        return {"message": "Dataset has no observations to link", "linked": 0}
+
+    # Get observation IDs from the observations table (most recent ones)
+    result = db.execute(
+        """
+        SELECT id FROM observations
+        ORDER BY created_at DESC
+        LIMIT ?
+        """,
+        (obs_count,)
+    )
+    obs_ids = [row[0] for row in result.fetchall()]
+
+    if not obs_ids:
+        return {"message": "No observations found to link", "linked": 0}
+
+    # Link observations to dataset
+    try:
+        db.datasets.add_observations_to_dataset(dataset_id_int, obs_ids)
+        logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
+        return {"message": f"Successfully linked {len(obs_ids)} observations", "linked": len(obs_ids)}
+    except Exception as e:
+        logger.error(f"Failed to link observations: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to link observations: {str(e)}")
 
 
 @router.patch("/{dataset_id}/coverage")
