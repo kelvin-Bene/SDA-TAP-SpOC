@@ -80,12 +80,6 @@ const defaultConfig: DatasetGenerationConfig = {
   simulation: defaultSimulation,
 };
 
-const presets = [
-  { name: 'Easy', description: 'High coverage, dense observations', config: { coverage: 'high' as const, observationDensity: 100, trackGapTarget: 1 } },
-  { name: 'Standard', description: 'Moderate difficulty', config: { coverage: 'standard' as const, observationDensity: 50, trackGapTarget: 2 } },
-  { name: 'Challenging', description: 'Sparse data, large gaps', config: { coverage: 'low' as const, observationDensity: 20, trackGapTarget: 4 } },
-];
-
 export function DatasetGeneratorPage() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
@@ -125,10 +119,6 @@ export function DatasetGeneratorPage() {
     value: DatasetGenerationConfig[K]
   ) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const applyPreset = (preset: typeof presets[0]) => {
-    setConfig((prev) => ({ ...prev, ...preset.config }));
   };
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 5));
@@ -285,24 +275,6 @@ export function DatasetGeneratorPage() {
                     </Label>
                   ))}
                 </RadioGroup>
-
-                {/* Quick Presets */}
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium mb-3">Quick Presets</p>
-                  <div className="flex gap-2">
-                    {presets.map((preset) => (
-                      <Button
-                        key={preset.name}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyPreset(preset)}
-                        className="flex-1"
-                      >
-                        {preset.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
               </CardContent>
             </>
           )}
