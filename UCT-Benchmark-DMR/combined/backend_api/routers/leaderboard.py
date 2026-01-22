@@ -70,9 +70,9 @@ async def get_leaderboard(
         params.append(tier)
 
     if period == "week":
-        query += " AND s.completed_at >= datetime('now', '-7 days')"
+        query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'"
     elif period == "month":
-        query += " AND s.completed_at >= datetime('now', '-30 days')"
+        query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'"
 
     # Order by F1 score descending and limit
     query += " ORDER BY sr.f1_score DESC LIMIT ?"
@@ -138,7 +138,7 @@ async def get_leaderboard_history(
         Historical ranking data for trend visualization
     """
     # Get completed submissions over time
-    query = """
+    query = f"""
         SELECT
             DATE(s.completed_at) as date,
             s.algorithm_name,
@@ -146,9 +146,9 @@ async def get_leaderboard_history(
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.status = 'completed'
-          AND s.completed_at >= datetime('now', ?)
+          AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '{days} days'
     """
-    params = [f"-{days} days"]
+    params = []
 
     if dataset_id:
         query += " AND s.dataset_id = ?"
@@ -233,9 +233,9 @@ async def get_leaderboard_statistics(
     # Determine trend (compare last week to previous week)
     trend_query = f"""
         SELECT
-            SUM(CASE WHEN s.completed_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as this_week,
-            SUM(CASE WHEN s.completed_at >= datetime('now', '-14 days')
-                 AND s.completed_at < datetime('now', '-7 days') THEN 1 ELSE 0 END) as last_week
+            SUM(CASE WHEN s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as this_week,
+            SUM(CASE WHEN s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
+                 AND s.completed_at < CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as last_week
         {base_query}
     """
 

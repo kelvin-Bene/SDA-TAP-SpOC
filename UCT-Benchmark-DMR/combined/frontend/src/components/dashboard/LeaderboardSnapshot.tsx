@@ -1,77 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Trophy, Medal, Award, Star } from 'lucide-react';
+import { ArrowRight, Trophy, Medal, Award, Star, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { LeaderboardEntry } from '@/types';
-
-const mockLeaderboard: LeaderboardEntry[] = [
-  {
-    rank: 1,
-    algorithmName: 'OrbitalMind',
-    team: 'AeroCorp',
-    version: 'v3.2',
-    f1Score: 0.9543,
-    precision: 0.961,
-    recall: 0.948,
-    positionRmsKm: 2.12,
-    submissionId: 'sub-1',
-    submittedAt: '2026-01-15T08:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 2,
-    algorithmName: 'TrackFusion Pro',
-    team: 'LockheedM',
-    version: 'v4.1',
-    f1Score: 0.9521,
-    precision: 0.958,
-    recall: 0.946,
-    positionRmsKm: 2.34,
-    submissionId: 'sub-2',
-    submittedAt: '2026-01-14T12:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 3,
-    algorithmName: 'MyUCTP',
-    team: 'You',
-    version: 'v2.1',
-    f1Score: 0.9234,
-    precision: 0.941,
-    recall: 0.906,
-    positionRmsKm: 2.89,
-    submissionId: 'sub-3',
-    submittedAt: '2026-01-18T10:30:00Z',
-    isCurrentUser: true,
-  },
-  {
-    rank: 4,
-    algorithmName: 'SpaceTrack AI',
-    team: 'NGC',
-    version: 'v2.0',
-    f1Score: 0.9198,
-    precision: 0.932,
-    recall: 0.908,
-    positionRmsKm: 3.12,
-    submissionId: 'sub-4',
-    submittedAt: '2026-01-12T14:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 5,
-    algorithmName: 'OrbitNet',
-    team: 'MIT',
-    version: 'v1.5',
-    f1Score: 0.9156,
-    precision: 0.921,
-    recall: 0.910,
-    positionRmsKm: 3.45,
-    submissionId: 'sub-5',
-    submittedAt: '2026-01-10T16:00:00Z',
-    isCurrentUser: false,
-  },
-];
+import { useLeaderboard } from '@/hooks/useLeaderboard';
 
 function getRankIcon(rank: number) {
   switch (rank) {
@@ -87,6 +19,9 @@ function getRankIcon(rank: number) {
 }
 
 export function LeaderboardSnapshot() {
+  const { data: leaderboard, isLoading, error } = useLeaderboard();
+  const entries = leaderboard?.slice(0, 5) ?? [];
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -99,36 +34,50 @@ export function LeaderboardSnapshot() {
         </Link>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          {mockLeaderboard.map((entry) => (
-            <div
-              key={entry.submissionId}
-              className={cn(
-                'flex items-center justify-between rounded-lg p-3 transition-colors',
-                entry.isCurrentUser
-                  ? 'bg-primary/10 border border-primary/20'
-                  : 'hover:bg-accent/50'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                {getRankIcon(entry.rank)}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{entry.algorithmName}</span>
-                    {entry.isCurrentUser && (
-                      <Star className="h-3 w-3 fill-primary text-primary" />
-                    )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Unable to load leaderboard data</p>
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No leaderboard entries yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {entries.map((entry) => (
+              <div
+                key={entry.submissionId}
+                className={cn(
+                  'flex items-center justify-between rounded-lg p-3 transition-colors',
+                  entry.isCurrentUser
+                    ? 'bg-primary/10 border border-primary/20'
+                    : 'hover:bg-accent/50'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  {getRankIcon(entry.rank)}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{entry.algorithmName}</span>
+                      {entry.isCurrentUser && (
+                        <Star className="h-3 w-3 fill-primary text-primary" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{entry.team}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{entry.team}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono font-semibold">{entry.f1Score.toFixed(4)}</p>
+                  <p className="text-xs text-muted-foreground">F1-Score</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-mono font-semibold">{entry.f1Score.toFixed(4)}</p>
-                <p className="text-xs text-muted-foreground">F1-Score</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -95,8 +95,9 @@ class SatelliteRepository(BaseRepository):
         placeholders = ", ".join(["?"] * len(values))
         field_names = ", ".join(fields)
 
+        # Use INSERT OR IGNORE to handle duplicate satellites gracefully
         self.execute(
-            f"INSERT INTO satellites ({field_names}) VALUES ({placeholders})",
+            f"INSERT OR IGNORE INTO satellites ({field_names}) VALUES ({placeholders})",
             tuple(values),
         )
         return sat_no
@@ -367,6 +368,13 @@ class ObservationRepository(BaseRepository):
         # Filter to only columns that exist in DataFrame and are valid
         available_columns = [c for c in valid_columns if c in df.columns]
         insert_df = df[available_columns].copy()
+
+        # Convert pandas StringDtype and numpy str to object dtype for DuckDB compatibility
+        for col in insert_df.columns:
+            dtype_name = insert_df[col].dtype.name
+            dtype_str = str(insert_df[col].dtype)
+            if dtype_name in ('string', 'str') or dtype_str in ('string', 'str'):
+                insert_df[col] = insert_df[col].astype(object)
 
         # Get connection and register DataFrame
         conn = self.db._get_connection()
@@ -646,6 +654,13 @@ class StateVectorRepository(BaseRepository):
                 lambda x: json.dumps(x) if isinstance(x, (list, dict)) else x
             )
 
+        # Convert pandas StringDtype and str to object dtype for DuckDB compatibility
+        for col in df.columns:
+            dtype_name = df[col].dtype.name
+            dtype_str = str(df[col].dtype)
+            if dtype_name in ('string', 'str') or dtype_str in ('string', 'str'):
+                df[col] = df[col].astype(object)
+
         # Get connection and register DataFrame
         conn = self.db._get_connection()
         conn.register("temp_sv_df", df)
@@ -823,6 +838,14 @@ class ElementSetRepository(BaseRepository):
         """
         if df.empty:
             return 0
+
+        # Convert pandas StringDtype and str to object dtype for DuckDB compatibility
+        df = df.copy()
+        for col in df.columns:
+            dtype_name = df[col].dtype.name
+            dtype_str = str(df[col].dtype)
+            if dtype_name in ('string', 'str') or dtype_str in ('string', 'str'):
+                df[col] = df[col].astype(object)
 
         # Get connection and register DataFrame
         conn = self.db._get_connection()

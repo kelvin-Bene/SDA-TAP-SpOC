@@ -10,9 +10,13 @@ This module provides REST endpoints for:
 """
 
 from contextlib import asynccontextmanager
+import json
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from loguru import logger
 
 from .database import init_database, close_database
 from .jobs import init_job_manager
@@ -61,13 +65,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Log and return detailed validation errors."""
+    body = await request.body()
+    logger.error(f"Validation error for {request.method} {request.url}")
+    logger.error(f"Request body: {body.decode()}")
+    logger.error(f"Validation errors: {json.dumps(exc.errors(), indent=2, default=str)}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
+
 # Configure CORS for frontend development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
         "http://127.0.0.1:5173",
     ],
     allow_credentials=True,

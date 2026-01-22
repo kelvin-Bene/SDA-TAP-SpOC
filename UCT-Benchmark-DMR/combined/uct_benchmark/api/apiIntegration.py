@@ -1310,9 +1310,9 @@ def UDLToDatetime(time):
     return datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
 
 
-async def _asyncUDLQuery(token, service, params, count=False, history=False):
+async def _asyncUDLQuery(token, service, params, count=False, history=False, max_retries=3):
     """
-    Async version of UDLQuery using aiohttp.
+    Async version of UDLQuery using aiohttp with retry logic and timeout.
     """
 
     # Error handling
@@ -1339,35 +1339,70 @@ async def _asyncUDLQuery(token, service, params, count=False, history=False):
 
     headers = {"Authorization": "Basic " + token}
 
-    # Perform async query
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers, params=params, ssl=False) as response:
-            if response.status != 200:
-                raise aiohttp.ClientResponseError(
-                    request_info=response.request_info,
-                    history=response.history,
-                    status=response.status,
-                    message="Query failed. Common status codes: 400 - bad params, 401 - invalid login, 500 - internal error (UDL down or time-out).",
-                )
-            data = await response.json()
-            return data if count else pd.DataFrame(data)
+    # Configure timeout (120 seconds for large queries)
+    timeout = aiohttp.ClientTimeout(total=120)
+
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url, headers=headers, params=params, ssl=False) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data if count else pd.DataFrame(data)
+                    elif response.status == 500 and attempt < max_retries - 1:
+                        # Retry on 500 errors (server overload/timeout)
+                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+                    else:
+                        raise aiohttp.ClientResponseError(
+                            request_info=response.request_info,
+                            history=response.history,
+                            status=response.status,
+                            message="Query failed. Common status codes: 400 - bad params, 401 - invalid login, 500 - internal error (UDL down or time-out).",
+                        )
+        except asyncio.TimeoutError:
+            last_error = asyncio.TimeoutError(f"Query timed out after 120 seconds (attempt {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            raise last_error
+        except aiohttp.ClientError as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            raise
 
 
-async def _batchUDLQuery(token, service, params_list, dt=1.0, count=False, history=False):
+async def _batchUDLQuery(token, service, params_list, dt=1.0, count=False, history=False, max_concurrent=5):
     """
     Internal wrapper for _asyncUDLQuery() that performs the asyncio calls.
+    Uses semaphore to limit concurrent requests and prevent server overload.
     """
     results = []
+    semaphore = asyncio.Semaphore(max_concurrent)
 
-    # This is used to enforce rate limit
-    async def limited_query(index, params):
-        await asyncio.sleep(index * dt)
-        return await _asyncUDLQuery(token, service, params, count, history)
+    async def limited_query(params):
+        async with semaphore:
+            await asyncio.sleep(dt)  # Rate limit between queries
+            return await _asyncUDLQuery(token, service, params, count, history)
 
-    tasks = [limited_query(i, p) for i, p in enumerate(params_list)]
-    results = await asyncio.gather(*tasks)
+    tasks = [limited_query(p) for p in params_list]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    return sum(results) if count else pd.concat(results, ignore_index=True)
+    # Filter out exceptions and log them
+    valid_results = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            logger.warning(f"Query {i} failed: {result}")
+        else:
+            valid_results.append(result)
+
+    if not valid_results:
+        raise RuntimeError("All batch queries failed")
+
+    return sum(valid_results) if count else pd.concat(valid_results, ignore_index=True)
 
 
 def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history=False):
@@ -1406,7 +1441,8 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
 
 def generateDataset(
     UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
-    use_database=False, db_path=None, dataset_name=None
+    use_database=False, db_path=None, dataset_name=None,
+    downsample_config=None, simulation_config=None, tier="T2"
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1423,6 +1459,11 @@ def generateDataset(
         use_database (bool): If True, persist data to DuckDB database. Defaults to False. Requires database module to be installed.
         db_path (string): Path to database file. If None, uses default path. Only used if use_database=True.
         dataset_name (string): Name for the dataset in database. Auto-generated if None. Only used if use_database=True.
+        downsample_config (dict or DownsampleConfig): Configuration for downsampling. If dict with 'enabled': True,
+            downsampling will be applied. Pass None or {'enabled': False} to skip.
+        simulation_config (dict or SimulationConfig): Configuration for gap-filling simulation. If dict with 'enabled': True,
+            simulation will be applied. Pass None or {'enabled': False} to skip.
+        tier (string): Dataset quality tier (T1, T2, T3, T4). Affects downsampling intensity. Defaults to "T2".
 
     Returns:
         Pandas DataFrame: A dataset of "uct" observations.
@@ -1605,6 +1646,151 @@ def generateDataset(
     # Compute elapsed time for TLE query step
     elset_elapsed_time = time.perf_counter() - sv_elapsed_time - obs_elapsed_time - start_time
 
+    # =========================================================================
+    # OPTIONAL: Apply downsampling to reduce observation quality
+    # =========================================================================
+    downsampling_metadata = None
+    if downsample_config is not None:
+        # Check if enabled (handle both dict and dataclass)
+        ds_enabled = False
+        if isinstance(downsample_config, dict):
+            ds_enabled = downsample_config.get('enabled', False)
+        else:
+            ds_enabled = getattr(downsample_config, 'enabled', True)
+
+        if ds_enabled:
+            from uct_benchmark.data.dataManipulation import apply_downsampling
+            from uct_benchmark.settings import DownsampleConfig as DSConfig
+            from uct_benchmark.simulation.propagator import orbit2OE
+
+            logger.info(f"Applying {tier} downsampling to {len(obs_truth_data)} observations...")
+            ds_start = time.perf_counter()
+
+            # Build sat_params from TLE data
+            sat_params = {}
+            for _, row in elset_truth_data.iterrows():
+                try:
+                    sat_id = int(row['satNo'])
+                    orb_elems = row.get('elset', {})
+                    if not orb_elems:
+                        orb_elems = orbit2OE(row['line1'], row['line2'])
+
+                    sat_obs = obs_truth_data[obs_truth_data['satNo'] == sat_id]
+                    period = orb_elems.get('period_sec', orb_elems.get('Period', 5400))
+
+                    # Calculate max track gap
+                    if len(sat_obs) > 1:
+                        sorted_times = sat_obs['obTime'].sort_values()
+                        gaps = sorted_times.diff().dropna()
+                        max_gap_sec = gaps.max().total_seconds() if not gaps.empty else 0
+                        max_track_gap = max_gap_sec / period if period > 0 else 0
+                    else:
+                        max_track_gap = 0
+
+                    sat_params[sat_id] = {
+                        'Semi-Major Axis': orb_elems.get('semi_major_axis', orb_elems.get('Semi-Major Axis', 7000)),
+                        'Eccentricity': orb_elems.get('eccentricity', orb_elems.get('Eccentricity', 0.001)),
+                        'Inclination': orb_elems.get('inclination', orb_elems.get('Inclination', 45)),
+                        'RAAN': orb_elems.get('RAAN', orb_elems.get('raan', 0)),
+                        'Argument of Perigee': orb_elems.get('perigee', orb_elems.get('Argument of Perigee', 0)),
+                        'Mean Anomaly': orb_elems.get('mean_anomaly', orb_elems.get('Mean Anomaly', 0)),
+                        'Period': period,
+                        'Number of Obs': len(sat_obs),
+                        'Orbital Coverage': 0.5,
+                        'Max Track Gap': max_track_gap
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to build params for sat {row.get('satNo')}: {e}")
+                    continue
+
+            # Convert dict config to dataclass if needed
+            if isinstance(downsample_config, dict):
+                ds_cfg = DSConfig(
+                    target_coverage=downsample_config.get('target_coverage', 0.05),
+                    target_gap=downsample_config.get('target_gap', 2.0),
+                    max_obs_per_sat=downsample_config.get('max_obs_per_sat', 50),
+                    min_obs_per_sat=downsample_config.get('min_obs_per_sat', 5),
+                    preserve_track_boundaries=downsample_config.get('preserve_tracks', True),
+                    seed=downsample_config.get('seed'),
+                )
+            else:
+                ds_cfg = downsample_config
+
+            # Apply downsampling
+            obs_truth_data, downsampling_metadata = apply_downsampling(
+                obs_truth_data,
+                sat_params,
+                elset_data=elset_truth_data,
+                config=ds_cfg,
+                tier=tier
+            )
+
+            ds_elapsed = time.perf_counter() - ds_start
+            downsampling_metadata['elapsed_time'] = ds_elapsed
+            logger.info(f"Downsampling complete: {downsampling_metadata.get('original_count', 0)} -> "
+                       f"{downsampling_metadata.get('final_count', 0)} observations "
+                       f"({downsampling_metadata.get('retention_ratio', 0):.1%} retained) in {ds_elapsed:.2f}s")
+
+            # Update satIDs to only include satellites that still have observations
+            satIDs = obs_truth_data['satNo'].unique()
+
+    # =========================================================================
+    # OPTIONAL: Apply simulation to fill observation gaps
+    # =========================================================================
+    simulation_metadata = None
+    if simulation_config is not None:
+        # Check if enabled (handle both dict and dataclass)
+        sim_enabled = False
+        if isinstance(simulation_config, dict):
+            sim_enabled = simulation_config.get('enabled', False)
+        else:
+            sim_enabled = getattr(simulation_config, 'enabled', True)
+
+        if sim_enabled:
+            from uct_benchmark.data.dataManipulation import apply_simulation_to_gaps
+            from uct_benchmark.settings import SimulationConfig as SimConfig
+
+            logger.info(f"Applying gap-filling simulation to {len(obs_truth_data)} observations...")
+            sim_start = time.perf_counter()
+
+            # Build sensor dataframe (use defaults if not available)
+            sensor_df = pd.DataFrame({
+                'idSensor': ['SEN001', 'SEN002', 'SEN003'],
+                'name': ['DIEGO_GARCIA', 'ASCENSION', 'MAUI'],
+                'senlat': [-7.3, -7.9, 20.7],
+                'senlon': [72.4, -14.4, -156.3],
+                'senalt': [0.01, 0.04, 3.1],
+                'count': [10, 10, 10],
+            })
+
+            # Convert dict config to dataclass if needed
+            if isinstance(simulation_config, dict):
+                sim_cfg = SimConfig(
+                    apply_sensor_noise=simulation_config.get('apply_noise', True),
+                    sensor_model=simulation_config.get('sensor_model', 'GEODSS'),
+                    max_synthetic_ratio=simulation_config.get('max_synthetic_ratio', 0.5),
+                    seed=simulation_config.get('seed'),
+                )
+            else:
+                sim_cfg = simulation_config
+
+            # Apply simulation
+            obs_truth_data, simulation_metadata = apply_simulation_to_gaps(
+                obs_truth_data,
+                elset_truth_data,
+                sensor_df,
+                config=sim_cfg
+            )
+
+            sim_elapsed = time.perf_counter() - sim_start
+            simulation_metadata['elapsed_time'] = sim_elapsed
+            logger.info(f"Simulation complete: {simulation_metadata.get('original_count', 0)} original + "
+                       f"{simulation_metadata.get('simulated_count', 0)} simulated = "
+                       f"{simulation_metadata.get('total_count', 0)} total in {sim_elapsed:.2f}s")
+
+            # Update satIDs
+            satIDs = obs_truth_data['satNo'].unique()
+
     # Generate final dataset from observation data
     dataset = obs_truth_data.copy()
     dataset["uct"] = True  # Mark these as UCT/"unknown" points
@@ -1652,7 +1838,24 @@ def generateDataset(
         "Satellites with Observations": obs_sats,
         "Observed Satellites with SV Information": orbit_sats,
         "Observed Satellites with SV and TLE Information": elset_sats,
+        "Tier": tier,
     }
+
+    # Add downsampling metadata if applied
+    if downsampling_metadata is not None:
+        performance_data["Downsampling Applied"] = True
+        performance_data["Downsampling Metadata"] = downsampling_metadata
+    else:
+        performance_data["Downsampling Applied"] = False
+
+    # Add simulation metadata if applied
+    if simulation_metadata is not None:
+        performance_data["Simulation Applied"] = True
+        performance_data["Simulation Metadata"] = simulation_metadata
+        performance_data["Simulated Observation Count"] = simulation_metadata.get('simulated_count', 0)
+    else:
+        performance_data["Simulation Applied"] = False
+        performance_data["Simulated Observation Count"] = 0
 
     # Optional: Persist to database if requested
     if use_database:
@@ -1692,6 +1895,7 @@ def generateDataset(
                     "declination": "declination",
                     "ra": "ra",
                     "sensorName": "sensor_name",
+                    "idSensor": "sensor_name",  # Simulated data uses idSensor
                     "dataMode": "data_mode",
                     "trackId": "track_id",
                 })
@@ -1743,9 +1947,9 @@ def generateDataset(
                 logger.debug(f"Inserted {len(elset_truth_data)} element sets")
 
             # Create dataset record
-            dataset_id = db.datasets.create(
+            dataset_id = db.datasets.create_dataset(
                 name=dataset_name,
-                params={
+                generation_params={
                     "timeframe": timeframe,
                     "timeunit": timeunit,
                     "satIDs": [int(s) for s in satIDs],

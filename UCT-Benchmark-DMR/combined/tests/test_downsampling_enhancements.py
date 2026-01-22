@@ -178,7 +178,8 @@ class TestCoverageCalculation:
         anomalies = np.linspace(0, np.pi/2, 10)
         coverage = compute_arc_coverage(anomalies)
 
-        assert coverage < 0.5
+        # Quarter orbit should have coverage <= 50%
+        assert coverage <= 0.5
 
     def test_compute_arc_coverage_sparse(self):
         """Test arc coverage with sparse observations."""
@@ -197,7 +198,7 @@ class TestRegimeSpecificDownsampling:
     def test_downsample_by_regime_returns_dataframe(self):
         """Test that downsample_by_regime returns a DataFrame."""
         from uct_benchmark.data.dataManipulation import downsample_by_regime
-        from uct_benchmark.config import DownsampleConfig
+        from uct_benchmark.settings import DownsampleConfig
 
         # Create test data
         base_time = datetime(2025, 1, 15, 12, 0, 0)

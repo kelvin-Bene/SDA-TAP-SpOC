@@ -36,88 +36,89 @@ apiClient.interceptors.response.use(
 );
 
 // API helper functions
+// Note: Using trailing slashes to match FastAPI's redirect behavior and avoid CORS issues
 export const api = {
   // Datasets
   getDatasets: (params?: Record<string, string>) =>
-    apiClient.get('/datasets', { params }),
+    apiClient.get('/datasets/', { params }),
 
   getDataset: (id: string) =>
-    apiClient.get(`/datasets/${id}`),
+    apiClient.get(`/datasets/${id}/`),
 
-  // Create dataset (POST to /datasets, not /datasets/generate)
+  // Create dataset (POST to /datasets/, not /datasets/generate)
   generateDataset: (config: unknown) =>
-    apiClient.post('/datasets', config),
+    apiClient.post('/datasets/', config),
 
   downloadDataset: (id: string) =>
-    apiClient.get(`/datasets/${id}/download`, { responseType: 'blob' }),
+    apiClient.get(`/datasets/${id}/download/`, { responseType: 'blob' }),
 
   getDatasetObservations: (id: string, params?: { limit?: number; offset?: number }) =>
-    apiClient.get(`/datasets/${id}/observations`, { params }),
+    apiClient.get(`/datasets/${id}/observations/`, { params }),
 
   // Submissions
   getSubmissions: (params?: Record<string, string>) =>
-    apiClient.get('/submissions', { params }),
+    apiClient.get('/submissions/', { params }),
 
   getSubmission: (id: string) =>
-    apiClient.get(`/submissions/${id}`),
+    apiClient.get(`/submissions/${id}/`),
 
   createSubmission: (formData: FormData) =>
-    apiClient.post('/submissions', formData, {
+    apiClient.post('/submissions/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
   uploadResults: (submissionId: string, formData: FormData) =>
-    apiClient.post(`/submissions/${submissionId}/results`, formData, {
+    apiClient.post(`/submissions/${submissionId}/results/`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
   // Results
   getResults: (submissionId: string) =>
-    apiClient.get(`/results/${submissionId}`),
+    apiClient.get(`/results/${submissionId}/`),
 
   getDetailedMetrics: (submissionId: string) =>
-    apiClient.get(`/results/${submissionId}/metrics`),
+    apiClient.get(`/results/${submissionId}/metrics/`),
 
   getVisualizationData: (submissionId: string) =>
-    apiClient.get(`/results/${submissionId}/visualization`),
+    apiClient.get(`/results/${submissionId}/visualization/`),
 
   exportResults: (submissionId: string, format: 'pdf' | 'csv' | 'json') =>
-    apiClient.get(`/results/${submissionId}/export`, {
+    apiClient.get(`/results/${submissionId}/export/`, {
       params: { format },
       responseType: 'blob',
     }),
 
   // Leaderboard
   getLeaderboard: (params?: Record<string, string>) =>
-    apiClient.get('/leaderboard', { params }),
+    apiClient.get('/leaderboard/', { params }),
 
   getLeaderboardHistory: (params?: { dataset_id?: string; days?: number }) =>
-    apiClient.get('/leaderboard/history', { params }),
+    apiClient.get('/leaderboard/history/', { params }),
 
   getLeaderboardStatistics: (params?: { dataset_id?: string }) =>
-    apiClient.get('/leaderboard/statistics', { params }),
+    apiClient.get('/leaderboard/statistics/', { params }),
 
   // Jobs
   getJobStatus: (jobId: string) =>
-    apiClient.get(`/jobs/${jobId}`),
+    apiClient.get(`/jobs/${jobId}/`),
 
   listJobs: (params?: { job_type?: string; status?: string; limit?: number }) =>
-    apiClient.get('/jobs', { params }),
+    apiClient.get('/jobs/', { params }),
 
   // User
   getCurrentUser: () =>
-    apiClient.get('/users/me'),
+    apiClient.get('/users/me/'),
 
   updateProfile: (data: unknown) =>
-    apiClient.patch('/users/me', data),
+    apiClient.patch('/users/me/', data),
 
   // Auth
   login: (credentials: { email: string; password: string }) =>
-    apiClient.post('/auth/login', credentials),
+    apiClient.post('/auth/login/', credentials),
 
   logout: () =>
-    apiClient.post('/auth/logout'),
+    apiClient.post('/auth/logout/'),
 
   refreshToken: () =>
-    apiClient.post('/auth/refresh'),
+    apiClient.post('/auth/refresh/'),
 };

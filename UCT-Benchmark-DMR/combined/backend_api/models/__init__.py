@@ -66,6 +66,69 @@ class JobStatusEnum(str, Enum):
 
 
 # ============================================================
+# DOWNSAMPLING & SIMULATION OPTIONS
+# ============================================================
+
+
+class DownsamplingOptions(BaseModel):
+    """Options for observation downsampling."""
+    enabled: bool = Field(default=False, description="Enable downsampling to reduce observation quality")
+    target_coverage: float = Field(
+        default=0.05,
+        ge=0.01,
+        le=1.0,
+        description="Target orbital coverage fraction (lower = less coverage)"
+    )
+    target_gap: float = Field(
+        default=2.0,
+        ge=0.5,
+        le=10.0,
+        description="Target track gap in orbital periods (higher = larger gaps)"
+    )
+    max_obs_per_sat: int = Field(
+        default=50,
+        ge=5,
+        le=500,
+        description="Maximum observations per satellite"
+    )
+    preserve_tracks: bool = Field(
+        default=True,
+        description="Preserve track boundaries during thinning"
+    )
+    seed: Optional[int] = Field(
+        default=None,
+        description="Random seed for reproducibility"
+    )
+
+
+class SimulationOptions(BaseModel):
+    """Options for gap-filling simulation."""
+    enabled: bool = Field(default=False, description="Enable simulation to fill observation gaps")
+    fill_gaps: bool = Field(
+        default=True,
+        description="Fill gaps with synthetic observations"
+    )
+    sensor_model: str = Field(
+        default="GEODSS",
+        description="Sensor model for noise characteristics (GEODSS, SBSS, Commercial_EO)"
+    )
+    apply_noise: bool = Field(
+        default=True,
+        description="Apply realistic sensor noise to simulated observations"
+    )
+    max_synthetic_ratio: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=0.9,
+        description="Maximum ratio of synthetic to total observations"
+    )
+    seed: Optional[int] = Field(
+        default=None,
+        description="Random seed for reproducibility"
+    )
+
+
+# ============================================================
 # DATASET MODELS
 # ============================================================
 
@@ -85,6 +148,15 @@ class DatasetCreate(BaseModel):
     include_hamr: bool = False
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    # Downsampling and simulation options
+    downsampling: Optional[DownsamplingOptions] = Field(
+        default=None,
+        description="Options for downsampling observations to reduce quality"
+    )
+    simulation: Optional[SimulationOptions] = Field(
+        default=None,
+        description="Options for simulating observations to fill gaps"
+    )
 
 
 class DatasetSummary(BaseModel):

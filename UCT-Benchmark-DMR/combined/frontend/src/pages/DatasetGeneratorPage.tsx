@@ -30,13 +30,14 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OrbitalRegime, DatasetGenerationConfig } from '@/types';
+import type { OrbitalRegime, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions } from '@/types';
 
 const steps = [
   { id: 1, name: 'Regime', icon: Satellite },
   { id: 2, name: 'Quality', icon: Settings2 },
   { id: 3, name: 'Objects', icon: Zap },
-  { id: 4, name: 'Review', icon: FileCheck },
+  { id: 4, name: 'Advanced', icon: Settings2 },
+  { id: 5, name: 'Review', icon: FileCheck },
 ];
 
 // Calculate timeframe in days from start and end dates
@@ -49,6 +50,22 @@ function calculateTimeframeDays(startDate: string, endDate: string): number {
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const defaultDownsampling: DownsamplingOptions = {
+  enabled: false,
+  targetCoverage: 0.05,
+  targetGap: 2.0,
+  maxObsPerSat: 50,
+  preserveTracks: true,
+};
+
+const defaultSimulation: SimulationOptions = {
+  enabled: false,
+  fillGaps: true,
+  sensorModel: 'GEODSS',
+  applyNoise: true,
+  maxSyntheticRatio: 0.5,
+};
+
 const defaultConfig: DatasetGenerationConfig = {
   regime: 'LEO',
   coverage: 'standard',
@@ -59,6 +76,8 @@ const defaultConfig: DatasetGenerationConfig = {
   startDate: new Date().toISOString().split('T')[0],
   endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   sensors: ['optical'],
+  downsampling: defaultDownsampling,
+  simulation: defaultSimulation,
 };
 
 const presets = [
@@ -112,8 +131,28 @@ export function DatasetGeneratorPage() {
     setConfig((prev) => ({ ...prev, ...preset.config }));
   };
 
-  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 5));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+
+  const updateDownsampling = <K extends keyof DownsamplingOptions>(
+    key: K,
+    value: DownsamplingOptions[K]
+  ) => {
+    setConfig((prev) => ({
+      ...prev,
+      downsampling: { ...prev.downsampling!, [key]: value },
+    }));
+  };
+
+  const updateSimulation = <K extends keyof SimulationOptions>(
+    key: K,
+    value: SimulationOptions[K]
+  ) => {
+    setConfig((prev) => ({
+      ...prev,
+      simulation: { ...prev.simulation!, [key]: value },
+    }));
+  };
 
   const handleGenerate = async () => {
     console.log('=== handleGenerate called ===');
@@ -493,8 +532,207 @@ export function DatasetGeneratorPage() {
             </>
           )}
 
-          {/* Step 4: Review */}
+          {/* Step 4: Advanced (Downsampling & Simulation) */}
           {currentStep === 4 && (
+            <>
+              <CardHeader>
+                <CardTitle>Advanced Options</CardTitle>
+                <CardDescription>
+                  Configure downsampling and simulation settings for more challenging datasets
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                {/* Downsampling Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base font-medium">Enable Downsampling</Label>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Reduces observation quality by removing observations while preserving track structure. Simulates sparse data scenarios.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Reduce observation density to simulate challenging data conditions
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.downsampling?.enabled ?? false}
+                      onCheckedChange={(checked) => updateDownsampling('enabled', checked)}
+                    />
+                  </div>
+
+                  {config.downsampling?.enabled && (
+                    <div className="ml-6 space-y-6 border-l-2 pl-6 border-muted">
+                      {/* Target Coverage */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>Target Coverage</Label>
+                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                            {((config.downsampling?.targetCoverage ?? 0.05) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={[(config.downsampling?.targetCoverage ?? 0.05) * 100]}
+                          onValueChange={([value]) => updateDownsampling('targetCoverage', value / 100)}
+                          min={1}
+                          max={100}
+                          step={1}
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Sparse (1%)</span>
+                          <span>Full (100%)</span>
+                        </div>
+                      </div>
+
+                      {/* Target Gap */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>Target Gap (orbital periods)</Label>
+                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                            {(config.downsampling?.targetGap ?? 2.0).toFixed(1)}
+                          </span>
+                        </div>
+                        <Slider
+                          value={[(config.downsampling?.targetGap ?? 2.0) * 10]}
+                          onValueChange={([value]) => updateDownsampling('targetGap', value / 10)}
+                          min={5}
+                          max={100}
+                          step={5}
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Small (0.5)</span>
+                          <span>Large (10)</span>
+                        </div>
+                      </div>
+
+                      {/* Max Obs Per Satellite */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>Max Observations Per Satellite</Label>
+                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                            {config.downsampling?.maxObsPerSat ?? 50}
+                          </span>
+                        </div>
+                        <Slider
+                          value={[config.downsampling?.maxObsPerSat ?? 50]}
+                          onValueChange={([value]) => updateDownsampling('maxObsPerSat', value)}
+                          min={5}
+                          max={200}
+                          step={5}
+                        />
+                      </div>
+
+                      {/* Preserve Tracks */}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Preserve Track Boundaries</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Keep first and last observations of each track
+                          </p>
+                        </div>
+                        <Switch
+                          checked={config.downsampling?.preserveTracks ?? true}
+                          onCheckedChange={(checked) => updateDownsampling('preserveTracks', checked)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Simulation Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base font-medium">Enable Gap-Filling Simulation</Label>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Generates synthetic observations to fill gaps in the observation data using physics-based propagation.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Fill observation gaps with simulated data
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.simulation?.enabled ?? false}
+                      onCheckedChange={(checked) => updateSimulation('enabled', checked)}
+                    />
+                  </div>
+
+                  {config.simulation?.enabled && (
+                    <div className="ml-6 space-y-6 border-l-2 pl-6 border-muted">
+                      {/* Sensor Model */}
+                      <div className="space-y-3">
+                        <Label>Sensor Noise Model</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['GEODSS', 'SBSS', 'Commercial_EO'] as const).map((model) => (
+                            <Button
+                              key={model}
+                              variant={config.simulation?.sensorModel === model ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => updateSimulation('sensorModel', model)}
+                            >
+                              {model.replace('_', ' ')}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Max Synthetic Ratio */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>Max Synthetic Ratio</Label>
+                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                            {((config.simulation?.maxSyntheticRatio ?? 0.5) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={[(config.simulation?.maxSyntheticRatio ?? 0.5) * 100]}
+                          onValueChange={([value]) => updateSimulation('maxSyntheticRatio', value / 100)}
+                          min={10}
+                          max={90}
+                          step={5}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Maximum percentage of observations that can be synthetic
+                        </p>
+                      </div>
+
+                      {/* Apply Noise */}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Apply Realistic Noise</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Add sensor-specific noise to simulated observations
+                          </p>
+                        </div>
+                        <Switch
+                          checked={config.simulation?.applyNoise ?? true}
+                          onCheckedChange={(checked) => updateSimulation('applyNoise', checked)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </>
+          )}
+
+          {/* Step 5: Review */}
+          {currentStep === 5 && (
             <>
               <CardHeader>
                 <CardTitle>Review Configuration</CardTitle>
@@ -564,6 +802,32 @@ export function DatasetGeneratorPage() {
                           {calculatedTimeframe} day{calculatedTimeframe !== 1 ? 's' : ''}
                         </p>
                       </div>
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Downsampling</h4>
+                        {config.downsampling?.enabled ? (
+                          <>
+                            <Badge variant="default">Enabled</Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {((config.downsampling?.targetCoverage ?? 0.05) * 100).toFixed(0)}% coverage, {config.downsampling?.maxObsPerSat ?? 50} max obs/sat
+                            </p>
+                          </>
+                        ) : (
+                          <Badge variant="outline">Disabled</Badge>
+                        )}
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Simulation</h4>
+                        {config.simulation?.enabled ? (
+                          <>
+                            <Badge variant="default">Enabled</Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {config.simulation?.sensorModel}, max {((config.simulation?.maxSyntheticRatio ?? 0.5) * 100).toFixed(0)}% synthetic
+                            </p>
+                          </>
+                        ) : (
+                          <Badge variant="outline">Disabled</Badge>
+                        )}
+                      </div>
                     </div>
 
                     {timeframeError && (
@@ -610,7 +874,7 @@ export function DatasetGeneratorPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            {currentStep < 4 ? (
+            {currentStep < 5 ? (
               <Button
                 onClick={nextStep}
                 className="gap-2"

@@ -266,10 +266,13 @@ async def export_results(
 
     row_dict = dict(zip(columns, row))
 
-    # Convert datetime objects to strings
+    # Convert non-JSON-serializable types
+    from decimal import Decimal
     for key, value in row_dict.items():
         if hasattr(value, "isoformat"):
             row_dict[key] = value.isoformat()
+        elif isinstance(value, Decimal):
+            row_dict[key] = float(value)
 
     if format == "json":
         return JSONResponse(

@@ -189,6 +189,13 @@ CREATE TABLE IF NOT EXISTS datasets (
     avg_obs_count DECIMAL(8,2),
     max_track_gap DECIMAL(8,4),
 
+    -- Downsampling and Simulation tracking
+    downsampling_applied BOOLEAN DEFAULT FALSE,
+    simulation_applied BOOLEAN DEFAULT FALSE,
+    simulated_obs_count INTEGER DEFAULT 0,
+    downsampling_config JSON,              -- Stores downsampling parameters used
+    simulation_config JSON,                -- Stores simulation parameters used
+
     -- Parameters used (JSON blob)
     generation_params JSON,
 

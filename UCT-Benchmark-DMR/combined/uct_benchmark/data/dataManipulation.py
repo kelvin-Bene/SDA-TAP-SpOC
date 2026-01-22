@@ -7,7 +7,7 @@ Created on Fri Jun 27 11:45:50 2025
 
 import heapq
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ from uct_benchmark.simulation.orbitCoverage import orbitCoverage
 from uct_benchmark.settings import (
     DOWNSAMPLING_PROFILES,
     DownsampleConfig,
+    SimulationConfig,
     semiMajorAxis_LEO,
     semiMajorAxis_GEO,
 )
@@ -213,11 +214,19 @@ def identify_tracks(
     # Build grouping key (sensor or location)
     if 'idSensor' in obs_df.columns:
         sensor_mask = obs_df['idSensor'].notna()
-        obs_df['grp_key'] = np.where(
-            sensor_mask,
-            obs_df['idSensor'].astype(str) + '_' + obs_df['satNo'].astype(str),
-            obs_df['senlat'].astype(str) + '_' + obs_df['senlon'].astype(str) + '_' + obs_df['satNo'].astype(str)
-        )
+        # Check if we have location columns for fallback
+        has_location_cols = 'senlat' in obs_df.columns and 'senlon' in obs_df.columns
+
+        if has_location_cols:
+            # Use np.where only when both branches can be evaluated
+            obs_df['grp_key'] = np.where(
+                sensor_mask,
+                obs_df['idSensor'].astype(str) + '_' + obs_df['satNo'].astype(str),
+                obs_df['senlat'].astype(str) + '_' + obs_df['senlon'].astype(str) + '_' + obs_df['satNo'].astype(str)
+            )
+        else:
+            # No location columns - use sensor ID where available, otherwise just satNo
+            obs_df['grp_key'] = obs_df['idSensor'].fillna('').astype(str) + '_' + obs_df['satNo'].astype(str)
     else:
         obs_df['grp_key'] = obs_df['satNo'].astype(str)
 
@@ -1415,3 +1424,367 @@ def downsampleData(
     )
 
     return ref_obs, p_reached
+
+
+# =============================================================================
+# PIPELINE INTEGRATION HELPERS
+# =============================================================================
+
+def apply_downsampling(
+    obs_df: pd.DataFrame,
+    sat_params: Dict,
+    elset_data: pd.DataFrame = None,
+    config: Optional[DownsampleConfig] = None,
+    tier: str = "T2"
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Apply downsampling to observations with full configuration support.
+
+    This is the main integration entry point that:
+    1. Validates inputs
+    2. Applies tier-appropriate downsampling
+    3. Returns downsampled data with metadata
+
+    Args:
+        obs_df: DataFrame of observations (must have 'obTime', 'satNo', 'ra', 'declination')
+        sat_params: Dict mapping satNo to orbital parameters (Semi-Major Axis, Period, etc.)
+        elset_data: Optional DataFrame of element sets for building sat_params if not provided
+        config: DownsampleConfig instance (uses defaults if None)
+        tier: Dataset tier ("T1", "T2", "T3", "T4") - determines downsampling intensity
+
+    Returns:
+        Tuple of (downsampled_df, metadata_dict)
+        metadata_dict contains: original_count, final_count, retention_ratio, tier, config_used
+    """
+    if obs_df.empty:
+        return obs_df, {
+            'status': 'empty_input',
+            'original_count': 0,
+            'final_count': 0,
+            'retention_ratio': 0.0,
+        }
+
+    if config is None:
+        config = DownsampleConfig()
+
+    original_count = len(obs_df)
+
+    # Build sat_params from elset_data if not provided
+    if not sat_params and elset_data is not None and not elset_data.empty:
+        from uct_benchmark.simulation.propagator import orbit2OE
+        sat_params = {}
+        for _, row in elset_data.iterrows():
+            try:
+                sat_id = int(row.get('satNo', row.get('sat_no', 0)))
+                line1 = row.get('line1', row.get('tle1', ''))
+                line2 = row.get('line2', row.get('tle2', ''))
+                if line1 and line2:
+                    orb_elems = orbit2OE(line1, line2)
+                    sat_obs = obs_df[obs_df['satNo'] == sat_id]
+                    sat_params[sat_id] = {
+                        'Semi-Major Axis': orb_elems.get('Semi-Major Axis', 7000),
+                        'Eccentricity': orb_elems.get('Eccentricity', 0.001),
+                        'Inclination': orb_elems.get('Inclination', 45),
+                        'RAAN': orb_elems.get('RAAN', 0),
+                        'Argument of Perigee': orb_elems.get('Argument of Perigee', 0),
+                        'Mean Anomaly': orb_elems.get('Mean Anomaly', 0),
+                        'Period': orb_elems.get('Period', 5400),
+                        'Number of Obs': len(sat_obs),
+                        'Orbital Coverage': 0.5,
+                        'Max Track Gap': 2
+                    }
+            except Exception:
+                continue
+
+    if not sat_params:
+        return obs_df, {
+            'status': 'no_sat_params',
+            'original_count': original_count,
+            'final_count': original_count,
+            'retention_ratio': 1.0,
+            'warning': 'No satellite parameters available, returning original data'
+        }
+
+    # Configure downsampling based on tier
+    tier_configs = {
+        'T1': {  # High quality - minimal downsampling
+            'coverage': (0.7, 1.0, 0.85),
+            'coverage_pct': (0.4, 0.2),
+            'gap': (0.7, 1.0, 0.85),
+            'gap_target': 1.5,
+            'obs': (0.7, 1.0, 0.85),
+            'obs_max': 200,
+        },
+        'T2': {  # Standard quality - moderate downsampling
+            'coverage': (0.4, 0.6, 0.5),
+            'coverage_pct': (0.15, 0.05),
+            'gap': (0.4, 0.6, 0.5),
+            'gap_target': 2.0,
+            'obs': (0.4, 0.6, 0.5),
+            'obs_max': 50,
+        },
+        'T3': {  # Lower quality - more aggressive downsampling
+            'coverage': (0.2, 0.4, 0.3),
+            'coverage_pct': (0.10, 0.02),
+            'gap': (0.2, 0.4, 0.3),
+            'gap_target': 3.0,
+            'obs': (0.2, 0.4, 0.3),
+            'obs_max': 30,
+        },
+        'T4': {  # Lowest quality - maximum downsampling
+            'coverage': (0.1, 0.2, 0.15),
+            'coverage_pct': (0.05, 0.01),
+            'gap': (0.1, 0.2, 0.15),
+            'gap_target': 4.0,
+            'obs': (0.1, 0.2, 0.15),
+            'obs_max': 20,
+        },
+    }
+
+    tier_cfg = tier_configs.get(tier, tier_configs['T2'])
+
+    # Use existing downsampleData function
+    orbit_coverage = {
+        'sats': None,
+        'p_bounds': tier_cfg['coverage'],
+        'p_coverage': tier_cfg['coverage_pct'],
+    }
+    track_length = {
+        'sats': None,
+        'p_bounds': tier_cfg['gap'],
+        'p_track': tier_cfg['gap_target'],
+    }
+    obs_count = {
+        'sats': None,
+        'p_bounds': tier_cfg['obs'],
+        'obs_max': config.max_obs_per_sat if config.max_obs_per_sat else tier_cfg['obs_max'],
+    }
+
+    try:
+        downsampled_df, p_reached = downsampleData(
+            obs_df.copy(),
+            sat_params,
+            orbit_coverage,
+            track_length,
+            obs_count,
+            bins=10,
+            rand=config.seed
+        )
+    except Exception as e:
+        # Fall back to regime-based downsampling
+        rng = np.random.default_rng(config.seed)
+        downsampled_df = downsample_by_regime(obs_df.copy(), sat_params, config, rng)
+        p_reached = (0, 0, 0)
+
+    final_count = len(downsampled_df)
+
+    metadata = {
+        'status': 'success',
+        'original_count': original_count,
+        'final_count': final_count,
+        'retention_ratio': final_count / original_count if original_count > 0 else 0,
+        'tier': tier,
+        'p_reached': p_reached,
+        'config': {
+            'target_coverage': config.target_coverage,
+            'target_gap': config.target_gap,
+            'max_obs_per_sat': config.max_obs_per_sat,
+            'preserve_track_boundaries': config.preserve_track_boundaries,
+            'seed': config.seed,
+        }
+    }
+
+    return downsampled_df, metadata
+
+
+def apply_simulation_to_gaps(
+    obs_df: pd.DataFrame,
+    elset_data: pd.DataFrame,
+    sensor_df: pd.DataFrame,
+    sat_params: Dict = None,
+    config: Optional[SimulationConfig] = None,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Generate synthetic observations to fill gaps in the observation data.
+
+    This function:
+    1. Analyzes observation gaps for each satellite
+    2. Generates synthetic observations at gap epochs
+    3. Applies realistic noise based on config
+    4. Merges with original observations
+
+    Args:
+        obs_df: DataFrame of existing observations
+        elset_data: DataFrame of TLE/element set data (must have 'line1', 'line2', 'satNo')
+        sensor_df: DataFrame of sensor locations (must have 'idSensor', 'senlat', 'senlon', 'senalt')
+        sat_params: Optional dict of satellite parameters
+        config: SimulationConfig instance (uses defaults if None)
+
+    Returns:
+        Tuple of (merged_df, metadata_dict)
+        merged_df contains both original and simulated observations
+        metadata_dict contains: original_count, simulated_count, total_count, satellites_processed
+    """
+    from uct_benchmark.simulation.simulateObservations import simulateObs, epochsToSim
+    from uct_benchmark.simulation.propagator import orbit2OE
+
+    if config is None:
+        config = SimulationConfig()
+
+    if obs_df.empty:
+        return obs_df, {
+            'status': 'empty_input',
+            'original_count': 0,
+            'simulated_count': 0,
+            'total_count': 0,
+        }
+
+    if elset_data is None or elset_data.empty:
+        return obs_df, {
+            'status': 'no_elset_data',
+            'original_count': len(obs_df),
+            'simulated_count': 0,
+            'total_count': len(obs_df),
+            'warning': 'No element set data available for simulation'
+        }
+
+    if sensor_df is None or sensor_df.empty:
+        # Create a default sensor if not provided
+        sensor_df = pd.DataFrame({
+            'idSensor': ['SEN001', 'SEN002', 'SEN003'],
+            'name': ['DIEGO_GARCIA', 'ASCENSION', 'MAUI'],
+            'senlat': [-7.3, -7.9, 20.7],
+            'senlon': [72.4, -14.4, -156.3],
+            'senalt': [0.01, 0.04, 3.1],
+            'count': [10, 10, 10],
+        })
+
+    # Ensure sensor_df has required columns
+    if 'count' not in sensor_df.columns:
+        sensor_df['count'] = 10
+
+    original_count = len(obs_df)
+    all_simulated = []
+    satellites_processed = 0
+    satellites_failed = 0
+
+    # Build orbital elements from elset_data
+    sat_orbits = {}
+    for _, row in elset_data.iterrows():
+        try:
+            sat_id = int(row.get('satNo', row.get('sat_no', 0)))
+            line1 = row.get('line1', row.get('tle1', ''))
+            line2 = row.get('line2', row.get('tle2', ''))
+            if line1 and line2 and sat_id:
+                sat_orbits[sat_id] = {
+                    'line1': line1,
+                    'line2': line2,
+                    'orb_elems': orbit2OE(line1, line2)
+                }
+        except Exception:
+            continue
+
+    # Set random seed if configured
+    rng = np.random.default_rng(config.seed) if config.seed else np.random.default_rng()
+
+    # Process each satellite
+    for sat_id in obs_df['satNo'].unique():
+        sat_id = int(sat_id)
+
+        if sat_id not in sat_orbits:
+            satellites_failed += 1
+            continue
+
+        try:
+            sat_obs = obs_df[obs_df['satNo'] == sat_id].copy()
+            orbit_info = sat_orbits[sat_id]
+            orb_elems = orbit_info['orb_elems']
+
+            # Get epochs to simulate
+            epochs, bins_info = epochsToSim(
+                sat_id,
+                sat_obs,
+                orb_elems,
+                target_obs_count=None,
+                max_sim_ratio=config.max_synthetic_ratio
+            )
+
+            if not epochs or bins_info.get('status') not in ['success', 'ok', 'max_ratio_limited']:
+                continue
+
+            # Check if adding more observations would exceed ratio
+            current_count = len(sat_obs)
+            max_allowed = int(current_count * config.max_synthetic_ratio / (1 - config.max_synthetic_ratio))
+            epochs = epochs[:max_allowed]
+
+            if not epochs:
+                continue
+
+            # Generate simulated observations
+            sim_obs = simulateObs(
+                orbit_info['line1'],
+                orbit_info['line2'],
+                epochs,  # Pass epochs directly
+                sensor_df,
+                positionNoise=0.01 if config.apply_sensor_noise else 0,
+                angularNoise=1/3600 if config.apply_sensor_noise else 0,
+                step=30.0,
+                satelliteParameters=[sat_id, 1000, 10]
+            )
+
+            if sim_obs is not None and not sim_obs.empty:
+                # Mark as simulated
+                sim_obs['is_simulated'] = True
+                sim_obs['dataMode'] = 'SIMULATED'
+                all_simulated.append(sim_obs)
+                satellites_processed += 1
+
+        except Exception as e:
+            satellites_failed += 1
+            continue
+
+    # Merge original and simulated observations
+    if all_simulated:
+        simulated_df = pd.concat(all_simulated, ignore_index=True)
+        simulated_count = len(simulated_df)
+
+        # Mark original observations
+        obs_df = obs_df.copy()
+        if 'is_simulated' not in obs_df.columns:
+            obs_df['is_simulated'] = False
+        if 'dataMode' not in obs_df.columns:
+            obs_df['dataMode'] = 'REAL'
+
+        # Merge
+        merged_df = pd.concat([obs_df, simulated_df], ignore_index=True)
+
+        # Ensure obTime is datetime (simulated obs may have string timestamps)
+        if 'obTime' in merged_df.columns:
+            merged_df['obTime'] = pd.to_datetime(merged_df['obTime'], utc=True)
+
+        # Sort by satellite and time
+        if 'obTime' in merged_df.columns:
+            merged_df = merged_df.sort_values(['satNo', 'obTime']).reset_index(drop=True)
+    else:
+        merged_df = obs_df.copy()
+        simulated_count = 0
+        if 'is_simulated' not in merged_df.columns:
+            merged_df['is_simulated'] = False
+
+    metadata = {
+        'status': 'success',
+        'original_count': original_count,
+        'simulated_count': simulated_count,
+        'total_count': len(merged_df),
+        'satellites_processed': satellites_processed,
+        'satellites_failed': satellites_failed,
+        'synthetic_ratio': simulated_count / len(merged_df) if len(merged_df) > 0 else 0,
+        'config': {
+            'apply_sensor_noise': config.apply_sensor_noise,
+            'sensor_model': config.sensor_model,
+            'max_synthetic_ratio': config.max_synthetic_ratio,
+            'seed': config.seed,
+        }
+    }
+
+    return merged_df, metadata

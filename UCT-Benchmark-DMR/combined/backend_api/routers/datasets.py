@@ -4,8 +4,9 @@ import json
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.jobs import get_job_manager
@@ -40,6 +41,10 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         except (json.JSONDecodeError, TypeError):
             sensor_types = ["optical"]
 
+    # Calculate size_bytes estimate (approx 500 bytes per observation as JSON)
+    obs_count = row_dict.get("observation_count") or 0
+    estimated_size = obs_count * 500
+
     return DatasetSummary(
         id=str(row_dict["id"]),
         name=row_dict["name"],
@@ -48,10 +53,10 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         tier=DataTier(row_dict.get("tier", "T1")),
         status=DatasetStatus(row_dict.get("status", "created")),
         created_at=row_dict["created_at"] or datetime.utcnow(),
-        observation_count=row_dict.get("observation_count") or 0,
+        observation_count=obs_count,
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
-        size_bytes=0,  # Would need to calculate from file if available
+        size_bytes=estimated_size,
         sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
         job_id=None,  # Could store this in generation_params
     )
@@ -146,6 +151,10 @@ async def get_dataset(
         except (json.JSONDecodeError, TypeError):
             pass
 
+    # Calculate size_bytes estimate (approx 500 bytes per observation as JSON)
+    obs_count = row_dict.get("observation_count") or 0
+    estimated_size = obs_count * 500
+
     return DatasetDetail(
         id=str(row_dict["id"]),
         name=row_dict["name"],
@@ -154,10 +163,10 @@ async def get_dataset(
         tier=DataTier(row_dict.get("tier", "T1")),
         status=DatasetStatus(row_dict.get("status", "created")),
         created_at=row_dict["created_at"] or datetime.utcnow(),
-        observation_count=row_dict.get("observation_count") or 0,
+        observation_count=obs_count,
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
-        size_bytes=0,
+        size_bytes=estimated_size,
         sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
         satellites=satellites,
         parameters=params,
@@ -167,6 +176,19 @@ async def get_dataset(
         max_track_gap=float(row_dict.get("max_track_gap") or 0),
         json_path=row_dict.get("json_path"),
     )
+
+
+@router.post("/debug")
+async def debug_request(request: Request):
+    """Debug endpoint to log raw request body."""
+    body = await request.body()
+    try:
+        data = json.loads(body)
+        logger.info(f"Debug endpoint received: {json.dumps(data, indent=2, default=str)}")
+        return {"received": data}
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON: {e}")
+        return {"error": str(e), "raw": body.decode()}
 
 
 @router.post("/", response_model=DatasetSummary)
@@ -186,7 +208,8 @@ async def create_dataset(
     Returns:
         The created dataset summary with job_id for tracking progress
     """
-    # Prepare generation parameters
+    logger.info(f"Creating dataset with: name={request.name}, regime={request.regime}, tier={request.tier}")
+    # Prepare generation parameters (name will be set after uniqueness check)
     generation_params = {
         "regime": request.regime.value,
         "tier": request.tier.value,
@@ -196,7 +219,6 @@ async def create_dataset(
         "sensors": [s.value for s in request.sensors],
         "coverage": request.coverage,
         "include_hamr": request.include_hamr,
-        "name": request.name,
     }
 
     if request.satellites:
@@ -208,6 +230,53 @@ async def create_dataset(
     if request.end_date:
         generation_params["end_date"] = request.end_date.isoformat()
 
+    # Add downsampling options if specified
+    if request.downsampling:
+        generation_params["downsampling"] = {
+            "enabled": request.downsampling.enabled,
+            "target_coverage": request.downsampling.target_coverage,
+            "target_gap": request.downsampling.target_gap,
+            "max_obs_per_sat": request.downsampling.max_obs_per_sat,
+            "preserve_tracks": request.downsampling.preserve_tracks,
+            "seed": request.downsampling.seed,
+        }
+        logger.info(f"Downsampling enabled: {request.downsampling.enabled}")
+
+    # Add simulation options if specified
+    if request.simulation:
+        generation_params["simulation"] = {
+            "enabled": request.simulation.enabled,
+            "fill_gaps": request.simulation.fill_gaps,
+            "sensor_model": request.simulation.sensor_model,
+            "apply_noise": request.simulation.apply_noise,
+            "max_synthetic_ratio": request.simulation.max_synthetic_ratio,
+            "seed": request.simulation.seed,
+        }
+        logger.info(f"Simulation enabled: {request.simulation.enabled}")
+
+    # Check if dataset name already exists and make it unique if needed
+    existing = db.execute(
+        "SELECT COUNT(*) FROM datasets WHERE name = ?", (request.name,)
+    ).fetchone()[0]
+
+    dataset_name = request.name
+    if existing > 0:
+        # Find a unique name by appending a counter
+        counter = 2
+        while True:
+            candidate_name = f"{request.name}-{counter}"
+            exists = db.execute(
+                "SELECT COUNT(*) FROM datasets WHERE name = ?", (candidate_name,)
+            ).fetchone()[0]
+            if exists == 0:
+                dataset_name = candidate_name
+                logger.info(f"Dataset name '{request.name}' already exists, using '{dataset_name}'")
+                break
+            counter += 1
+
+    # Add the final unique name to generation params
+    generation_params["name"] = dataset_name
+
     # Create dataset record in database using RETURNING to get the ID
     result = db.execute(
         """
@@ -217,7 +286,7 @@ async def create_dataset(
         RETURNING id
         """,
         (
-            request.name,
+            dataset_name,
             f"{request.regime.value}_{request.tier.value}",
             request.tier.value,
             request.regime.value,
@@ -293,8 +362,8 @@ async def get_dataset_observations(
         """
         SELECT o.id, o.ob_time, o.ra, o.declination, o.sensor_name, o.track_id
         FROM observations o
-        JOIN dataset_observations do ON o.id = do.observation_id
-        WHERE do.dataset_id = ?
+        JOIN dataset_observations dso ON o.id = dso.observation_id
+        WHERE dso.dataset_id = ?
         ORDER BY o.ob_time
         LIMIT ? OFFSET ?
         """,
@@ -323,6 +392,83 @@ async def get_dataset_observations(
         "offset": offset,
         "observations": observations,
     }
+
+
+@router.patch("/{dataset_id}/coverage")
+async def update_dataset_coverage(
+    dataset_id: str,
+    coverage: float,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Update a dataset's coverage value.
+
+    Args:
+        dataset_id: The dataset ID
+        coverage: Coverage value between 0 and 1
+
+    Returns:
+        Success message
+    """
+    if not 0 <= coverage <= 1:
+        raise HTTPException(status_code=400, detail="Coverage must be between 0 and 1")
+
+    result = db.execute(
+        "SELECT id, name FROM datasets WHERE id = ?",
+        (int(dataset_id),)
+    )
+    row = result.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    db.execute(
+        "UPDATE datasets SET avg_coverage = ? WHERE id = ?",
+        (coverage, int(dataset_id)),
+    )
+
+    return {"message": f"Dataset {dataset_id} coverage updated to {coverage:.2%}"}
+
+
+@router.delete("/{dataset_id}")
+async def delete_dataset(
+    dataset_id: str,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Delete a dataset and its associated observations.
+
+    Args:
+        dataset_id: The dataset ID
+
+    Returns:
+        Success message
+    """
+    # Check dataset exists
+    result = db.execute(
+        "SELECT id, name FROM datasets WHERE id = ?",
+        (int(dataset_id),)
+    )
+    row = result.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    dataset_name = row[1]
+
+    # Delete associated observations first
+    db.execute(
+        "DELETE FROM dataset_observations WHERE dataset_id = ?",
+        (int(dataset_id),)
+    )
+
+    # Delete the dataset
+    db.execute(
+        "DELETE FROM datasets WHERE id = ?",
+        (int(dataset_id),)
+    )
+
+    return {"message": f"Dataset '{dataset_name}' (ID: {dataset_id}) deleted successfully"}
 
 
 @router.get("/{dataset_id}/download")
@@ -361,10 +507,10 @@ async def download_dataset(
     # Get observations
     obs_result = db.execute(
         """
-        SELECT o.*, do.assigned_track_id, do.assigned_object_id
+        SELECT o.*, dso.assigned_track_id, dso.assigned_object_id
         FROM observations o
-        JOIN dataset_observations do ON o.id = do.observation_id
-        WHERE do.dataset_id = ?
+        JOIN dataset_observations dso ON o.id = dso.observation_id
+        WHERE dso.dataset_id = ?
         ORDER BY o.ob_time
         """,
         (int(dataset_id),),

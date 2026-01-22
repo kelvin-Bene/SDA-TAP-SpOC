@@ -70,7 +70,11 @@ def binaryMetrics(ref_obs, associated_orbits):
             obs_to_sat.append({"id": obs_id, "satNo": satNo})
 
     # Create DataFrame from the (id, satNo) candidate associations
-    ObsSatCandidates = pd.DataFrame(obs_to_sat)
+    if obs_to_sat:
+        ObsSatCandidates = pd.DataFrame(obs_to_sat)
+    else:
+        # Handle empty predictions case
+        ObsSatCandidates = pd.DataFrame(columns=["id", "satNo"])
 
     # --- Join predicted satNo with the true satNo from the reference ---
     merged = pd.merge(

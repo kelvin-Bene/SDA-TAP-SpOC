@@ -103,7 +103,36 @@ def run_dataset_generation(
             f"{len(satellites)} satellites, {timeframe} {timeunit}"
         )
 
+        # Build downsampling config if specified
+        downsample_config = None
+        if config.get("downsampling"):
+            ds_opts = config["downsampling"]
+            downsample_config = {
+                'enabled': ds_opts.get('enabled', False),
+                'target_coverage': ds_opts.get('target_coverage', 0.05),
+                'target_gap': ds_opts.get('target_gap', 2.0),
+                'max_obs_per_sat': ds_opts.get('max_obs_per_sat', 50),
+                'preserve_tracks': ds_opts.get('preserve_tracks', True),
+                'seed': ds_opts.get('seed'),
+            }
+
+        # Build simulation config if specified
+        simulation_config = None
+        if config.get("simulation"):
+            sim_opts = config["simulation"]
+            simulation_config = {
+                'enabled': sim_opts.get('enabled', False),
+                'apply_noise': sim_opts.get('apply_noise', True),
+                'sensor_model': sim_opts.get('sensor_model', 'GEODSS'),
+                'max_synthetic_ratio': sim_opts.get('max_synthetic_ratio', 0.5),
+                'seed': sim_opts.get('seed'),
+            }
+
+        # Get tier from config
+        tier = config.get("tier", "T2")
+
         # Call the pipeline function
+        # Use dt=0.5 for rate limiting to avoid overwhelming the UDL API
         (
             dataset_obs,
             obs_truth,
@@ -117,11 +146,14 @@ def run_dataset_generation(
             satIDs=satellites,
             timeframe=timeframe,
             timeunit=timeunit,
-            dt=0.1,
+            dt=0.5,
             max_datapoints=0,
             end_time="now",
             use_database=True,
             dataset_name=config.get("name"),
+            downsample_config=downsample_config,
+            simulation_config=simulation_config,
+            tier=tier,
         )
 
         # Update progress - processing results
@@ -132,17 +164,25 @@ def run_dataset_generation(
         observation_count = len(dataset_obs) if dataset_obs is not None else 0
         satellite_count = len(actual_sats) if actual_sats is not None else 0
 
-        # Update the dataset status
+        # Calculate coverage as ratio of satellites with full data vs requested
+        requested_count = len(satellites)
+        avg_coverage = (satellite_count / requested_count) if requested_count > 0 else 0.0
+
+        # Estimate size in bytes (approx 500 bytes per observation as JSON)
+        estimated_size_bytes = observation_count * 500
+
+        # Update the dataset status with all metrics
         db.execute(
             """
             UPDATE datasets
             SET status = 'available',
                 observation_count = ?,
                 satellite_count = ?,
+                avg_coverage = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (observation_count, satellite_count, dataset_id),
+            (observation_count, satellite_count, avg_coverage, dataset_id),
         )
 
         # Complete the job
@@ -227,8 +267,8 @@ def run_evaluation_pipeline(
         observations = db.execute(
             """
             SELECT o.* FROM observations o
-            JOIN dataset_observations do ON o.id = do.observation_id
-            WHERE do.dataset_id = ?
+            JOIN dataset_observations dso ON o.id = dso.observation_id
+            WHERE dso.dataset_id = ?
             """,
             (dataset_id,),
         ).fetchdf()

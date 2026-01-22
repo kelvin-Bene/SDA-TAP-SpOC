@@ -13,17 +13,17 @@ import numpy as np
 import subprocess
 
 # === Import Local Dependencies ==
-#from libraries.readData import readData
-from libraries.apiIntegration import loadDataset
-from libraries.generateCov import generateCov
-from libraries.propagator import monteCarloPropagator, ephemerisPropagator,TLEpropagator
-from libraries.orbitAssociation import orbitAssociation
-from libraries.stateMetrics import stateMetrics
-from libraries.binaryMetrics import binaryMetrics
-from libraries.residualMetrics import residualMetrics
-from libraries.evaluationReport import evaluationReport
-from libraries.generatePDF import generatePDF
-import libraries.config as config
+#from uct_benchmark.data.readData import readData
+from uct_benchmark.api.apiIntegration import loadDataset
+from uct_benchmark.utils.generateCov import generateCov
+from uct_benchmark.simulation.propagator import monteCarloPropagator, ephemerisPropagator, TLEpropagator
+from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
+from uct_benchmark.evaluation.stateMetrics import stateMetrics
+from uct_benchmark.evaluation.binaryMetrics import binaryMetrics
+from uct_benchmark.evaluation.residualMetrics import residualMetrics
+from uct_benchmark.evaluation.evaluationReport import evaluationReport
+from uct_benchmark.utils.generatePDF import generatePDF
+import uct_benchmark.config as config
 #import libraries.reportGenerator
 
 

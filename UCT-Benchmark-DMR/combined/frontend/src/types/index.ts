@@ -37,6 +37,26 @@ export interface DatasetFilters {
   };
 }
 
+// Downsampling Options
+export interface DownsamplingOptions {
+  enabled: boolean;
+  targetCoverage: number;       // 0.01 - 1.0
+  targetGap: number;            // 0.5 - 10.0 orbital periods
+  maxObsPerSat: number;         // 5 - 500
+  preserveTracks: boolean;
+  seed?: number;
+}
+
+// Simulation Options
+export interface SimulationOptions {
+  enabled: boolean;
+  fillGaps: boolean;
+  sensorModel: 'GEODSS' | 'SBSS' | 'Commercial_EO';
+  applyNoise: boolean;
+  maxSyntheticRatio: number;    // 0.0 - 0.9
+  seed?: number;
+}
+
 // Dataset Generation Configuration
 export interface DatasetGenerationConfig {
   regime: OrbitalRegime;
@@ -48,6 +68,9 @@ export interface DatasetGenerationConfig {
   startDate: string;
   endDate: string;
   sensors: SensorType[];
+  // Downsampling and simulation options
+  downsampling?: DownsamplingOptions;
+  simulation?: SimulationOptions;
 }
 
 // Submission Types

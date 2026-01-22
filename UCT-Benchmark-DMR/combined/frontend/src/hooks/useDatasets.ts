@@ -127,10 +127,19 @@ export function useGenerateDataset() {
       // Timeframe is valid
       const validTimeframe = timeframeDays;
 
-      const backendConfig = {
+      // Determine tier based on downsampling/simulation settings
+      let tier = 'T1';
+      if (config.downsampling?.enabled) {
+        tier = 'T2';
+      }
+      if (config.simulation?.enabled) {
+        tier = 'T3';
+      }
+
+      const backendConfig: Record<string, unknown> = {
         name: `${config.regime}-${config.coverage}-${new Date().toISOString().split('T')[0]}`,
         regime: config.regime,
-        tier: 'T1',
+        tier: tier,
         object_count: config.objectCount,
         timeframe: validTimeframe,
         timeunit: 'days',
@@ -140,6 +149,30 @@ export function useGenerateDataset() {
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
       };
+
+      // Add downsampling options if enabled
+      if (config.downsampling?.enabled) {
+        backendConfig.downsampling = {
+          enabled: true,
+          target_coverage: config.downsampling.targetCoverage,
+          target_gap: config.downsampling.targetGap,
+          max_obs_per_sat: config.downsampling.maxObsPerSat,
+          preserve_tracks: config.downsampling.preserveTracks,
+          seed: config.downsampling.seed,
+        };
+      }
+
+      // Add simulation options if enabled
+      if (config.simulation?.enabled) {
+        backendConfig.simulation = {
+          enabled: true,
+          fill_gaps: config.simulation.fillGaps,
+          sensor_model: config.simulation.sensorModel,
+          apply_noise: config.simulation.applyNoise,
+          max_synthetic_ratio: config.simulation.maxSyntheticRatio,
+          seed: config.simulation.seed,
+        };
+      }
 
       console.log('Frontend config:', config);
       console.log('Sending to backend:', JSON.stringify(backendConfig, null, 2));
