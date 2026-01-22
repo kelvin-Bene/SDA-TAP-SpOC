@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import type { Dataset, DatasetFilters, DatasetGenerationConfig } from '@/types';
 
+// Maximum timeframe allowed by the backend (in days)
+// This should match the backend's Pydantic validation in DatasetCreate model
+export const MAX_TIMEFRAME_DAYS = 90;
+
 // Response type from backend
 interface DatasetResponse {
   id: string;
@@ -83,26 +87,74 @@ export function useGenerateDataset() {
 
   return useMutation({
     mutationFn: async (config: DatasetGenerationConfig) => {
+      console.log('=== useGenerateDataset mutationFn called ===');
+      console.log('Input config:', config);
+      console.log('config.startDate:', config.startDate, 'type:', typeof config.startDate);
+      console.log('config.endDate:', config.endDate, 'type:', typeof config.endDate);
+
       // Transform frontend config to backend format
+      const startDate = new Date(config.startDate);
+      const endDate = new Date(config.endDate);
+
+      console.log('Parsed startDate:', startDate, 'ISO:', startDate.toISOString());
+      console.log('Parsed endDate:', endDate, 'ISO:', endDate.toISOString());
+
+      // Validate dates
+      if (isNaN(startDate.getTime())) {
+        console.error('Invalid start date!');
+        throw new Error(`Invalid start date: ${config.startDate}`);
+      }
+      if (isNaN(endDate.getTime())) {
+        console.error('Invalid end date!');
+        throw new Error(`Invalid end date: ${config.endDate}`);
+      }
+
+      const timeframeDays = Math.ceil(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      // Validate timeframe is within allowed range
+      if (timeframeDays < 1) {
+        throw new Error('End date must be after start date (timeframe must be at least 1 day)');
+      }
+      if (timeframeDays > MAX_TIMEFRAME_DAYS) {
+        throw new Error(
+          `Date range exceeds maximum of ${MAX_TIMEFRAME_DAYS} days (currently ${timeframeDays} days). ` +
+          `Please select a shorter date range.`
+        );
+      }
+
+      // Timeframe is valid
+      const validTimeframe = timeframeDays;
+
       const backendConfig = {
         name: `${config.regime}-${config.coverage}-${new Date().toISOString().split('T')[0]}`,
         regime: config.regime,
-        tier: 'T1', // Default tier, could be added to DatasetGenerationConfig
+        tier: 'T1',
         object_count: config.objectCount,
-        timeframe: Math.ceil(
-          (new Date(config.endDate).getTime() - new Date(config.startDate).getTime()) /
-            (1000 * 60 * 60 * 24)
-        ),
+        timeframe: validTimeframe,
         timeunit: 'days',
         sensors: config.sensors,
         coverage: config.coverage,
         include_hamr: config.includeHamr,
-        start_date: config.startDate,
-        end_date: config.endDate,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
       };
 
-      const response = await api.generateDataset(backendConfig);
-      return response.data;
+      console.log('Frontend config:', config);
+      console.log('Sending to backend:', JSON.stringify(backendConfig, null, 2));
+      console.log('Raw JSON:', JSON.stringify(backendConfig));
+
+      try {
+        const response = await api.generateDataset(backendConfig);
+        console.log('Success! Response:', response);
+        return response.data;
+      } catch (err: any) {
+        console.error('API Error:', err);
+        console.error('Error response data:', JSON.stringify(err?.response?.data, null, 2));
+        console.error('Error response status:', err?.response?.status);
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] });

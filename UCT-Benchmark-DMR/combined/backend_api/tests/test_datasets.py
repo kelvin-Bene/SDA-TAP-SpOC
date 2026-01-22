@@ -178,6 +178,138 @@ class TestCreateDataset:
         )
         assert response.status_code == 422  # Validation error
 
+    def test_create_dataset_timeframe_exceeds_max(self, test_client: TestClient):
+        """Test creating a dataset with timeframe > 90 days fails validation."""
+        response = test_client.post(
+            "/api/v1/datasets/",
+            json={
+                "name": "Test",
+                "regime": "LEO",
+                "tier": "T1",
+                "object_count": 5,
+                "timeframe": 91,  # Exceeds max of 90
+                "timeunit": "days",
+                "sensors": ["optical"],
+            },
+        )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        # Pydantic returns list of errors
+        assert any(
+            e["loc"] == ["body", "timeframe"] and "less than or equal to 90" in e["msg"]
+            for e in detail
+        )
+
+    def test_create_dataset_timeframe_large_value(self, test_client: TestClient):
+        """Test creating a dataset with very large timeframe fails validation."""
+        response = test_client.post(
+            "/api/v1/datasets/",
+            json={
+                "name": "Test",
+                "regime": "LEO",
+                "tier": "T1",
+                "object_count": 5,
+                "timeframe": 419,  # Large value like in the reported error
+                "timeunit": "days",
+                "sensors": ["optical"],
+            },
+        )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert any(
+            e["loc"] == ["body", "timeframe"] and "less than or equal to 90" in e["msg"]
+            for e in detail
+        )
+
+    def test_create_dataset_timeframe_zero(self, test_client: TestClient):
+        """Test creating a dataset with timeframe = 0 fails validation."""
+        response = test_client.post(
+            "/api/v1/datasets/",
+            json={
+                "name": "Test",
+                "regime": "LEO",
+                "tier": "T1",
+                "object_count": 5,
+                "timeframe": 0,  # Less than min of 1
+                "timeunit": "days",
+                "sensors": ["optical"],
+            },
+        )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert any(
+            e["loc"] == ["body", "timeframe"] and "greater than or equal to 1" in e["msg"]
+            for e in detail
+        )
+
+    def test_create_dataset_timeframe_negative(self, test_client: TestClient):
+        """Test creating a dataset with negative timeframe fails validation."""
+        response = test_client.post(
+            "/api/v1/datasets/",
+            json={
+                "name": "Test",
+                "regime": "LEO",
+                "tier": "T1",
+                "object_count": 5,
+                "timeframe": -5,
+                "timeunit": "days",
+                "sensors": ["optical"],
+            },
+        )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert any(e["loc"] == ["body", "timeframe"] for e in detail)
+
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_create_dataset_timeframe_at_max_boundary(
+        self,
+        mock_submit: MagicMock,
+        test_client: TestClient,
+    ):
+        """Test creating a dataset with timeframe = 90 (max boundary) succeeds."""
+        mock_job = MagicMock()
+        mock_job.id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        response = test_client.post(
+            "/api/v1/datasets/",
+            json={
+                "name": "Test",
+                "regime": "LEO",
+                "tier": "T1",
+                "object_count": 5,
+                "timeframe": 90,  # Exactly at max boundary
+                "timeunit": "days",
+                "sensors": ["optical"],
+            },
+        )
+        assert response.status_code == 200
+
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_create_dataset_timeframe_at_min_boundary(
+        self,
+        mock_submit: MagicMock,
+        test_client: TestClient,
+    ):
+        """Test creating a dataset with timeframe = 1 (min boundary) succeeds."""
+        mock_job = MagicMock()
+        mock_job.id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        response = test_client.post(
+            "/api/v1/datasets/",
+            json={
+                "name": "Test",
+                "regime": "LEO",
+                "tier": "T1",
+                "object_count": 5,
+                "timeframe": 1,  # Exactly at min boundary
+                "timeunit": "days",
+                "sensors": ["optical"],
+            },
+        )
+        assert response.status_code == 200
+
 
 class TestGetDatasetObservations:
     """Tests for GET /api/v1/datasets/{id}/observations endpoint."""

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGenerateDataset, useJobStatus, MAX_TIMEFRAME_DAYS } from '@/hooks/useDatasets';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ import {
   Settings2,
   FileCheck,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { OrbitalRegime, DatasetGenerationConfig } from '@/types';
@@ -36,6 +38,16 @@ const steps = [
   { id: 3, name: 'Objects', icon: Zap },
   { id: 4, name: 'Review', icon: FileCheck },
 ];
+
+// Calculate timeframe in days from start and end dates
+function calculateTimeframeDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 0;
+  }
+  return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 const defaultConfig: DatasetGenerationConfig = {
   regime: 'LEO',
@@ -61,6 +73,33 @@ export function DatasetGeneratorPage() {
   const [config, setConfig] = useState<DatasetGenerationConfig>(defaultConfig);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [jobId, setJobId] = useState<string | null>(null);
+
+  const generateDatasetMutation = useGenerateDataset();
+  const { data: jobStatus } = useJobStatus(jobId);
+
+  // Calculate and validate the timeframe
+  const calculatedTimeframe = calculateTimeframeDays(config.startDate, config.endDate);
+  const isTimeframeValid = calculatedTimeframe >= 1 && calculatedTimeframe <= MAX_TIMEFRAME_DAYS;
+  const timeframeError = calculatedTimeframe > MAX_TIMEFRAME_DAYS
+    ? `Date range exceeds maximum of ${MAX_TIMEFRAME_DAYS} days (currently ${calculatedTimeframe} days)`
+    : calculatedTimeframe < 1
+    ? 'End date must be after start date'
+    : null;
+
+  // Track job progress
+  useEffect(() => {
+    if (jobStatus) {
+      setGenerationProgress(jobStatus.progress);
+      if (jobStatus.status === 'completed') {
+        setIsGenerating(false);
+        navigate('/datasets/my-datasets');
+      } else if (jobStatus.status === 'failed') {
+        setIsGenerating(false);
+        setJobId(null);
+      }
+    }
+  }, [jobStatus, navigate]);
 
   const updateConfig = <K extends keyof DatasetGenerationConfig>(
     key: K,
@@ -77,29 +116,48 @@ export function DatasetGeneratorPage() {
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   const handleGenerate = async () => {
+    console.log('=== handleGenerate called ===');
+    console.log('Current config state:', JSON.stringify(config, null, 2));
+
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // Simulate generation progress
-    const interval = setInterval(() => {
-      setGenerationProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
+    console.log('Generating dataset with config:', config);
 
-    // Simulate completion after 5 seconds
-    setTimeout(() => {
-      clearInterval(interval);
-      setGenerationProgress(100);
-      setTimeout(() => {
-        setIsGenerating(false);
-        navigate('/datasets/my-datasets');
-      }, 500);
-    }, 5000);
+    try {
+      const result = await generateDatasetMutation.mutateAsync(config);
+      console.log('Generation result:', result);
+      // The API returns a job_id for tracking progress
+      if (result?.job_id) {
+        setJobId(result.job_id);
+      } else {
+        // If no job tracking, navigate after a short delay
+        setTimeout(() => {
+          setIsGenerating(false);
+          navigate('/datasets/my-datasets');
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error('Failed to generate dataset:', error);
+      console.error('Error response:', error?.response?.data);
+
+      // Handle Pydantic validation errors which return an array of error details
+      let errorMessage = 'Unknown error';
+      const detail = error?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // Pydantic validation error - format each error
+        errorMessage = detail.map((e: any) =>
+          `${e.loc?.join(' -> ')}: ${e.msg}`
+        ).join('\n');
+      } else if (typeof detail === 'string') {
+        errorMessage = detail;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      alert(`Failed to generate dataset:\n${errorMessage}`);
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -370,25 +428,50 @@ export function DatasetGeneratorPage() {
                 <Separator />
 
                 {/* Date Range */}
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date</Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={config.startDate}
-                      onChange={(e) => updateConfig('startDate', e.target.value)}
-                    />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Date Range</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Maximum date range is {MAX_TIMEFRAME_DAYS} days. Select start and end dates for the observation window.</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={config.endDate}
-                      onChange={(e) => updateConfig('endDate', e.target.value)}
-                    />
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Start Date</Label>
+                      <Input
+                        id="startDate"
+                        type="date"
+                        value={config.startDate}
+                        onChange={(e) => updateConfig('startDate', e.target.value)}
+                        className={timeframeError ? 'border-destructive' : ''}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="endDate">End Date</Label>
+                      <Input
+                        id="endDate"
+                        type="date"
+                        value={config.endDate}
+                        onChange={(e) => updateConfig('endDate', e.target.value)}
+                        className={timeframeError ? 'border-destructive' : ''}
+                      />
+                    </div>
                   </div>
+                  {timeframeError ? (
+                    <div className="flex items-center gap-2 text-destructive text-sm">
+                      <AlertCircle className="h-4 w-4" />
+                      {timeframeError}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Selected: {calculatedTimeframe} day{calculatedTimeframe !== 1 ? 's' : ''} (max {MAX_TIMEFRAME_DAYS})
+                    </p>
+                  )}
                 </div>
 
                 <Separator />
@@ -477,8 +560,21 @@ export function DatasetGeneratorPage() {
                         <p className="text-sm">
                           {config.startDate} to {config.endDate}
                         </p>
+                        <p className="text-xs text-muted-foreground">
+                          {calculatedTimeframe} day{calculatedTimeframe !== 1 ? 's' : ''}
+                        </p>
                       </div>
                     </div>
+
+                    {timeframeError && (
+                      <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive text-destructive">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium">Invalid Configuration</p>
+                          <p className="text-sm">{timeframeError}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="bg-muted/50 rounded-lg p-4">
                       <h4 className="font-medium mb-2">Estimated Output</h4>
@@ -515,12 +611,20 @@ export function DatasetGeneratorPage() {
               Back
             </Button>
             {currentStep < 4 ? (
-              <Button onClick={nextStep} className="gap-2">
+              <Button
+                onClick={nextStep}
+                className="gap-2"
+                disabled={currentStep === 3 && !isTimeframeValid}
+              >
                 Next
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleGenerate} disabled={isGenerating} className="gap-2">
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || !isTimeframeValid}
+                className="gap-2"
+              >
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
