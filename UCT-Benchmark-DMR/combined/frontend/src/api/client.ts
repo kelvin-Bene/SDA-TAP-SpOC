@@ -44,11 +44,15 @@ export const api = {
   getDataset: (id: string) =>
     apiClient.get(`/datasets/${id}`),
 
+  // Create dataset (POST to /datasets, not /datasets/generate)
   generateDataset: (config: unknown) =>
-    apiClient.post('/datasets/generate', config),
+    apiClient.post('/datasets', config),
 
   downloadDataset: (id: string) =>
     apiClient.get(`/datasets/${id}/download`, { responseType: 'blob' }),
+
+  getDatasetObservations: (id: string, params?: { limit?: number; offset?: number }) =>
+    apiClient.get(`/datasets/${id}/observations`, { params }),
 
   // Submissions
   getSubmissions: (params?: Record<string, string>) =>
@@ -62,9 +66,20 @@ export const api = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
+  uploadResults: (submissionId: string, formData: FormData) =>
+    apiClient.post(`/submissions/${submissionId}/results`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
   // Results
   getResults: (submissionId: string) =>
     apiClient.get(`/results/${submissionId}`),
+
+  getDetailedMetrics: (submissionId: string) =>
+    apiClient.get(`/results/${submissionId}/metrics`),
+
+  getVisualizationData: (submissionId: string) =>
+    apiClient.get(`/results/${submissionId}/visualization`),
 
   exportResults: (submissionId: string, format: 'pdf' | 'csv' | 'json') =>
     apiClient.get(`/results/${submissionId}/export`, {
@@ -75,6 +90,19 @@ export const api = {
   // Leaderboard
   getLeaderboard: (params?: Record<string, string>) =>
     apiClient.get('/leaderboard', { params }),
+
+  getLeaderboardHistory: (params?: { dataset_id?: string; days?: number }) =>
+    apiClient.get('/leaderboard/history', { params }),
+
+  getLeaderboardStatistics: (params?: { dataset_id?: string }) =>
+    apiClient.get('/leaderboard/statistics', { params }),
+
+  // Jobs
+  getJobStatus: (jobId: string) =>
+    apiClient.get(`/jobs/${jobId}`),
+
+  listJobs: (params?: { job_type?: string; status?: string; limit?: number }) =>
+    apiClient.get('/jobs', { params }),
 
   // User
   getCurrentUser: () =>

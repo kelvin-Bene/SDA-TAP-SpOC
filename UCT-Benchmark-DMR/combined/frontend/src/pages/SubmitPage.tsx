@@ -24,6 +24,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn, formatFileSize } from '@/lib/utils';
+import { useDatasets } from '@/hooks/useDatasets';
+import { useCreateSubmission } from '@/hooks/useSubmissions';
 
 interface ValidationStep {
   id: string;
@@ -31,14 +33,6 @@ interface ValidationStep {
   status: 'pending' | 'checking' | 'passed' | 'failed';
   message?: string;
 }
-
-const mockDatasets = [
-  { id: 'ds-1', name: 'LEO-T1-2026-01-15' },
-  { id: 'ds-2', name: 'LEO-T2-2026-01-15' },
-  { id: 'ds-3', name: 'MEO-T1-2026-01-14' },
-  { id: 'ds-4', name: 'MEO-T2-2026-01-14' },
-  { id: 'ds-5', name: 'GEO-T3-2026-01-13' },
-];
 
 export function SubmitPage() {
   const navigate = useNavigate();
@@ -48,7 +42,6 @@ export function SubmitPage() {
   const [version, setVersion] = useState('');
   const [description, setDescription] = useState('');
   const [isValidating, setIsValidating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
     { id: 'format', label: 'File format valid', status: 'pending' },
     { id: 'schema', label: 'Schema validation passed', status: 'pending' },
@@ -56,6 +49,13 @@ export function SubmitPage() {
     { id: 'state', label: 'State vector reasonableness', status: 'pending' },
     { id: 'covariance', label: 'Covariance positive-definiteness', status: 'pending' },
   ]);
+
+  // Use real API hooks
+  const { data: datasets = [], isLoading: loadingDatasets } = useDatasets({ regime: 'all', tier: 'all' });
+  const createSubmission = useCreateSubmission();
+
+  // Filter to only available datasets
+  const availableDatasets = datasets.filter((d) => d.id);
 
   const runValidation = async () => {
     setIsValidating(true);
@@ -113,17 +113,33 @@ export function SubmitPage() {
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
+    if (!file || !datasetId || !algorithmName || !version) return;
 
-    // Simulate submission
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const result = await createSubmission.mutateAsync({
+        datasetId,
+        algorithmName,
+        version,
+        description: description || undefined,
+        file,
+      });
 
-    setIsSubmitting(false);
-    navigate('/submit/my-submissions');
+      // Navigate to submissions page
+      navigate('/submit/my-submissions');
+    } catch (error) {
+      console.error('Submission failed:', error);
+      alert('Failed to submit. Please try again.');
+    }
   };
 
   const allValidationsPassed = validationSteps.every((step) => step.status === 'passed');
-  const canSubmit = file && datasetId && algorithmName && version && allValidationsPassed && !isSubmitting;
+  const canSubmit =
+    file &&
+    datasetId &&
+    algorithmName &&
+    version &&
+    allValidationsPassed &&
+    !createSubmission.isPending;
 
   const getStepIcon = (status: ValidationStep['status']) => {
     switch (status) {
@@ -253,16 +269,21 @@ export function SubmitPage() {
           {/* Dataset Selection */}
           <div className="space-y-2">
             <Label htmlFor="dataset">Target Dataset</Label>
-            <Select value={datasetId} onValueChange={setDatasetId}>
+            <Select value={datasetId} onValueChange={setDatasetId} disabled={loadingDatasets}>
               <SelectTrigger id="dataset">
-                <SelectValue placeholder="Select a dataset..." />
+                <SelectValue placeholder={loadingDatasets ? 'Loading datasets...' : 'Select a dataset...'} />
               </SelectTrigger>
               <SelectContent>
-                {mockDatasets.map((dataset) => (
+                {availableDatasets.map((dataset) => (
                   <SelectItem key={dataset.id} value={dataset.id}>
                     {dataset.name}
                   </SelectItem>
                 ))}
+                {availableDatasets.length === 0 && !loadingDatasets && (
+                  <SelectItem value="" disabled>
+                    No datasets available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -313,7 +334,7 @@ export function SubmitPage() {
           disabled={!canSubmit}
           className="gap-2"
         >
-          {isSubmitting ? (
+          {createSubmission.isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               Submitting...

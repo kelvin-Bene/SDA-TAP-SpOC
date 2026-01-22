@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import {
   LineChart,
@@ -21,149 +21,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import type { LeaderboardEntry, OrbitalRegime, DataTier } from '@/types';
-
-const mockLeaderboard: LeaderboardEntry[] = [
-  {
-    rank: 1,
-    algorithmName: 'OrbitalMind',
-    team: 'AeroCorp',
-    version: 'v3.2',
-    f1Score: 0.9543,
-    precision: 0.961,
-    recall: 0.948,
-    positionRmsKm: 2.12,
-    submissionId: 'sub-1',
-    submittedAt: '2026-01-15T08:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 2,
-    algorithmName: 'TrackFusion Pro',
-    team: 'LockheedM',
-    version: 'v4.1',
-    f1Score: 0.9521,
-    precision: 0.958,
-    recall: 0.946,
-    positionRmsKm: 2.34,
-    submissionId: 'sub-2',
-    submittedAt: '2026-01-14T12:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 3,
-    algorithmName: 'MyUCTP',
-    team: 'You',
-    version: 'v2.1',
-    f1Score: 0.9234,
-    precision: 0.941,
-    recall: 0.906,
-    positionRmsKm: 2.89,
-    submissionId: 'sub-3',
-    submittedAt: '2026-01-18T10:30:00Z',
-    isCurrentUser: true,
-  },
-  {
-    rank: 4,
-    algorithmName: 'SpaceTrack AI',
-    team: 'NGC',
-    version: 'v2.0',
-    f1Score: 0.9198,
-    precision: 0.932,
-    recall: 0.908,
-    positionRmsKm: 3.12,
-    submissionId: 'sub-4',
-    submittedAt: '2026-01-12T14:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 5,
-    algorithmName: 'OrbitNet',
-    team: 'MIT',
-    version: 'v1.5',
-    f1Score: 0.9156,
-    precision: 0.921,
-    recall: 0.910,
-    positionRmsKm: 3.45,
-    submissionId: 'sub-5',
-    submittedAt: '2026-01-10T16:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 6,
-    algorithmName: 'CatalogMatch',
-    team: 'JHU APL',
-    version: 'v3.0',
-    f1Score: 0.9089,
-    precision: 0.915,
-    recall: 0.903,
-    positionRmsKm: 3.67,
-    submissionId: 'sub-6',
-    submittedAt: '2026-01-08T09:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 7,
-    algorithmName: 'DeepOrbit',
-    team: 'Stanford',
-    version: 'v1.2',
-    f1Score: 0.9045,
-    precision: 0.912,
-    recall: 0.897,
-    positionRmsKm: 3.89,
-    submissionId: 'sub-7',
-    submittedAt: '2026-01-06T11:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 8,
-    algorithmName: 'TrackNet',
-    team: 'Raytheon',
-    version: 'v2.3',
-    f1Score: 0.8978,
-    precision: 0.905,
-    recall: 0.891,
-    positionRmsKm: 4.12,
-    submissionId: 'sub-8',
-    submittedAt: '2026-01-04T13:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 9,
-    algorithmName: 'SatTracker',
-    team: 'Boeing',
-    version: 'v1.8',
-    f1Score: 0.8912,
-    precision: 0.898,
-    recall: 0.885,
-    positionRmsKm: 4.45,
-    submissionId: 'sub-9',
-    submittedAt: '2026-01-02T10:00:00Z',
-    isCurrentUser: false,
-  },
-  {
-    rank: 10,
-    algorithmName: 'OrbitGuard',
-    team: 'L3Harris',
-    version: 'v2.1',
-    f1Score: 0.8856,
-    precision: 0.892,
-    recall: 0.879,
-    positionRmsKm: 4.78,
-    submissionId: 'sub-10',
-    submittedAt: '2025-12-28T15:00:00Z',
-    isCurrentUser: false,
-  },
-];
-
-const trendData = [
-  { month: 'Aug', OrbitalMind: 0.91, TrackFusion: 0.90, MyUCTP: 0.85, SpaceTrackAI: 0.88 },
-  { month: 'Sep', OrbitalMind: 0.92, TrackFusion: 0.91, MyUCTP: 0.86, SpaceTrackAI: 0.89 },
-  { month: 'Oct', OrbitalMind: 0.93, TrackFusion: 0.92, MyUCTP: 0.88, SpaceTrackAI: 0.90 },
-  { month: 'Nov', OrbitalMind: 0.94, TrackFusion: 0.94, MyUCTP: 0.89, SpaceTrackAI: 0.91 },
-  { month: 'Dec', OrbitalMind: 0.95, TrackFusion: 0.95, MyUCTP: 0.90, SpaceTrackAI: 0.91 },
-  { month: 'Jan', OrbitalMind: 0.954, TrackFusion: 0.952, MyUCTP: 0.923, SpaceTrackAI: 0.92 },
-];
+import { useLeaderboard, useLeaderboardHistory } from '@/hooks/useLeaderboard';
+import type { LeaderboardEntry, OrbitalRegime, DataTier, LeaderboardFilters } from '@/types';
 
 function getRankIcon(rank: number) {
   switch (rank) {
@@ -179,14 +38,20 @@ function getRankIcon(rank: number) {
 }
 
 export function LeaderboardPage() {
-  const [regimeFilter, setRegimeFilter] = useState<OrbitalRegime | 'all'>('all');
-  const [tierFilter, setTierFilter] = useState<DataTier | 'all'>('all');
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'month' | 'week'>('all');
+  const [filters, setFilters] = useState<LeaderboardFilters>({
+    regime: 'all',
+    tier: 'all',
+    period: 'all',
+  });
   const [sortColumn, setSortColumn] = useState<'f1Score' | 'precision' | 'recall' | 'positionRmsKm'>('f1Score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  // Use real API hooks
+  const { data: leaderboard = [], isLoading, error } = useLeaderboard(filters);
+  const { data: historyData = [] } = useLeaderboardHistory(undefined, 180);
+
   const sortedLeaderboard = useMemo(() => {
-    return [...mockLeaderboard].sort((a, b) => {
+    return [...leaderboard].sort((a, b) => {
       const aVal = a[sortColumn];
       const bVal = b[sortColumn];
       const direction = sortDirection === 'desc' ? -1 : 1;
@@ -196,7 +61,30 @@ export function LeaderboardPage() {
       }
       return direction * (aVal - bVal);
     });
-  }, [sortColumn, sortDirection]);
+  }, [leaderboard, sortColumn, sortDirection]);
+
+  // Transform history data for chart
+  const trendData = useMemo(() => {
+    const byMonth: Record<string, Record<string, number>> = {};
+
+    historyData.forEach((entry) => {
+      const month = entry.date.substring(0, 7); // YYYY-MM
+      if (!byMonth[month]) {
+        byMonth[month] = {};
+      }
+      const algKey = entry.algorithmName.replace(/\s+/g, '');
+      if (!byMonth[month][algKey] || entry.bestF1 > byMonth[month][algKey]) {
+        byMonth[month][algKey] = entry.bestF1;
+      }
+    });
+
+    return Object.entries(byMonth)
+      .map(([month, scores]) => ({
+        month: month.substring(5), // MM only
+        ...scores,
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [historyData]);
 
   const handleSort = (column: typeof sortColumn) => {
     if (column === sortColumn) {
@@ -232,7 +120,10 @@ export function LeaderboardPage() {
           <div className="flex flex-wrap gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Orbital Regime</label>
-              <Select value={regimeFilter} onValueChange={(v) => setRegimeFilter(v as typeof regimeFilter)}>
+              <Select
+                value={filters.regime || 'all'}
+                onValueChange={(v) => setFilters({ ...filters, regime: v as typeof filters.regime })}
+              >
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -247,7 +138,10 @@ export function LeaderboardPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Data Tier</label>
-              <Select value={tierFilter} onValueChange={(v) => setTierFilter(v as typeof tierFilter)}>
+              <Select
+                value={filters.tier || 'all'}
+                onValueChange={(v) => setFilters({ ...filters, tier: v as typeof filters.tier })}
+              >
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -262,7 +156,10 @@ export function LeaderboardPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Time Period</label>
-              <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as typeof periodFilter)}>
+              <Select
+                value={filters.period || 'all'}
+                onValueChange={(v) => setFilters({ ...filters, period: v as typeof filters.period })}
+              >
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -287,81 +184,95 @@ export function LeaderboardPage() {
         <TabsContent value="rankings">
           <Card>
             <CardContent className="pt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px]">Rank</TableHead>
-                    <TableHead>Algorithm</TableHead>
-                    <TableHead>Team</TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:text-foreground"
-                      onClick={() => handleSort('f1Score')}
-                    >
-                      F1-Score <SortIndicator column="f1Score" />
-                    </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:text-foreground"
-                      onClick={() => handleSort('precision')}
-                    >
-                      Precision <SortIndicator column="precision" />
-                    </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:text-foreground"
-                      onClick={() => handleSort('recall')}
-                    >
-                      Recall <SortIndicator column="recall" />
-                    </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:text-foreground"
-                      onClick={() => handleSort('positionRmsKm')}
-                    >
-                      Pos RMS (km) <SortIndicator column="positionRmsKm" />
-                    </TableHead>
-                    <TableHead>Submitted</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedLeaderboard.map((entry) => (
-                    <TableRow
-                      key={entry.submissionId}
-                      className={cn(
-                        entry.isCurrentUser && 'bg-primary/5 border-l-2 border-l-primary'
-                      )}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getRankIcon(entry.rank)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{entry.algorithmName}</span>
-                          <span className="text-muted-foreground">{entry.version}</span>
-                          {entry.isCurrentUser && (
-                            <Star className="h-4 w-4 fill-primary text-primary" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{entry.team}</TableCell>
-                      <TableCell>
-                        <span className="font-mono font-semibold">{entry.f1Score.toFixed(4)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono">{(entry.precision * 100).toFixed(1)}%</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono">{(entry.recall * 100).toFixed(1)}%</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono">{entry.positionRmsKm.toFixed(2)}</span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(entry.submittedAt)}
-                      </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : error ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Failed to load leaderboard data
+                </div>
+              ) : sortedLeaderboard.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No submissions yet. Be the first to submit!
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px]">Rank</TableHead>
+                      <TableHead>Algorithm</TableHead>
+                      <TableHead>Team</TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:text-foreground"
+                        onClick={() => handleSort('f1Score')}
+                      >
+                        F1-Score <SortIndicator column="f1Score" />
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:text-foreground"
+                        onClick={() => handleSort('precision')}
+                      >
+                        Precision <SortIndicator column="precision" />
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:text-foreground"
+                        onClick={() => handleSort('recall')}
+                      >
+                        Recall <SortIndicator column="recall" />
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:text-foreground"
+                        onClick={() => handleSort('positionRmsKm')}
+                      >
+                        Pos RMS (km) <SortIndicator column="positionRmsKm" />
+                      </TableHead>
+                      <TableHead>Submitted</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedLeaderboard.map((entry) => (
+                      <TableRow
+                        key={entry.submissionId}
+                        className={cn(
+                          entry.isCurrentUser && 'bg-primary/5 border-l-2 border-l-primary'
+                        )}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getRankIcon(entry.rank)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{entry.algorithmName}</span>
+                            <span className="text-muted-foreground">{entry.version}</span>
+                            {entry.isCurrentUser && (
+                              <Star className="h-4 w-4 fill-primary text-primary" />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{entry.team}</TableCell>
+                        <TableCell>
+                          <span className="font-mono font-semibold">{entry.f1Score.toFixed(4)}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono">{(entry.precision * 100).toFixed(1)}%</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono">{(entry.recall * 100).toFixed(1)}%</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono">{entry.positionRmsKm.toFixed(2)}</span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(entry.submittedAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
 
@@ -390,46 +301,38 @@ export function LeaderboardPage() {
         <TabsContent value="trends">
           <Card>
             <CardHeader>
-              <CardTitle>F1-Score Trends (Top 4 Algorithms)</CardTitle>
+              <CardTitle>F1-Score Trends (Top Algorithms)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" className="text-xs" />
-                  <YAxis domain={[0.84, 0.96]} className="text-xs" tickFormatter={(v) => v.toFixed(2)} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="OrbitalMind"
-                    stroke="#3B82F6"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="TrackFusion"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="MyUCTP"
-                    stroke="#F59E0B"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="SpaceTrackAI"
-                    stroke="#EF4444"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {trendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="month" className="text-xs" />
+                    <YAxis domain={['auto', 'auto']} className="text-xs" tickFormatter={(v) => v.toFixed(2)} />
+                    <Tooltip />
+                    <Legend />
+                    {/* Dynamic lines based on data */}
+                    {Object.keys(trendData[0] || {})
+                      .filter((key) => key !== 'month')
+                      .slice(0, 4)
+                      .map((alg, idx) => (
+                        <Line
+                          key={alg}
+                          type="monotone"
+                          dataKey={alg}
+                          stroke={['#3B82F6', '#10B981', '#F59E0B', '#EF4444'][idx]}
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                        />
+                      ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                  No trend data available yet
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

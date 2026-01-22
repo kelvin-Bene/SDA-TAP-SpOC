@@ -1,55 +1,136 @@
 import { useQuery } from '@tanstack/react-query';
+import { api } from '@/api/client';
 import type { LeaderboardEntry, LeaderboardFilters } from '@/types';
+
+// Response types from backend
+interface LeaderboardEntryResponse {
+  rank: number;
+  algorithm_name: string;
+  team?: string;
+  version: string;
+  f1_score: number;
+  precision: number;
+  recall: number;
+  position_rms_km: number;
+  submission_id: string;
+  submitted_at: string;
+  is_current_user: boolean;
+}
+
+interface LeaderboardResponse {
+  dataset_id?: string;
+  dataset_name?: string;
+  last_updated: string;
+  total_entries: number;
+  entries: LeaderboardEntryResponse[];
+}
+
+// Transform backend response to frontend type
+function transformLeaderboardEntry(data: LeaderboardEntryResponse): LeaderboardEntry {
+  return {
+    rank: data.rank,
+    algorithmName: data.algorithm_name,
+    team: data.team || 'Unknown',
+    version: data.version,
+    f1Score: data.f1_score,
+    precision: data.precision,
+    recall: data.recall,
+    positionRmsKm: data.position_rms_km,
+    submissionId: data.submission_id,
+    submittedAt: data.submitted_at,
+    isCurrentUser: data.is_current_user,
+  };
+}
 
 export function useLeaderboard(filters?: LeaderboardFilters) {
   return useQuery({
     queryKey: ['leaderboard', filters],
     queryFn: async () => {
-      // Mock data for now
-      const mockLeaderboard: LeaderboardEntry[] = [
-        {
-          rank: 1,
-          algorithmName: 'OrbitalMind',
-          team: 'AeroCorp',
-          version: 'v3.2',
-          f1Score: 0.9543,
-          precision: 0.961,
-          recall: 0.948,
-          positionRmsKm: 2.12,
-          submissionId: 'sub-1',
-          submittedAt: '2026-01-15T08:00:00Z',
-          isCurrentUser: false,
-        },
-        {
-          rank: 2,
-          algorithmName: 'TrackFusion Pro',
-          team: 'LockheedM',
-          version: 'v4.1',
-          f1Score: 0.9521,
-          precision: 0.958,
-          recall: 0.946,
-          positionRmsKm: 2.34,
-          submissionId: 'sub-2',
-          submittedAt: '2026-01-14T12:00:00Z',
-          isCurrentUser: false,
-        },
-        {
-          rank: 3,
-          algorithmName: 'MyUCTP',
-          team: 'You',
-          version: 'v2.1',
-          f1Score: 0.9234,
-          precision: 0.941,
-          recall: 0.906,
-          positionRmsKm: 2.89,
-          submissionId: 'sub-3',
-          submittedAt: '2026-01-18T10:30:00Z',
-          isCurrentUser: true,
-        },
-      ];
+      // Build query params from filters
+      const params: Record<string, string> = {};
+      if (filters?.regime && filters.regime !== 'all') {
+        params.regime = filters.regime;
+      }
+      if (filters?.tier && filters.tier !== 'all') {
+        params.tier = filters.tier;
+      }
+      if (filters?.period && filters.period !== 'all') {
+        params.period = filters.period;
+      }
 
-      return mockLeaderboard;
+      const response = await api.getLeaderboard(params);
+      const data = response.data as LeaderboardResponse;
+
+      return data.entries.map(transformLeaderboardEntry);
     },
     staleTime: 1000 * 60, // 1 minute
+  });
+}
+
+// Hook for leaderboard history (for charts)
+interface LeaderboardHistoryEntry {
+  date: string;
+  algorithmName: string;
+  bestF1: number;
+}
+
+export function useLeaderboardHistory(datasetId?: string, days: number = 30) {
+  return useQuery({
+    queryKey: ['leaderboard-history', datasetId, days],
+    queryFn: async () => {
+      const response = await api.getLeaderboardHistory({ dataset_id: datasetId, days });
+      const data = response.data as {
+        dataset_id?: string;
+        history: Array<{ date: string; algorithm_name: string; best_f1: number }>;
+        period_days: number;
+      };
+
+      return data.history.map((entry) => ({
+        date: entry.date,
+        algorithmName: entry.algorithm_name,
+        bestF1: entry.best_f1,
+      })) as LeaderboardHistoryEntry[];
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Hook for leaderboard statistics
+interface LeaderboardStatistics {
+  datasetId?: string;
+  totalSubmissions: number;
+  uniqueAlgorithms: number;
+  averageScore: number;
+  bestScore: number;
+  worstScore: number;
+  submissionTrend: 'increasing' | 'decreasing' | 'stable';
+}
+
+export function useLeaderboardStatistics(datasetId?: string) {
+  return useQuery({
+    queryKey: ['leaderboard-statistics', datasetId],
+    queryFn: async () => {
+      const response = await api.getLeaderboardStatistics({ dataset_id: datasetId });
+      const data = response.data as {
+        dataset_id?: string;
+        total_submissions: number;
+        unique_algorithms: number;
+        average_score: number;
+        best_score: number;
+        worst_score: number;
+        submission_trend: string;
+      };
+
+      return {
+        datasetId: data.dataset_id,
+        totalSubmissions: data.total_submissions,
+        uniqueAlgorithms: data.unique_algorithms,
+        averageScore: data.average_score,
+        bestScore: data.best_score,
+        worstScore: data.worst_score,
+        submissionTrend: data.submission_trend as 'increasing' | 'decreasing' | 'stable',
+      } as LeaderboardStatistics;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

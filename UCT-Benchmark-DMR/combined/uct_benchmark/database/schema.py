@@ -238,6 +238,100 @@ CREATE TABLE IF NOT EXISTS dataset_references (
 """
 
 # ============================================================
+# SUBMISSIONS AND RESULTS TABLES
+# ============================================================
+
+SUBMISSIONS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS submissions_id_seq;
+"""
+
+SUBMISSIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS submissions (
+    id INTEGER PRIMARY KEY DEFAULT nextval('submissions_id_seq'),
+    dataset_id INTEGER,                   -- References datasets(id)
+    algorithm_name VARCHAR(100) NOT NULL,
+    version VARCHAR(50) DEFAULT '1.0',
+    description TEXT,
+    file_path VARCHAR(500),
+    status VARCHAR(20) DEFAULT 'queued',  -- queued, validating, processing, completed, failed
+    job_id VARCHAR(100),                  -- References jobs(id)
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+"""
+
+SUBMISSIONS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_submissions_dataset ON submissions(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+"""
+
+SUBMISSION_RESULTS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS submission_results_id_seq;
+"""
+
+SUBMISSION_RESULTS_TABLE = """
+CREATE TABLE IF NOT EXISTS submission_results (
+    id INTEGER PRIMARY KEY DEFAULT nextval('submission_results_id_seq'),
+    submission_id INTEGER UNIQUE,         -- References submissions(id)
+
+    -- Binary metrics
+    true_positives INTEGER DEFAULT 0,
+    false_positives INTEGER DEFAULT 0,
+    false_negatives INTEGER DEFAULT 0,
+    precision DECIMAL(10,6) DEFAULT 0,
+    recall DECIMAL(10,6) DEFAULT 0,
+    f1_score DECIMAL(10,6) DEFAULT 0,
+
+    -- State metrics
+    position_rms_km DECIMAL(12,6),
+    velocity_rms_km_s DECIMAL(12,9),
+    mahalanobis_distance DECIMAL(12,6),
+
+    -- Residual metrics
+    ra_residual_rms_arcsec DECIMAL(12,6),
+    dec_residual_rms_arcsec DECIMAL(12,6),
+
+    -- Raw results (JSON blob with full breakdown)
+    raw_results JSON,
+
+    -- Processing info
+    processing_time_seconds DECIMAL(12,3),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+SUBMISSION_RESULTS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_results_submission ON submission_results(submission_id);
+CREATE INDEX IF NOT EXISTS idx_results_f1 ON submission_results(f1_score DESC);
+"""
+
+# ============================================================
+# JOBS TABLE
+# ============================================================
+
+JOBS_TABLE = """
+CREATE TABLE IF NOT EXISTS jobs (
+    id VARCHAR(100) PRIMARY KEY,
+    job_type VARCHAR(50) NOT NULL,        -- dataset_generation, evaluation
+    status VARCHAR(20) DEFAULT 'pending', -- pending, running, completed, failed
+    progress INTEGER DEFAULT 0,           -- 0-100
+    result JSON,
+    error TEXT,
+    metadata JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP
+);
+"""
+
+JOBS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
+"""
+
+# ============================================================
 # EVENT LABELLING TABLES (Future Implementation)
 # ============================================================
 
@@ -331,6 +425,8 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(ELEMENT_SETS_SEQUENCE)
     db.execute(DATASETS_SEQUENCE)
     db.execute(EVENTS_SEQUENCE)
+    db.execute(SUBMISSIONS_SEQUENCE)
+    db.execute(SUBMISSION_RESULTS_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
@@ -345,6 +441,18 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(DATASET_REFERENCES_TABLE)
+
+    # Submissions and results tables
+    db.execute(SUBMISSIONS_TABLE)
+    db.execute(SUBMISSIONS_INDEXES)
+    db.execute(SUBMISSION_RESULTS_TABLE)
+    db.execute(SUBMISSION_RESULTS_INDEXES)
+
+    # Jobs table
+    db.execute(JOBS_TABLE)
+    db.execute(JOBS_INDEXES)
+
+    # Event tables
     db.execute(EVENT_TYPES_TABLE)
     db.execute(EVENTS_TABLE)
     db.execute(EVENT_OBSERVATIONS_TABLE)
@@ -368,6 +476,9 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "event_observations",
         "events",
         "event_types",
+        "jobs",
+        "submission_results",
+        "submissions",
         "dataset_references",
         "dataset_observations",
         "datasets",
@@ -386,6 +497,8 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "element_sets_id_seq",
         "datasets_id_seq",
         "events_id_seq",
+        "submissions_id_seq",
+        "submission_results_id_seq",
     ]
     for seq in sequences:
         db.execute(f"DROP SEQUENCE IF EXISTS {seq}")
@@ -427,6 +540,9 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "datasets",
         "dataset_observations",
         "dataset_references",
+        "submissions",
+        "submission_results",
+        "jobs",
         "event_types",
         "events",
         "event_observations",
