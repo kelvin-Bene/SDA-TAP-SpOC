@@ -65,6 +65,13 @@ class JobStatusEnum(str, Enum):
     FAILED = "failed"
 
 
+class SearchStrategy(str, Enum):
+    """Strategy for fetching observation data from UDL API."""
+    FAST = "fast"        # Single query per satellite, full time range
+    WINDOWED = "windowed" # Fixed time windows, sequential (reference code)
+    HYBRID = "hybrid"     # Count-first with dynamic chunking
+
+
 # ============================================================
 # DOWNSAMPLING & SIMULATION OPTIONS
 # ============================================================
@@ -156,6 +163,15 @@ class DatasetCreate(BaseModel):
     simulation: Optional[SimulationOptions] = Field(
         default=None,
         description="Options for simulating observations to fill gaps"
+    )
+    # Search strategy for data fetching
+    search_strategy: SearchStrategy = Field(
+        default=SearchStrategy.HYBRID,
+        description="Strategy for fetching data: 'fast', 'windowed', 'hybrid'"
+    )
+    window_size_minutes: Optional[int] = Field(
+        default=10, ge=1, le=60,
+        description="Window size for windowed strategy (default 10 min)"
     )
 
 

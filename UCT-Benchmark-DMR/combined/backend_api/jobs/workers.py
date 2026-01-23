@@ -169,6 +169,13 @@ def run_dataset_generation(
         # Get tier from config
         tier = config.get("tier", "T2")
 
+        # Get search strategy from config
+        search_strategy = config.get("search_strategy", "hybrid")
+        window_size_minutes = config.get("window_size_minutes", 10)
+
+        # Get regime from config (used for windowed strategy)
+        regime = config.get("regime", "LEO")
+
         # Call the pipeline function
         # Use dt=0.5 for rate limiting to avoid overwhelming the UDL API
         (
@@ -194,6 +201,9 @@ def run_dataset_generation(
             tier=tier,
             dataset_id=dataset_id,
             progress_callback=progress_callback,
+            search_strategy=search_strategy,
+            window_size_minutes=window_size_minutes,
+            regime=regime,
         )
 
         # Update progress - persisting to database

@@ -7,6 +7,9 @@ export type DataTier = 'T1' | 'T2' | 'T3' | 'T4';
 // Sensor Types
 export type SensorType = 'optical' | 'radar' | 'rf';
 
+// Search Strategy for data fetching
+export type SearchStrategy = 'fast' | 'windowed' | 'hybrid';
+
 // Dataset Types
 export interface Dataset {
   id: string;
@@ -71,6 +74,9 @@ export interface DatasetGenerationConfig {
   // Downsampling and simulation options
   downsampling?: DownsamplingOptions;
   simulation?: SimulationOptions;
+  // Search strategy options
+  searchStrategy: SearchStrategy;
+  windowSizeMinutes?: number;
 }
 
 // Submission Types

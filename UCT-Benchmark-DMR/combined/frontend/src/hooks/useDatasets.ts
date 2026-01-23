@@ -148,7 +148,14 @@ export function useGenerateDataset() {
         include_hamr: config.includeHamr,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
+        // Search strategy
+        search_strategy: config.searchStrategy || 'hybrid',
       };
+
+      // Add window size if using windowed strategy
+      if (config.searchStrategy === 'windowed') {
+        backendConfig.window_size_minutes = config.windowSizeMinutes || 10;
+      }
 
       // Add downsampling options if enabled
       if (config.downsampling?.enabled) {

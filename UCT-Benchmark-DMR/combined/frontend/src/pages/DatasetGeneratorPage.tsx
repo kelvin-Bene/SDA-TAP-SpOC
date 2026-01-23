@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Clock,
   Info,
   Satellite,
   Zap,
@@ -30,7 +31,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OrbitalRegime, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions } from '@/types';
+import type { OrbitalRegime, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions, SearchStrategy } from '@/types';
 
 const steps = [
   { id: 1, name: 'Regime', icon: Satellite },
@@ -78,6 +79,8 @@ const defaultConfig: DatasetGenerationConfig = {
   sensors: ['optical'],
   downsampling: defaultDownsampling,
   simulation: defaultSimulation,
+  searchStrategy: 'hybrid',
+  windowSizeMinutes: 10,
 };
 
 export function DatasetGeneratorPage() {
@@ -510,10 +513,119 @@ export function DatasetGeneratorPage() {
               <CardHeader>
                 <CardTitle>Advanced Options</CardTitle>
                 <CardDescription>
-                  Configure downsampling and simulation settings for more challenging datasets
+                  Configure data fetching strategy, downsampling, and simulation settings
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-8">
+                {/* Search Strategy Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Data Fetching Strategy</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Choose how observation data is fetched from the UDL API. Different strategies balance speed vs. data completeness.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <RadioGroup
+                    value={config.searchStrategy}
+                    onValueChange={(value) => updateConfig('searchStrategy', value as SearchStrategy)}
+                    className="grid gap-3"
+                  >
+                    {/* Fast option */}
+                    <Label
+                      htmlFor="strategy-fast"
+                      className={cn(
+                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
+                        config.searchStrategy === 'fast' && 'border-primary bg-primary/5'
+                      )}
+                    >
+                      <RadioGroupItem value="fast" id="strategy-fast" className="mt-1" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          <span className="font-medium">Fast Search</span>
+                          <Badge variant="outline">Fastest</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Single query per satellite. May hit API limits for large time ranges.
+                        </p>
+                      </div>
+                    </Label>
+
+                    {/* Hybrid option */}
+                    <Label
+                      htmlFor="strategy-hybrid"
+                      className={cn(
+                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
+                        config.searchStrategy === 'hybrid' && 'border-primary bg-primary/5'
+                      )}
+                    >
+                      <RadioGroupItem value="hybrid" id="strategy-hybrid" className="mt-1" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Settings2 className="h-4 w-4" />
+                          <span className="font-medium">Hybrid Search</span>
+                          <Badge>Recommended</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Checks data volume first, chunks if needed. Best balance of speed and completeness.
+                        </p>
+                      </div>
+                    </Label>
+
+                    {/* Windowed option */}
+                    <Label
+                      htmlFor="strategy-windowed"
+                      className={cn(
+                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
+                        config.searchStrategy === 'windowed' && 'border-primary bg-primary/5'
+                      )}
+                    >
+                      <RadioGroupItem value="windowed" id="strategy-windowed" className="mt-1" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span className="font-medium">Windowed Search</span>
+                          <Badge variant="secondary">Reference-Compatible</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Uses fixed time windows like reference code. Guaranteed complete but slower.
+                        </p>
+                      </div>
+                    </Label>
+                  </RadioGroup>
+
+                  {/* Window size slider (only for windowed) */}
+                  {config.searchStrategy === 'windowed' && (
+                    <div className="ml-6 pl-6 border-l-2 border-muted space-y-3">
+                      <div className="flex justify-between items-center">
+                        <Label>Window Size</Label>
+                        <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                          {config.windowSizeMinutes || 10} min
+                        </span>
+                      </div>
+                      <Slider
+                        value={[config.windowSizeMinutes || 10]}
+                        onValueChange={([v]) => updateConfig('windowSizeMinutes', v)}
+                        min={5}
+                        max={60}
+                        step={5}
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>5 min (more queries)</span>
+                        <span>60 min (fewer queries)</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
                 {/* Downsampling Section */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -770,6 +882,21 @@ export function DatasetGeneratorPage() {
                         <p className="text-xs text-muted-foreground">
                           {calculatedTimeframe} day{calculatedTimeframe !== 1 ? 's' : ''}
                         </p>
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Search Strategy</h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={config.searchStrategy === 'hybrid' ? 'default' : 'outline'}>
+                            {config.searchStrategy === 'fast' && 'Fast'}
+                            {config.searchStrategy === 'hybrid' && 'Hybrid'}
+                            {config.searchStrategy === 'windowed' && 'Windowed'}
+                          </Badge>
+                          {config.searchStrategy === 'windowed' && (
+                            <span className="text-xs text-muted-foreground">
+                              ({config.windowSizeMinutes || 10} min windows)
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="rounded-lg border p-4 space-y-3">
                         <h4 className="font-medium">Downsampling</h4>

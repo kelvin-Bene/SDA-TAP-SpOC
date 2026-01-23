@@ -20,6 +20,7 @@ from backend_api.models import (
     OrbitalRegime,
     DataTier,
     SensorType,
+    SearchStrategy,
 )
 from uct_benchmark.database.connection import DatabaseManager
 
@@ -253,6 +254,12 @@ async def create_dataset(
             "seed": request.simulation.seed,
         }
         logger.info(f"Simulation enabled: {request.simulation.enabled}")
+
+    # Add search strategy
+    generation_params["search_strategy"] = request.search_strategy.value
+    if request.search_strategy == SearchStrategy.WINDOWED:
+        generation_params["window_size_minutes"] = request.window_size_minutes or 10
+    logger.info(f"Search strategy: {request.search_strategy.value}")
 
     # Check if dataset name already exists and make it unique if needed
     existing = db.execute(

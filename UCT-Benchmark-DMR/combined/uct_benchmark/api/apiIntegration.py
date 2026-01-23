@@ -1439,11 +1439,130 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
         )
 
 
+# ============================================================
+# SEARCH STRATEGY FUNCTIONS
+# ============================================================
+
+# Regime ranges for altitude-based filtering (matches reference batchPull.py)
+REGIME_RANGES = {
+    'LEO': '<2000',        # Low Earth Orbit: altitude < 2000 km
+    'MEO': '2000..35786',  # Medium Earth Orbit: 2000 km <= altitude < 35786 km
+    'GEO': '>35786',       # Geosynchronous/Geostationary: altitude >= 35786 km
+    'HEO': '>35786',       # High Earth Orbit (treated same as GEO for filtering)
+}
+
+
+def _fetch_observations_fast(token, sat_ids, sweep_time, max_datapoints, dt,
+                              progress_callback=None, DatasetStage=None):
+    """
+    FAST strategy: Single query per satellite, full time range.
+
+    Fastest approach but may hit API limits for large time ranges.
+    """
+    params_list = [
+        {"satNo": str(ID), "obTime": sweep_time, "uct": "false", "dataMode": "REAL",
+         "maxResults": max_datapoints} for ID in sat_ids
+    ]
+    if max_datapoints <= 0:
+        params_list = [{k: v for k, v in d.items() if k != "maxResults"} for d in params_list]
+    return asyncUDLBatchQuery(token, "eoobservation", params_list, dt)
+
+
+def _fetch_observations_windowed(token, regime, start_time, end_time,
+                                  window_size_minutes, dt,
+                                  progress_callback=None, DatasetStage=None):
+    """
+    WINDOWED strategy: Fixed time windows, sequential (matches reference batchPull.py).
+
+    Uses altitude-based filtering via 'range' parameter to match reference code behavior.
+    Guaranteed complete data but slower. Best for reference-compatible datasets.
+
+    Args:
+        token: UDL auth token
+        regime: Orbital regime ('LEO', 'MEO', 'GEO', 'HEO') for altitude filtering
+        start_time: Start datetime
+        end_time: End datetime
+        window_size_minutes: Size of each query window in minutes
+        dt: Rate limit delay between queries
+        progress_callback: Optional progress reporting callback
+        DatasetStage: Optional stage enum for progress reporting
+    """
+    window_delta = datetime.timedelta(minutes=window_size_minutes)
+    total_duration = end_time - start_time
+    total_windows = max(1, int(total_duration / window_delta) + 1)
+
+    # Get altitude range for the regime (matches reference batchPull.py)
+    range_filter = REGIME_RANGES.get(regime.upper() if regime else 'LEO', '<2000')
+    logger.info(f"Windowed strategy using range filter: {range_filter} for regime: {regime}")
+
+    data_list = []
+    current_time = start_time
+    window_count = 0
+
+    while current_time < end_time:
+        window_end = min(current_time + window_delta, end_time)
+
+        # Query using altitude range filter (matches reference batchPull.py)
+        params = {
+            "range": range_filter,
+            "obTime": f"{datetimeToUDL(current_time)}..{datetimeToUDL(window_end)}",
+            "uct": "false",
+            "dataMode": "REAL",
+        }
+
+        try:
+            window_data = UDLQuery(token, "eoobservation", params)
+            if not window_data.empty:
+                data_list.append(window_data)
+        except Exception as e:
+            logger.warning(f"Window query failed: {e}")
+
+        window_count += 1
+        if progress_callback and DatasetStage:
+            progress_callback(DatasetStage.COLLECTING_OBSERVATIONS, window_count / total_windows)
+
+        time.sleep(dt)
+        current_time = window_end
+
+    return pd.concat(data_list, ignore_index=True) if data_list else pd.DataFrame()
+
+
+def _fetch_observations_hybrid(token, sat_ids, sweep_time, start_time, end_time,
+                                max_datapoints, dt,
+                                progress_callback=None, DatasetStage=None):
+    """
+    HYBRID strategy: Count-first check with dynamic chunking via smart_query().
+
+    Best balance of speed and completeness. Recommended default.
+    """
+    all_results = []
+    total_sats = len(sat_ids)
+
+    for idx, sat_id in enumerate(sat_ids):
+        params = {"satNo": str(sat_id), "obTime": sweep_time, "uct": "false", "dataMode": "REAL"}
+        if max_datapoints > 0:
+            params["maxResults"] = max_datapoints
+
+        try:
+            sat_data = smart_query(token, "eoobservation", params)
+            if not sat_data.empty:
+                all_results.append(sat_data)
+        except Exception as e:
+            logger.warning(f"Hybrid query failed for {sat_id}: {e}")
+
+        if progress_callback and DatasetStage:
+            progress_callback(DatasetStage.COLLECTING_OBSERVATIONS, (idx + 1) / total_sats)
+        time.sleep(dt)
+
+    return pd.concat(all_results, ignore_index=True) if all_results else pd.DataFrame()
+
+
 def generateDataset(
     UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
     use_database=False, db_path=None, dataset_name=None,
     downsample_config=None, simulation_config=None, tier="T2",
-    dataset_id=None, progress_callback=None
+    dataset_id=None, progress_callback=None,
+    search_strategy="hybrid", window_size_minutes=10, regime="LEO"
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1497,40 +1616,40 @@ def generateDataset(
             except Exception as e:
                 logger.warning(f"Progress callback failed: {e}")
 
-    # Determine the time window for observation data based on the user-specified end_time
+    # Calculate actual times for all strategies
     if end_time != "now":
-        # Construct a UDL time range string from (end_time - timeframe) to end_time
-        sweep_time = (
-            datetimeToUDL(end_time - pd.Timedelta(**{timeunit: timeframe}))
-            + ".."
-            + datetimeToUDL(end_time)
-        )
+        actual_end_time = end_time
+        actual_start_time = end_time - pd.Timedelta(**{timeunit: timeframe})
+        sweep_time = datetimeToUDL(actual_start_time) + ".." + datetimeToUDL(actual_end_time)
     else:
-        # Use relative time if 'now' is specified
+        actual_end_time = datetime.datetime.utcnow()
+        actual_start_time = actual_end_time - pd.Timedelta(**{timeunit: timeframe})
         sweep_time = ">now-" + str(timeframe) + " " + timeunit
-
-    # Prepare a list of parameter dictionaries for each satellite to query observation data
-    params_list = [
-        {
-            "satNo": str(ID),
-            "obTime": sweep_time,
-            "uct": "false",  # Only real (non-UCT) data
-            "dataMode": "REAL",
-            "maxResults": max_datapoints,
-        }
-        for ID in satIDs
-    ]
-
-    # Remove 'maxResults' if the user disabled the limit (<= 0)
-    if max_datapoints <= 0:
-        params_list = [{k: v for k, v in d.items() if k != "maxResults"} for d in params_list]
 
     # Report progress: collecting observations
     if DatasetStage is not None:
         report_progress(DatasetStage.COLLECTING_OBSERVATIONS, 0.0)
 
-    # Perform asynchronous UDL query for observational truth data
-    obs_truth_data = asyncUDLBatchQuery(UDL_token, "eoobservation", params_list, dt)
+    # Fetch observations using selected strategy
+    logger.info(f"Using search strategy: {search_strategy}")
+
+    if search_strategy == "fast":
+        obs_truth_data = _fetch_observations_fast(
+            UDL_token, satIDs, sweep_time, max_datapoints, dt,
+            report_progress, DatasetStage
+        )
+    elif search_strategy == "windowed":
+        obs_truth_data = _fetch_observations_windowed(
+            UDL_token, regime, actual_start_time, actual_end_time,
+            window_size_minutes, dt,
+            report_progress, DatasetStage
+        )
+    else:  # hybrid (default)
+        obs_truth_data = _fetch_observations_hybrid(
+            UDL_token, satIDs, sweep_time, actual_start_time, actual_end_time,
+            max_datapoints, dt,
+            report_progress, DatasetStage
+        )
 
     # Check for empty observation data
     if obs_truth_data.empty or "obTime" not in obs_truth_data.columns:
