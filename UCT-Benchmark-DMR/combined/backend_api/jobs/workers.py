@@ -133,12 +133,44 @@ def run_dataset_generation(
         timeframe = config.get("timeframe", 7)
         timeunit = config.get("timeunit", "days")
 
+        # Parse start_date and end_date if provided
+        # These should be in ISO format (YYYY-MM-DD or full ISO datetime)
+        end_time = "now"  # Default to current time
+        start_date_str = config.get("start_date")
+        end_date_str = config.get("end_date")
+
+        if end_date_str:
+            from datetime import datetime
+            try:
+                # Parse end_date - handle both date-only and full datetime formats
+                if 'T' in end_date_str:
+                    end_time = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                else:
+                    # Date only - set to end of day
+                    end_time = datetime.fromisoformat(end_date_str + "T23:59:59")
+                logger.info(f"Using end_date from config: {end_time}")
+
+                # If both dates provided, calculate timeframe from them
+                if start_date_str:
+                    if 'T' in start_date_str:
+                        start_time = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                    else:
+                        start_time = datetime.fromisoformat(start_date_str + "T00:00:00")
+                    # Calculate timeframe in days
+                    delta = end_time - start_time
+                    timeframe = max(1, delta.days)
+                    timeunit = "days"
+                    logger.info(f"Calculated timeframe from dates: {timeframe} {timeunit}")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to parse dates: {e}, falling back to timeframe={timeframe}")
+                end_time = "now"
+
         # Mark initialization complete
         progress_callback(DatasetStage.INITIALIZING, 1.0)
 
         logger.info(
             f"Starting dataset generation for job {job_id}: "
-            f"{len(satellites)} satellites, {timeframe} {timeunit}"
+            f"{len(satellites)} satellites, {timeframe} {timeunit}, end_time={end_time}"
         )
 
         # Build downsampling config if specified
@@ -193,7 +225,7 @@ def run_dataset_generation(
             timeunit=timeunit,
             dt=0.5,
             max_datapoints=0,
-            end_time="now",
+            end_time=end_time,
             use_database=True,
             dataset_name=config.get("name"),
             downsample_config=downsample_config,

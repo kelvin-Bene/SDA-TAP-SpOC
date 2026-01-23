@@ -74,8 +74,9 @@ const defaultConfig: DatasetGenerationConfig = {
   trackGapTarget: 2,
   objectCount: 40,
   includeHamr: false,
-  startDate: new Date().toISOString().split('T')[0],
-  endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  // Use past dates: end date is yesterday, start date is 3 days before that
+  startDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  endDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   sensors: ['optical'],
   downsampling: defaultDownsampling,
   simulation: defaultSimulation,
@@ -96,8 +97,12 @@ export function DatasetGeneratorPage() {
 
   // Calculate and validate the timeframe
   const calculatedTimeframe = calculateTimeframeDays(config.startDate, config.endDate);
-  const isTimeframeValid = calculatedTimeframe >= 1 && calculatedTimeframe <= MAX_TIMEFRAME_DAYS;
-  const timeframeError = calculatedTimeframe > MAX_TIMEFRAME_DAYS
+  const today = new Date().toISOString().split('T')[0];
+  const isEndDateFuture = config.endDate > today;
+  const isTimeframeValid = calculatedTimeframe >= 1 && calculatedTimeframe <= MAX_TIMEFRAME_DAYS && !isEndDateFuture;
+  const timeframeError = isEndDateFuture
+    ? 'End date cannot be in the future (no observation data available)'
+    : calculatedTimeframe > MAX_TIMEFRAME_DAYS
     ? `Date range exceeds maximum of ${MAX_TIMEFRAME_DAYS} days (currently ${calculatedTimeframe} days)`
     : calculatedTimeframe < 1
     ? 'End date must be after start date'
@@ -461,6 +466,7 @@ export function DatasetGeneratorPage() {
                         id="startDate"
                         type="date"
                         value={config.startDate}
+                        max={config.endDate}
                         onChange={(e) => updateConfig('startDate', e.target.value)}
                         className={timeframeError ? 'border-destructive' : ''}
                       />
@@ -471,6 +477,7 @@ export function DatasetGeneratorPage() {
                         id="endDate"
                         type="date"
                         value={config.endDate}
+                        max={new Date().toISOString().split('T')[0]}
                         onChange={(e) => updateConfig('endDate', e.target.value)}
                         className={timeframeError ? 'border-destructive' : ''}
                       />
