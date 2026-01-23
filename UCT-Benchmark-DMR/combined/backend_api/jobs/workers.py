@@ -236,6 +236,7 @@ def run_dataset_generation(
         )
 
         # Link observations to dataset if we have observation data
+        # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable
         progress_callback(DatasetStage.PERSISTING_DATABASE, 0.5)
         logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
         if obs_truth is not None and not obs_truth.empty and 'id' in obs_truth.columns:
@@ -245,11 +246,17 @@ def run_dataset_generation(
                 track_assignments = {
                     row['id']: row.get('trackId') for _, row in obs_truth.iterrows()
                 }
-            try:
-                db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
-                logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
-            except Exception as e:
-                logger.warning(f"Failed to link observations to dataset: {e}")
+            # Don't catch exceptions here - linking failure should fail the entire job
+            # A dataset without linked observations is corrupted and unusable
+            db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+            logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
+        else:
+            # If we have no observations to link, this is also an error
+            if observation_count > 0:
+                raise ValueError(
+                    f"Dataset has {observation_count} observations in count but no observation IDs to link. "
+                    "This indicates a data consistency issue."
+                )
 
         # Finalize
         progress_callback(DatasetStage.PERSISTING_DATABASE, 1.0)
@@ -282,8 +289,14 @@ def run_dataset_generation(
                 "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (dataset_id,),
             )
-        except Exception:
-            pass
+        except Exception as db_error:
+            # Log the secondary failure - this is critical as the dataset will be stuck in 'generating' state
+            logger.error(
+                f"CRITICAL: Failed to mark dataset {dataset_id} as failed: {db_error}. "
+                "Dataset may be stuck in 'generating' state."
+            )
+            # Include in error message so it's visible in job status
+            error_msg = f"{error_msg} [DB update also failed: {db_error}]"
 
         job_manager.fail_job(job_id, error_msg)
 
@@ -445,8 +458,14 @@ def run_evaluation_pipeline(
                 "UPDATE submissions SET status = 'failed' WHERE id = ?",
                 (submission_id,),
             )
-        except Exception:
-            pass
+        except Exception as db_error:
+            # Log the secondary failure - this is critical as the submission will be stuck
+            logger.error(
+                f"CRITICAL: Failed to mark submission {submission_id} as failed: {db_error}. "
+                "Submission may be stuck in 'processing' state."
+            )
+            # Include in error message so it's visible in job status
+            error_msg = f"{error_msg} [DB update also failed: {db_error}]"
 
         job_manager.fail_job(job_id, error_msg)
 

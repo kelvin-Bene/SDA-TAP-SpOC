@@ -1,6 +1,7 @@
 """Dataset management endpoints."""
 
 import json
+import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -25,6 +26,34 @@ from backend_api.models import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
+
+
+def validate_dataset_id(dataset_id: str) -> int:
+    """
+    Validate and convert dataset_id string to integer.
+
+    Args:
+        dataset_id: String representation of dataset ID
+
+    Returns:
+        int: Validated dataset ID
+
+    Raises:
+        HTTPException: 400 if ID is invalid
+    """
+    try:
+        id_int = int(dataset_id)
+        if id_int <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Dataset ID must be a positive integer"
+            )
+        return id_int
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid dataset ID: '{dataset_id}' is not a valid integer"
+        )
 
 
 def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
@@ -125,9 +154,10 @@ async def get_dataset(
     Returns:
         Detailed dataset information including satellites and parameters
     """
+    id_int = validate_dataset_id(dataset_id)
     result = db.execute(
         "SELECT * FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -261,62 +291,90 @@ async def create_dataset(
         generation_params["window_size_minutes"] = request.window_size_minutes or 10
     logger.info(f"Search strategy: {request.search_strategy.value}")
 
-    # Check if dataset name already exists and make it unique if needed
-    existing = db.execute(
-        "SELECT COUNT(*) FROM datasets WHERE name = ?", (request.name,)
-    ).fetchone()[0]
-
-    dataset_name = request.name
-    if existing > 0:
-        # Find a unique name by appending a counter
-        counter = 2
-        while True:
-            candidate_name = f"{request.name}-{counter}"
-            exists = db.execute(
-                "SELECT COUNT(*) FROM datasets WHERE name = ?", (candidate_name,)
-            ).fetchone()[0]
-            if exists == 0:
-                dataset_name = candidate_name
-                logger.info(f"Dataset name '{request.name}' already exists, using '{dataset_name}'")
-                break
-            counter += 1
+    # Generate a unique dataset name using timestamp + UUID to avoid race conditions
+    # The database has a UNIQUE constraint on name, so this ensures atomicity
+    # Format: {user_name}-{YYYYMMDD}-{HHMMSS}-{short_uuid}
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    short_uuid = str(uuid.uuid4())[:8]
+    dataset_name = f"{request.name}-{timestamp}-{short_uuid}"
+    logger.info(f"Generated unique dataset name: {dataset_name}")
 
     # Add the final unique name to generation params
     generation_params["name"] = dataset_name
 
-    # Create dataset record in database using RETURNING to get the ID
-    result = db.execute(
-        """
-        INSERT INTO datasets (
-            name, code, tier, orbital_regime, status, generation_params, created_at
-        ) VALUES (?, ?, ?, ?, 'generating', ?, CURRENT_TIMESTAMP)
-        RETURNING id
-        """,
-        (
-            dataset_name,
-            f"{request.regime.value}_{request.tier.value}",
-            request.tier.value,
-            request.regime.value,
-            json.dumps(generation_params),
-        ),
-    )
-    dataset_id = result.fetchone()[0]
+    # Use transaction to ensure atomicity of dataset creation
+    # If any step fails, rollback to prevent partial/corrupted records
+    job = None
+    dataset_id = None
 
-    # Submit background job for dataset generation
-    job = submit_dataset_generation(dataset_id, generation_params)
+    try:
+        # Start transaction
+        db.execute("BEGIN TRANSACTION")
 
-    # Update dataset with job_id
-    db.execute(
-        """
-        UPDATE datasets
-        SET generation_params = ?
-        WHERE id = ?
-        """,
-        (
-            json.dumps({**generation_params, "job_id": job.id}),
-            dataset_id,
-        ),
-    )
+        # Create dataset record in database using RETURNING to get the ID
+        result = db.execute(
+            """
+            INSERT INTO datasets (
+                name, code, tier, orbital_regime, status, generation_params, created_at
+            ) VALUES (?, ?, ?, ?, 'generating', ?, CURRENT_TIMESTAMP)
+            RETURNING id
+            """,
+            (
+                dataset_name,
+                f"{request.regime.value}_{request.tier.value}",
+                request.tier.value,
+                request.regime.value,
+                json.dumps(generation_params),
+            ),
+        )
+        dataset_id = result.fetchone()[0]
+
+        # Submit background job for dataset generation
+        job = submit_dataset_generation(dataset_id, generation_params)
+
+        # Update dataset with job_id
+        db.execute(
+            """
+            UPDATE datasets
+            SET generation_params = ?
+            WHERE id = ?
+            """,
+            (
+                json.dumps({**generation_params, "job_id": job.id}),
+                dataset_id,
+            ),
+        )
+
+        # Commit transaction
+        db.execute("COMMIT")
+
+    except Exception as e:
+        # Rollback on any failure
+        try:
+            db.execute("ROLLBACK")
+        except Exception as rollback_error:
+            logger.warning(f"Rollback failed: {rollback_error}")
+
+        # Cancel the job if it was created
+        if job is not None:
+            try:
+                from backend_api.jobs import get_job_manager
+                job_manager = get_job_manager()
+                job_manager.fail_job(job.id, "Dataset creation failed, job cancelled")
+            except Exception as cancel_error:
+                logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
+
+        logger.error(f"Failed to create dataset: {e}")
+
+        # Check for UNIQUE constraint violation (extremely unlikely with UUID, but handle it)
+        error_str = str(e).lower()
+        if "unique" in error_str or "duplicate" in error_str:
+            raise HTTPException(
+                status_code=409,
+                detail="Dataset name conflict occurred. Please try again."
+            )
+
+        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
 
     return DatasetSummary(
         id=str(dataset_id),
@@ -353,39 +411,39 @@ async def get_dataset_observations(
     Returns:
         Paginated list of observations
     """
+    # Validate dataset ID
+    id_int = validate_dataset_id(dataset_id)
+
     # First verify dataset exists
     dataset_check = db.execute(
         "SELECT id, observation_count FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     ).fetchone()
 
     if dataset_check is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     total_count = dataset_check[1] or 0
-    dataset_id_int = int(dataset_id)
 
-    # Auto-link observations if not already linked
+    # Check for data integrity: observations should be linked during generation
     existing_links = db.execute(
         "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?",
-        (dataset_id_int,)
+        (id_int,)
     ).fetchone()[0]
 
     if existing_links == 0 and total_count > 0:
-        # Get the most recent observations and link them
-        # This is a repair mechanism for datasets that weren't linked during creation
-        logger.info(f"Auto-linking {total_count} observations for dataset {dataset_id}")
-        obs_result = db.execute(
-            "SELECT id FROM observations ORDER BY created_at DESC LIMIT ?",
-            (total_count,)
+        # Data integrity issue - observations weren't properly linked during generation
+        # Previously this had auto-repair code, but that could link wrong observations
+        # Now we surface the error clearly so the user knows to regenerate
+        logger.error(
+            f"Data integrity issue: Dataset {dataset_id} has observation_count={total_count} "
+            f"but no linked observations. Dataset may need to be regenerated."
         )
-        obs_ids = [row[0] for row in obs_result.fetchall()]
-        if obs_ids:
-            try:
-                db.datasets.add_observations_to_dataset(dataset_id_int, obs_ids)
-                logger.info(f"Auto-linked {len(obs_ids)} observations to dataset {dataset_id}")
-            except Exception as e:
-                logger.warning(f"Failed to auto-link observations: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Dataset has corrupted observation links ({total_count} observations expected, "
+                   f"0 linked). Please regenerate this dataset or use the /link-observations endpoint to repair."
+        )
 
     # Query observations linked to this dataset
     result = db.execute(
@@ -397,7 +455,7 @@ async def get_dataset_observations(
         ORDER BY o.ob_time
         LIMIT ? OFFSET ?
         """,
-        (int(dataset_id), limit, offset),
+        (id_int, limit, offset),
     )
 
     columns = [desc[0] for desc in result.description]
@@ -432,22 +490,23 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
     This is a repair endpoint to fix datasets where observations weren't properly
     linked during generation.
     """
+    # Validate dataset ID
+    id_int = validate_dataset_id(dataset_id)
+
     # Get dataset info
     dataset = db.execute(
         "SELECT id, name, observation_count FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     ).fetchone()
 
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-
-    dataset_id_int = int(dataset_id)
     obs_count = dataset[2] or 0
 
     # Check if already linked
     existing_links = db.execute(
         "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?",
-        (dataset_id_int,)
+        (id_int,)
     ).fetchone()[0]
 
     if existing_links > 0:
@@ -475,7 +534,7 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
 
     # Link observations to dataset
     try:
-        db.datasets.add_observations_to_dataset(dataset_id_int, obs_ids)
+        db.datasets.add_observations_to_dataset(id_int, obs_ids)
         logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
         return {"message": f"Successfully linked {len(obs_ids)} observations", "linked": len(obs_ids)}
     except Exception as e:
@@ -499,12 +558,15 @@ async def update_dataset_coverage(
     Returns:
         Success message
     """
+    # Validate dataset ID
+    id_int = validate_dataset_id(dataset_id)
+
     if not 0 <= coverage <= 1:
         raise HTTPException(status_code=400, detail="Coverage must be between 0 and 1")
 
     result = db.execute(
         "SELECT id, name FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     )
     row = result.fetchone()
 
@@ -513,7 +575,7 @@ async def update_dataset_coverage(
 
     db.execute(
         "UPDATE datasets SET avg_coverage = ? WHERE id = ?",
-        (coverage, int(dataset_id)),
+        (coverage, id_int),
     )
 
     return {"message": f"Dataset {dataset_id} coverage updated to {coverage:.2%}"}
@@ -533,10 +595,13 @@ async def delete_dataset(
     Returns:
         Success message
     """
+    # Validate dataset ID
+    id_int = validate_dataset_id(dataset_id)
+
     # Check dataset exists
     result = db.execute(
         "SELECT id, name FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     )
     row = result.fetchone()
 
@@ -548,13 +613,13 @@ async def delete_dataset(
     # Delete associated observations first
     db.execute(
         "DELETE FROM dataset_observations WHERE dataset_id = ?",
-        (int(dataset_id),)
+        (id_int,)
     )
 
     # Delete the dataset
     db.execute(
         "DELETE FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     )
 
     return {"message": f"Dataset '{dataset_name}' (ID: {dataset_id}) deleted successfully"}
@@ -574,10 +639,13 @@ async def download_dataset(
     Returns:
         JSON file containing the dataset observations and metadata
     """
+    # Validate dataset ID
+    id_int = validate_dataset_id(dataset_id)
+
     # Get dataset info
     result = db.execute(
         "SELECT * FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        (id_int,)
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -602,7 +670,7 @@ async def download_dataset(
         WHERE dso.dataset_id = ?
         ORDER BY o.ob_time
         """,
-        (int(dataset_id),),
+        (id_int,),
     )
 
     obs_columns = [desc[0] for desc in obs_result.description]
