@@ -1,5 +1,8 @@
 tmpclaude-*
 
+# Claude Code local settings
+.claude/
+
 # Large files that exceed GitHub's 100MB limit
 *.zip
 
