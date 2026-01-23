@@ -275,9 +275,23 @@ def run_dataset_generation(
             obs_ids = obs_truth['id'].tolist()
             track_assignments = {}
             if 'trackId' in obs_truth.columns:
-                track_assignments = {
-                    row['id']: row.get('trackId') for _, row in obs_truth.iterrows()
-                }
+                import pandas as pd
+                INT32_MAX = 2147483647  # Max value for INT32
+                for _, row in obs_truth.iterrows():
+                    track_id = row.get('trackId')
+                    # Convert NaN/NaT to None (DuckDB can't handle NaN in INT columns)
+                    if pd.isna(track_id):
+                        track_id = None
+                    elif track_id is not None:
+                        # Convert to int if it's a string or float
+                        try:
+                            track_id = int(track_id)
+                            # Check if value fits in INT32 (database schema limitation)
+                            if track_id > INT32_MAX or track_id < -INT32_MAX:
+                                track_id = None  # Too large for INT32, store as NULL
+                        except (ValueError, TypeError):
+                            track_id = None
+                    track_assignments[row['id']] = track_id
             # Don't catch exceptions here - linking failure should fail the entire job
             # A dataset without linked observations is corrupted and unusable
             db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
