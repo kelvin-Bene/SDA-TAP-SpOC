@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Satellite, Loader2 } from 'lucide-react';
+import { Orbit, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -35,26 +35,55 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-space-navy to-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-primary/10 p-4">
-              <Satellite className="h-8 w-8 text-primary" />
+    <div className="min-h-screen flex items-center justify-center p-4 space-bg relative overflow-hidden">
+      {/* Animated starfield */}
+      <div className="starfield" aria-hidden="true" />
+
+      {/* Grid pattern overlay */}
+      <div className="fixed inset-0 grid-pattern opacity-20 pointer-events-none" aria-hidden="true" />
+
+      {/* Floating orbs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-stellar-purple/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-cosmic-blue/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+
+      <Card className="w-full max-w-md relative z-10 glass border-white/10 shadow-2xl">
+        <CardHeader className="text-center pb-2">
+          {/* Animated orbital logo */}
+          <div className="flex justify-center mb-6">
+            <div className="relative w-20 h-20 flex items-center justify-center">
+              {/* Outer orbit rings */}
+              <div className="absolute inset-0 border-2 border-cosmic-cyan/30 rounded-full animate-orbit-slow" />
+              <div className="absolute inset-2 border border-stellar-purple/20 rounded-full animate-orbit-reverse" />
+              <div className="absolute inset-4 border border-cosmic-blue/20 rounded-full animate-orbit" style={{ animationDuration: '15s' }} />
+
+              {/* Center icon with glow */}
+              <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-cosmic-cyan to-cosmic-blue flex items-center justify-center shadow-glow-lg animate-pulse-glow">
+                <Orbit className="h-6 w-6 text-white" />
+              </div>
+
+              {/* Orbiting dots */}
+              <div className="absolute w-2 h-2 rounded-full bg-cosmic-cyan shadow-glow-cyan animate-orbit" style={{ top: '-4px', left: '50%', marginLeft: '-4px' }} />
+              <div className="absolute w-1.5 h-1.5 rounded-full bg-stellar-purple shadow-glow-purple animate-orbit-reverse" style={{ top: '50%', right: '-4px', marginTop: '-3px' }} />
             </div>
           </div>
-          <CardTitle className="text-2xl">Welcome to SpOC</CardTitle>
-          <CardDescription>
+
+          <CardTitle className="text-3xl font-display font-bold">
+            <span className="text-gradient-cosmic">SpOC</span>
+          </CardTitle>
+          <CardDescription className="text-base">
             UCT Algorithm Benchmarking Platform
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+
+        <CardContent className="space-y-6 pt-4">
           {/* OAuth Buttons */}
           <div className="grid grid-cols-2 gap-4">
             <Button
               variant="outline"
               onClick={() => handleOAuthLogin('google')}
               disabled={isLoading}
+              className="border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/30 transition-all"
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
@@ -80,6 +109,7 @@ export function LoginPage() {
               variant="outline"
               onClick={() => handleOAuthLogin('github')}
               disabled={isLoading}
+              className="border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/30 transition-all"
             >
               <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
@@ -90,17 +120,17 @@ export function LoginPage() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
+              <Separator className="w-full bg-white/10" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              <span className="bg-card px-4 text-muted-foreground">Or continue with</span>
             </div>
           </div>
 
           {/* Email/Password Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -108,12 +138,13 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/20 placeholder:text-muted-foreground/50"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <a href="#" className="text-sm text-primary hover:underline">
+                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                <a href="#" className="text-sm text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors">
                   Forgot password?
                 </a>
               </div>
@@ -123,9 +154,14 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/20"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity shadow-glow-cyan font-semibold"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -137,15 +173,21 @@ export function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
+
+        <CardFooter className="flex justify-center pt-2">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <a href="#" className="text-primary hover:underline">
+            <a href="#" className="text-cosmic-cyan hover:text-cosmic-cyan/80 font-medium transition-colors">
               Request access
             </a>
           </p>
         </CardFooter>
       </Card>
+
+      {/* Version tag */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50">
+        SpOC v1.0.0
+      </div>
     </div>
   );
 }
