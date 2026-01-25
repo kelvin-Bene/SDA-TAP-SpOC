@@ -97,13 +97,14 @@ The project implements a tiered pipeline system:
 
 ## Current Status
 
-**Overall Progress: ~60%**
+**Overall Progress: ~85%** *(Updated 2026-01-25)*
 
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
-| Data Pipeline (T1-T3, Downsampling, Database) | Complete | 85% |
-| Web Platform (UI, Backend, Auth) | Complete | 95% |
+| Data Pipeline (T1-T3, Downsampling, Database) | Complete | 95% |
+| Web Platform (UI, Backend, API) | Complete | 90% |
+| Authentication | Not Started | 0% |
 
 See [Project Status](planning/PROJECT_STATUS.md) for detailed breakdown.
 

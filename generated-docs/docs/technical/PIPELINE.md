@@ -359,7 +359,7 @@ Creates PDF report containing:
 
 ## Configuration Parameters
 
-See `uct_benchmark/config.py` for adjustable parameters:
+See `uct_benchmark/settings.py` for adjustable parameters:
 - Orbital regime thresholds
 - Scoring thresholds
 - Propagator settings
