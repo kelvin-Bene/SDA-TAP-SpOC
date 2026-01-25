@@ -1,15 +1,38 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Plus, Download, Trash2, Copy, Eye, Loader2 } from 'lucide-react';
 import { formatDate, formatFileSize } from '@/lib/utils';
-import { useDatasets } from '@/hooks/useDatasets';
+import { useDatasets, useDeleteDataset } from '@/hooks/useDatasets';
+import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
   const { data: datasets, isLoading, error } = useDatasets();
+  const deleteDataset = useDeleteDataset();
+  const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
   const userDatasets = datasets ?? [];
+
+  const handleDeleteClick = (dataset: Dataset) => {
+    setDatasetToDelete(dataset);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (datasetToDelete) {
+      deleteDataset.mutate(datasetToDelete.id);
+      setDatasetToDelete(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -120,7 +143,13 @@ export function MyDatasetsPage() {
                         <Button variant="ghost" size="icon">
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => handleDeleteClick(dataset)}
+                          disabled={deleteDataset.isPending}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -132,6 +161,38 @@ export function MyDatasetsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!datasetToDelete} onOpenChange={() => setDatasetToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Dataset</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{datasetToDelete?.name}"? This action cannot be undone
+              and will permanently remove the dataset and all associated observations.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDatasetToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteDataset.isPending}
+            >
+              {deleteDataset.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
