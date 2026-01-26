@@ -9,8 +9,8 @@ Tests:
 - Photometric simulation
 """
 
-import pytest
 import numpy as np
+import pytest
 
 
 class TestAtmosphericRefraction:
@@ -92,8 +92,8 @@ class TestVelocityAberration:
         ra_corr, dec_corr = compute_velocity_aberration(ra, dec, observer_vel)
 
         # Corrections should be small (< 1 arcmin)
-        assert abs(ra_corr - ra) < 1/60
-        assert abs(dec_corr - dec) < 1/60
+        assert abs(ra_corr - ra) < 1 / 60
+        assert abs(dec_corr - dec) < 1 / 60
 
     def test_observer_velocity(self):
         """Test observer velocity calculation."""
@@ -130,9 +130,7 @@ class TestSensorNoiseModels:
         model = RadarNoiseModel(range_noise_m=10.0)
         rng = np.random.default_rng(42)
 
-        range_km, rr, az, el, timing = model.apply_noise(
-            1000.0, 0.1, 45.0, 30.0, 0, rng
-        )
+        range_km, rr, az, el, timing = model.apply_noise(1000.0, 0.1, 45.0, 30.0, 0, rng)
 
         # Range should be close to original
         assert abs(range_km - 1000.0) < 0.1  # 100m tolerance
@@ -140,26 +138,26 @@ class TestSensorNoiseModels:
     def test_get_sensor_noise_model(self):
         """Test getting sensor noise model by name."""
         from uct_benchmark.simulation.noise_models import (
-            get_sensor_noise_model, OpticalNoiseModel, RadarNoiseModel
+            OpticalNoiseModel,
+            RadarNoiseModel,
+            get_sensor_noise_model,
         )
 
-        geodss = get_sensor_noise_model('GEODSS')
+        geodss = get_sensor_noise_model("GEODSS")
         assert isinstance(geodss, OpticalNoiseModel)
 
-        radar = get_sensor_noise_model('Radar')
+        radar = get_sensor_noise_model("Radar")
         assert isinstance(radar, RadarNoiseModel)
 
     def test_apply_realistic_noise(self):
         """Test combined realistic noise application."""
-        from uct_benchmark.simulation.noise_models import apply_realistic_noise
         from uct_benchmark.settings import SimulationConfig
+        from uct_benchmark.simulation.noise_models import apply_realistic_noise
 
-        config = SimulationConfig(apply_sensor_noise=True, sensor_model='GEODSS')
+        config = SimulationConfig(apply_sensor_noise=True, sensor_model="GEODSS")
         rng = np.random.default_rng(42)
 
-        ra, dec, timing = apply_realistic_noise(
-            180.0, 45.0, None, 'GEODSS', config, rng
-        )
+        ra, dec, timing = apply_realistic_noise(180.0, 45.0, None, "GEODSS", config, rng)
 
         assert isinstance(ra, float)
         assert isinstance(dec, float)
@@ -191,7 +189,7 @@ class TestPhotometricSimulation:
         assert f_full > 0.6
 
         # Quarter phase
-        f_quarter = lambertian_phase_function(np.pi/2)
+        f_quarter = lambertian_phase_function(np.pi / 2)
         assert 0 < f_quarter < f_full
 
         # Back-illuminated (phase = pi)
@@ -216,8 +214,9 @@ class TestPhotometricSimulation:
 
     def test_sun_position_approx(self):
         """Test approximate sun position calculation."""
-        from uct_benchmark.simulation.noise_models import get_sun_position_approx
         from datetime import datetime
+
+        from uct_benchmark.simulation.noise_models import get_sun_position_approx
 
         sun_pos = get_sun_position_approx(datetime(2025, 6, 21, 12, 0, 0))
 
@@ -240,5 +239,5 @@ class TestPhotometricSimulation:
         assert not is_satellite_illuminated(sat_shadow, sun_pos)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

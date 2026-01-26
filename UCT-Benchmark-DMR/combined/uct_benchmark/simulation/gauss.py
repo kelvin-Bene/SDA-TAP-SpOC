@@ -17,12 +17,12 @@ Updated: 31 July 2025
 """
 
 import base64
-from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 
-from astropy.time import Time
 import numpy as np
 import pandas as pd
+from astropy.time import Time
 
 
 def generateTriplets(obs):

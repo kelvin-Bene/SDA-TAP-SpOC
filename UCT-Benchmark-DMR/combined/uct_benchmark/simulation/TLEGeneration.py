@@ -5,7 +5,6 @@ Created on Mon July 2 2025
 @author: Binyamin J. Stivi & Louis Caves
 """
 
-
 import time as time
 
 # initialize orekit and JVM

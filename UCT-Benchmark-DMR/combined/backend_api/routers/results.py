@@ -1,8 +1,6 @@
 """Results retrieval endpoints."""
 
 import json
-from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -57,7 +55,7 @@ async def get_results(
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.id = ?
         """,
-        (int(submission_id),)
+        (int(submission_id),),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -75,15 +73,17 @@ async def get_results(
             parsed = json.loads(raw_results) if isinstance(raw_results, str) else raw_results
             if "per_satellite" in parsed:
                 for sat_data in parsed["per_satellite"]:
-                    satellite_results.append(SatelliteResult(
-                        satellite_id=str(sat_data.get("satellite_id", "")),
-                        status=sat_data.get("status", "FN"),
-                        observations_used=sat_data.get("observations_used", 0),
-                        total_observations=sat_data.get("total_observations", 0),
-                        position_error_km=sat_data.get("position_error_km"),
-                        velocity_error_km_s=sat_data.get("velocity_error_km_s"),
-                        confidence=sat_data.get("confidence"),
-                    ))
+                    satellite_results.append(
+                        SatelliteResult(
+                            satellite_id=str(sat_data.get("satellite_id", "")),
+                            status=sat_data.get("status", "FN"),
+                            observations_used=sat_data.get("observations_used", 0),
+                            total_observations=sat_data.get("total_observations", 0),
+                            position_error_km=sat_data.get("position_error_km"),
+                            velocity_error_km_s=sat_data.get("velocity_error_km_s"),
+                            confidence=sat_data.get("confidence"),
+                        )
+                    )
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -98,7 +98,7 @@ async def get_results(
             WHERE s2.dataset_id = (SELECT dataset_id FROM submissions WHERE id = ?)
               AND sr2.f1_score > ?
             """,
-            (int(submission_id), row_dict["f1_score"])
+            (int(submission_id), row_dict["f1_score"]),
         ).fetchone()
         rank = rank_result[0] if rank_result else None
 
@@ -141,8 +141,7 @@ async def get_detailed_metrics(
     """
     # Verify submission exists
     submission = db.execute(
-        "SELECT id, status FROM submissions WHERE id = ?",
-        (int(submission_id),)
+        "SELECT id, status FROM submissions WHERE id = ?", (int(submission_id),)
     ).fetchone()
 
     if submission is None:
@@ -150,8 +149,7 @@ async def get_detailed_metrics(
 
     # Get raw results for detailed breakdown
     result = db.execute(
-        "SELECT raw_results FROM submission_results WHERE submission_id = ?",
-        (int(submission_id),)
+        "SELECT raw_results FROM submission_results WHERE submission_id = ?", (int(submission_id),)
     ).fetchone()
 
     per_satellite_metrics = []
@@ -192,8 +190,7 @@ async def get_visualization_data(
     """
     # Verify submission exists
     submission = db.execute(
-        "SELECT id, status FROM submissions WHERE id = ?",
-        (int(submission_id),)
+        "SELECT id, status FROM submissions WHERE id = ?", (int(submission_id),)
     ).fetchone()
 
     if submission is None:
@@ -201,8 +198,7 @@ async def get_visualization_data(
 
     # Get raw results for visualization data
     result = db.execute(
-        "SELECT raw_results FROM submission_results WHERE submission_id = ?",
-        (int(submission_id),)
+        "SELECT raw_results FROM submission_results WHERE submission_id = ?", (int(submission_id),)
     ).fetchone()
 
     orbit_plots = []
@@ -256,7 +252,7 @@ async def export_results(
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.id = ?
         """,
-        (int(submission_id),)
+        (int(submission_id),),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -268,6 +264,7 @@ async def export_results(
 
     # Convert non-JSON-serializable types
     from decimal import Decimal
+
     for key, value in row_dict.items():
         if hasattr(value, "isoformat"):
             row_dict[key] = value.isoformat()
@@ -277,13 +274,11 @@ async def export_results(
     if format == "json":
         return JSONResponse(
             content=row_dict,
-            headers={
-                "Content-Disposition": f'attachment; filename="results_{submission_id}.json"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="results_{submission_id}.json"'},
         )
     elif format == "csv":
-        import io
         import csv
+        import io
 
         output = io.StringIO()
         writer = csv.DictWriter(output, fieldnames=row_dict.keys())
@@ -296,9 +291,7 @@ async def export_results(
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={
-                "Content-Disposition": f'attachment; filename="results_{submission_id}.csv"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="results_{submission_id}.csv"'},
         )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")

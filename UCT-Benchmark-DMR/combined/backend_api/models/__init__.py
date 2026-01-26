@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================
 # ENUMS
 # ============================================================
@@ -19,6 +18,7 @@ from pydantic import BaseModel, Field
 
 class OrbitalRegime(str, Enum):
     """Orbital regime classification."""
+
     LEO = "LEO"
     MEO = "MEO"
     GEO = "GEO"
@@ -27,6 +27,7 @@ class OrbitalRegime(str, Enum):
 
 class DataTier(str, Enum):
     """Dataset complexity tier."""
+
     T1 = "T1"
     T2 = "T2"
     T3 = "T3"
@@ -35,6 +36,7 @@ class DataTier(str, Enum):
 
 class SensorType(str, Enum):
     """Observation sensor type."""
+
     OPTICAL = "optical"
     RADAR = "radar"
     RF = "rf"
@@ -42,6 +44,7 @@ class SensorType(str, Enum):
 
 class DatasetStatus(str, Enum):
     """Status of a dataset."""
+
     CREATED = "created"
     GENERATING = "generating"
     AVAILABLE = "available"
@@ -50,6 +53,7 @@ class DatasetStatus(str, Enum):
 
 class SubmissionStatus(str, Enum):
     """Status of a submission."""
+
     QUEUED = "queued"
     VALIDATING = "validating"
     PROCESSING = "processing"
@@ -59,6 +63,7 @@ class SubmissionStatus(str, Enum):
 
 class JobStatusEnum(str, Enum):
     """Status of a background job."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -67,9 +72,10 @@ class JobStatusEnum(str, Enum):
 
 class SearchStrategy(str, Enum):
     """Strategy for fetching observation data from UDL API."""
-    FAST = "fast"        # Single query per satellite, full time range
-    WINDOWED = "windowed" # Fixed time windows, sequential (reference code)
-    HYBRID = "hybrid"     # Count-first with dynamic chunking
+
+    FAST = "fast"  # Single query per satellite, full time range
+    WINDOWED = "windowed"  # Fixed time windows, sequential (reference code)
+    HYBRID = "hybrid"  # Count-first with dynamic chunking
 
 
 # ============================================================
@@ -79,60 +85,47 @@ class SearchStrategy(str, Enum):
 
 class DownsamplingOptions(BaseModel):
     """Options for observation downsampling."""
-    enabled: bool = Field(default=False, description="Enable downsampling to reduce observation quality")
+
+    enabled: bool = Field(
+        default=False, description="Enable downsampling to reduce observation quality"
+    )
     target_coverage: float = Field(
         default=0.05,
         ge=0.01,
         le=1.0,
-        description="Target orbital coverage fraction (lower = less coverage)"
+        description="Target orbital coverage fraction (lower = less coverage)",
     )
     target_gap: float = Field(
         default=2.0,
         ge=0.5,
         le=10.0,
-        description="Target track gap in orbital periods (higher = larger gaps)"
+        description="Target track gap in orbital periods (higher = larger gaps)",
     )
     max_obs_per_sat: int = Field(
-        default=50,
-        ge=5,
-        le=500,
-        description="Maximum observations per satellite"
+        default=50, ge=5, le=500, description="Maximum observations per satellite"
     )
     preserve_tracks: bool = Field(
-        default=True,
-        description="Preserve track boundaries during thinning"
+        default=True, description="Preserve track boundaries during thinning"
     )
-    seed: Optional[int] = Field(
-        default=None,
-        description="Random seed for reproducibility"
-    )
+    seed: Optional[int] = Field(default=None, description="Random seed for reproducibility")
 
 
 class SimulationOptions(BaseModel):
     """Options for gap-filling simulation."""
+
     enabled: bool = Field(default=False, description="Enable simulation to fill observation gaps")
-    fill_gaps: bool = Field(
-        default=True,
-        description="Fill gaps with synthetic observations"
-    )
+    fill_gaps: bool = Field(default=True, description="Fill gaps with synthetic observations")
     sensor_model: str = Field(
         default="GEODSS",
-        description="Sensor model for noise characteristics (GEODSS, SBSS, Commercial_EO)"
+        description="Sensor model for noise characteristics (GEODSS, SBSS, Commercial_EO)",
     )
     apply_noise: bool = Field(
-        default=True,
-        description="Apply realistic sensor noise to simulated observations"
+        default=True, description="Apply realistic sensor noise to simulated observations"
     )
     max_synthetic_ratio: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=0.9,
-        description="Maximum ratio of synthetic to total observations"
+        default=0.5, ge=0.0, le=0.9, description="Maximum ratio of synthetic to total observations"
     )
-    seed: Optional[int] = Field(
-        default=None,
-        description="Random seed for reproducibility"
-    )
+    seed: Optional[int] = Field(default=None, description="Random seed for reproducibility")
 
 
 # ============================================================
@@ -142,6 +135,7 @@ class SimulationOptions(BaseModel):
 
 class DatasetCreate(BaseModel):
     """Request schema for creating a new dataset."""
+
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     regime: OrbitalRegime
@@ -157,26 +151,24 @@ class DatasetCreate(BaseModel):
     end_date: Optional[datetime] = None
     # Downsampling and simulation options
     downsampling: Optional[DownsamplingOptions] = Field(
-        default=None,
-        description="Options for downsampling observations to reduce quality"
+        default=None, description="Options for downsampling observations to reduce quality"
     )
     simulation: Optional[SimulationOptions] = Field(
-        default=None,
-        description="Options for simulating observations to fill gaps"
+        default=None, description="Options for simulating observations to fill gaps"
     )
     # Search strategy for data fetching
     search_strategy: SearchStrategy = Field(
         default=SearchStrategy.HYBRID,
-        description="Strategy for fetching data: 'fast', 'windowed', 'hybrid'"
+        description="Strategy for fetching data: 'fast', 'windowed', 'hybrid'",
     )
     window_size_minutes: Optional[int] = Field(
-        default=10, ge=1, le=60,
-        description="Window size for windowed strategy (default 10 min)"
+        default=10, ge=1, le=60, description="Window size for windowed strategy (default 10 min)"
     )
 
 
 class DatasetSummary(BaseModel):
     """Summary response for a dataset (list view)."""
+
     id: str
     name: str
     description: Optional[str] = None
@@ -197,6 +189,7 @@ class DatasetSummary(BaseModel):
 
 class DatasetDetail(DatasetSummary):
     """Detailed response for a single dataset."""
+
     satellites: List[int] = []
     parameters: Dict[str, Any] = {}
     time_window_start: Optional[datetime] = None
@@ -208,6 +201,7 @@ class DatasetDetail(DatasetSummary):
 
 class DatasetObservation(BaseModel):
     """Single observation from a dataset."""
+
     id: str
     ob_time: datetime
     ra: float
@@ -223,6 +217,7 @@ class DatasetObservation(BaseModel):
 
 class SubmissionCreate(BaseModel):
     """Request schema for creating a new submission."""
+
     dataset_id: str
     algorithm_name: str = Field(..., min_length=1, max_length=100)
     version: str = Field(default="1.0", max_length=50)
@@ -231,6 +226,7 @@ class SubmissionCreate(BaseModel):
 
 class SubmissionSummary(BaseModel):
     """Summary response for a submission (list view)."""
+
     id: str
     dataset_id: str
     dataset_name: Optional[str] = None
@@ -249,6 +245,7 @@ class SubmissionSummary(BaseModel):
 
 class SubmissionDetail(SubmissionSummary):
     """Detailed response for a single submission."""
+
     file_path: Optional[str] = None
     error_message: Optional[str] = None
 
@@ -260,6 +257,7 @@ class SubmissionDetail(SubmissionSummary):
 
 class BinaryMetrics(BaseModel):
     """Binary classification metrics."""
+
     true_positives: int
     false_positives: int
     false_negatives: int
@@ -270,6 +268,7 @@ class BinaryMetrics(BaseModel):
 
 class StateMetrics(BaseModel):
     """Orbit state estimation metrics."""
+
     position_rms_km: float
     velocity_rms_km_s: float
     mahalanobis_distance: Optional[float] = None
@@ -277,12 +276,14 @@ class StateMetrics(BaseModel):
 
 class ResidualMetrics(BaseModel):
     """Observation residual metrics."""
+
     ra_residual_rms_arcsec: float
     dec_residual_rms_arcsec: float
 
 
 class SatelliteResult(BaseModel):
     """Per-satellite result breakdown."""
+
     satellite_id: str
     status: str  # TP, FP, FN
     observations_used: int
@@ -294,6 +295,7 @@ class SatelliteResult(BaseModel):
 
 class SubmissionResults(BaseModel):
     """Complete results for a submission."""
+
     submission_id: str
     dataset_id: str
     algorithm_name: str
@@ -338,6 +340,7 @@ class SubmissionResults(BaseModel):
 
 class LeaderboardEntry(BaseModel):
     """Single entry on the leaderboard."""
+
     rank: int
     algorithm_name: str
     team: Optional[str] = None
@@ -353,6 +356,7 @@ class LeaderboardEntry(BaseModel):
 
 class LeaderboardResponse(BaseModel):
     """Complete leaderboard response."""
+
     dataset_id: Optional[str] = None
     dataset_name: Optional[str] = None
     last_updated: datetime
@@ -367,6 +371,7 @@ class LeaderboardResponse(BaseModel):
 
 class JobResponse(BaseModel):
     """Response for a background job."""
+
     id: str
     job_type: str
     status: JobStatusEnum
@@ -387,6 +392,7 @@ class JobResponse(BaseModel):
 
 class PaginatedResponse(BaseModel):
     """Generic paginated response wrapper."""
+
     data: List[Any]
     total: int
     page: int
@@ -396,11 +402,13 @@ class PaginatedResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Standard error response."""
+
     detail: str
     code: Optional[str] = None
 
 
 class SuccessResponse(BaseModel):
     """Standard success response."""
+
     message: str
     data: Optional[Any] = None

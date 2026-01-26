@@ -11,6 +11,7 @@ import numpy as np
 
 # Import Orekit
 import orekit_jpype as orekit
+import pandas as pd
 from orekit_jpype import JArray_double
 from orekit_jpype.pyhelpers import JArray_double2D, setup_orekit_curdir
 from org.orekit.bodies import CelestialBodyFactory
@@ -18,7 +19,6 @@ from org.orekit.frames import FramesFactory
 from org.orekit.orbits import EquinoctialOrbit, PositionAngleType
 from org.orekit.time import AbsoluteDate, DateComponents, TimeComponents, TimeScalesFactory
 from org.orekit.utils import PVCoordinates
-import pandas as pd
 
 orekit.initVM()
 setup_orekit_curdir(from_pip_library=True)

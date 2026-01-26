@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import chi2
 
-from uct_benchmark.api.apiIntegration import TLEToSV
 import uct_benchmark.settings as config
+from uct_benchmark.api.apiIntegration import TLEToSV
 
 
 # --- Helper Functions ---

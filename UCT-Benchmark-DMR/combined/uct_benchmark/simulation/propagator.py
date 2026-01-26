@@ -37,7 +37,6 @@ def monteCarloPropagator(
     orekit - function will initialize orekit VM and load current parameters
     """
 
-
     import numpy as np
 
     # unpack parameters list
@@ -112,12 +111,8 @@ def monteCarloPropagator(
     maxStep = 1000.0
 
     # Create Vector3D objects for position and velocity
-    initial_position = Vector3D(
-        float(stateVector[0]), float(stateVector[1]), float(stateVector[2])
-    )
-    initial_velocity = Vector3D(
-        float(stateVector[3]), float(stateVector[4]), float(stateVector[5])
-    )
+    initial_position = Vector3D(float(stateVector[0]), float(stateVector[1]), float(stateVector[2]))
+    initial_velocity = Vector3D(float(stateVector[3]), float(stateVector[4]), float(stateVector[5]))
     initial_pv = PVCoordinates(initial_position, initial_velocity)
     initial_orbit = CartesianOrbit(initial_pv, inertial_frame, initialAbsDate, mu)
     initial_state = SpacecraftState(initial_orbit, float(satelliteMass))
@@ -197,7 +192,9 @@ def monteCarloPropagator(
                         )
                     )
                 )
-            except Exception:  # Skip failed point, continue with rest of sample point (JavaError or similar)
+            except (
+                Exception
+            ):  # Skip failed point, continue with rest of sample point (JavaError or similar)
                 failedProps += 1
                 continue
         # print(failedProps)
@@ -317,12 +314,8 @@ def ephemerisPropagator(
     maxStep = 1000.0
 
     # Create Vector3D objects for position and velocity
-    initial_position = Vector3D(
-        float(stateVector[0]), float(stateVector[1]), float(stateVector[2])
-    )
-    initial_velocity = Vector3D(
-        float(stateVector[3]), float(stateVector[4]), float(stateVector[5])
-    )
+    initial_position = Vector3D(float(stateVector[0]), float(stateVector[1]), float(stateVector[2]))
+    initial_velocity = Vector3D(float(stateVector[3]), float(stateVector[4]), float(stateVector[5]))
     initial_pv = PVCoordinates(initial_position, initial_velocity)
     initial_orbit = CartesianOrbit(initial_pv, inertial_frame, initialAbsDate, mu)
     initial_state = SpacecraftState(initial_orbit, float(satelliteMass))
@@ -656,7 +649,7 @@ def orbit2OE(input1, input2):
         time_comp.getMinute(),
         int(time_comp.getSecond()),
         int((time_comp.getSecond() % 1) * 1e6),
-        tzinfo=timezone.utc
+        tzinfo=timezone.utc,
     )
 
     # Build return dictionary of orbital elements, state vector, and period

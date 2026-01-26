@@ -8,15 +8,16 @@ Tests:
 - Propagation accuracy
 """
 
-import pytest
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-
+import pytest
 
 # =============================================================================
 # OBSERVATION SIMULATION TESTS
 # =============================================================================
+
 
 class TestObservationSimulation:
     """Tests for simulateObs function."""
@@ -26,8 +27,14 @@ class TestObservationSimulation:
         # This test verifies the expected output structure
         # without requiring full Orekit initialization
         expected_columns = [
-            'obTime', 'ra', 'declination', 'satNo',
-            'idSensor', 'senlat', 'senlon', 'senalt'
+            "obTime",
+            "ra",
+            "declination",
+            "satNo",
+            "idSensor",
+            "senlat",
+            "senlon",
+            "senalt",
         ]
 
         # Verify expected columns exist in a typical output
@@ -52,6 +59,7 @@ class TestObservationSimulation:
 # TLE PROPAGATION TESTS
 # =============================================================================
 
+
 class TestTLEPropagation:
     """Tests for TLE propagation functionality."""
 
@@ -60,7 +68,7 @@ class TestTLEPropagation:
         """Sample TLE for ISS."""
         return (
             "1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9025",
-            "2 25544  51.6400 208.9163 0006703 358.0000   2.0000 15.49580000123456"
+            "2 25544  51.6400 208.9163 0006703 358.0000   2.0000 15.49580000123456",
         )
 
     def test_tle_parsing(self, sample_tle):
@@ -70,7 +78,7 @@ class TestTLEPropagation:
         # Extract basic info from TLE
         norad_id = line1[2:7].strip()
         inclination = float(line2[8:16])
-        eccentricity = float('0.' + line2[26:33])
+        eccentricity = float("0." + line2[26:33])
 
         assert norad_id == "25544"
         assert 51 < inclination < 52  # ISS inclination ~51.6 deg
@@ -96,6 +104,7 @@ class TestTLEPropagation:
 # STATE VECTOR PROPAGATION TESTS
 # =============================================================================
 
+
 class TestStateVectorPropagation:
     """Tests for state vector propagation."""
 
@@ -103,15 +112,15 @@ class TestStateVectorPropagation:
     def leo_state_vector(self):
         """Sample LEO state vector (ISS-like orbit)."""
         return {
-            'epoch': datetime(2024, 1, 1, 12, 0, 0),
-            'position_km': np.array([6778.0, 0.0, 0.0]),  # ~400km altitude
-            'velocity_km_s': np.array([0.0, 7.67, 0.0]),  # Circular velocity
+            "epoch": datetime(2024, 1, 1, 12, 0, 0),
+            "position_km": np.array([6778.0, 0.0, 0.0]),  # ~400km altitude
+            "velocity_km_s": np.array([0.0, 7.67, 0.0]),  # Circular velocity
         }
 
     def test_keplerian_to_cartesian(self, leo_state_vector):
         """Test conversion from Keplerian to Cartesian elements."""
-        pos = leo_state_vector['position_km']
-        vel = leo_state_vector['velocity_km_s']
+        pos = leo_state_vector["position_km"]
+        vel = leo_state_vector["velocity_km_s"]
 
         # Verify position magnitude (should be ~6778 km)
         r = np.linalg.norm(pos)
@@ -125,8 +134,8 @@ class TestStateVectorPropagation:
         """Test that orbital energy is negative (bound orbit)."""
         mu = 398600.4418  # Earth's gravitational parameter (km^3/s^2)
 
-        pos = leo_state_vector['position_km']
-        vel = leo_state_vector['velocity_km_s']
+        pos = leo_state_vector["position_km"]
+        vel = leo_state_vector["velocity_km_s"]
 
         r = np.linalg.norm(pos)
         v = np.linalg.norm(vel)
@@ -141,14 +150,14 @@ class TestStateVectorPropagation:
         """Test semi-major axis calculation from state vector."""
         mu = 398600.4418  # km^3/s^2
 
-        pos = leo_state_vector['position_km']
-        vel = leo_state_vector['velocity_km_s']
+        pos = leo_state_vector["position_km"]
+        vel = leo_state_vector["velocity_km_s"]
 
         r = np.linalg.norm(pos)
         v = np.linalg.norm(vel)
 
         # vis-viva equation: a = 1 / (2/r - v^2/mu)
-        a = 1 / ((2/r) - (v**2/mu))
+        a = 1 / ((2 / r) - (v**2 / mu))
 
         # LEO semi-major axis should be around 6778 km
         assert 6700 < a < 6900
@@ -157,6 +166,7 @@ class TestStateVectorPropagation:
 # =============================================================================
 # NOISE APPLICATION TESTS
 # =============================================================================
+
 
 class TestNoiseApplication:
     """Tests for sensor noise application."""
@@ -185,8 +195,8 @@ class TestNoiseApplication:
 
         # Apply noise
         n_samples = 1000
-        ra_noisy = ra_true + rng.normal(0, sigma_arcsec/3600, n_samples)
-        dec_noisy = dec_true + rng.normal(0, sigma_arcsec/3600, n_samples)
+        ra_noisy = ra_true + rng.normal(0, sigma_arcsec / 3600, n_samples)
+        dec_noisy = dec_true + rng.normal(0, sigma_arcsec / 3600, n_samples)
 
         # Check that noisy values are centered on true values
         assert np.abs(np.mean(ra_noisy) - ra_true) < 0.001
@@ -198,9 +208,9 @@ class TestNoiseApplication:
 
         # Define noise levels for different sensors (arcseconds)
         noise_levels = {
-            'GEODSS': 0.5,      # Ground-based electro-optical
-            'SBSS': 1.0,        # Space-based
-            'Commercial_EO': 2.0,  # Commercial
+            "GEODSS": 0.5,  # Ground-based electro-optical
+            "SBSS": 1.0,  # Space-based
+            "Commercial_EO": 2.0,  # Commercial
         }
 
         n_samples = 1000
@@ -208,17 +218,18 @@ class TestNoiseApplication:
 
         stds = {}
         for sensor, sigma in noise_levels.items():
-            noisy = true_value + rng.normal(0, sigma/3600, n_samples)
+            noisy = true_value + rng.normal(0, sigma / 3600, n_samples)
             stds[sensor] = np.std(noisy - true_value) * 3600
 
         # GEODSS should have lowest noise
-        assert stds['GEODSS'] < stds['SBSS']
-        assert stds['SBSS'] < stds['Commercial_EO']
+        assert stds["GEODSS"] < stds["SBSS"]
+        assert stds["SBSS"] < stds["Commercial_EO"]
 
 
 # =============================================================================
 # SENSOR MODEL TESTS
 # =============================================================================
+
 
 class TestSensorModels:
     """Tests for sensor noise models."""
@@ -242,28 +253,29 @@ class TestSensorModels:
         model = RadarNoiseModel(range_noise_m=10.0)
         rng = np.random.default_rng(42)
 
-        range_km, rr, az, el, timing = model.apply_noise(
-            1000.0, 0.1, 45.0, 30.0, 0, rng
-        )
+        range_km, rr, az, el, timing = model.apply_noise(1000.0, 0.1, 45.0, 30.0, 0, rng)
 
         assert isinstance(range_km, (float, np.floating))
 
     def test_get_sensor_noise_model(self):
         """Test retrieving sensor noise model by name."""
         from uct_benchmark.simulation.noise_models import (
-            get_sensor_noise_model, OpticalNoiseModel, RadarNoiseModel
+            OpticalNoiseModel,
+            RadarNoiseModel,
+            get_sensor_noise_model,
         )
 
-        geodss = get_sensor_noise_model('GEODSS')
+        geodss = get_sensor_noise_model("GEODSS")
         assert isinstance(geodss, OpticalNoiseModel)
 
-        radar = get_sensor_noise_model('Radar')
+        radar = get_sensor_noise_model("Radar")
         assert isinstance(radar, RadarNoiseModel)
 
 
 # =============================================================================
 # VISIBILITY TESTS
 # =============================================================================
+
 
 class TestVisibility:
     """Tests for satellite visibility calculations."""
@@ -300,6 +312,7 @@ class TestVisibility:
 # COVERAGE ANALYSIS TESTS
 # =============================================================================
 
+
 class TestCoverageAnalysis:
     """Tests for orbital coverage analysis."""
 
@@ -332,7 +345,7 @@ class TestCoverageAnalysis:
         v_mag = np.linalg.norm(v)
 
         # Semi-major axis
-        a = 1 / ((2/r_mag) - (v_mag**2/mu))
+        a = 1 / ((2 / r_mag) - (v_mag**2 / mu))
 
         # Orbital period
         T = 2 * np.pi * np.sqrt(a**3 / mu)
@@ -344,6 +357,7 @@ class TestCoverageAnalysis:
 # =============================================================================
 # EDGE CASES AND ERROR HANDLING
 # =============================================================================
+
 
 class TestSimulationEdgeCases:
     """Tests for edge cases in simulation."""
@@ -377,5 +391,5 @@ class TestSimulationEdgeCases:
         assert v_low > 7.8  # km/s
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

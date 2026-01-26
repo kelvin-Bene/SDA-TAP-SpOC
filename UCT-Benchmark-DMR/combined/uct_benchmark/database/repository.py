@@ -4,10 +4,10 @@ Repository pattern implementation for UCT Benchmark database.
 Provides data access abstraction for all entity types.
 """
 
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import json
+from abc import ABC
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -359,10 +359,21 @@ class ObservationRepository(BaseRepository):
 
         # Valid columns for observations table
         valid_columns = [
-            "id", "sat_no", "ob_time", "ra", "declination",
-            "range_km", "range_rate_km_s", "azimuth", "elevation",
-            "sensor_name", "data_mode", "track_id", "is_uct", "is_simulated",
-            "created_at"
+            "id",
+            "sat_no",
+            "ob_time",
+            "ra",
+            "declination",
+            "range_km",
+            "range_rate_km_s",
+            "azimuth",
+            "elevation",
+            "sensor_name",
+            "data_mode",
+            "track_id",
+            "is_uct",
+            "is_simulated",
+            "created_at",
         ]
 
         # Filter to only columns that exist in DataFrame and are valid
@@ -373,7 +384,7 @@ class ObservationRepository(BaseRepository):
         for col in insert_df.columns:
             dtype_name = insert_df[col].dtype.name
             dtype_str = str(insert_df[col].dtype)
-            if dtype_name in ('string', 'str') or dtype_str in ('string', 'str'):
+            if dtype_name in ("string", "str") or dtype_str in ("string", "str"):
                 insert_df[col] = insert_df[col].astype(object)
 
         # Get connection and register DataFrame
@@ -406,14 +417,10 @@ class ObservationRepository(BaseRepository):
         Returns:
             Number of observations
         """
-        result = self.fetchone(
-            "SELECT COUNT(*) FROM observations WHERE sat_no = ?", (sat_no,)
-        )
+        result = self.fetchone("SELECT COUNT(*) FROM observations WHERE sat_no = ?", (sat_no,))
         return result[0] if result else 0
 
-    def get_track_gaps(
-        self, sat_no: int, limit: int = 10
-    ) -> pd.DataFrame:
+    def get_track_gaps(self, sat_no: int, limit: int = 10) -> pd.DataFrame:
         """
         Find the largest gaps in observation tracks for a satellite.
 
@@ -658,7 +665,7 @@ class StateVectorRepository(BaseRepository):
         for col in df.columns:
             dtype_name = df[col].dtype.name
             dtype_str = str(df[col].dtype)
-            if dtype_name in ('string', 'str') or dtype_str in ('string', 'str'):
+            if dtype_name in ("string", "str") or dtype_str in ("string", "str"):
                 df[col] = df[col].astype(object)
 
         # Get connection and register DataFrame
@@ -738,9 +745,20 @@ class ElementSetRepository(BaseRepository):
             RETURNING id
             """,
             (
-                sat_no, line1, line2, epoch, inclination, raan,
-                eccentricity, arg_perigee, mean_anomaly, mean_motion,
-                b_star, semi_major_axis_km, period_minutes, source,
+                sat_no,
+                line1,
+                line2,
+                epoch,
+                inclination,
+                raan,
+                eccentricity,
+                arg_perigee,
+                mean_anomaly,
+                mean_motion,
+                b_star,
+                semi_major_axis_km,
+                period_minutes,
+                source,
             ),
         )
         return result[0] if result else -1
@@ -844,7 +862,7 @@ class ElementSetRepository(BaseRepository):
         for col in df.columns:
             dtype_name = df[col].dtype.name
             dtype_str = str(df[col].dtype)
-            if dtype_name in ('string', 'str') or dtype_str in ('string', 'str'):
+            if dtype_name in ("string", "str") or dtype_str in ("string", "str"):
                 df[col] = df[col].astype(object)
 
         # Get connection and register DataFrame
@@ -921,7 +939,9 @@ class DatasetRepository(BaseRepository):
         )
         return result[0] if result else -1
 
-    def get_dataset(self, dataset_id: Optional[int] = None, name: Optional[str] = None) -> Optional[pd.Series]:
+    def get_dataset(
+        self, dataset_id: Optional[int] = None, name: Optional[str] = None
+    ) -> Optional[pd.Series]:
         """
         Load a dataset by ID or name.
 
@@ -1075,12 +1095,8 @@ class DatasetRepository(BaseRepository):
         """
         if cascade:
             # Delete junction table records first
-            self.execute(
-                "DELETE FROM dataset_observations WHERE dataset_id = ?", (dataset_id,)
-            )
-            self.execute(
-                "DELETE FROM dataset_references WHERE dataset_id = ?", (dataset_id,)
-            )
+            self.execute("DELETE FROM dataset_observations WHERE dataset_id = ?", (dataset_id,))
+            self.execute("DELETE FROM dataset_references WHERE dataset_id = ?", (dataset_id,))
 
         self.execute("DELETE FROM datasets WHERE id = ?", (dataset_id,))
         return True
@@ -1431,9 +1447,7 @@ class EventRepository(BaseRepository):
             The created event ID
         """
         # Get event type ID
-        type_result = self.fetchone(
-            "SELECT id FROM event_types WHERE name = ?", (event_type,)
-        )
+        type_result = self.fetchone("SELECT id FROM event_types WHERE name = ?", (event_type,))
         if type_result is None:
             raise ValueError(f"Unknown event type: {event_type}")
         event_type_id = type_result[0]
@@ -1447,9 +1461,17 @@ class EventRepository(BaseRepository):
             RETURNING id
             """,
             (
-                event_type_id, primary_sat_no, event_time_start, event_time_end,
-                secondary_sat_no, confidence, detection_method, source,
-                external_id, labelled_by, notes,
+                event_type_id,
+                primary_sat_no,
+                event_time_start,
+                event_time_end,
+                secondary_sat_no,
+                confidence,
+                detection_method,
+                source,
+                external_id,
+                labelled_by,
+                notes,
             ),
         )
         return result[0] if result else -1

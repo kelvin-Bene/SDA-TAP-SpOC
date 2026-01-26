@@ -11,7 +11,6 @@ Created for Phase 2 of the UCT Benchmark database implementation.
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -238,9 +237,24 @@ class DataMigration:
 
         # Look for data files
         file_mappings = {
-            "observations": ["observations.parquet", "obs.parquet", "observations.json", "obs.json"],
-            "state_vectors": ["state_vectors.parquet", "sv.parquet", "states.parquet", "state_vectors.json"],
-            "element_sets": ["element_sets.parquet", "elsets.parquet", "tles.parquet", "element_sets.json"],
+            "observations": [
+                "observations.parquet",
+                "obs.parquet",
+                "observations.json",
+                "obs.json",
+            ],
+            "state_vectors": [
+                "state_vectors.parquet",
+                "sv.parquet",
+                "states.parquet",
+                "state_vectors.json",
+            ],
+            "element_sets": [
+                "element_sets.parquet",
+                "elsets.parquet",
+                "tles.parquet",
+                "element_sets.json",
+            ],
         }
 
         for data_type, filenames in file_mappings.items():
@@ -561,7 +575,9 @@ class DataMigration:
             """).fetchone()[0]
             if orphaned_obs > 0:
                 results["valid"] = False
-                results["issues"].append(f"{orphaned_obs} observations reference missing satellites")
+                results["issues"].append(
+                    f"{orphaned_obs} observations reference missing satellites"
+                )
         except Exception as e:
             results["issues"].append(f"Referential integrity check failed: {e}")
 
@@ -618,8 +634,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Migrate data files to UCT Benchmark database")
     parser.add_argument("source", help="Source file or directory")
     parser.add_argument("--db", "-d", help="Database path")
-    parser.add_argument("--type", "-t", choices=["observations", "state_vectors", "element_sets", "satellites"],
-                        help="Data type (for single file import)")
+    parser.add_argument(
+        "--type",
+        "-t",
+        choices=["observations", "state_vectors", "element_sets", "satellites"],
+        help="Data type (for single file import)",
+    )
     parser.add_argument("--name", "-n", help="Dataset name")
     args = parser.parse_args()
 

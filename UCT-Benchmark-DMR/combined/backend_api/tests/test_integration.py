@@ -7,8 +7,6 @@ Run with: uv run pytest backend_api/tests/test_integration.py -v
 """
 
 import json
-import time
-from datetime import datetime
 from pathlib import Path
 from typing import Generator
 from unittest.mock import MagicMock, patch
@@ -16,8 +14,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from uct_benchmark.database.connection import DatabaseManager
 from backend_api.jobs import JobStatus, get_job_manager, init_job_manager
+from uct_benchmark.database.connection import DatabaseManager
 
 
 @pytest.fixture
@@ -32,8 +30,8 @@ def integration_db() -> Generator[DatabaseManager, None, None]:
 @pytest.fixture
 def integration_client(integration_db: DatabaseManager) -> Generator[TestClient, None, None]:
     """Create a test client for integration tests."""
-    from backend_api.main import app
     from backend_api.database import get_db
+    from backend_api.main import app
 
     def override_get_db():
         return integration_db
@@ -122,7 +120,7 @@ class TestDatasetGenerationFlow:
             SET status = 'available', observation_count = 100, satellite_count = 2
             WHERE id = ?
             """,
-            (int(dataset_id),)
+            (int(dataset_id),),
         )
 
         # Update job status
@@ -164,9 +162,7 @@ class TestSubmissionEvaluationFlow:
 
         # Create submission file
         submission_file = tmp_path / "test_submission.json"
-        submission_file.write_text(json.dumps({
-            "predictions": [{"obs_id": "1", "track_id": 1}]
-        }))
+        submission_file.write_text(json.dumps({"predictions": [{"obs_id": "1", "track_id": 1}]}))
 
         # Create submission
         with open(submission_file, "rb") as f:
@@ -232,7 +228,7 @@ class TestSubmissionEvaluationFlow:
             SET status = 'completed', completed_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (int(submission_id),)
+            (int(submission_id),),
         )
 
         integration_db.execute(
@@ -242,7 +238,7 @@ class TestSubmissionEvaluationFlow:
                 precision_score, recall_score, f1_score, position_rms_km, velocity_rms_km_s
             ) VALUES (?, 80, 10, 10, 0.889, 0.889, 0.889, 15.0, 0.03)
             """,
-            (int(submission_id),)
+            (int(submission_id),),
         )
 
         # Get results
@@ -363,6 +359,7 @@ class TestJobStatusPolling:
         # Create a job manually
         job_manager = get_job_manager()
         from backend_api.jobs import JobType
+
         job = job_manager.create_job(JobType.DATASET_GENERATION, {"test": True})
 
         # Poll job status

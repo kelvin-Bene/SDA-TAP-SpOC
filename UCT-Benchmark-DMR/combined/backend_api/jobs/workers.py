@@ -7,18 +7,16 @@ that run in a ThreadPoolExecutor.
 Note: Dataset ID is now passed to generateDataset to avoid duplicate creation.
 """
 
-import os
 import json
+import os
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from . import Job, JobManager, JobStatus, JobType, get_job_manager
-from .progress import create_job_progress_callback, DatasetStage
+from . import Job, JobType, get_job_manager
+from .progress import DatasetStage, create_job_progress_callback
 
 
 def _convert_numpy_to_native(obj: Any) -> Any:
@@ -84,10 +82,11 @@ def run_dataset_generation(
 
     try:
         # Import here to avoid circular imports and ensure Orekit is initialized
+        import random
+
+        from backend_api.database import get_db
         from uct_benchmark.api.apiIntegration import generateDataset
         from uct_benchmark.settings import satIDs as DEFAULT_SATELLITES
-        from backend_api.database import get_db
-        import random
 
         # Get tokens from environment
         udl_token = os.getenv("UDL_TOKEN")
@@ -127,7 +126,7 @@ def run_dataset_generation(
             # Use object_count to determine how many to select
             available_sats = list(DEFAULT_SATELLITES)
             random.shuffle(available_sats)
-            satellites = available_sats[:min(object_count, len(available_sats))]
+            satellites = available_sats[: min(object_count, len(available_sats))]
             logger.info(f"Auto-selected {len(satellites)} satellites: {satellites}")
 
         timeframe = config.get("timeframe", 7)
@@ -141,10 +140,11 @@ def run_dataset_generation(
 
         if end_date_str:
             from datetime import datetime
+
             try:
                 # Parse end_date - handle both date-only and full datetime formats
-                if 'T' in end_date_str:
-                    end_time = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                if "T" in end_date_str:
+                    end_time = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
                 else:
                     # Date only - set to end of day
                     end_time = datetime.fromisoformat(end_date_str + "T23:59:59")
@@ -152,8 +152,8 @@ def run_dataset_generation(
 
                 # If both dates provided, calculate timeframe from them
                 if start_date_str:
-                    if 'T' in start_date_str:
-                        start_time = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                    if "T" in start_date_str:
+                        start_time = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
                     else:
                         start_time = datetime.fromisoformat(start_date_str + "T00:00:00")
                     # Calculate timeframe in days
@@ -178,12 +178,12 @@ def run_dataset_generation(
         if config.get("downsampling"):
             ds_opts = config["downsampling"]
             downsample_config = {
-                'enabled': ds_opts.get('enabled', False),
-                'target_coverage': ds_opts.get('target_coverage', 0.05),
-                'target_gap': ds_opts.get('target_gap', 2.0),
-                'max_obs_per_sat': ds_opts.get('max_obs_per_sat', 50),
-                'preserve_tracks': ds_opts.get('preserve_tracks', True),
-                'seed': ds_opts.get('seed'),
+                "enabled": ds_opts.get("enabled", False),
+                "target_coverage": ds_opts.get("target_coverage", 0.05),
+                "target_gap": ds_opts.get("target_gap", 2.0),
+                "max_obs_per_sat": ds_opts.get("max_obs_per_sat", 50),
+                "preserve_tracks": ds_opts.get("preserve_tracks", True),
+                "seed": ds_opts.get("seed"),
             }
 
         # Build simulation config if specified
@@ -191,11 +191,11 @@ def run_dataset_generation(
         if config.get("simulation"):
             sim_opts = config["simulation"]
             simulation_config = {
-                'enabled': sim_opts.get('enabled', False),
-                'apply_noise': sim_opts.get('apply_noise', True),
-                'sensor_model': sim_opts.get('sensor_model', 'GEODSS'),
-                'max_synthetic_ratio': sim_opts.get('max_synthetic_ratio', 0.5),
-                'seed': sim_opts.get('seed'),
+                "enabled": sim_opts.get("enabled", False),
+                "apply_noise": sim_opts.get("apply_noise", True),
+                "sensor_model": sim_opts.get("sensor_model", "GEODSS"),
+                "max_synthetic_ratio": sim_opts.get("max_synthetic_ratio", 0.5),
+                "seed": sim_opts.get("seed"),
             }
 
         # Get tier from config
@@ -271,14 +271,15 @@ def run_dataset_generation(
         # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable
         progress_callback(DatasetStage.PERSISTING_DATABASE, 0.5)
         logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
-        if obs_truth is not None and not obs_truth.empty and 'id' in obs_truth.columns:
-            obs_ids = obs_truth['id'].tolist()
+        if obs_truth is not None and not obs_truth.empty and "id" in obs_truth.columns:
+            obs_ids = obs_truth["id"].tolist()
             track_assignments = {}
-            if 'trackId' in obs_truth.columns:
+            if "trackId" in obs_truth.columns:
                 import pandas as pd
+
                 INT32_MAX = 2147483647  # Max value for INT32
                 for _, row in obs_truth.iterrows():
-                    track_id = row.get('trackId')
+                    track_id = row.get("trackId")
                     # Convert NaN/NaT to None (DuckDB can't handle NaN in INT columns)
                     if pd.isna(track_id):
                         track_id = None
@@ -291,7 +292,7 @@ def run_dataset_generation(
                                 track_id = None  # Too large for INT32, store as NULL
                         except (ValueError, TypeError):
                             track_id = None
-                    track_assignments[row['id']] = track_id
+                    track_assignments[row["id"]] = track_id
             # Don't catch exceptions here - linking failure should fail the entire job
             # A dataset without linked observations is corrupted and unusable
             db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
@@ -330,6 +331,7 @@ def run_dataset_generation(
         # Update dataset status to failed
         try:
             from backend_api.database import get_db
+
             db = get_db()
             db.execute(
                 "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -369,8 +371,8 @@ def run_evaluation_pipeline(
 
     try:
         from backend_api.database import get_db
-        from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
         from uct_benchmark.evaluation.binaryMetrics import binaryMetrics
+        from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
         from uct_benchmark.evaluation.stateMetrics import stateMetrics
 
         job_manager.update_job(job_id, progress=10)
@@ -378,9 +380,7 @@ def run_evaluation_pipeline(
         db = get_db()
 
         # Load dataset from database
-        dataset_row = db.execute(
-            "SELECT * FROM datasets WHERE id = ?", (dataset_id,)
-        ).fetchone()
+        dataset_row = db.execute("SELECT * FROM datasets WHERE id = ?", (dataset_id,)).fetchone()
 
         if not dataset_row:
             raise ValueError(f"Dataset {dataset_id} not found")
@@ -409,22 +409,30 @@ def run_evaluation_pipeline(
         # Run orbit association
         # The submission_data should contain predicted track/object assignments
         # compared against the truth from the dataset
-        associations = orbitAssociation(
-            submission_data.get("predictions", []),
-            observations,
-        ) if "predictions" in submission_data else {}
+        associations = (
+            orbitAssociation(
+                submission_data.get("predictions", []),
+                observations,
+            )
+            if "predictions" in submission_data
+            else {}
+        )
 
         job_manager.update_job(job_id, progress=60)
 
         # Compute binary metrics (TP, FP, FN, precision, recall, F1)
-        binary_results = binaryMetrics(associations) if associations else {
-            "true_positives": 0,
-            "false_positives": 0,
-            "false_negatives": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1_score": 0.0,
-        }
+        binary_results = (
+            binaryMetrics(associations)
+            if associations
+            else {
+                "true_positives": 0,
+                "false_positives": 0,
+                "false_negatives": 0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1_score": 0.0,
+            }
+        )
 
         job_manager.update_job(job_id, progress=80)
 
@@ -499,6 +507,7 @@ def run_evaluation_pipeline(
         # Update submission status to failed
         try:
             from backend_api.database import get_db
+
             db = get_db()
             db.execute(
                 "UPDATE submissions SET status = 'failed' WHERE id = ?",

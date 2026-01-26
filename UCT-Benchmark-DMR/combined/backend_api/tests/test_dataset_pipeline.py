@@ -5,31 +5,32 @@ Tests the full API pipeline from request to response, ensuring
 downsampling and simulation options are properly handled.
 """
 
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
+import os
 
 # Import the FastAPI app
 import sys
-import os
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from backend_api.main import app
 from backend_api.database import get_db
+from backend_api.main import app
 from backend_api.models import (
     DatasetCreate,
-    DownsamplingOptions,
-    SimulationOptions,
-    OrbitalRegime,
     DataTier,
+    DownsamplingOptions,
+    OrbitalRegime,
     SensorType,
+    SimulationOptions,
 )
-
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def mock_db():
@@ -69,6 +70,7 @@ def base_dataset_request():
 # =============================================================================
 # PYDANTIC MODEL TESTS
 # =============================================================================
+
 
 class TestPydanticModels:
     """Tests for Pydantic request/response models."""
@@ -163,13 +165,12 @@ class TestPydanticModels:
 # API ENDPOINT TESTS
 # =============================================================================
 
+
 class TestDatasetCreateEndpoint:
     """Tests for the POST /api/v1/datasets endpoint."""
 
-    @patch('backend_api.routers.datasets.submit_dataset_generation')
-    def test_create_dataset_without_options(
-        self, mock_submit, client, base_dataset_request
-    ):
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_create_dataset_without_options(self, mock_submit, client, base_dataset_request):
         """Test creating a dataset without downsampling/simulation options."""
         # Mock job submission
         mock_job = MagicMock()
@@ -183,10 +184,8 @@ class TestDatasetCreateEndpoint:
         assert data["name"] == "test-dataset"
         assert data["regime"] == "LEO"
 
-    @patch('backend_api.routers.datasets.submit_dataset_generation')
-    def test_create_dataset_with_downsampling(
-        self, mock_submit, client, base_dataset_request
-    ):
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_create_dataset_with_downsampling(self, mock_submit, client, base_dataset_request):
         """Test creating a dataset with downsampling enabled."""
         mock_job = MagicMock()
         mock_job.id = "test-job-id"
@@ -200,7 +199,7 @@ class TestDatasetCreateEndpoint:
                 "target_gap": 3.0,
                 "max_obs_per_sat": 50,
                 "preserve_tracks": True,
-            }
+            },
         }
 
         response = client.post("/api/v1/datasets/", json=request)
@@ -212,10 +211,8 @@ class TestDatasetCreateEndpoint:
         assert "downsampling" in config
         assert config["downsampling"]["enabled"] is True
 
-    @patch('backend_api.routers.datasets.submit_dataset_generation')
-    def test_create_dataset_with_simulation(
-        self, mock_submit, client, base_dataset_request
-    ):
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_create_dataset_with_simulation(self, mock_submit, client, base_dataset_request):
         """Test creating a dataset with simulation enabled."""
 
         mock_job = MagicMock()
@@ -230,7 +227,7 @@ class TestDatasetCreateEndpoint:
                 "sensor_model": "GEODSS",
                 "apply_noise": True,
                 "max_synthetic_ratio": 0.3,
-            }
+            },
         }
 
         response = client.post("/api/v1/datasets/", json=request)
@@ -241,10 +238,8 @@ class TestDatasetCreateEndpoint:
         assert "simulation" in config
         assert config["simulation"]["enabled"] is True
 
-    @patch('backend_api.routers.datasets.submit_dataset_generation')
-    def test_create_dataset_with_both_options(
-        self, mock_submit, client, base_dataset_request
-    ):
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_create_dataset_with_both_options(self, mock_submit, client, base_dataset_request):
         """Test creating a dataset with both downsampling and simulation."""
         mock_job = MagicMock()
         mock_job.id = "test-job-id"
@@ -259,7 +254,7 @@ class TestDatasetCreateEndpoint:
             "simulation": {
                 "enabled": True,
                 "sensor_model": "SBSS",
-            }
+            },
         }
 
         response = client.post("/api/v1/datasets/", json=request)
@@ -277,7 +272,7 @@ class TestDatasetCreateEndpoint:
             "downsampling": {
                 "enabled": True,
                 "target_coverage": 2.0,  # Invalid: > 1.0
-            }
+            },
         }
 
         response = client.post("/api/v1/datasets/", json=request)
@@ -290,7 +285,7 @@ class TestDatasetCreateEndpoint:
             "simulation": {
                 "enabled": True,
                 "max_synthetic_ratio": 1.5,  # Invalid: > 0.9
-            }
+            },
         }
 
         response = client.post("/api/v1/datasets/", json=request)
@@ -300,6 +295,7 @@ class TestDatasetCreateEndpoint:
 # =============================================================================
 # WORKER INTEGRATION TESTS
 # =============================================================================
+
 
 class TestWorkerIntegration:
     """Tests for worker integration with downsampling/simulation configs."""
@@ -359,13 +355,12 @@ class TestWorkerIntegration:
 # BACKWARD COMPATIBILITY TESTS
 # =============================================================================
 
+
 class TestBackwardCompatibility:
     """Tests to ensure existing API behavior is preserved."""
 
-    @patch('backend_api.routers.datasets.submit_dataset_generation')
-    def test_existing_endpoint_unchanged(
-        self, mock_submit, client
-    ):
+    @patch("backend_api.routers.datasets.submit_dataset_generation")
+    def test_existing_endpoint_unchanged(self, mock_submit, client):
         """Verify existing endpoint works without new options."""
         mock_job = MagicMock()
         mock_job.id = "test-job-id"
@@ -394,5 +389,5 @@ class TestBackwardCompatibility:
         assert response.status_code == 200
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

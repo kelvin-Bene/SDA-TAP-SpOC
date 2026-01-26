@@ -5,10 +5,10 @@ Provides functions to export datasets to JSON/Parquet formats
 and import existing data files into the database.
 """
 
+import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
-import json
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import pandas as pd
 
@@ -72,7 +72,9 @@ def export_dataset_to_json(
             "ob_time": _serialize_datetime(row["ob_time"]),
             "ra": float(row["ra"]) if pd.notna(row.get("ra")) else None,
             "declination": float(row["declination"]) if pd.notna(row.get("declination")) else None,
-            "track_id": int(row["assigned_track_id"]) if pd.notna(row.get("assigned_track_id")) else None,
+            "track_id": int(row["assigned_track_id"])
+            if pd.notna(row.get("assigned_track_id"))
+            else None,
             "uct": True,  # All observations in dataset are decorrelated
         }
 
@@ -81,7 +83,9 @@ def export_dataset_to_json(
             obs_entry["orig_object_id"] = (
                 int(row["assigned_object_id"])
                 if pd.notna(row.get("assigned_object_id"))
-                else int(row["sat_no"]) if pd.notna(row.get("sat_no")) else None
+                else int(row["sat_no"])
+                if pd.notna(row.get("sat_no"))
+                else None
             )
 
         # Add optional fields
@@ -311,22 +315,26 @@ def import_dataset_from_json(
             existing = db.observations.get_by_id(obs_id)
             if existing is None:
                 # Build observation record
-                obs_df = pd.DataFrame([{
-                    "id": obs_id,
-                    "sat_no": obs.get("orig_object_id"),
-                    "ob_time": _parse_datetime(obs.get("ob_time")),
-                    "ra": obs.get("ra"),
-                    "declination": obs.get("declination"),
-                    "range_km": obs.get("range_km"),
-                    "range_rate_km_s": obs.get("range_rate_km_s"),
-                    "azimuth": obs.get("azimuth"),
-                    "elevation": obs.get("elevation"),
-                    "sensor_name": obs.get("sensor_name"),
-                    "track_id": str(obs.get("track_id")) if obs.get("track_id") else None,
-                    "is_uct": obs.get("uct", True),
-                    "is_simulated": obs.get("is_simulated", False),
-                    "data_mode": "SIMULATED" if obs.get("is_simulated") else "REAL",
-                }])
+                obs_df = pd.DataFrame(
+                    [
+                        {
+                            "id": obs_id,
+                            "sat_no": obs.get("orig_object_id"),
+                            "ob_time": _parse_datetime(obs.get("ob_time")),
+                            "ra": obs.get("ra"),
+                            "declination": obs.get("declination"),
+                            "range_km": obs.get("range_km"),
+                            "range_rate_km_s": obs.get("range_rate_km_s"),
+                            "azimuth": obs.get("azimuth"),
+                            "elevation": obs.get("elevation"),
+                            "sensor_name": obs.get("sensor_name"),
+                            "track_id": str(obs.get("track_id")) if obs.get("track_id") else None,
+                            "is_uct": obs.get("uct", True),
+                            "is_simulated": obs.get("is_simulated", False),
+                            "data_mode": "SIMULATED" if obs.get("is_simulated") else "REAL",
+                        }
+                    ]
+                )
                 db.observations.bulk_insert(obs_df)
 
         # Link observations to dataset
@@ -392,7 +400,9 @@ def import_dataset_from_json(
 
     # Update dataset statistics
     obs_count = len(observations) if observations else 0
-    sat_count = len(set(ref.get("sat_no") for ref in references if ref.get("sat_no"))) if references else 0
+    sat_count = (
+        len(set(ref.get("sat_no") for ref in references if ref.get("sat_no"))) if references else 0
+    )
 
     db.datasets.update_dataset(
         dataset_id,

@@ -6,13 +6,12 @@ functions and their job management.
 """
 
 import json
-import pytest
-import tempfile
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from backend_api.jobs import Job, JobManager, JobStatus, JobType, get_job_manager
+import pytest
+
+from backend_api.jobs import JobManager, JobStatus, JobType
 from backend_api.jobs.workers import (
     get_executor,
     shutdown_executor,
@@ -20,10 +19,10 @@ from backend_api.jobs.workers import (
     submit_evaluation,
 )
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def job_manager():
@@ -35,7 +34,7 @@ def job_manager():
 def mock_database():
     """Create a mock database for testing."""
     mock_db = MagicMock()
-    mock_db.execute.return_value.fetchone.return_value = (1, 'test', 'available')
+    mock_db.execute.return_value.fetchone.return_value = (1, "test", "available")
     mock_db.execute.return_value.fetchdf.return_value = MagicMock()
     return mock_db
 
@@ -50,7 +49,7 @@ def sample_submission_file(tmp_path: Path) -> Path:
         "predictions": [
             {"observation_id": "obs-1", "satellite_id": 25544, "confidence": 0.95},
             {"observation_id": "obs-2", "satellite_id": 25544, "confidence": 0.90},
-        ]
+        ],
     }
     file_path.write_text(json.dumps(submission_data))
     return file_path
@@ -59,6 +58,7 @@ def sample_submission_file(tmp_path: Path) -> Path:
 # =============================================================================
 # EXECUTOR TESTS
 # =============================================================================
+
 
 class TestExecutor:
     """Tests for thread pool executor management."""
@@ -90,11 +90,12 @@ class TestExecutor:
 # SUBMIT DATASET GENERATION TESTS
 # =============================================================================
 
+
 class TestSubmitDatasetGeneration:
     """Tests for submit_dataset_generation function."""
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.get_executor')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.get_executor")
     def test_submit_creates_job(self, mock_get_executor, mock_get_job_manager):
         """Test that submitting creates a job and returns it."""
         mock_manager = JobManager()
@@ -116,8 +117,8 @@ class TestSubmitDatasetGeneration:
         assert job.status == JobStatus.PENDING
         assert job.metadata["dataset_id"] == 1
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.get_executor')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.get_executor")
     def test_submit_submits_to_executor(self, mock_get_executor, mock_get_job_manager):
         """Test that worker is submitted to executor."""
         mock_manager = JobManager()
@@ -132,8 +133,8 @@ class TestSubmitDatasetGeneration:
         # Verify executor.submit was called
         assert mock_executor.submit.called
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.get_executor')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.get_executor")
     def test_submit_stores_config_in_metadata(self, mock_get_executor, mock_get_job_manager):
         """Test that config is stored in job metadata."""
         mock_manager = JobManager()
@@ -158,11 +159,12 @@ class TestSubmitDatasetGeneration:
 # SUBMIT EVALUATION TESTS
 # =============================================================================
 
+
 class TestSubmitEvaluation:
     """Tests for submit_evaluation function."""
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.get_executor')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.get_executor")
     def test_submit_creates_evaluation_job(self, mock_get_executor, mock_get_job_manager):
         """Test that submitting creates an evaluation job."""
         mock_manager = JobManager()
@@ -171,11 +173,7 @@ class TestSubmitEvaluation:
         mock_executor = MagicMock()
         mock_get_executor.return_value = mock_executor
 
-        job = submit_evaluation(
-            submission_id=1,
-            dataset_id=1,
-            file_path="/tmp/submission.json"
-        )
+        job = submit_evaluation(submission_id=1, dataset_id=1, file_path="/tmp/submission.json")
 
         assert job is not None
         assert job.job_type == JobType.EVALUATION
@@ -183,8 +181,8 @@ class TestSubmitEvaluation:
         assert job.metadata["dataset_id"] == 1
         assert job.metadata["file_path"] == "/tmp/submission.json"
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.get_executor')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.get_executor")
     def test_submit_evaluation_to_executor(self, mock_get_executor, mock_get_job_manager):
         """Test that evaluation worker is submitted to executor."""
         mock_manager = JobManager()
@@ -202,10 +200,11 @@ class TestSubmitEvaluation:
 # DATASET GENERATION WORKER TESTS
 # =============================================================================
 
+
 class TestDatasetGenerationWorker:
     """Tests for run_dataset_generation worker function."""
 
-    @patch('backend_api.jobs.workers.get_job_manager')
+    @patch("backend_api.jobs.workers.get_job_manager")
     def test_worker_starts_job(self, mock_get_job_manager):
         """Test that worker starts the job on entry."""
         from backend_api.jobs.workers import run_dataset_generation
@@ -215,21 +214,18 @@ class TestDatasetGenerationWorker:
 
         # Should fail due to missing tokens, but start_job should be called
         try:
-            run_dataset_generation(
-                job_id="test-job",
-                dataset_id=1,
-                config={"name": "test"}
-            )
-        except:
+            run_dataset_generation(job_id="test-job", dataset_id=1, config={"name": "test"})
+        except Exception:
             pass
 
         mock_manager.start_job.assert_called_once_with("test-job")
 
-    @patch('backend_api.jobs.workers.get_job_manager')
+    @patch("backend_api.jobs.workers.get_job_manager")
     def test_worker_fails_without_tokens(self, mock_get_job_manager):
         """Test that worker fails when API tokens are missing."""
-        from backend_api.jobs.workers import run_dataset_generation
         import os
+
+        from backend_api.jobs.workers import run_dataset_generation
 
         # Ensure tokens are not set
         os.environ.pop("UDL_TOKEN", None)
@@ -238,24 +234,21 @@ class TestDatasetGenerationWorker:
         mock_manager = MagicMock()
         mock_get_job_manager.return_value = mock_manager
 
-        run_dataset_generation(
-            job_id="test-job",
-            dataset_id=1,
-            config={"name": "test"}
-        )
+        run_dataset_generation(job_id="test-job", dataset_id=1, config={"name": "test"})
 
         # Should fail with error about missing tokens
         mock_manager.fail_job.assert_called_once()
         error_msg = mock_manager.fail_job.call_args[0][1]
         assert "UDL_TOKEN" in error_msg or "ESA_TOKEN" in error_msg
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.generateDataset')
-    @patch('backend_api.database.get_db')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.generateDataset")
+    @patch("backend_api.database.get_db")
     def test_worker_updates_progress(self, mock_get_db, mock_generate, mock_get_job_manager):
         """Test that worker updates progress during execution."""
-        from backend_api.jobs.workers import run_dataset_generation
         import os
+
+        from backend_api.jobs.workers import run_dataset_generation
 
         os.environ["UDL_TOKEN"] = "test-token"
         os.environ["ESA_TOKEN"] = "test-token"
@@ -269,9 +262,7 @@ class TestDatasetGenerationWorker:
         mock_generate.return_value = (None, None, None, None, [25544], {})
 
         run_dataset_generation(
-            job_id="test-job",
-            dataset_id=1,
-            config={"name": "test", "satellites": [25544]}
+            job_id="test-job", dataset_id=1, config={"name": "test", "satellites": [25544]}
         )
 
         # Should have called update_job multiple times
@@ -281,13 +272,16 @@ class TestDatasetGenerationWorker:
         os.environ.pop("UDL_TOKEN", None)
         os.environ.pop("ESA_TOKEN", None)
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.jobs.workers.generateDataset')
-    @patch('backend_api.database.get_db')
-    def test_worker_completes_job_on_success(self, mock_get_db, mock_generate, mock_get_job_manager):
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.jobs.workers.generateDataset")
+    @patch("backend_api.database.get_db")
+    def test_worker_completes_job_on_success(
+        self, mock_get_db, mock_generate, mock_get_job_manager
+    ):
         """Test that worker completes job on successful generation."""
-        from backend_api.jobs.workers import run_dataset_generation
         import os
+
+        from backend_api.jobs.workers import run_dataset_generation
 
         os.environ["UDL_TOKEN"] = "test-token"
         os.environ["ESA_TOKEN"] = "test-token"
@@ -300,16 +294,14 @@ class TestDatasetGenerationWorker:
 
         mock_generate.return_value = (
             MagicMock(__len__=lambda x: 100),  # dataset_obs with length
-            None, None, None,
+            None,
+            None,
+            None,
             [25544, 25545],  # actual_sats
-            {"api_calls": 10}  # performance_data
+            {"api_calls": 10},  # performance_data
         )
 
-        run_dataset_generation(
-            job_id="test-job",
-            dataset_id=1,
-            config={"name": "test"}
-        )
+        run_dataset_generation(job_id="test-job", dataset_id=1, config={"name": "test"})
 
         # Should complete the job
         mock_manager.complete_job.assert_called_once()
@@ -331,14 +323,14 @@ class TestDatasetGenerationWorker:
 
         ds_opts = config.get("downsampling", {})
         parsed = {
-            'enabled': ds_opts.get('enabled', False),
-            'target_coverage': ds_opts.get('target_coverage', 0.05),
-            'target_gap': ds_opts.get('target_gap', 2.0),
+            "enabled": ds_opts.get("enabled", False),
+            "target_coverage": ds_opts.get("target_coverage", 0.05),
+            "target_gap": ds_opts.get("target_gap", 2.0),
         }
 
-        assert parsed['enabled'] is True
-        assert parsed['target_coverage'] == 0.1
-        assert parsed['target_gap'] == 3.0
+        assert parsed["enabled"] is True
+        assert parsed["target_coverage"] == 0.1
+        assert parsed["target_gap"] == 3.0
 
     def test_worker_config_parsing_simulation(self):
         """Test that simulation config is parsed correctly."""
@@ -352,24 +344,25 @@ class TestDatasetGenerationWorker:
 
         sim_opts = config.get("simulation", {})
         parsed = {
-            'enabled': sim_opts.get('enabled', False),
-            'sensor_model': sim_opts.get('sensor_model', 'GEODSS'),
-            'max_synthetic_ratio': sim_opts.get('max_synthetic_ratio', 0.5),
+            "enabled": sim_opts.get("enabled", False),
+            "sensor_model": sim_opts.get("sensor_model", "GEODSS"),
+            "max_synthetic_ratio": sim_opts.get("max_synthetic_ratio", 0.5),
         }
 
-        assert parsed['enabled'] is True
-        assert parsed['sensor_model'] == "SBSS"
-        assert parsed['max_synthetic_ratio'] == 0.3
+        assert parsed["enabled"] is True
+        assert parsed["sensor_model"] == "SBSS"
+        assert parsed["max_synthetic_ratio"] == 0.3
 
 
 # =============================================================================
 # EVALUATION WORKER TESTS
 # =============================================================================
 
+
 class TestEvaluationWorker:
     """Tests for run_evaluation_pipeline worker function."""
 
-    @patch('backend_api.jobs.workers.get_job_manager')
+    @patch("backend_api.jobs.workers.get_job_manager")
     def test_worker_starts_job(self, mock_get_job_manager, sample_submission_file):
         """Test that evaluation worker starts the job."""
         from backend_api.jobs.workers import run_evaluation_pipeline
@@ -383,16 +376,18 @@ class TestEvaluationWorker:
                 job_id="test-job",
                 submission_id=1,
                 dataset_id=1,
-                file_path=str(sample_submission_file)
+                file_path=str(sample_submission_file),
             )
-        except:
+        except Exception:
             pass
 
         mock_manager.start_job.assert_called_once_with("test-job")
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.database.get_db')
-    def test_worker_fails_for_missing_dataset(self, mock_get_db, mock_get_job_manager, sample_submission_file):
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.database.get_db")
+    def test_worker_fails_for_missing_dataset(
+        self, mock_get_db, mock_get_job_manager, sample_submission_file
+    ):
         """Test that worker fails when dataset doesn't exist."""
         from backend_api.jobs.workers import run_evaluation_pipeline
 
@@ -407,14 +402,14 @@ class TestEvaluationWorker:
             job_id="test-job",
             submission_id=1,
             dataset_id=999,
-            file_path=str(sample_submission_file)
+            file_path=str(sample_submission_file),
         )
 
         mock_manager.fail_job.assert_called_once()
         error_msg = mock_manager.fail_job.call_args[0][1]
         assert "not found" in error_msg.lower()
 
-    @patch('backend_api.jobs.workers.get_job_manager')
+    @patch("backend_api.jobs.workers.get_job_manager")
     def test_worker_fails_for_missing_file(self, mock_get_job_manager):
         """Test that worker fails when submission file doesn't exist."""
         from backend_api.jobs.workers import run_evaluation_pipeline
@@ -423,10 +418,7 @@ class TestEvaluationWorker:
         mock_get_job_manager.return_value = mock_manager
 
         run_evaluation_pipeline(
-            job_id="test-job",
-            submission_id=1,
-            dataset_id=1,
-            file_path="/nonexistent/file.json"
+            job_id="test-job", submission_id=1, dataset_id=1, file_path="/nonexistent/file.json"
         )
 
         mock_manager.fail_job.assert_called_once()
@@ -435,6 +427,7 @@ class TestEvaluationWorker:
 # =============================================================================
 # JOB STATE TRANSITION TESTS
 # =============================================================================
+
 
 class TestJobStateTransitions:
     """Tests for job state transitions during worker execution."""
@@ -483,10 +476,11 @@ class TestJobStateTransitions:
 # ERROR HANDLING TESTS
 # =============================================================================
 
+
 class TestWorkerErrorHandling:
     """Tests for worker error handling."""
 
-    @patch('backend_api.jobs.workers.get_job_manager')
+    @patch("backend_api.jobs.workers.get_job_manager")
     def test_exception_fails_job(self, mock_get_job_manager):
         """Test that exceptions in worker fail the job."""
         from backend_api.jobs.workers import run_dataset_generation
@@ -495,16 +489,12 @@ class TestWorkerErrorHandling:
         mock_get_job_manager.return_value = mock_manager
 
         # No tokens set - should fail
-        run_dataset_generation(
-            job_id="test-job",
-            dataset_id=1,
-            config={}
-        )
+        run_dataset_generation(job_id="test-job", dataset_id=1, config={})
 
         mock_manager.fail_job.assert_called_once()
 
-    @patch('backend_api.jobs.workers.get_job_manager')
-    @patch('backend_api.database.get_db')
+    @patch("backend_api.jobs.workers.get_job_manager")
+    @patch("backend_api.database.get_db")
     def test_database_updated_on_failure(self, mock_get_db, mock_get_job_manager):
         """Test that database is updated when worker fails."""
         from backend_api.jobs.workers import run_dataset_generation
@@ -515,20 +505,13 @@ class TestWorkerErrorHandling:
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
-        run_dataset_generation(
-            job_id="test-job",
-            dataset_id=1,
-            config={}
-        )
+        run_dataset_generation(job_id="test-job", dataset_id=1, config={})
 
         # Database should have been updated to 'failed' status
         # Check that execute was called with status update
         calls = mock_db.execute.call_args_list
         # At least one call should update status to failed
-        any_failed_update = any(
-            "failed" in str(call).lower()
-            for call in calls
-        )
+        any_failed_update = any("failed" in str(call).lower() for call in calls)
         assert any_failed_update or mock_manager.fail_job.called
 
 

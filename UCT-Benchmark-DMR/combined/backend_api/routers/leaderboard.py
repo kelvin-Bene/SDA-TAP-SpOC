@@ -1,7 +1,7 @@
 """Leaderboard endpoints."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 
@@ -86,19 +86,21 @@ async def get_leaderboard(
     entries = []
     for rank, row in enumerate(rows, start=1):
         row_dict = dict(zip(columns, row))
-        entries.append(LeaderboardEntry(
-            rank=rank,
-            algorithm_name=row_dict["algorithm_name"],
-            team=None,  # Would need user/team table
-            version=row_dict.get("version", "1.0"),
-            f1_score=float(row_dict.get("f1_score") or 0),
-            precision=float(row_dict.get("precision") or 0),
-            recall=float(row_dict.get("recall") or 0),
-            position_rms_km=float(row_dict.get("position_rms_km") or 0),
-            submission_id=str(row_dict["submission_id"]),
-            submitted_at=row_dict.get("completed_at") or datetime.utcnow(),
-            is_current_user=False,  # Would need auth context
-        ))
+        entries.append(
+            LeaderboardEntry(
+                rank=rank,
+                algorithm_name=row_dict["algorithm_name"],
+                team=None,  # Would need user/team table
+                version=row_dict.get("version", "1.0"),
+                f1_score=float(row_dict.get("f1_score") or 0),
+                precision=float(row_dict.get("precision") or 0),
+                recall=float(row_dict.get("recall") or 0),
+                position_rms_km=float(row_dict.get("position_rms_km") or 0),
+                submission_id=str(row_dict["submission_id"]),
+                submitted_at=row_dict.get("completed_at") or datetime.utcnow(),
+                is_current_user=False,  # Would need auth context
+            )
+        )
 
     # Get dataset info for response
     dataset_name = None
@@ -106,8 +108,7 @@ async def get_leaderboard(
         dataset_name = entries[0].algorithm_name  # Placeholder - would get from dataset
 
         ds_result = db.execute(
-            "SELECT name FROM datasets WHERE id = ?",
-            (int(dataset_id),)
+            "SELECT name FROM datasets WHERE id = ?", (int(dataset_id),)
         ).fetchone()
         if ds_result:
             dataset_name = ds_result[0]
@@ -163,11 +164,13 @@ async def get_leaderboard_history(
     history = []
     for row in rows:
         row_dict = dict(zip(columns, row))
-        history.append({
-            "date": str(row_dict["date"]),
-            "algorithm_name": row_dict["algorithm_name"],
-            "best_f1": float(row_dict.get("best_f1") or 0),
-        })
+        history.append(
+            {
+                "date": str(row_dict["date"]),
+                "algorithm_name": row_dict["algorithm_name"],
+                "best_f1": float(row_dict.get("best_f1") or 0),
+            }
+        )
 
     return {
         "dataset_id": dataset_id,

@@ -15,7 +15,6 @@ from typing import (
     List,
     Optional,
     Tuple,
-    Union,
 )
 
 import pandas as pd
@@ -360,15 +359,15 @@ class DataIngestionPipeline:
                 for service in services:
                     params = {
                         "satNo": str(sat_id),
-                        "obTime" if service == "eoobservation" else "epoch": f"{start_time_str}..{end_time_str}",
+                        "obTime"
+                        if service == "eoobservation"
+                        else "epoch": f"{start_time_str}..{end_time_str}",
                         "dataMode": "REAL",
                     }
 
                     # Build params list for batch query
                     params_list = [params]
-                    result_df = asyncUDLBatchQuery(
-                        token, service, params_list, dt=0.1
-                    )
+                    result_df = asyncUDLBatchQuery(token, service, params_list, dt=0.1)
 
                     if result_df is not None and not result_df.empty:
                         if service == "eoobservation":
@@ -587,17 +586,11 @@ class DataIngestionPipeline:
                 df, source="PARQUET", progress_callback=progress_callback
             )
         elif data_type == "state_vectors":
-            return self.ingest_state_vectors_from_dataframe(
-                df, source="PARQUET"
-            )
+            return self.ingest_state_vectors_from_dataframe(df, source="PARQUET")
         elif data_type == "element_sets":
-            return self.ingest_element_sets_from_dataframe(
-                df, source="PARQUET"
-            )
+            return self.ingest_element_sets_from_dataframe(df, source="PARQUET")
         elif data_type == "satellites":
-            return self.ingest_satellites_from_dataframe(
-                df, source="PARQUET"
-            )
+            return self.ingest_satellites_from_dataframe(df, source="PARQUET")
         else:
             report = IngestionReport()
             report.add_validation_error(f"Unknown data type: {data_type}")

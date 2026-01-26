@@ -5,17 +5,17 @@ Tests the GET /api/v1/jobs endpoints for job status
 and management.
 """
 
+from unittest.mock import patch
+
 import pytest
-from datetime import datetime
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
-from backend_api.jobs import Job, JobStatus, JobType, JobManager
-
+from backend_api.jobs import JobManager, JobStatus, JobType
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def mock_job_manager():
@@ -44,8 +44,8 @@ def mock_job_manager():
 @pytest.fixture
 def client_with_jobs(mock_job_manager):
     """Create a test client with mocked job manager."""
-    from backend_api.main import app
     import backend_api.database as db_module
+    from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
     # Create a minimal in-memory database for the app lifespan
@@ -54,11 +54,13 @@ def client_with_jobs(mock_job_manager):
     original_db = db_module._db_manager
     db_module._db_manager = test_db
 
-    with patch('backend_api.main.init_database', return_value=test_db):
-        with patch('backend_api.main.close_database'):
-            with patch('backend_api.main.init_job_manager', return_value=mock_job_manager):
-                with patch('backend_api.main.shutdown_executor'):
-                    with patch('backend_api.routers.jobs.get_job_manager', return_value=mock_job_manager):
+    with patch("backend_api.main.init_database", return_value=test_db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=mock_job_manager):
+                with patch("backend_api.main.shutdown_executor"):
+                    with patch(
+                        "backend_api.routers.jobs.get_job_manager", return_value=mock_job_manager
+                    ):
                         with TestClient(app) as client:
                             yield client
 
@@ -69,8 +71,8 @@ def client_with_jobs(mock_job_manager):
 @pytest.fixture
 def client_empty_jobs():
     """Create a test client with empty job manager."""
-    from backend_api.main import app
     import backend_api.database as db_module
+    from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
     empty_manager = JobManager()
@@ -81,11 +83,13 @@ def client_empty_jobs():
     original_db = db_module._db_manager
     db_module._db_manager = test_db
 
-    with patch('backend_api.main.init_database', return_value=test_db):
-        with patch('backend_api.main.close_database'):
-            with patch('backend_api.main.init_job_manager', return_value=empty_manager):
-                with patch('backend_api.main.shutdown_executor'):
-                    with patch('backend_api.routers.jobs.get_job_manager', return_value=empty_manager):
+    with patch("backend_api.main.init_database", return_value=test_db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=empty_manager):
+                with patch("backend_api.main.shutdown_executor"):
+                    with patch(
+                        "backend_api.routers.jobs.get_job_manager", return_value=empty_manager
+                    ):
                         with TestClient(app) as client:
                             yield client
 
@@ -103,8 +107,8 @@ from contextlib import contextmanager
 @contextmanager
 def create_test_client_with_job_manager(job_manager):
     """Create a test client with the given job manager."""
-    from backend_api.main import app
     import backend_api.database as db_module
+    from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
     test_db = DatabaseManager(in_memory=True)
@@ -112,11 +116,13 @@ def create_test_client_with_job_manager(job_manager):
     original_db = db_module._db_manager
     db_module._db_manager = test_db
 
-    with patch('backend_api.main.init_database', return_value=test_db):
-        with patch('backend_api.main.close_database'):
-            with patch('backend_api.main.init_job_manager', return_value=job_manager):
-                with patch('backend_api.main.shutdown_executor'):
-                    with patch('backend_api.routers.jobs.get_job_manager', return_value=job_manager):
+    with patch("backend_api.main.init_database", return_value=test_db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=job_manager):
+                with patch("backend_api.main.shutdown_executor"):
+                    with patch(
+                        "backend_api.routers.jobs.get_job_manager", return_value=job_manager
+                    ):
                         with TestClient(app) as client:
                             yield client
 
@@ -127,6 +133,7 @@ def create_test_client_with_job_manager(job_manager):
 # =============================================================================
 # GET /api/v1/jobs/{job_id} TESTS
 # =============================================================================
+
 
 class TestGetJobStatus:
     """Tests for GET /api/v1/jobs/{job_id}."""
@@ -229,6 +236,7 @@ class TestGetJobStatus:
 # =============================================================================
 # GET /api/v1/jobs/ TESTS
 # =============================================================================
+
 
 class TestListJobs:
     """Tests for GET /api/v1/jobs/."""
@@ -363,6 +371,7 @@ class TestListJobs:
 # =============================================================================
 # JOB MANAGER UNIT TESTS
 # =============================================================================
+
 
 class TestJobManager:
     """Unit tests for JobManager class."""

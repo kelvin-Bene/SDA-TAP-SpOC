@@ -18,16 +18,10 @@ import os
 import re
 import time
 import warnings
-from dataclasses import asdict
-from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 import numpy as np
-
-import pandas as pd
-import requests
-from loguru import logger
 
 # initialize orekit and JVM
 # - This must be done only once per program execution -
@@ -35,21 +29,25 @@ from loguru import logger
 # - Using orekit_jpype as it is better maintained -
 # - Expecting OREKIT_DATA_PATH environment variable to be set -
 import orekit_jpype as orekit
+import pandas as pd
+import requests
+from loguru import logger
+
 vm_started = orekit.initVM()
 from orekit_jpype.pyhelpers import setup_orekit_curdir
+
 orekit_data_path = os.getenv("OREKIT_DATA_PATH", "./orekit-data-main")
 # setup_orekit_curdir(orekit_data_path)
 setup_orekit_curdir(from_pip_library=True)
 
 from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
+
 from uct_benchmark.data.dataManipulation import binTracks
 from uct_benchmark.settings import (
     INTERIM_DATA_DIR,
     api_config,
-    APIConfig,
-    SENSOR_NOISE_MODELS,
-    semiMajorAxis_LEO,
     semiMajorAxis_GEO,
+    semiMajorAxis_LEO,
 )
 
 # Optional database integration (opt-in)
@@ -57,6 +55,7 @@ from uct_benchmark.settings import (
 _DATABASE_AVAILABLE = False
 try:
     from uct_benchmark.database import DatabaseManager
+
     _DATABASE_AVAILABLE = True
 except ImportError:
     DatabaseManager = None
@@ -73,10 +72,10 @@ def _supressWarn():
 
 # Global API call metrics
 _api_call_metrics: Dict[str, Any] = {
-    'total_calls': 0,
-    'total_records': 0,
-    'total_errors': 0,
-    'call_history': [],
+    "total_calls": 0,
+    "total_records": 0,
+    "total_errors": 0,
+    "call_history": [],
 }
 
 # API logger (separate from main logger for filtering)
@@ -89,31 +88,33 @@ def _log_api_call(
     response_size: int,
     elapsed_time: float,
     success: bool = True,
-    error_msg: Optional[str] = None
+    error_msg: Optional[str] = None,
 ) -> None:
     """Log each UDL API call with metrics."""
     call_record = {
-        'timestamp': datetime.datetime.utcnow().isoformat(),
-        'service': service,
-        'params': {k: str(v)[:100] for k, v in params.items()},  # Truncate long values
-        'response_records': response_size,
-        'elapsed_ms': elapsed_time * 1000,
-        'success': success,
-        'error': error_msg,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "service": service,
+        "params": {k: str(v)[:100] for k, v in params.items()},  # Truncate long values
+        "response_records": response_size,
+        "elapsed_ms": elapsed_time * 1000,
+        "success": success,
+        "error": error_msg,
     }
 
-    _api_call_metrics['total_calls'] += 1
-    _api_call_metrics['total_records'] += response_size
+    _api_call_metrics["total_calls"] += 1
+    _api_call_metrics["total_records"] += response_size
     if not success:
-        _api_call_metrics['total_errors'] += 1
+        _api_call_metrics["total_errors"] += 1
 
     # Keep last 100 calls for debugging
-    _api_call_metrics['call_history'].append(call_record)
-    if len(_api_call_metrics['call_history']) > 100:
-        _api_call_metrics['call_history'].pop(0)
+    _api_call_metrics["call_history"].append(call_record)
+    if len(_api_call_metrics["call_history"]) > 100:
+        _api_call_metrics["call_history"].pop(0)
 
     if success:
-        api_logger.debug(f"API call: {service} returned {response_size} records in {elapsed_time*1000:.1f}ms")
+        api_logger.debug(
+            f"API call: {service} returned {response_size} records in {elapsed_time * 1000:.1f}ms"
+        )
     else:
         api_logger.warning(f"API call failed: {service} - {error_msg}")
 
@@ -127,16 +128,17 @@ def reset_api_metrics() -> None:
     """Reset API call metrics."""
     global _api_call_metrics
     _api_call_metrics = {
-        'total_calls': 0,
-        'total_records': 0,
-        'total_errors': 0,
-        'call_history': [],
+        "total_calls": 0,
+        "total_records": 0,
+        "total_errors": 0,
+        "call_history": [],
     }
 
 
 # =============================================================================
 # RESPONSE CACHING
 # =============================================================================
+
 
 class QueryCache:
     """Thread-safe cache for UDL query responses."""
@@ -167,10 +169,9 @@ class QueryCache:
         """Cache response data."""
         if len(self._cache) >= self._max_size:
             # Remove oldest entries
-            oldest_keys = sorted(
-                self._cache.keys(),
-                key=lambda k: self._cache[k][1]
-            )[:self._max_size // 4]
+            oldest_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][1])[
+                : self._max_size // 4
+            ]
             for k in oldest_keys:
                 del self._cache[k]
 
@@ -184,14 +185,14 @@ class QueryCache:
 
 # Global cache instance
 _query_cache = QueryCache(
-    max_size=api_config.cache_max_size,
-    ttl_seconds=api_config.cache_ttl_seconds
+    max_size=api_config.cache_max_size, ttl_seconds=api_config.cache_ttl_seconds
 )
 
 
 # =============================================================================
 # ORBITAL REGIME DETECTION
 # =============================================================================
+
 
 def determine_orbital_regime(semi_major_axis_km: float, eccentricity: float = 0.0) -> str:
     """
@@ -205,13 +206,13 @@ def determine_orbital_regime(semi_major_axis_km: float, eccentricity: float = 0.
         str: One of 'LEO', 'MEO', 'GEO', 'HEO'
     """
     if eccentricity >= 0.7:
-        return 'HEO'
+        return "HEO"
     elif semi_major_axis_km < semiMajorAxis_LEO:
-        return 'LEO'
+        return "LEO"
     elif semi_major_axis_km >= semiMajorAxis_GEO:
-        return 'GEO'
+        return "GEO"
     else:
-        return 'MEO'
+        return "MEO"
 
 
 def get_batch_size_for_regime(regime: str) -> datetime.timedelta:
@@ -222,6 +223,7 @@ def get_batch_size_for_regime(regime: str) -> datetime.timedelta:
 # =============================================================================
 # COUNT-FIRST QUERY STRATEGY
 # =============================================================================
+
 
 def UDLQueryCount(token: str, service: str, params: Dict) -> int:
     """
@@ -238,12 +240,7 @@ def UDLQueryCount(token: str, service: str, params: Dict) -> int:
     return UDLQuery(token, service, params, count=True)
 
 
-def smart_query(
-    token: str,
-    service: str,
-    params: Dict,
-    threshold: int = None
-) -> pd.DataFrame:
+def smart_query(token: str, service: str, params: Dict, threshold: int = None) -> pd.DataFrame:
     """
     Perform an intelligent query that checks count first and splits if needed.
 
@@ -286,10 +283,7 @@ def smart_query(
 
 
 def _chunked_time_query(
-    token: str,
-    service: str,
-    params: Dict,
-    expected_count: int
+    token: str, service: str, params: Dict, expected_count: int
 ) -> pd.DataFrame:
     """
     Split a large query into smaller time-based chunks.
@@ -304,7 +298,7 @@ def _chunked_time_query(
         pd.DataFrame: Combined results from all chunks
     """
     # Find time field in params
-    time_fields = ['obTime', 'epoch', 'createdAt', 'time']
+    time_fields = ["obTime", "epoch", "createdAt", "time"]
     time_field = None
     time_range = None
 
@@ -314,13 +308,13 @@ def _chunked_time_query(
             time_field = field
             break
 
-    if time_field is None or '..' not in str(time_range):
+    if time_field is None or ".." not in str(time_range):
         # Can't chunk, try with pagination
         logger.warning("Cannot chunk query - no time range found. Using pagination.")
         return _paginated_query(token, service, params)
 
     # Parse time range
-    start_str, end_str = str(time_range).split('..')
+    start_str, end_str = str(time_range).split("..")
     start_time = UDLToDatetime(start_str)
     end_time = UDLToDatetime(end_str)
 
@@ -346,12 +340,7 @@ def _chunked_time_query(
     return asyncUDLBatchQuery(token, service, params_list)
 
 
-def _paginated_query(
-    token: str,
-    service: str,
-    params: Dict,
-    page_size: int = None
-) -> pd.DataFrame:
+def _paginated_query(token: str, service: str, params: Dict, page_size: int = None) -> pd.DataFrame:
     """
     Perform paginated query for large result sets.
 
@@ -372,8 +361,8 @@ def _paginated_query(
 
     while True:
         page_params = params.copy()
-        page_params['maxResults'] = page_size
-        page_params['firstResult'] = offset
+        page_params["maxResults"] = page_size
+        page_params["firstResult"] = offset
 
         result = UDLQuery(token, service, page_params)
 
@@ -395,11 +384,9 @@ def _paginated_query(
 # NEW UDL SERVICE WRAPPERS
 # =============================================================================
 
+
 def queryRadarObservations(
-    token: str,
-    sat_ids: List[int],
-    time_range: str,
-    additional_params: Optional[Dict] = None
+    token: str, sat_ids: List[int], time_range: str, additional_params: Optional[Dict] = None
 ) -> pd.DataFrame:
     """
     Query radar observations from UDL.
@@ -414,22 +401,19 @@ def queryRadarObservations(
         pd.DataFrame: Radar observation records
     """
     params = {
-        'satNo': ','.join(map(str, sat_ids)),
-        'obTime': time_range,
-        'uct': 'false',
-        'dataMode': 'REAL',
+        "satNo": ",".join(map(str, sat_ids)),
+        "obTime": time_range,
+        "uct": "false",
+        "dataMode": "REAL",
     }
     if additional_params:
         params.update(additional_params)
 
-    return smart_query(token, 'radarobservation', params)
+    return smart_query(token, "radarobservation", params)
 
 
 def queryRFObservations(
-    token: str,
-    sat_ids: List[int],
-    time_range: str,
-    additional_params: Optional[Dict] = None
+    token: str, sat_ids: List[int], time_range: str, additional_params: Optional[Dict] = None
 ) -> pd.DataFrame:
     """
     Query RF observations from UDL.
@@ -444,15 +428,15 @@ def queryRFObservations(
         pd.DataFrame: RF observation records
     """
     params = {
-        'satNo': ','.join(map(str, sat_ids)),
-        'obTime': time_range,
-        'uct': 'false',
-        'dataMode': 'REAL',
+        "satNo": ",".join(map(str, sat_ids)),
+        "obTime": time_range,
+        "uct": "false",
+        "dataMode": "REAL",
     }
     if additional_params:
         params.update(additional_params)
 
-    return smart_query(token, 'rfobservation', params)
+    return smart_query(token, "rfobservation", params)
 
 
 def queryConjunctions(
@@ -460,7 +444,7 @@ def queryConjunctions(
     sat_ids: Optional[List[int]] = None,
     time_range: Optional[str] = None,
     min_probability: Optional[float] = None,
-    additional_params: Optional[Dict] = None
+    additional_params: Optional[Dict] = None,
 ) -> pd.DataFrame:
     """
     Query conjunction data messages (CDMs) from UDL.
@@ -477,23 +461,20 @@ def queryConjunctions(
     """
     params = {}
     if sat_ids:
-        params['satNo1'] = ','.join(map(str, sat_ids))
+        params["satNo1"] = ",".join(map(str, sat_ids))
     if time_range:
-        params['tca'] = time_range
+        params["tca"] = time_range
     if min_probability is not None:
-        params['collisionProbability'] = f'>{min_probability}'
+        params["collisionProbability"] = f">{min_probability}"
 
     if additional_params:
         params.update(additional_params)
 
-    return smart_query(token, 'conjunction', params)
+    return smart_query(token, "conjunction", params)
 
 
 def queryManeuvers(
-    token: str,
-    sat_ids: List[int],
-    time_range: str,
-    additional_params: Optional[Dict] = None
+    token: str, sat_ids: List[int], time_range: str, additional_params: Optional[Dict] = None
 ) -> pd.DataFrame:
     """
     Query detected/planned maneuver data from UDL.
@@ -508,20 +489,20 @@ def queryManeuvers(
         pd.DataFrame: Maneuver records
     """
     params = {
-        'satNo': ','.join(map(str, sat_ids)),
-        'maneuverTime': time_range,
+        "satNo": ",".join(map(str, sat_ids)),
+        "maneuverTime": time_range,
     }
     if additional_params:
         params.update(additional_params)
 
-    return smart_query(token, 'maneuver', params)
+    return smart_query(token, "maneuver", params)
 
 
 def querySensorCalibration(
     token: str,
     sensor_ids: Optional[List[str]] = None,
     time_range: Optional[str] = None,
-    additional_params: Optional[Dict] = None
+    additional_params: Optional[Dict] = None,
 ) -> pd.DataFrame:
     """
     Query sensor calibration data from UDL.
@@ -537,25 +518,23 @@ def querySensorCalibration(
     """
     params = {}
     if sensor_ids:
-        params['idSensor'] = ','.join(sensor_ids)
+        params["idSensor"] = ",".join(sensor_ids)
     if time_range:
-        params['calibrationTime'] = time_range
+        params["calibrationTime"] = time_range
 
     if additional_params:
         params.update(additional_params)
 
-    return smart_query(token, 'sensorcalibration', params)
+    return smart_query(token, "sensorcalibration", params)
 
 
 # =============================================================================
 # PARALLEL SERVICE QUERIES
 # =============================================================================
 
+
 async def _async_pull_comprehensive_data(
-    token: str,
-    sat_ids: List[int],
-    time_range: str,
-    services: List[str] = None
+    token: str, sat_ids: List[int], time_range: str, services: List[str] = None
 ) -> Dict[str, pd.DataFrame]:
     """
     Pull data from multiple UDL services concurrently.
@@ -570,48 +549,48 @@ async def _async_pull_comprehensive_data(
         Dict mapping service names to DataFrames
     """
     if services is None:
-        services = ['eoobservation', 'radarobservation', 'statevector', 'elset']
+        services = ["eoobservation", "radarobservation", "statevector", "elset"]
 
-    sat_list = ','.join(map(str, sat_ids))
+    sat_list = ",".join(map(str, sat_ids))
 
     # Build params for each service
     service_params = {
-        'eoobservation': {
-            'satNo': sat_list,
-            'obTime': time_range,
-            'uct': 'false',
-            'dataMode': 'REAL',
+        "eoobservation": {
+            "satNo": sat_list,
+            "obTime": time_range,
+            "uct": "false",
+            "dataMode": "REAL",
         },
-        'radarobservation': {
-            'satNo': sat_list,
-            'obTime': time_range,
-            'uct': 'false',
-            'dataMode': 'REAL',
+        "radarobservation": {
+            "satNo": sat_list,
+            "obTime": time_range,
+            "uct": "false",
+            "dataMode": "REAL",
         },
-        'rfobservation': {
-            'satNo': sat_list,
-            'obTime': time_range,
-            'uct': 'false',
-            'dataMode': 'REAL',
+        "rfobservation": {
+            "satNo": sat_list,
+            "obTime": time_range,
+            "uct": "false",
+            "dataMode": "REAL",
         },
-        'statevector': {
-            'satNo': sat_list,
-            'epoch': time_range,
-            'uct': 'false',
-            'dataMode': 'REAL',
-            'sort': 'epoch,DESC',
+        "statevector": {
+            "satNo": sat_list,
+            "epoch": time_range,
+            "uct": "false",
+            "dataMode": "REAL",
+            "sort": "epoch,DESC",
         },
-        'elset': {
-            'satNo': sat_list,
-            'epoch': time_range,
-            'uct': 'false',
-            'dataMode': 'REAL',
-            'sort': 'epoch,DESC',
+        "elset": {
+            "satNo": sat_list,
+            "epoch": time_range,
+            "uct": "false",
+            "dataMode": "REAL",
+            "sort": "epoch,DESC",
         },
     }
 
     async def query_service(service: str) -> Tuple[str, pd.DataFrame]:
-        params = service_params.get(service, {'satNo': sat_list})
+        params = service_params.get(service, {"satNo": sat_list})
         try:
             result = await _asyncUDLQuery(token, service, params)
             return service, result
@@ -627,10 +606,7 @@ async def _async_pull_comprehensive_data(
 
 
 def pullComprehensiveData(
-    token: str,
-    sat_ids: List[int],
-    time_range: str,
-    services: List[str] = None
+    token: str, sat_ids: List[int], time_range: str, services: List[str] = None
 ) -> Dict[str, pd.DataFrame]:
     """
     Pull data from multiple UDL services concurrently.
@@ -650,6 +626,7 @@ def pullComprehensiveData(
         return asyncio.run(_async_pull_comprehensive_data(token, sat_ids, time_range, services))
     else:
         import nest_asyncio
+
         nest_asyncio.apply()
         return asyncio.get_event_loop().run_until_complete(
             _async_pull_comprehensive_data(token, sat_ids, time_range, services)
@@ -657,9 +634,7 @@ def pullComprehensiveData(
 
 
 def pullMultiPhenomenologyData(
-    token: str,
-    sat_ids: List[int],
-    time_range: str
+    token: str, sat_ids: List[int], time_range: str
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Pull EO, Radar, and RF observations for multi-phenomenology datasets.
@@ -673,13 +648,12 @@ def pullMultiPhenomenologyData(
         Tuple of (eo_obs, radar_obs, rf_obs) DataFrames
     """
     results = pullComprehensiveData(
-        token, sat_ids, time_range,
-        services=['eoobservation', 'radarobservation', 'rfobservation']
+        token, sat_ids, time_range, services=["eoobservation", "radarobservation", "rfobservation"]
     )
     return (
-        results.get('eoobservation', pd.DataFrame()),
-        results.get('radarobservation', pd.DataFrame()),
-        results.get('rfobservation', pd.DataFrame())
+        results.get("eoobservation", pd.DataFrame()),
+        results.get("radarobservation", pd.DataFrame()),
+        results.get("rfobservation", pd.DataFrame()),
     )
 
 
@@ -687,12 +661,13 @@ def pullMultiPhenomenologyData(
 # ADAPTIVE BATCH SIZING
 # =============================================================================
 
+
 def generateAdaptiveBatchParams(
     sat_ids: List[int],
     sat_params: Dict[int, Dict],
     timeframe: int,
     timeunit: str,
-    end_time: datetime.datetime = None
+    end_time: datetime.datetime = None,
 ) -> List[Tuple[List[int], str]]:
     """
     Generate batch query parameters with regime-adaptive time windows.
@@ -716,12 +691,12 @@ def generateAdaptiveBatchParams(
     start_time = end_time - total_duration
 
     # Group satellites by regime
-    regime_sats: Dict[str, List[int]] = {'LEO': [], 'MEO': [], 'GEO': [], 'HEO': []}
+    regime_sats: Dict[str, List[int]] = {"LEO": [], "MEO": [], "GEO": [], "HEO": []}
 
     for sat_id in sat_ids:
         params = sat_params.get(sat_id, {})
-        sma = params.get('Semi-Major Axis', 7000)  # Default to LEO
-        ecc = params.get('Eccentricity', 0.0)
+        sma = params.get("Semi-Major Axis", 7000)  # Default to LEO
+        ecc = params.get("Eccentricity", 0.0)
         regime = determine_orbital_regime(sma, ecc)
         regime_sats[regime].append(sat_id)
 
@@ -743,11 +718,7 @@ def generateAdaptiveBatchParams(
     return batch_params
 
 
-def addManeuverFlags(
-    obs_df: pd.DataFrame,
-    token: str,
-    hours_threshold: int = 24
-) -> pd.DataFrame:
+def addManeuverFlags(obs_df: pd.DataFrame, token: str, hours_threshold: int = 24) -> pd.DataFrame:
     """
     Add maneuver proximity flags to observations.
 
@@ -762,19 +733,19 @@ def addManeuverFlags(
         DataFrame with 'nearManeuver' boolean column added
     """
     if obs_df.empty:
-        obs_df['nearManeuver'] = False
+        obs_df["nearManeuver"] = False
         return obs_df
 
     # Get unique satellites and time range
-    sat_ids = obs_df['satNo'].unique().tolist()
+    sat_ids = obs_df["satNo"].unique().tolist()
 
     # Ensure obTime is datetime
-    if obs_df['obTime'].dtype == 'object':
+    if obs_df["obTime"].dtype == "object":
         obs_df = obs_df.copy()
-        obs_df['obTime'] = pd.to_datetime(obs_df['obTime'])
+        obs_df["obTime"] = pd.to_datetime(obs_df["obTime"])
 
-    start_time = obs_df['obTime'].min() - pd.Timedelta(hours=hours_threshold)
-    end_time = obs_df['obTime'].max() + pd.Timedelta(hours=hours_threshold)
+    start_time = obs_df["obTime"].min() - pd.Timedelta(hours=hours_threshold)
+    end_time = obs_df["obTime"].max() + pd.Timedelta(hours=hours_threshold)
     time_range = f"{datetimeToUDL(start_time)}..{datetimeToUDL(end_time)}"
 
     # Query maneuvers
@@ -782,31 +753,31 @@ def addManeuverFlags(
         maneuvers = queryManeuvers(token, sat_ids, time_range)
     except Exception as e:
         logger.warning(f"Failed to query maneuvers: {e}")
-        obs_df['nearManeuver'] = False
+        obs_df["nearManeuver"] = False
         return obs_df
 
     if maneuvers.empty:
-        obs_df['nearManeuver'] = False
+        obs_df["nearManeuver"] = False
         return obs_df
 
     # Parse maneuver times
-    if 'maneuverTime' in maneuvers.columns:
-        maneuvers['maneuverTime'] = pd.to_datetime(maneuvers['maneuverTime'])
+    if "maneuverTime" in maneuvers.columns:
+        maneuvers["maneuverTime"] = pd.to_datetime(maneuvers["maneuverTime"])
 
         # Create threshold timedelta
         threshold = pd.Timedelta(hours=hours_threshold)
 
         # Check each observation against maneuvers
         def is_near_maneuver(row):
-            sat_maneuvers = maneuvers[maneuvers['satNo'] == row['satNo']]
+            sat_maneuvers = maneuvers[maneuvers["satNo"] == row["satNo"]]
             if sat_maneuvers.empty:
                 return False
-            time_diffs = abs(sat_maneuvers['maneuverTime'] - row['obTime'])
+            time_diffs = abs(sat_maneuvers["maneuverTime"] - row["obTime"])
             return (time_diffs <= threshold).any()
 
-        obs_df['nearManeuver'] = obs_df.apply(is_near_maneuver, axis=1)
+        obs_df["nearManeuver"] = obs_df.apply(is_near_maneuver, axis=1)
     else:
-        obs_df['nearManeuver'] = False
+        obs_df["nearManeuver"] = False
 
     return obs_df
 
@@ -814,6 +785,7 @@ def addManeuverFlags(
 # =============================================================================
 # CORE API FUNCTIONS
 # =============================================================================
+
 
 def UDLTokenGen(username, password):
     """
@@ -941,7 +913,12 @@ def UDLQuery(token, service, params, count=False, history=False):
 
         result = resp.json()
         response_size = result if count else len(result)
-        _log_api_call(service, params, response_size if isinstance(response_size, int) else len(result), elapsed)
+        _log_api_call(
+            service,
+            params,
+            response_size if isinstance(response_size, int) else len(result),
+            elapsed,
+        )
 
         if not count:
             return pd.DataFrame(result)
@@ -1352,7 +1329,7 @@ async def _asyncUDLQuery(token, service, params, count=False, history=False, max
                         return data if count else pd.DataFrame(data)
                     elif response.status == 500 and attempt < max_retries - 1:
                         # Retry on 500 errors (server overload/timeout)
-                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                        await asyncio.sleep(2**attempt)  # Exponential backoff
                         continue
                     else:
                         raise aiohttp.ClientResponseError(
@@ -1362,20 +1339,24 @@ async def _asyncUDLQuery(token, service, params, count=False, history=False, max
                             message="Query failed. Common status codes: 400 - bad params, 401 - invalid login, 500 - internal error (UDL down or time-out).",
                         )
         except asyncio.TimeoutError:
-            last_error = asyncio.TimeoutError(f"Query timed out after 120 seconds (attempt {attempt + 1}/{max_retries})")
+            last_error = asyncio.TimeoutError(
+                f"Query timed out after 120 seconds (attempt {attempt + 1}/{max_retries})"
+            )
             if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
                 continue
             raise last_error
         except aiohttp.ClientError as e:
             last_error = e
             if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
                 continue
             raise
 
 
-async def _batchUDLQuery(token, service, params_list, dt=1.0, count=False, history=False, max_concurrent=5):
+async def _batchUDLQuery(
+    token, service, params_list, dt=1.0, count=False, history=False, max_concurrent=5
+):
     """
     Internal wrapper for _asyncUDLQuery() that performs the asyncio calls.
     Uses semaphore to limit concurrent requests and prevent server overload.
@@ -1445,32 +1426,46 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
 
 # Regime ranges for altitude-based filtering (matches reference batchPull.py)
 REGIME_RANGES = {
-    'LEO': '<2000',        # Low Earth Orbit: altitude < 2000 km
-    'MEO': '2000..35786',  # Medium Earth Orbit: 2000 km <= altitude < 35786 km
-    'GEO': '>35786',       # Geosynchronous/Geostationary: altitude >= 35786 km
-    'HEO': '>35786',       # High Earth Orbit (treated same as GEO for filtering)
+    "LEO": "<2000",  # Low Earth Orbit: altitude < 2000 km
+    "MEO": "2000..35786",  # Medium Earth Orbit: 2000 km <= altitude < 35786 km
+    "GEO": ">35786",  # Geosynchronous/Geostationary: altitude >= 35786 km
+    "HEO": ">35786",  # High Earth Orbit (treated same as GEO for filtering)
 }
 
 
-def _fetch_observations_fast(token, sat_ids, sweep_time, max_datapoints, dt,
-                              progress_callback=None, DatasetStage=None):
+def _fetch_observations_fast(
+    token, sat_ids, sweep_time, max_datapoints, dt, progress_callback=None, DatasetStage=None
+):
     """
     FAST strategy: Single query per satellite, full time range.
 
     Fastest approach but may hit API limits for large time ranges.
     """
     params_list = [
-        {"satNo": str(ID), "obTime": sweep_time, "uct": "false", "dataMode": "REAL",
-         "maxResults": max_datapoints} for ID in sat_ids
+        {
+            "satNo": str(ID),
+            "obTime": sweep_time,
+            "uct": "false",
+            "dataMode": "REAL",
+            "maxResults": max_datapoints,
+        }
+        for ID in sat_ids
     ]
     if max_datapoints <= 0:
         params_list = [{k: v for k, v in d.items() if k != "maxResults"} for d in params_list]
     return asyncUDLBatchQuery(token, "eoobservation", params_list, dt)
 
 
-def _fetch_observations_windowed(token, regime, start_time, end_time,
-                                  window_size_minutes, dt,
-                                  progress_callback=None, DatasetStage=None):
+def _fetch_observations_windowed(
+    token,
+    regime,
+    start_time,
+    end_time,
+    window_size_minutes,
+    dt,
+    progress_callback=None,
+    DatasetStage=None,
+):
     """
     WINDOWED strategy: Fixed time windows, sequential (matches reference batchPull.py).
 
@@ -1492,7 +1487,7 @@ def _fetch_observations_windowed(token, regime, start_time, end_time,
     total_windows = max(1, int(total_duration / window_delta) + 1)
 
     # Get altitude range for the regime (matches reference batchPull.py)
-    range_filter = REGIME_RANGES.get(regime.upper() if regime else 'LEO', '<2000')
+    range_filter = REGIME_RANGES.get(regime.upper() if regime else "LEO", "<2000")
     logger.info(f"Windowed strategy using range filter: {range_filter} for regime: {regime}")
 
     data_list = []
@@ -1527,9 +1522,17 @@ def _fetch_observations_windowed(token, regime, start_time, end_time,
     return pd.concat(data_list, ignore_index=True) if data_list else pd.DataFrame()
 
 
-def _fetch_observations_hybrid(token, sat_ids, sweep_time, start_time, end_time,
-                                max_datapoints, dt,
-                                progress_callback=None, DatasetStage=None):
+def _fetch_observations_hybrid(
+    token,
+    sat_ids,
+    sweep_time,
+    start_time,
+    end_time,
+    max_datapoints,
+    dt,
+    progress_callback=None,
+    DatasetStage=None,
+):
     """
     HYBRID strategy: Count-first check with dynamic chunking via smart_query().
 
@@ -1558,11 +1561,25 @@ def _fetch_observations_hybrid(token, sat_ids, sweep_time, start_time, end_time,
 
 
 def generateDataset(
-    UDL_token, ESA_token, satIDs, timeframe, timeunit, dt=0.1, max_datapoints=0, end_time="now",
-    use_database=False, db_path=None, dataset_name=None,
-    downsample_config=None, simulation_config=None, tier="T2",
-    dataset_id=None, progress_callback=None,
-    search_strategy="hybrid", window_size_minutes=10, regime="LEO"
+    UDL_token,
+    ESA_token,
+    satIDs,
+    timeframe,
+    timeunit,
+    dt=0.1,
+    max_datapoints=0,
+    end_time="now",
+    use_database=False,
+    db_path=None,
+    dataset_name=None,
+    downsample_config=None,
+    simulation_config=None,
+    tier="T2",
+    dataset_id=None,
+    progress_callback=None,
+    search_strategy="hybrid",
+    window_size_minutes=10,
+    regime="LEO",
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1635,20 +1652,30 @@ def generateDataset(
 
     if search_strategy == "fast":
         obs_truth_data = _fetch_observations_fast(
-            UDL_token, satIDs, sweep_time, max_datapoints, dt,
-            report_progress, DatasetStage
+            UDL_token, satIDs, sweep_time, max_datapoints, dt, report_progress, DatasetStage
         )
     elif search_strategy == "windowed":
         obs_truth_data = _fetch_observations_windowed(
-            UDL_token, regime, actual_start_time, actual_end_time,
-            window_size_minutes, dt,
-            report_progress, DatasetStage
+            UDL_token,
+            regime,
+            actual_start_time,
+            actual_end_time,
+            window_size_minutes,
+            dt,
+            report_progress,
+            DatasetStage,
         )
     else:  # hybrid (default)
         obs_truth_data = _fetch_observations_hybrid(
-            UDL_token, satIDs, sweep_time, actual_start_time, actual_end_time,
-            max_datapoints, dt,
-            report_progress, DatasetStage
+            UDL_token,
+            satIDs,
+            sweep_time,
+            actual_start_time,
+            actual_end_time,
+            max_datapoints,
+            dt,
+            report_progress,
+            DatasetStage,
         )
 
     # Check for empty observation data
@@ -1713,9 +1740,7 @@ def generateDataset(
 
             # Select the most recent row WITH covariance for each satellite
             state_truth_data = (
-                df_with_cov_sorted.groupby("satNo", group_keys=False)
-                .head(1)
-                .reset_index(drop=True)
+                df_with_cov_sorted.groupby("satNo", group_keys=False).head(1).reset_index(drop=True)
             )
         else:
             # If absolutely no covariance anywhere, result is empty
@@ -1814,9 +1839,9 @@ def generateDataset(
         # Check if enabled (handle both dict and dataclass)
         ds_enabled = False
         if isinstance(downsample_config, dict):
-            ds_enabled = downsample_config.get('enabled', False)
+            ds_enabled = downsample_config.get("enabled", False)
         else:
-            ds_enabled = getattr(downsample_config, 'enabled', True)
+            ds_enabled = getattr(downsample_config, "enabled", True)
 
         if ds_enabled:
             from uct_benchmark.data.dataManipulation import apply_downsampling
@@ -1834,17 +1859,17 @@ def generateDataset(
             sat_params = {}
             for _, row in elset_truth_data.iterrows():
                 try:
-                    sat_id = int(row['satNo'])
-                    orb_elems = row.get('elset', {})
+                    sat_id = int(row["satNo"])
+                    orb_elems = row.get("elset", {})
                     if not orb_elems:
-                        orb_elems = orbit2OE(row['line1'], row['line2'])
+                        orb_elems = orbit2OE(row["line1"], row["line2"])
 
-                    sat_obs = obs_truth_data[obs_truth_data['satNo'] == sat_id]
-                    period = orb_elems.get('period_sec', orb_elems.get('Period', 5400))
+                    sat_obs = obs_truth_data[obs_truth_data["satNo"] == sat_id]
+                    period = orb_elems.get("period_sec", orb_elems.get("Period", 5400))
 
                     # Calculate max track gap
                     if len(sat_obs) > 1:
-                        sorted_times = sat_obs['obTime'].sort_values()
+                        sorted_times = sat_obs["obTime"].sort_values()
                         gaps = sorted_times.diff().dropna()
                         max_gap_sec = gaps.max().total_seconds() if not gaps.empty else 0
                         max_track_gap = max_gap_sec / period if period > 0 else 0
@@ -1852,16 +1877,26 @@ def generateDataset(
                         max_track_gap = 0
 
                     sat_params[sat_id] = {
-                        'Semi-Major Axis': orb_elems.get('semi_major_axis', orb_elems.get('Semi-Major Axis', 7000)),
-                        'Eccentricity': orb_elems.get('eccentricity', orb_elems.get('Eccentricity', 0.001)),
-                        'Inclination': orb_elems.get('inclination', orb_elems.get('Inclination', 45)),
-                        'RAAN': orb_elems.get('RAAN', orb_elems.get('raan', 0)),
-                        'Argument of Perigee': orb_elems.get('perigee', orb_elems.get('Argument of Perigee', 0)),
-                        'Mean Anomaly': orb_elems.get('mean_anomaly', orb_elems.get('Mean Anomaly', 0)),
-                        'Period': period,
-                        'Number of Obs': len(sat_obs),
-                        'Orbital Coverage': 0.5,
-                        'Max Track Gap': max_track_gap
+                        "Semi-Major Axis": orb_elems.get(
+                            "semi_major_axis", orb_elems.get("Semi-Major Axis", 7000)
+                        ),
+                        "Eccentricity": orb_elems.get(
+                            "eccentricity", orb_elems.get("Eccentricity", 0.001)
+                        ),
+                        "Inclination": orb_elems.get(
+                            "inclination", orb_elems.get("Inclination", 45)
+                        ),
+                        "RAAN": orb_elems.get("RAAN", orb_elems.get("raan", 0)),
+                        "Argument of Perigee": orb_elems.get(
+                            "perigee", orb_elems.get("Argument of Perigee", 0)
+                        ),
+                        "Mean Anomaly": orb_elems.get(
+                            "mean_anomaly", orb_elems.get("Mean Anomaly", 0)
+                        ),
+                        "Period": period,
+                        "Number of Obs": len(sat_obs),
+                        "Orbital Coverage": 0.5,
+                        "Max Track Gap": max_track_gap,
                     }
                 except Exception as e:
                     logger.warning(f"Failed to build params for sat {row.get('satNo')}: {e}")
@@ -1870,37 +1905,35 @@ def generateDataset(
             # Convert dict config to dataclass if needed
             if isinstance(downsample_config, dict):
                 ds_cfg = DSConfig(
-                    target_coverage=downsample_config.get('target_coverage', 0.05),
-                    target_gap=downsample_config.get('target_gap', 2.0),
-                    max_obs_per_sat=downsample_config.get('max_obs_per_sat', 50),
-                    min_obs_per_sat=downsample_config.get('min_obs_per_sat', 5),
-                    preserve_track_boundaries=downsample_config.get('preserve_tracks', True),
-                    seed=downsample_config.get('seed'),
+                    target_coverage=downsample_config.get("target_coverage", 0.05),
+                    target_gap=downsample_config.get("target_gap", 2.0),
+                    max_obs_per_sat=downsample_config.get("max_obs_per_sat", 50),
+                    min_obs_per_sat=downsample_config.get("min_obs_per_sat", 5),
+                    preserve_track_boundaries=downsample_config.get("preserve_tracks", True),
+                    seed=downsample_config.get("seed"),
                 )
             else:
                 ds_cfg = downsample_config
 
             # Apply downsampling
             obs_truth_data, downsampling_metadata = apply_downsampling(
-                obs_truth_data,
-                sat_params,
-                elset_data=elset_truth_data,
-                config=ds_cfg,
-                tier=tier
+                obs_truth_data, sat_params, elset_data=elset_truth_data, config=ds_cfg, tier=tier
             )
 
             ds_elapsed = time.perf_counter() - ds_start
-            downsampling_metadata['elapsed_time'] = ds_elapsed
-            logger.info(f"Downsampling complete: {downsampling_metadata.get('original_count', 0)} -> "
-                       f"{downsampling_metadata.get('final_count', 0)} observations "
-                       f"({downsampling_metadata.get('retention_ratio', 0):.1%} retained) in {ds_elapsed:.2f}s")
+            downsampling_metadata["elapsed_time"] = ds_elapsed
+            logger.info(
+                f"Downsampling complete: {downsampling_metadata.get('original_count', 0)} -> "
+                f"{downsampling_metadata.get('final_count', 0)} observations "
+                f"({downsampling_metadata.get('retention_ratio', 0):.1%} retained) in {ds_elapsed:.2f}s"
+            )
 
             # Report progress: downsampling complete
             if DatasetStage is not None:
                 report_progress(DatasetStage.APPLYING_DOWNSAMPLING, 1.0)
 
             # Update satIDs to only include satellites that still have observations
-            satIDs = obs_truth_data['satNo'].unique()
+            satIDs = obs_truth_data["satNo"].unique()
 
     # =========================================================================
     # OPTIONAL: Apply simulation to fill observation gaps
@@ -1910,9 +1943,9 @@ def generateDataset(
         # Check if enabled (handle both dict and dataclass)
         sim_enabled = False
         if isinstance(simulation_config, dict):
-            sim_enabled = simulation_config.get('enabled', False)
+            sim_enabled = simulation_config.get("enabled", False)
         else:
-            sim_enabled = getattr(simulation_config, 'enabled', True)
+            sim_enabled = getattr(simulation_config, "enabled", True)
 
         if sim_enabled:
             from uct_benchmark.data.dataManipulation import apply_simulation_to_gaps
@@ -1926,46 +1959,47 @@ def generateDataset(
             sim_start = time.perf_counter()
 
             # Build sensor dataframe (use defaults if not available)
-            sensor_df = pd.DataFrame({
-                'idSensor': ['SEN001', 'SEN002', 'SEN003'],
-                'name': ['DIEGO_GARCIA', 'ASCENSION', 'MAUI'],
-                'senlat': [-7.3, -7.9, 20.7],
-                'senlon': [72.4, -14.4, -156.3],
-                'senalt': [0.01, 0.04, 3.1],
-                'count': [10, 10, 10],
-            })
+            sensor_df = pd.DataFrame(
+                {
+                    "idSensor": ["SEN001", "SEN002", "SEN003"],
+                    "name": ["DIEGO_GARCIA", "ASCENSION", "MAUI"],
+                    "senlat": [-7.3, -7.9, 20.7],
+                    "senlon": [72.4, -14.4, -156.3],
+                    "senalt": [0.01, 0.04, 3.1],
+                    "count": [10, 10, 10],
+                }
+            )
 
             # Convert dict config to dataclass if needed
             if isinstance(simulation_config, dict):
                 sim_cfg = SimConfig(
-                    apply_sensor_noise=simulation_config.get('apply_noise', True),
-                    sensor_model=simulation_config.get('sensor_model', 'GEODSS'),
-                    max_synthetic_ratio=simulation_config.get('max_synthetic_ratio', 0.5),
-                    seed=simulation_config.get('seed'),
+                    apply_sensor_noise=simulation_config.get("apply_noise", True),
+                    sensor_model=simulation_config.get("sensor_model", "GEODSS"),
+                    max_synthetic_ratio=simulation_config.get("max_synthetic_ratio", 0.5),
+                    seed=simulation_config.get("seed"),
                 )
             else:
                 sim_cfg = simulation_config
 
             # Apply simulation
             obs_truth_data, simulation_metadata = apply_simulation_to_gaps(
-                obs_truth_data,
-                elset_truth_data,
-                sensor_df,
-                config=sim_cfg
+                obs_truth_data, elset_truth_data, sensor_df, config=sim_cfg
             )
 
             sim_elapsed = time.perf_counter() - sim_start
-            simulation_metadata['elapsed_time'] = sim_elapsed
-            logger.info(f"Simulation complete: {simulation_metadata.get('original_count', 0)} original + "
-                       f"{simulation_metadata.get('simulated_count', 0)} simulated = "
-                       f"{simulation_metadata.get('total_count', 0)} total in {sim_elapsed:.2f}s")
+            simulation_metadata["elapsed_time"] = sim_elapsed
+            logger.info(
+                f"Simulation complete: {simulation_metadata.get('original_count', 0)} original + "
+                f"{simulation_metadata.get('simulated_count', 0)} simulated = "
+                f"{simulation_metadata.get('total_count', 0)} total in {sim_elapsed:.2f}s"
+            )
 
             # Report progress: simulation complete
             if DatasetStage is not None:
                 report_progress(DatasetStage.RUNNING_SIMULATION, 1.0)
 
             # Update satIDs
-            satIDs = obs_truth_data['satNo'].unique()
+            satIDs = obs_truth_data["satNo"].unique()
 
     # Generate final dataset from observation data
     dataset = obs_truth_data.copy()
@@ -2028,7 +2062,9 @@ def generateDataset(
     if simulation_metadata is not None:
         performance_data["Simulation Applied"] = True
         performance_data["Simulation Metadata"] = simulation_metadata
-        performance_data["Simulated Observation Count"] = simulation_metadata.get('simulated_count', 0)
+        performance_data["Simulated Observation Count"] = simulation_metadata.get(
+            "simulated_count", 0
+        )
     else:
         performance_data["Simulation Applied"] = False
         performance_data["Simulated Observation Count"] = 0
@@ -2065,16 +2101,18 @@ def generateDataset(
             if not obs_truth_data.empty:
                 # Prepare observation data for bulk insert
                 obs_for_db = obs_truth_data.copy()
-                obs_for_db = obs_for_db.rename(columns={
-                    "satNo": "sat_no",
-                    "obTime": "ob_time",
-                    "declination": "declination",
-                    "ra": "ra",
-                    "sensorName": "sensor_name",
-                    "idSensor": "sensor_name",  # Simulated data uses idSensor
-                    "dataMode": "data_mode",
-                    "trackId": "track_id",
-                })
+                obs_for_db = obs_for_db.rename(
+                    columns={
+                        "satNo": "sat_no",
+                        "obTime": "ob_time",
+                        "declination": "declination",
+                        "ra": "ra",
+                        "sensorName": "sensor_name",
+                        "idSensor": "sensor_name",  # Simulated data uses idSensor
+                        "dataMode": "data_mode",
+                        "trackId": "track_id",
+                    }
+                )
                 db.observations.bulk_insert(obs_for_db)
                 logger.debug(f"Inserted {len(obs_for_db)} observations")
 
@@ -2124,7 +2162,9 @@ def generateDataset(
 
             # Create dataset record if not already provided by backend API
             # NOTE: When called from backend, dataset_id should already exist
-            logger.info(f"dataset_id parameter value: {dataset_id} (type: {type(dataset_id).__name__})")
+            logger.info(
+                f"dataset_id parameter value: {dataset_id} (type: {type(dataset_id).__name__})"
+            )
             if dataset_id is None:
                 dataset_id = db.datasets.create_dataset(
                     name=dataset_name,
@@ -2164,7 +2204,9 @@ def generateDataset(
             performance_data["Database Persistence Time"] = db_elapsed_time
             performance_data["Database Dataset ID"] = dataset_id
             performance_data["Database Dataset Name"] = dataset_name
-            logger.info(f"Dataset '{dataset_name}' (ID: {dataset_id}) persisted to database in {db_elapsed_time:.2f}s")
+            logger.info(
+                f"Dataset '{dataset_name}' (ID: {dataset_id}) persisted to database in {db_elapsed_time:.2f}s"
+            )
 
         except Exception as e:
             logger.error(f"Failed to persist to database: {e}")
@@ -2249,9 +2291,7 @@ def pullStates(UDL_token, satIDs, timeframe, timeunit, dt=0.1, end_time="now"):
 
             # Select the most recent row WITH covariance for each satellite
             sv_data = (
-                df_with_cov_sorted.groupby("satNo", group_keys=False)
-                .head(1)
-                .reset_index(drop=True)
+                df_with_cov_sorted.groupby("satNo", group_keys=False).head(1).reset_index(drop=True)
             )
         else:
             # If absolutely no covariance anywhere, result is empty
@@ -2301,9 +2341,7 @@ def pullStates(UDL_token, satIDs, timeframe, timeunit, dt=0.1, end_time="now"):
     sv_data = sv_data[sv_data["satNo"].isin(satIDs)]
 
     # Parse TLEs into usable orbital elements
-    elset_data["elset"] = elset_data.apply(
-        lambda row: parseTLE(row["line1"], row["line2"]), axis=1
-    )
+    elset_data["elset"] = elset_data.apply(lambda row: parseTLE(row["line1"], row["line2"]), axis=1)
 
     return sv_data, elset_data, sv_data["satNo"].unique(), time.perf_counter() - start_time
 
@@ -2459,8 +2497,7 @@ def saveDataset(ref_obs, ref_track, ref_sv, ref_elset, output_path):
     track_data.to_parquet(INTERIM_DATA_DIR / "output_dataset_elset.parquet", index=False)
     orbit_data.to_parquet(INTERIM_DATA_DIR / "output_dataset_reference.parquet", index=False)
 
-    output_dataset_path = \
-        INTERIM_DATA_DIR / "output_dataset.json"
+    output_dataset_path = INTERIM_DATA_DIR / "output_dataset.json"
     with open(str(output_dataset_path), "w") as f:
         json.dump(
             output_json,

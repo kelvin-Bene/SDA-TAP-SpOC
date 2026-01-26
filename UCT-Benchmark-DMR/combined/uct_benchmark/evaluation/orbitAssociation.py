@@ -5,8 +5,8 @@ Created on Mon Jun 16 08:50:35 2025
 @author: Gabriel Lundin
 """
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 import pandas as pd
@@ -34,9 +34,7 @@ def _compute_cost_column_TLE(
 ):
     # Helper function to compute error between TLEs
     try:
-        prop_line1, prop_line2, propagated_states = propagator(
-            truth_line1, truth_line2, est_epochs
-        )
+        prop_line1, prop_line2, propagated_states = propagator(truth_line1, truth_line2, est_epochs)
         deltas = np.vstack(est_states) - np.vstack(propagated_states)
         errors = np.linalg.norm(deltas, axis=1)
         return j, errors

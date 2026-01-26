@@ -1,0 +1,145 @@
+{
+  "tle": {
+    "passed": 24,
+    "failed": 1,
+    "obs": 1403
+  },
+  "sv": {
+    "passed": 15,
+    "failed": 0,
+    "obs": 434
+  },
+  "details": {
+    "13056": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "23041": {
+      "tle_obs": 8,
+      "tle_status": "PASS",
+      "sv_obs": 0,
+      "sv_status": "PASS"
+    },
+    "9478": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "7815": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "11145": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "13069": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "62734": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "16276": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "12564": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "25239": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "7578": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "13086": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "15391": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "10016": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "14117": {
+      "tle_obs": 61,
+      "tle_status": "PASS",
+      "sv_obs": 31,
+      "sv_status": "PASS"
+    },
+    "15144": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "14248": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "11561": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "13610": {
+      "tle_obs": 53,
+      "tle_status": "PASS"
+    },
+    "25258": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "10792": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "40874": {
+      "tle_error": "org.orekit.errors.OrekitException: unable to compute TLE mean parameters after 101 iterations"
+    },
+    "20523": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "26666": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    },
+    "39216": {
+      "tle_obs": 61,
+      "tle_status": "PASS"
+    }
+  },
+  "total_obs": 1837,
+  "duration": 8.1153
+}

@@ -5,16 +5,16 @@ Created on Mon Jun 23 13:12:25 2025
 @author: Binyamin Stivi
 """
 
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
 
-from fpdf import FPDF
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+from fpdf import FPDF
 
 """
 This script/function generates a PDF report for UCTP benchmark results.
-It includes orbit association results, binary observation metrics,  
+It includes orbit association results, binary observation metrics,
 state results, and residual analysis for reference and candidate orbits.
 
 Written by Binyamin Stivi.

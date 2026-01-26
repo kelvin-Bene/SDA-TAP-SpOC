@@ -4,15 +4,24 @@ DuckDB connection management for UCT Benchmark.
 Provides thread-safe connection pooling and database lifecycle management.
 """
 
-import os
 import shutil
-from pathlib import Path
-from datetime import datetime
-from typing import Optional
-from contextlib import contextmanager
 import threading
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 import duckdb
+
+if TYPE_CHECKING:
+    from .repository import (
+        DatasetRepository,
+        ElementSetRepository,
+        EventRepository,
+        ObservationRepository,
+        SatelliteRepository,
+        StateVectorRepository,
+    )
 
 # Default database paths
 DEFAULT_DB_NAME = "uct_benchmark.duckdb"

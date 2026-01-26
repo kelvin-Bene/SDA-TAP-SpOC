@@ -101,9 +101,7 @@ def simulateObs(
         triedSensors = set()
         while el < 6:  # If elevation is less than 6 degrees, try another sensor
             triedSensors.add(sensorID)
-            availableSensors = sensorsDataFrame[
-                ~sensorsDataFrame["idSensor"].isin(triedSensors)
-            ]
+            availableSensors = sensorsDataFrame[~sensorsDataFrame["idSensor"].isin(triedSensors)]
             if availableSensors.empty:
                 break
             randomSensor = availableSensors.sample(weights="count", random_state=None).iloc[0]
@@ -294,8 +292,8 @@ def toObsSchema(results, satNo, noiseCharacteristics):
     Returns:
     pd.DataFrame: DataFrame with columns ['satNo', 'time', 'ra', 'dec'].
     """
-    from datetime import datetime, timezone
     import uuid
+    from datetime import datetime, timezone
 
     import numpy as np
     import pandas as pd
@@ -396,42 +394,42 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
 
     # Validate inputs
     if len(satObs) < min_existing:
-        return [], {'status': 'insufficient_existing_obs', 'existing': len(satObs)}
+        return [], {"status": "insufficient_existing_obs", "existing": len(satObs)}
 
     # Convert obTime to datetime if needed
     satObs = satObs.copy()
-    if satObs['obTime'].dtype == 'object':
+    if satObs["obTime"].dtype == "object":
         # Try multiple datetime formats
         try:
-            satObs['obTime'] = pd.to_datetime(satObs['obTime'], format="%Y-%m-%dT%H:%M:%S.%fZ")
+            satObs["obTime"] = pd.to_datetime(satObs["obTime"], format="%Y-%m-%dT%H:%M:%S.%fZ")
         except ValueError:
             try:
-                satObs['obTime'] = pd.to_datetime(satObs['obTime'], format="%Y-%m-%dT%H:%M:%SZ")
+                satObs["obTime"] = pd.to_datetime(satObs["obTime"], format="%Y-%m-%dT%H:%M:%SZ")
             except ValueError:
-                satObs['obTime'] = pd.to_datetime(satObs['obTime'])
+                satObs["obTime"] = pd.to_datetime(satObs["obTime"])
 
-    satObs = satObs.sort_values(by='obTime').reset_index(drop=True)
+    satObs = satObs.sort_values(by="obTime").reset_index(drop=True)
 
     # Get orbital period
-    if 'Period' in orbElems:
-        period_sec = orbElems['Period']
+    if "Period" in orbElems:
+        period_sec = orbElems["Period"]
     else:
         # Estimate from semi-major axis using Kepler's law
         # T = 2*pi*sqrt(a^3/mu) where mu = 398600.4418 km^3/s^2
-        a_km = orbElems.get('Semi-Major Axis', 7000)  # Default to ~630km altitude
+        a_km = orbElems.get("Semi-Major Axis", 7000)  # Default to ~630km altitude
         mu = 398600.4418  # km^3/s^2
-        period_sec = 2 * np.pi * np.sqrt((a_km ** 3) / mu)
+        period_sec = 2 * np.pi * np.sqrt((a_km**3) / mu)
 
     # Get observation time window
-    start_time = satObs['obTime'].min()
-    end_time = satObs['obTime'].max()
+    start_time = satObs["obTime"].min()
+    end_time = satObs["obTime"].max()
     window_duration = (end_time - start_time).total_seconds()
 
     # Calculate number of orbital periods in window
     num_periods = window_duration / period_sec
     if num_periods < 0.5:
         # Window too short for meaningful simulation
-        return [], {'status': 'window_too_short', 'periods': num_periods}
+        return [], {"status": "window_too_short", "periods": num_periods}
 
     # Calculate bin size (in seconds)
     bin_size_sec = period_sec / bins_per_period
@@ -442,7 +440,7 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
 
     # Count observations in each bin
     bin_counts = np.zeros(total_bins, dtype=int)
-    for obs_time in satObs['obTime']:
+    for obs_time in satObs["obTime"]:
         bin_idx = int((obs_time - start_time).total_seconds() / bin_size_sec)
         if 0 <= bin_idx < total_bins:
             bin_counts[bin_idx] += 1
@@ -451,7 +449,7 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
     empty_bins = np.where(bin_counts < min_obs_per_bin)[0]
 
     if len(empty_bins) == 0:
-        return [], {'status': 'all_bins_covered', 'total_bins': total_bins}
+        return [], {"status": "all_bins_covered", "total_bins": total_bins}
 
     # Calculate target observation count
     current_count = len(satObs)
@@ -463,7 +461,11 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
     obs_to_add = min(target_obs_count - current_count, max_simulated)
 
     if obs_to_add <= 0:
-        return [], {'status': 'already_at_target', 'current': current_count, 'target': target_obs_count}
+        return [], {
+            "status": "already_at_target",
+            "current": current_count,
+            "target": target_obs_count,
+        }
 
     # Number of tracks to simulate (each track has track_size observations)
     tracks_to_add = int(np.ceil(obs_to_add / track_size))
@@ -498,15 +500,15 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
 
     # Build info dict for logging
     bins_info = {
-        'status': 'success',
-        'satNo': satNo,
-        'period_sec': period_sec,
-        'total_bins': total_bins,
-        'empty_bins': len(empty_bins),
-        'tracks_added': bins_used,
-        'epochs_count': len(epochs),
-        'existing_obs': current_count,
-        'target_obs': target_obs_count
+        "status": "success",
+        "satNo": satNo,
+        "period_sec": period_sec,
+        "total_bins": total_bins,
+        "empty_bins": len(empty_bins),
+        "tracks_added": bins_used,
+        "epochs_count": len(epochs),
+        "existing_obs": current_count,
+        "target_obs": target_obs_count,
     }
 
     return epochs, bins_info
@@ -518,7 +520,6 @@ if __name__ == "__main__":
 
     import numpy as np
     import pandas as pd
-    from propagator import TLEpropagator, ephemerisPropagator
 
     # Read in sensor data
     sensorCountsDf = pd.read_csv("data\\sensorCounts.csv")

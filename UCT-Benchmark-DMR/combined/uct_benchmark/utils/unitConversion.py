@@ -5,11 +5,10 @@ Created on Tue 10 June 2025
 @author: Binyamin J. Stivi
 """
 
-
 import numpy as np
 import orekit_jpype as orekit
-from orekit_jpype.pyhelpers import setup_orekit_curdir
 import pandas as pd
+from orekit_jpype.pyhelpers import setup_orekit_curdir
 
 from uct_benchmark.utils.generateCov import generateCov
 

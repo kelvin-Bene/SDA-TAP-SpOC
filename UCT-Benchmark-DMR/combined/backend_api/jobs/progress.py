@@ -6,7 +6,7 @@ and current stage descriptions for better user visibility.
 """
 
 from enum import Enum
-from typing import Callable, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Dict
 
 if TYPE_CHECKING:
     from . import JobManager
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 class DatasetStage(str, Enum):
     """Stages in the dataset generation pipeline."""
+
     INITIALIZING = "initializing"
     COLLECTING_OBSERVATIONS = "collecting_observations"
     COLLECTING_STATE_VECTORS = "collecting_state_vectors"

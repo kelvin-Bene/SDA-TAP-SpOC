@@ -8,8 +8,8 @@ updated on 2025-07-31
 by Binyamin Stivi
 """
 
-
 import pandas as pd
+import urllib3
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -18,7 +18,6 @@ from sklearn.metrics import (
     matthews_corrcoef,
     recall_score,
 )
-import urllib3
 
 urllib3.disable_warnings()
 
@@ -77,18 +76,14 @@ def binaryMetrics(ref_obs, associated_orbits):
         ObsSatCandidates = pd.DataFrame(columns=["id", "satNo"])
 
     # --- Join predicted satNo with the true satNo from the reference ---
-    merged = pd.merge(
-        refPruned, ObsSatCandidates, on="id", how="left", suffixes=("_true", "_pred")
-    )
+    merged = pd.merge(refPruned, ObsSatCandidates, on="id", how="left", suffixes=("_true", "_pred"))
 
     # Determine if the predicted satNo matches the true satNo for each observation
     merged["match"] = merged["satNo_true"] == merged["satNo_pred"]
 
     # --- Compute binary classification counts ---
     total_obs = len(refPruned)  # Total number of observations
-    total_correlated = (
-        merged["satNo_pred"].notna().sum()
-    )  # Number of observations with predictions
+    total_correlated = merged["satNo_pred"].notna().sum()  # Number of observations with predictions
     true_positives = merged["match"].sum()  # Correctly predicted associations
     false_positives = total_correlated - true_positives  # Incorrect associations (wrong satNo)
     false_negatives = total_obs - total_correlated  # Observations with no predicted match
