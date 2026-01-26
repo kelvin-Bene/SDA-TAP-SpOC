@@ -1139,6 +1139,8 @@ class DatasetRepository(BaseRepository):
         parent_params = parent.get("generation_params", {})
         if isinstance(parent_params, str):
             parent_params = json.loads(parent_params)
+        if parent_params is None:
+            parent_params = {}
         merged_params = {**parent_params, **(changes or {})}
 
         result = self.fetchone(
@@ -1271,6 +1273,10 @@ class DatasetRepository(BaseRepository):
             params1 = json.loads(params1) if params1 else {}
         if isinstance(params2, str):
             params2 = json.loads(params2) if params2 else {}
+        if params1 is None:
+            params1 = {}
+        if params2 is None:
+            params2 = {}
 
         all_keys = set(params1.keys()) | set(params2.keys())
         diff = {}
@@ -1370,11 +1376,11 @@ class DatasetRepository(BaseRepository):
         query = """
             SELECT
                 o.*,
-                do.assigned_track_id,
-                do.assigned_object_id
-            FROM dataset_observations do
-            JOIN observations o ON do.observation_id = o.id
-            WHERE do.dataset_id = ?
+                dso.assigned_track_id,
+                dso.assigned_object_id
+            FROM dataset_observations dso
+            JOIN observations o ON dso.observation_id = o.id
+            WHERE dso.dataset_id = ?
             ORDER BY o.ob_time
         """
         return self.to_dataframe(query, (dataset_id,))

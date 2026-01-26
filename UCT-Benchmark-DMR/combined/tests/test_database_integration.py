@@ -25,8 +25,11 @@ from uct_benchmark.database.migration import DataMigration, MigrationReport
 @pytest.fixture
 def temp_db():
     """Create a temporary database for testing."""
-    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as f:
+    # Create a temp file path without creating the actual file
+    # (DuckDB needs to create it itself)
+    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=True) as f:
         db_path = f.name
+    # The file is deleted after the context manager exits
 
     db = DatabaseManager(db_path=db_path)
     db.initialize()

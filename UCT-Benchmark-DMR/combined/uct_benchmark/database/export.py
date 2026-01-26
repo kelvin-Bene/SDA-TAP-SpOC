@@ -455,6 +455,9 @@ def _serialize_datetime(dt: Any) -> Optional[str]:
     """Convert datetime to ISO format string."""
     if dt is None:
         return None
+    # Handle pandas NaT (Not a Time)
+    if pd.isna(dt):
+        return None
     if isinstance(dt, str):
         return dt
     if isinstance(dt, datetime):

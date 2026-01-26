@@ -79,7 +79,7 @@ class TestFullDatasetFlow:
                 "timeframe": 7,
                 "timeunit": "days",
                 "sensors": ["optical"],
-                "coverage": 0.8,
+                "coverage": "standard",
                 "include_hamr": False,
             },
         )

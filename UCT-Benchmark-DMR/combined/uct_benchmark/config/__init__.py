@@ -17,6 +17,8 @@ Usage:
 """
 
 from uct_benchmark.config.dataset_schema import (
+    DatasetConfig,
+    DownsampleConfig,
     EnhancedDatasetCode,
     config_to_dataset_code,
     create_sample_config,
@@ -32,6 +34,8 @@ from uct_benchmark.config.dataset_schema import (
 )
 
 __all__ = [
+    "DatasetConfig",
+    "DownsampleConfig",
     "EnhancedDatasetCode",
     "load_dataset_config",
     "save_dataset_config",
