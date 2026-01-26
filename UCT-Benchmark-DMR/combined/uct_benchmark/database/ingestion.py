@@ -3,10 +3,15 @@ Data ingestion pipeline for UCT Benchmark database.
 
 Provides utilities for ingesting data from external APIs (UDL, Space-Track, etc.)
 into the database with validation, deduplication, and error handling.
+
+Also includes open source data ingestion for:
+- Satellite metadata from UCS and GCAT
+- RF observations from SatNOGS
+- Validation data from ILRS
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -23,6 +28,9 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from .connection import DatabaseManager
+
+# Cache duration for open source enrichment (avoid redundant API calls)
+ENRICHMENT_CACHE_HOURS = 24
 
 
 @dataclass
@@ -603,3 +611,297 @@ class DataIngestionPipeline:
             report.add_validation_error(f"Unknown data type: {data_type}")
             report.finalize()
             return report
+
+    # =========================================================================
+    # OPEN SOURCE DATA INGESTION
+    # =========================================================================
+
+    def ingest_satellite_metadata(
+        self,
+        sat_nos: List[int],
+        force_refresh: bool = False,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ) -> IngestionReport:
+        """
+        Ingest satellite metadata from open source databases (UCS, GCAT).
+
+        Enriches satellite records with:
+        - Purpose (Communications, Earth Observation, etc.)
+        - Operator/Owner
+        - Launch site
+        - Mass (critical for HAMR detection)
+        - Power output
+
+        Args:
+            sat_nos: List of NORAD catalog numbers to enrich
+            force_refresh: If True, re-fetch even if recently enriched
+            progress_callback: Optional callback(current, total)
+
+        Returns:
+            IngestionReport with enrichment statistics
+        """
+        from uct_benchmark.api.data_source_manager import DataSourceManager
+
+        report = IngestionReport()
+        dsm = DataSourceManager(self.db)
+
+        # Filter out recently enriched satellites unless force_refresh
+        satellites_to_process = sat_nos
+        if not force_refresh:
+            satellites_to_process = [
+                sat_no for sat_no in sat_nos
+                if not self._is_recently_enriched(sat_no)
+            ]
+            report.duplicate_records = len(sat_nos) - len(satellites_to_process)
+
+        logger.info(
+            f"Enriching {len(satellites_to_process)} satellites "
+            f"({report.duplicate_records} skipped as recently enriched)"
+        )
+
+        for i, sat_no in enumerate(satellites_to_process):
+            try:
+                result = dsm.enrich_satellite(sat_no, force_refresh=True)
+                if result.get("enriched"):
+                    report.add_success(sat_no, 1)
+                else:
+                    # No data found but not an error
+                    report.failed_records += 1
+
+            except Exception as e:
+                logger.warning(f"Failed to enrich satellite {sat_no}: {e}")
+                report.add_failure(sat_no, str(e))
+
+            if progress_callback:
+                progress_callback(i + 1, len(satellites_to_process))
+
+        report.finalize()
+        return report
+
+    def ingest_rf_observations(
+        self,
+        sat_nos: List[int],
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ) -> IngestionReport:
+        """
+        Ingest RF observation data from SatNOGS.
+
+        Note: SatNOGS provides RF signal detection timing, NOT RA/Dec positions.
+        These observations are useful for:
+        - Multi-phenomenology (MX) datasets
+        - Coverage pattern analysis
+        - Observation timing reference
+
+        Args:
+            sat_nos: List of NORAD catalog numbers
+            start_time: Start of time window (default: 7 days ago)
+            end_time: End of time window (default: now)
+            progress_callback: Optional callback(current, total)
+
+        Returns:
+            IngestionReport with ingestion statistics
+        """
+        from uct_benchmark.api.open_sources import satnogsGetObservations
+
+        report = IngestionReport()
+
+        # Default time window: last 7 days
+        if end_time is None:
+            end_time = datetime.now()
+        if start_time is None:
+            start_time = end_time - timedelta(days=7)
+
+        for i, sat_no in enumerate(sat_nos):
+            try:
+                obs_df = satnogsGetObservations(
+                    norad_id=sat_no,
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+
+                if obs_df is not None and not obs_df.empty:
+                    # Transform SatNOGS format to our schema
+                    transformed_df = self._transform_satnogs_observations(obs_df, sat_no)
+
+                    if not transformed_df.empty:
+                        # Insert observations
+                        inserted = self.db.observations.bulk_insert(transformed_df)
+                        report.add_success(sat_no, inserted)
+                        report.duplicate_records += len(transformed_df) - inserted
+                else:
+                    logger.debug(f"No SatNOGS observations for sat {sat_no}")
+
+            except Exception as e:
+                logger.warning(f"Failed to fetch SatNOGS data for {sat_no}: {e}")
+                report.add_failure(sat_no, str(e))
+
+            if progress_callback:
+                progress_callback(i + 1, len(sat_nos))
+
+        report.finalize()
+        return report
+
+    def ingest_validation_data(
+        self,
+        sat_nos: Optional[List[int]] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ) -> IngestionReport:
+        """
+        Ingest ILRS satellite information for validation reference.
+
+        Note: Full ILRS range data requires NASA Earthdata authentication.
+        This method populates the validation_measurements table with
+        available satellite tracking information.
+
+        Args:
+            sat_nos: Optional list of NORAD IDs to filter (default: all ILRS satellites)
+            progress_callback: Optional callback(current, total)
+
+        Returns:
+            IngestionReport with ingestion statistics
+        """
+        from uct_benchmark.api.open_sources import ilrsGetSatellites
+
+        report = IngestionReport()
+
+        # Get ILRS satellite list
+        ilrs_df = ilrsGetSatellites()
+        if ilrs_df.empty:
+            report.add_validation_error("Could not fetch ILRS satellite list")
+            report.finalize()
+            return report
+
+        # Filter if specific satellites requested
+        if sat_nos:
+            ilrs_df = ilrs_df[ilrs_df['norad_id'].isin(sat_nos)]
+
+        report.total_records = len(ilrs_df)
+
+        # Update satellites table with ILRS tracking info
+        for i, row in ilrs_df.iterrows():
+            sat_no = row.get('norad_id')
+            if sat_no is None:
+                continue
+
+            try:
+                # Ensure satellite exists in our database
+                existing = self.db.execute(
+                    "SELECT sat_no FROM satellites WHERE sat_no = ?",
+                    (sat_no,),
+                ).fetchone()
+
+                if existing:
+                    # Update with ILRS info
+                    self.db.execute(
+                        """
+                        UPDATE satellites
+                        SET name = COALESCE(name, ?),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE sat_no = ?
+                        """,
+                        (row.get('name'), sat_no),
+                    )
+                else:
+                    # Insert new satellite record
+                    self.db.execute(
+                        """
+                        INSERT INTO satellites (sat_no, name, cospar_id, created_at)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                        """,
+                        (sat_no, row.get('name'), row.get('cospar_id')),
+                    )
+
+                report.add_success(sat_no, 1)
+
+            except Exception as e:
+                logger.warning(f"Failed to update ILRS satellite {sat_no}: {e}")
+                report.add_failure(sat_no, str(e))
+
+            if progress_callback:
+                progress_callback(i + 1, len(ilrs_df))
+
+        report.finalize()
+        return report
+
+    def _is_recently_enriched(self, sat_no: int) -> bool:
+        """
+        Check if a satellite was enriched within the cache duration.
+
+        Args:
+            sat_no: NORAD catalog number
+
+        Returns:
+            True if enriched within ENRICHMENT_CACHE_HOURS
+        """
+        row = self.db.execute(
+            "SELECT ucs_synced_at, gcat_synced_at FROM satellites WHERE sat_no = ?",
+            (sat_no,),
+        ).fetchone()
+
+        if not row:
+            return False
+
+        threshold = datetime.now() - timedelta(hours=ENRICHMENT_CACHE_HOURS)
+
+        for sync_time in row:
+            if sync_time is not None:
+                if isinstance(sync_time, str):
+                    try:
+                        sync_time = datetime.fromisoformat(sync_time)
+                    except ValueError:
+                        continue
+                if sync_time > threshold:
+                    return True
+
+        return False
+
+    def _transform_satnogs_observations(
+        self,
+        satnogs_df: pd.DataFrame,
+        sat_no: int,
+    ) -> pd.DataFrame:
+        """
+        Transform SatNOGS observation data to our database schema.
+
+        SatNOGS provides RF signal detection timing (start/end times)
+        but NOT positional data (RA/Dec). We store the observation
+        timing with observation_type='RF'.
+
+        Args:
+            satnogs_df: DataFrame from SatNOGS API
+            sat_no: NORAD catalog number
+
+        Returns:
+            Transformed DataFrame ready for database insertion
+        """
+        if satnogs_df.empty:
+            return pd.DataFrame()
+
+        records = []
+
+        for _, row in satnogs_df.iterrows():
+            # Generate unique ID for this observation
+            obs_id = f"SATNOGS_{sat_no}_{row.get('id', '')}"
+
+            # Parse observation time
+            ob_time = row.get('start')
+            if isinstance(ob_time, str):
+                try:
+                    ob_time = datetime.fromisoformat(ob_time.replace('Z', '+00:00'))
+                except ValueError:
+                    continue
+
+            records.append({
+                'id': obs_id,
+                'sat_no': sat_no,
+                'ob_time': ob_time,
+                'sensor_name': f"SATNOGS_{row.get('ground_station', 'unknown')}",
+                'data_mode': 'REAL',
+                'observation_type': 'RF',
+                'source_id': 2,  # SATNOGS source ID from data_sources table
+                'is_simulated': False,
+            })
+
+        return pd.DataFrame(records)

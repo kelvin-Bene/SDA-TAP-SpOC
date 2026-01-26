@@ -5,6 +5,11 @@ Provides worker functions for dataset generation and evaluation
 that run in a ThreadPoolExecutor.
 
 Note: Dataset ID is now passed to generateDataset to avoid duplicate creation.
+
+Open source integration:
+- Satellite enrichment from UCS/GCAT before processing
+- Accurate HAMR detection using real mass data
+- Multi-phenomenology (MX) dataset support with SatNOGS RF data
 """
 
 import os
@@ -129,6 +134,69 @@ def run_dataset_generation(
             random.shuffle(available_sats)
             satellites = available_sats[:min(object_count, len(available_sats))]
             logger.info(f"Auto-selected {len(satellites)} satellites: {satellites}")
+
+        # =====================================================================
+        # OPEN SOURCE DATA ENRICHMENT
+        # =====================================================================
+        # Enrich satellites with metadata from UCS/GCAT before processing
+        # This enables accurate HAMR detection using real mass values
+        open_source_config = config.get("open_source", {})
+        enable_enrichment = open_source_config.get("enable_enrichment", True)
+        sensor_mode = open_source_config.get("sensor_mode", "EO")
+
+        if enable_enrichment:
+            try:
+                from uct_benchmark.api.data_source_manager import DataSourceManager
+                from uct_benchmark.database.ingestion import DataIngestionPipeline
+
+                dsm = DataSourceManager(db)
+                pipeline = DataIngestionPipeline(db)
+
+                logger.info(f"Enriching {len(satellites)} satellites with open source data...")
+
+                # Batch enrich satellites (uses cached catalogs for efficiency)
+                enrich_report = dsm.enrich_satellites_batch(
+                    satellites,
+                    force_refresh=False,
+                    progress_callback=lambda cur, tot: logger.debug(f"Enriched {cur}/{tot}"),
+                )
+
+                logger.info(
+                    f"Enrichment complete: {enrich_report.enriched_count} enriched, "
+                    f"{enrich_report.skipped_count} skipped, "
+                    f"{enrich_report.hamr_detected} HAMR objects detected"
+                )
+
+                # Store enrichment stats in dataset metadata
+                if not config.get("generation_params"):
+                    config["generation_params"] = {}
+                config["generation_params"]["enrichment"] = enrich_report.to_dict()
+
+            except ImportError as e:
+                logger.warning(f"Open source integration not available: {e}")
+            except Exception as e:
+                logger.warning(f"Satellite enrichment failed (continuing without): {e}")
+
+        # Handle multi-phenomenology (MX) mode - add RF observations
+        if sensor_mode == "MX":
+            try:
+                from uct_benchmark.database.ingestion import DataIngestionPipeline
+
+                pipeline = DataIngestionPipeline(db)
+                logger.info(f"Fetching SatNOGS RF observations for MX dataset...")
+
+                rf_report = pipeline.ingest_rf_observations(
+                    satellites,
+                    start_time=None,  # Uses default 7-day window
+                    end_time=None,
+                )
+
+                logger.info(
+                    f"RF ingestion: {rf_report.inserted_records} observations added"
+                )
+
+            except Exception as e:
+                logger.warning(f"SatNOGS RF ingestion failed (continuing with EO only): {e}")
 
         timeframe = config.get("timeframe", 7)
         timeunit = config.get("timeunit", "days")
@@ -308,6 +376,26 @@ def run_dataset_generation(
         progress_callback(DatasetStage.PERSISTING_DATABASE, 1.0)
         progress_callback(DatasetStage.FINALIZING, 0.5)
 
+        # =====================================================================
+        # ILRS VALIDATION REFERENCE (for T1H tier datasets)
+        # =====================================================================
+        validation_info = None
+        if tier == "T1H" or tier == "T1":
+            try:
+                from uct_benchmark.evaluation.validationMetrics import get_ilrs_coverage_for_dataset
+
+                validation_info = get_ilrs_coverage_for_dataset(dataset_id, db)
+                if validation_info.get("validation_eligible"):
+                    logger.info(
+                        f"ILRS validation available: {validation_info['ilrs_tracked_count']} "
+                        f"satellites ({validation_info['ilrs_coverage_pct']:.1f}% coverage)"
+                    )
+                else:
+                    logger.info("No ILRS-tracked satellites in this dataset")
+
+            except Exception as e:
+                logger.debug(f"ILRS coverage check failed: {e}")
+
         # Complete the job
         result = {
             "dataset_id": dataset_id,
@@ -315,6 +403,8 @@ def run_dataset_generation(
             "satellite_count": satellite_count,
             "actual_satellites": [int(s) for s in actual_sats] if actual_sats is not None else [],
             "performance": performance_data,
+            "sensor_mode": sensor_mode if 'sensor_mode' in dir() else "EO",
+            "validation_info": validation_info,
         }
 
         # Convert numpy arrays to native Python types for JSON serialization

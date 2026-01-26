@@ -10,11 +10,38 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"  # Added open source data integration tables
 
 # ============================================================
 # SCHEMA CREATION SQL
 # ============================================================
+
+# ============================================================
+# DATA PROVENANCE TRACKING
+# ============================================================
+
+DATA_SOURCES_TABLE = """
+CREATE TABLE IF NOT EXISTS data_sources (
+    id INTEGER PRIMARY KEY,
+    source_name VARCHAR(50) NOT NULL UNIQUE,  -- SATNOGS, GCAT, ILRS, UCS
+    source_type VARCHAR(30),                   -- CATALOG, OBSERVATION, VALIDATION
+    license VARCHAR(50),                       -- CC-BY-SA, CC-BY, PUBLIC_DOMAIN, OPEN
+    api_endpoint VARCHAR(500),
+    last_sync TIMESTAMP,
+    record_count INTEGER DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+DATA_SOURCES_SEED = [
+    (1, 'UDL', 'OBSERVATION', 'RESTRICTED', 'https://unifieddatalibrary.com', 'Primary observation source (authenticated)'),
+    (2, 'SATNOGS', 'OBSERVATION', 'CC-BY-SA', 'https://network.satnogs.org/api', 'RF observations from ground stations'),
+    (3, 'GCAT', 'CATALOG', 'CC-BY', 'https://planet4589.org/space/gcat', 'Space object catalog by J. McDowell'),
+    (4, 'UCS', 'CATALOG', 'OPEN', 'https://www.ucs.org', 'Operational satellite database'),
+    (5, 'ILRS', 'VALIDATION', 'PUBLIC_DOMAIN', 'https://ilrs.gsfc.nasa.gov', 'Laser ranging ground truth'),
+    (6, 'SPACE_TRACK', 'CATALOG', 'RESTRICTED', 'https://space-track.org', 'Official US space catalog'),
+]
 
 SATELLITES_TABLE = """
 CREATE TABLE IF NOT EXISTS satellites (
@@ -33,6 +60,19 @@ CREATE TABLE IF NOT EXISTS satellites (
 
     -- Orbital classification
     orbital_regime VARCHAR(10),           -- LEO, MEO, GEO, HEO
+
+    -- Open source enrichment data (UCS/GCAT)
+    purpose VARCHAR(100),                 -- Communications, Earth Observation, etc.
+    operator VARCHAR(100),                -- Owner/operator organization
+    launch_site VARCHAR(100),             -- Launch facility
+    power_watts DECIMAL(10,2),            -- Power output from UCS
+
+    -- Area-to-mass ratio for HAMR detection
+    amr_m2_kg DECIMAL(12,6),              -- Calculated area-to-mass ratio
+
+    -- Data provenance timestamps
+    ucs_synced_at TIMESTAMP,              -- Last sync with UCS database
+    gcat_synced_at TIMESTAMP,             -- Last sync with GCAT catalog
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -68,6 +108,10 @@ CREATE TABLE IF NOT EXISTS observations (
     -- UCT processing flags
     is_uct BOOLEAN DEFAULT FALSE,
     is_simulated BOOLEAN DEFAULT FALSE,
+
+    -- Data source tracking (open source integration)
+    source_id INTEGER,                    -- References data_sources(id)
+    observation_type VARCHAR(10) DEFAULT 'EO',  -- EO (electro-optical), RF, RADAR
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -339,6 +383,46 @@ CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
 """
 
 # ============================================================
+# VALIDATION MEASUREMENTS (ILRS Ground Truth)
+# ============================================================
+
+VALIDATION_MEASUREMENTS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS validation_measurements_id_seq;
+"""
+
+VALIDATION_MEASUREMENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS validation_measurements (
+    id INTEGER PRIMARY KEY DEFAULT nextval('validation_measurements_id_seq'),
+    sat_no INTEGER NOT NULL,              -- NORAD catalog number
+    epoch TIMESTAMP NOT NULL,             -- Measurement epoch
+
+    -- Range measurement
+    range_m DECIMAL(15,6),                -- Range in meters (mm precision)
+
+    -- Station info
+    station_code VARCHAR(10),             -- ILRS station code (e.g., YARL, GRZL)
+    station_name VARCHAR(100),            -- Full station name
+
+    -- Measurement quality
+    normal_point_rms_m DECIMAL(10,6),     -- Normal point RMS
+    num_returns INTEGER,                   -- Number of laser returns
+
+    -- Data source
+    source VARCHAR(20) DEFAULT 'ILRS',
+
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(sat_no, epoch, station_code)
+);
+"""
+
+VALIDATION_MEASUREMENTS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_val_sat_epoch ON validation_measurements(sat_no, epoch);
+CREATE INDEX IF NOT EXISTS idx_val_station ON validation_measurements(station_code);
+"""
+
+# ============================================================
 # EVENT LABELLING TABLES (Future Implementation)
 # ============================================================
 
@@ -434,9 +518,11 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(EVENTS_SEQUENCE)
     db.execute(SUBMISSIONS_SEQUENCE)
     db.execute(SUBMISSION_RESULTS_SEQUENCE)
+    db.execute(VALIDATION_MEASUREMENTS_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
+    db.execute(DATA_SOURCES_TABLE)  # Provenance tracking
     db.execute(SATELLITES_TABLE)
     db.execute(OBSERVATIONS_TABLE)
     db.execute(OBSERVATIONS_INDEXES)
@@ -448,6 +534,10 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(DATASET_REFERENCES_TABLE)
+
+    # Validation measurements (ILRS ground truth)
+    db.execute(VALIDATION_MEASUREMENTS_TABLE)
+    db.execute(VALIDATION_MEASUREMENTS_INDEXES)
 
     # Submissions and results tables
     db.execute(SUBMISSIONS_TABLE)
@@ -464,8 +554,9 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(EVENTS_TABLE)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
-    # Seed default event types
+    # Seed default data
     _seed_event_types(db)
+    _seed_data_sources(db)
 
     # Store schema version
     db.execute(
@@ -489,10 +580,12 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "dataset_references",
         "dataset_observations",
         "datasets",
+        "validation_measurements",
         "element_sets",
         "state_vectors",
         "observations",
         "satellites",
+        "data_sources",
         "_schema_metadata",
     ]
     for table in tables:
@@ -506,6 +599,7 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "events_id_seq",
         "submissions_id_seq",
         "submission_results_id_seq",
+        "validation_measurements_id_seq",
     ]
     for seq in sequences:
         db.execute(f"DROP SEQUENCE IF EXISTS {seq}")
@@ -522,6 +616,22 @@ def _seed_event_types(db: "DatabaseManager") -> None:
             db.execute(
                 "INSERT INTO event_types (id, name, description) VALUES (?, ?, ?)",
                 (idx, name, description),
+            )
+
+
+def _seed_data_sources(db: "DatabaseManager") -> None:
+    """Seed default data sources if they don't exist."""
+    for source_id, name, source_type, license_type, endpoint, notes in DATA_SOURCES_SEED:
+        existing = db.execute(
+            "SELECT 1 FROM data_sources WHERE source_name = ?", (name,)
+        ).fetchone()
+        if existing is None:
+            db.execute(
+                """
+                INSERT INTO data_sources (id, source_name, source_type, license, api_endpoint, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (source_id, name, source_type, license_type, endpoint, notes),
             )
 
 
@@ -553,6 +663,8 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "event_types",
         "events",
         "event_observations",
+        "data_sources",
+        "validation_measurements",
         "_schema_metadata",
     ]
 
