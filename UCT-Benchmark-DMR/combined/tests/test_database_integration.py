@@ -131,9 +131,10 @@ class TestDatabaseManager:
         # Add some data
         temp_db.satellites.create(sat_no=12345, name="Test Satellite")
 
-        # Create backup
-        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as f:
+        # Create backup - use delete=True to get a temp path without an existing file
+        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=True) as f:
             backup_path = f.name
+        # File is now deleted, DuckDB can create it fresh
 
         try:
             temp_db.backup(backup_path)
@@ -141,7 +142,7 @@ class TestDatabaseManager:
 
             # Verify backup has data
             backup_db = DatabaseManager(db_path=backup_path)
-            sat = backup_db.satellites.get_by_sat_no(12345)
+            sat = backup_db.satellites.get(12345)
             assert sat is not None
             assert sat["name"] == "Test Satellite"
             backup_db.close()
@@ -166,14 +167,14 @@ class TestRepositoryIntegration:
         )
 
         # Read
-        sat = temp_db.satellites.get_by_sat_no(25544)
+        sat = temp_db.satellites.get(25544)
         assert sat is not None
         assert sat["name"] == "ISS"
         assert sat["orbital_regime"] == "LEO"
 
         # Update
         temp_db.satellites.update(25544, name="International Space Station")
-        sat = temp_db.satellites.get_by_sat_no(25544)
+        sat = temp_db.satellites.get(25544)
         assert sat["name"] == "International Space Station"
 
     def test_observation_bulk_insert(self, temp_db, sample_observations):
@@ -216,7 +217,7 @@ class TestRepositoryIntegration:
             assert sv_id is not None
 
         # Verify
-        sv = temp_db.state_vectors.get_latest_for_satellite(25544)
+        sv = temp_db.state_vectors.get_latest(25544)
         assert sv is not None
 
     def test_dataset_workflow(self, temp_db, sample_observations):
@@ -229,19 +230,19 @@ class TestRepositoryIntegration:
         temp_db.observations.bulk_insert(sample_observations)
 
         # Create dataset
-        dataset_id = temp_db.datasets.create(
+        dataset_id = temp_db.datasets.create_dataset(
             name="test_dataset",
-            params={"test": True},
+            generation_params={"test": True},
         )
         assert dataset_id is not None
 
         # Add observations to dataset
         obs_ids = sample_observations["id"].tolist()
         track_assignments = {obs_id: idx % 2 for idx, obs_id in enumerate(obs_ids)}
-        temp_db.datasets.add_observations(dataset_id, obs_ids, track_assignments)
+        temp_db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
 
         # Verify
-        dataset = temp_db.datasets.get_by_id(dataset_id)
+        dataset = temp_db.datasets.get_dataset(dataset_id=dataset_id)
         assert dataset is not None
         assert dataset["name"] == "test_dataset"
 
@@ -269,7 +270,11 @@ class TestDataMigration:
         """Test importing from JSON file."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json_path = f.name
-            data = sample_observations.to_dict(orient="records")
+            # Convert timestamps to ISO strings for JSON serialization
+            obs_copy = sample_observations.copy()
+            for col in obs_copy.select_dtypes(include=["datetime64", "datetime"]).columns:
+                obs_copy[col] = obs_copy[col].dt.strftime("%Y-%m-%dT%H:%M:%S")
+            data = obs_copy.to_dict(orient="records")
             json.dump(data, f)
 
         try:
