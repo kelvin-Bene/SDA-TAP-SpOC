@@ -84,10 +84,13 @@ def simulateObs(
         y = float(y) + np.random.normal(0, positionNoise)
         z = float(z) + np.random.normal(0, positionNoise)
         r = np.linalg.norm([x, y, z])
+        # Guard against division by zero when position vector norm is too small
+        if r < 1e-10:
+            continue
         ra = (float(np.arctan2(y, x) % (2 * np.pi)) * 180.0 / np.pi) + np.random.normal(
             0, angularNoise
         )
-        dec = (float(np.arcsin(z / r)) * 180.0 / np.pi) + np.random.normal(0, angularNoise)
+        dec = (float(np.arcsin(np.clip(z / r, -1.0, 1.0))) * 180.0 / np.pi) + np.random.normal(0, angularNoise)
         rangeVal = np.linalg.norm([x, y, z])  # Range in meters
         # Pick a random sensor to simulate observations for (but keep constant for debugging purposes)
         # Sample sensor every group_size observations

@@ -49,7 +49,7 @@ def populated_db(db: DatabaseManager) -> DatabaseManager:
         """
         INSERT INTO submission_results (
             submission_id, true_positives, false_positives, false_negatives,
-            precision_score, recall_score, f1_score, position_rms_km, velocity_rms_km_s
+            precision, recall, f1_score, position_rms_km, velocity_rms_km_s
         ) VALUES (1, 850, 50, 100, 0.944, 0.895, 0.919, 12.5, 0.025)
         """
     )

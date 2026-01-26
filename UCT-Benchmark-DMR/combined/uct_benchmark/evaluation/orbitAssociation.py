@@ -5,6 +5,7 @@ Created on Mon Jun 16 08:50:35 2025
 @author: Gabriel Lundin
 """
 
+import logging
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -13,6 +14,8 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
 from uct_benchmark.api.apiIntegration import TLEToSV, parseTLE
+
+logger = logging.getLogger(__name__)
 
 
 def _compute_cost_column(
@@ -35,8 +38,12 @@ def _compute_cost_column_TLE(
     # Helper function to compute error between TLEs
     try:
         prop_line1, prop_line2, propagated_states = propagator(truth_line1, truth_line2, est_epochs)
-        deltas = np.vstack(est_states) - np.vstack(propagated_states)
-        errors = np.linalg.norm(deltas, axis=1)
+        # Handle None values in est_states from failed TLE conversions
+        errors = np.full(len(est_states), np.inf)
+        for i, (est_state, prop_state) in enumerate(zip(est_states, propagated_states)):
+            if est_state is not None:
+                delta = np.array(est_state) - np.array(prop_state)
+                errors[i] = np.linalg.norm(delta)
         return j, errors
     except Exception as e:
         print(f"[ERROR] Propagation failed for truth index {j}: {e}")
@@ -101,7 +108,13 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
         est_epochs = [est_epochs[i] for i in sorted_indices]
 
         # Generate state vectors of est TLEs (needed for cost)
-        est_states = [TLEToSV(l1, l2) for l1, l2 in zip(est_line1, est_line2)]
+        est_states = []
+        for idx, (l1, l2) in enumerate(zip(est_line1, est_line2)):
+            try:
+                est_states.append(TLEToSV(l1, l2))
+            except Exception as e:
+                logger.warning(f"TLE conversion failed at index {idx}: {e}")
+                est_states.append(None)
 
         # Initialize cost matrix for assignment [n_est x n_truth]
         cost_matrix = np.zeros((n_est, n_truth))

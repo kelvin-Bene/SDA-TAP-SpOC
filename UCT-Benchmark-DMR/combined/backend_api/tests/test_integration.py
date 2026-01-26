@@ -235,7 +235,7 @@ class TestSubmissionEvaluationFlow:
             """
             INSERT INTO submission_results (
                 submission_id, true_positives, false_positives, false_negatives,
-                precision_score, recall_score, f1_score, position_rms_km, velocity_rms_km_s
+                precision, recall, f1_score, position_rms_km, velocity_rms_km_s
             ) VALUES (?, 80, 10, 10, 0.889, 0.889, 0.889, 15.0, 0.03)
             """,
             (int(submission_id),),
@@ -285,7 +285,7 @@ class TestLeaderboardIntegration:
             """
             INSERT INTO submission_results (
                 submission_id, true_positives, false_positives, false_negatives,
-                precision_score, recall_score, f1_score, position_rms_km, velocity_rms_km_s
+                precision, recall, f1_score, position_rms_km, velocity_rms_km_s
             ) VALUES
                 (1, 90, 5, 5, 0.947, 0.947, 0.947, 10.0, 0.02),
                 (2, 80, 10, 10, 0.889, 0.889, 0.889, 15.0, 0.03),
@@ -333,7 +333,7 @@ class TestLeaderboardIntegration:
             """
             INSERT INTO submission_results (
                 submission_id, true_positives, false_positives, false_negatives,
-                precision_score, recall_score, f1_score, position_rms_km, velocity_rms_km_s
+                precision, recall, f1_score, position_rms_km, velocity_rms_km_s
             ) VALUES
                 (1, 80, 10, 10, 0.889, 0.889, 0.889, 15.0, 0.03),
                 (2, 90, 5, 5, 0.947, 0.947, 0.947, 10.0, 0.02)

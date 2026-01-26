@@ -218,7 +218,7 @@ async def debug_request(request: Request):
         return {"error": str(e), "raw": body.decode()}
 
 
-@router.post("/", response_model=DatasetSummary)
+@router.post("/", response_model=DatasetSummary, status_code=201)
 async def create_dataset(
     request: DatasetCreate,
     db: DatabaseManager = Depends(get_db),
