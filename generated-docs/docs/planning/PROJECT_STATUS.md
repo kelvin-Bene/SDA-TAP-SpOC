@@ -1,5 +1,7 @@
 # Project Status Assessment
 
+> **This is the authoritative source** for project status information. All other documents should reference this file for current progress percentages and component status.
+
 ## Executive Summary
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
