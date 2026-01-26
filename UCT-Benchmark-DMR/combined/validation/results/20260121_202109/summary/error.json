@@ -1,4 +1,0 @@
-{
-  "error": "module 'uct_benchmark.config' has no attribute 'positionNoise'",
-  "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\kelvi\\Desktop\\DMR\\UCT-Benchmark-DMR\\combined\\validation\\run_validation.py\", line 613, in main\n    gap_results = test_gap_analysis(obs_df, tle_df, results_dir)\n  File \"C:\\Users\\kelvi\\Desktop\\DMR\\UCT-Benchmark-DMR\\combined\\validation\\run_validation.py\", line 323, in test_gap_analysis\n    from uct_benchmark.simulation.simulateObservations import epochsToSim\n  File \"C:\\Users\\kelvi\\Desktop\\DMR\\UCT-Benchmark-DMR\\combined\\uct_benchmark\\simulation\\simulateObservations.py\", line 17, in <module>\n    positionNoise=config.positionNoise,\n                  ^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'uct_benchmark.config' has no attribute 'positionNoise'\n"
-}
