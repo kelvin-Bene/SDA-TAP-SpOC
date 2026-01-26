@@ -2,7 +2,7 @@
 
 ## Overview
 
-System configuration is centralized in `uct_benchmark/config.py`. This document explains all configurable parameters and their impacts.
+System configuration is centralized in `uct_benchmark/settings.py`. This document explains all configurable parameters and their impacts.
 
 ---
 
@@ -415,16 +415,16 @@ udl_token = base64.b64encode(credentials.encode()).decode()
 ### Runtime Override
 
 ```python
-import uct_benchmark.config as config
+import uct_benchmark.settings as settings
 
 # Override specific values
-config.lowObsCount = 30
-config.highObsCount = 200
+settings.lowObsCount = 30
+settings.highObsCount = 200
 ```
 
 ### Permanent Changes
 
-Edit `uct_benchmark/config.py` directly and commit changes.
+Edit `uct_benchmark/settings.py` directly and commit changes.
 
 ### Per-Dataset Configuration
 

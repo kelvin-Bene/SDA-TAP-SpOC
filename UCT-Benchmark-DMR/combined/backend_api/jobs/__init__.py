@@ -5,16 +5,17 @@ Provides job tracking, status management, and async execution
 for long-running operations like dataset generation and evaluation.
 """
 
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, List
-import threading
+from typing import Any, Dict, List, Optional
 
 
 class JobStatus(str, Enum):
     """Status of a background job."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -23,6 +24,7 @@ class JobStatus(str, Enum):
 
 class JobType(str, Enum):
     """Type of background job."""
+
     DATASET_GENERATION = "dataset_generation"
     EVALUATION = "evaluation"
 
@@ -30,6 +32,7 @@ class JobType(str, Enum):
 @dataclass
 class Job:
     """Represents a background job."""
+
     id: str
     job_type: JobType
     status: JobStatus = JobStatus.PENDING
@@ -71,11 +74,7 @@ class JobManager:
         self._jobs: Dict[str, Job] = {}
         self._lock = threading.Lock()
 
-    def create_job(
-        self,
-        job_type: JobType,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Job:
+    def create_job(self, job_type: JobType, metadata: Optional[Dict[str, Any]] = None) -> Job:
         """
         Create a new job and add it to the manager.
 
@@ -87,11 +86,7 @@ class JobManager:
             The created Job instance
         """
         job_id = str(uuid.uuid4())
-        job = Job(
-            id=job_id,
-            job_type=job_type,
-            metadata=metadata or {}
-        )
+        job = Job(id=job_id, job_type=job_type, metadata=metadata or {})
 
         with self._lock:
             self._jobs[job_id] = job
@@ -166,20 +161,11 @@ class JobManager:
 
     def complete_job(self, job_id: str, result: Any = None) -> Optional[Job]:
         """Mark a job as completed with an optional result."""
-        return self.update_job(
-            job_id,
-            status=JobStatus.COMPLETED,
-            progress=100,
-            result=result
-        )
+        return self.update_job(job_id, status=JobStatus.COMPLETED, progress=100, result=result)
 
     def fail_job(self, job_id: str, error: str) -> Optional[Job]:
         """Mark a job as failed with an error message."""
-        return self.update_job(
-            job_id,
-            status=JobStatus.FAILED,
-            error=error
-        )
+        return self.update_job(job_id, status=JobStatus.FAILED, error=error)
 
     def list_jobs(
         self,
@@ -229,9 +215,9 @@ class JobManager:
 
         with self._lock:
             to_remove = [
-                job_id for job_id, job in self._jobs.items()
-                if job.created_at < cutoff
-                and job.status in (JobStatus.COMPLETED, JobStatus.FAILED)
+                job_id
+                for job_id, job in self._jobs.items()
+                if job.created_at < cutoff and job.status in (JobStatus.COMPLETED, JobStatus.FAILED)
             ]
             for job_id in to_remove:
                 del self._jobs[job_id]

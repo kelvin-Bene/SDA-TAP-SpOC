@@ -12,26 +12,22 @@ Created for UCT Benchmarking Enhancement.
 """
 
 import json
-import logging
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from uct_benchmark.settings import LoggingConfig, DatasetMetrics
-
+from uct_benchmark.settings import DatasetMetrics, LoggingConfig
 
 # =============================================================================
 # LOGGING SETUP
 # =============================================================================
 
-def setup_logging(
-    config: LoggingConfig = None,
-    run_id: str = None
-) -> Dict[str, Path]:
+
+def setup_logging(config: LoggingConfig = None, run_id: str = None) -> Dict[str, Path]:
     """
     Setup enhanced logging with file handlers.
 
@@ -54,9 +50,9 @@ def setup_logging(
 
     # Define log file paths
     log_paths = {
-        'main': log_dir / f"uctp_{run_id}.log",
-        'api': log_dir / f"api_{run_id}.log",
-        'metrics': log_dir / f"metrics_{run_id}.json",
+        "main": log_dir / f"uctp_{run_id}.log",
+        "api": log_dir / f"api_{run_id}.log",
+        "metrics": log_dir / f"metrics_{run_id}.json",
     }
 
     # Remove default handler
@@ -72,7 +68,7 @@ def setup_logging(
 
     # Add main log file handler
     logger.add(
-        str(log_paths['main']),
+        str(log_paths["main"]),
         level=config.file_level,
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
         rotation=f"{config.rotation_size_mb} MB",
@@ -83,7 +79,7 @@ def setup_logging(
     # Add API-specific log handler
     if config.log_api_calls:
         logger.add(
-            str(log_paths['api']),
+            str(log_paths["api"]),
             level=config.api_level,
             format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {message}",
             filter=lambda record: record["extra"].get("name") == "udl.api",
@@ -105,6 +101,7 @@ def get_api_logger():
 # METRICS COLLECTION
 # =============================================================================
 
+
 class MetricsCollector:
     """Collects and aggregates metrics during dataset generation."""
 
@@ -113,7 +110,7 @@ class MetricsCollector:
         self.start_time = datetime.utcnow()
         self.metrics = DatasetMetrics(
             run_id=self.run_id,
-            start_time=self.start_time.isoformat() + 'Z',
+            start_time=self.start_time.isoformat() + "Z",
         )
         self._api_calls: List[Dict] = []
         self._satellite_stats: Dict[int, Dict] = {}
@@ -125,17 +122,17 @@ class MetricsCollector:
         records: int,
         elapsed_ms: float,
         success: bool = True,
-        error: str = None
+        error: str = None,
     ) -> None:
         """Log an API call."""
         call_record = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'service': service,
-            'params': {k: str(v)[:100] for k, v in params.items()},
-            'records': records,
-            'elapsed_ms': elapsed_ms,
-            'success': success,
-            'error': error,
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": service,
+            "params": {k: str(v)[:100] for k, v in params.items()},
+            "records": records,
+            "elapsed_ms": elapsed_ms,
+            "success": success,
+            "error": error,
         }
         self._api_calls.append(call_record)
 
@@ -152,16 +149,16 @@ class MetricsCollector:
         synthetic_obs: int,
         tier: str,
         coverage: float,
-        max_gap: float
+        max_gap: float,
     ) -> None:
         """Log processing stats for a satellite."""
         self._satellite_stats[sat_no] = {
-            'raw_obs': raw_obs,
-            'final_obs': final_obs,
-            'synthetic_obs': synthetic_obs,
-            'tier': tier,
-            'coverage': coverage,
-            'max_gap': max_gap,
+            "raw_obs": raw_obs,
+            "final_obs": final_obs,
+            "synthetic_obs": synthetic_obs,
+            "tier": tier,
+            "coverage": coverage,
+            "max_gap": max_gap,
         }
 
         self.metrics.satellites_processed += 1
@@ -176,25 +173,25 @@ class MetricsCollector:
 
     def finalize(self, config_hash: str = None) -> DatasetMetrics:
         """Finalize metrics collection."""
-        self.metrics.end_time = datetime.utcnow().isoformat() + 'Z'
+        self.metrics.end_time = datetime.utcnow().isoformat() + "Z"
 
         if config_hash:
             self.metrics.config_hash = config_hash
 
         # Compute coverage stats
         if self._satellite_stats:
-            coverages = [s['coverage'] for s in self._satellite_stats.values()]
-            gaps = [s['max_gap'] for s in self._satellite_stats.values()]
+            coverages = [s["coverage"] for s in self._satellite_stats.values()]
+            gaps = [s["max_gap"] for s in self._satellite_stats.values()]
 
             self.metrics.coverage_stats = {
-                'min': min(coverages),
-                'max': max(coverages),
-                'mean': sum(coverages) / len(coverages),
+                "min": min(coverages),
+                "max": max(coverages),
+                "mean": sum(coverages) / len(coverages),
             }
             self.metrics.gap_stats = {
-                'min': min(gaps),
-                'max': max(gaps),
-                'mean': sum(gaps) / len(gaps),
+                "min": min(gaps),
+                "max": max(gaps),
+                "mean": sum(gaps) / len(gaps),
             }
 
         return self.metrics
@@ -202,34 +199,33 @@ class MetricsCollector:
     def save(self, output_path: Path) -> None:
         """Save metrics to JSON file."""
         metrics_dict = asdict(self.metrics)
-        metrics_dict['api_calls'] = self._api_calls[-100:]  # Keep last 100 calls
-        metrics_dict['satellite_stats'] = self._satellite_stats
+        metrics_dict["api_calls"] = self._api_calls[-100:]  # Keep last 100 calls
+        metrics_dict["satellite_stats"] = self._satellite_stats
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(metrics_dict, f, indent=2, default=str)
 
     def get_summary(self) -> Dict[str, Any]:
         """Get a summary of collected metrics."""
         return {
-            'run_id': self.run_id,
-            'duration_seconds': (
-                datetime.utcnow() - self.start_time
-            ).total_seconds(),
-            'api_calls': self.metrics.total_api_calls,
-            'api_errors': self.metrics.api_errors,
-            'satellites': self.metrics.satellites_processed,
-            'observations': {
-                'raw': self.metrics.observations_raw,
-                'final': self.metrics.observations_final,
-                'synthetic': self.metrics.synthetic_observations,
+            "run_id": self.run_id,
+            "duration_seconds": (datetime.utcnow() - self.start_time).total_seconds(),
+            "api_calls": self.metrics.total_api_calls,
+            "api_errors": self.metrics.api_errors,
+            "satellites": self.metrics.satellites_processed,
+            "observations": {
+                "raw": self.metrics.observations_raw,
+                "final": self.metrics.observations_final,
+                "synthetic": self.metrics.synthetic_observations,
             },
-            'tiers': self.metrics.tier_distribution,
+            "tiers": self.metrics.tier_distribution,
         }
 
 
 # =============================================================================
 # PERFORMANCE TIMING
 # =============================================================================
+
 
 class PerformanceTimer:
     """Context manager for timing operations."""
@@ -252,9 +248,7 @@ class PerformanceTimer:
         if exc_type is None:
             self.logger.info(f"Completed: {self.operation_name} ({elapsed:.2f}s)")
         else:
-            self.logger.error(
-                f"Failed: {self.operation_name} ({elapsed:.2f}s) - {exc_val}"
-            )
+            self.logger.error(f"Failed: {self.operation_name} ({elapsed:.2f}s) - {exc_val}")
 
         return False  # Don't suppress exceptions
 
@@ -267,17 +261,21 @@ class PerformanceTimer:
 
 def timed_operation(operation_name: str):
     """Decorator for timing function execution."""
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             with PerformanceTimer(operation_name):
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # =============================================================================
 # LOG ANALYSIS
 # =============================================================================
+
 
 def parse_api_log(log_path: Path) -> List[Dict]:
     """
@@ -294,18 +292,18 @@ def parse_api_log(log_path: Path) -> List[Dict]:
     if not log_path.exists():
         return records
 
-    with open(log_path, 'r') as f:
+    with open(log_path, "r") as f:
         for line in f:
             try:
                 # Parse timestamp and message
-                parts = line.strip().split(' | ', 1)
+                parts = line.strip().split(" | ", 1)
                 if len(parts) == 2:
                     timestamp, message = parts
 
                     # Try to parse JSON message
-                    if message.startswith('{'):
+                    if message.startswith("{"):
                         record = json.loads(message)
-                        record['timestamp'] = timestamp
+                        record["timestamp"] = timestamp
                         records.append(record)
             except (json.JSONDecodeError, ValueError):
                 continue
@@ -326,41 +324,37 @@ def summarize_api_performance(log_path: Path) -> Dict[str, Any]:
     records = parse_api_log(log_path)
 
     if not records:
-        return {'status': 'no_records'}
+        return {"status": "no_records"}
 
     # Aggregate by service
     service_stats: Dict[str, Dict] = {}
 
     for record in records:
-        service = record.get('service', 'unknown')
+        service = record.get("service", "unknown")
         if service not in service_stats:
             service_stats[service] = {
-                'calls': 0,
-                'records': 0,
-                'total_ms': 0,
-                'errors': 0,
+                "calls": 0,
+                "records": 0,
+                "total_ms": 0,
+                "errors": 0,
             }
 
-        service_stats[service]['calls'] += 1
-        service_stats[service]['records'] += record.get('response_records', 0)
-        service_stats[service]['total_ms'] += record.get('elapsed_ms', 0)
-        if not record.get('success', True):
-            service_stats[service]['errors'] += 1
+        service_stats[service]["calls"] += 1
+        service_stats[service]["records"] += record.get("response_records", 0)
+        service_stats[service]["total_ms"] += record.get("elapsed_ms", 0)
+        if not record.get("success", True):
+            service_stats[service]["errors"] += 1
 
     # Compute averages
     for service in service_stats:
-        calls = service_stats[service]['calls']
+        calls = service_stats[service]["calls"]
         if calls > 0:
-            service_stats[service]['avg_ms'] = (
-                service_stats[service]['total_ms'] / calls
-            )
-            service_stats[service]['avg_records'] = (
-                service_stats[service]['records'] / calls
-            )
+            service_stats[service]["avg_ms"] = service_stats[service]["total_ms"] / calls
+            service_stats[service]["avg_records"] = service_stats[service]["records"] / calls
 
     return {
-        'total_calls': len(records),
-        'by_service': service_stats,
+        "total_calls": len(records),
+        "by_service": service_stats,
     }
 
 

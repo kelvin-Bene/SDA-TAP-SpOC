@@ -5,7 +5,6 @@ Run with: uv run pytest tests/test_database.py -v
 """
 
 import json
-import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -14,30 +13,20 @@ import pandas as pd
 import pytest
 
 # Import directly from submodules to avoid circular import in uct_benchmark.config
-from uct_benchmark.database.connection import DatabaseManager, get_db_path
-from uct_benchmark.database.schema import (
-    initialize_schema,
-    verify_schema,
-    get_schema_version,
-    SCHEMA_VERSION,
-)
-from uct_benchmark.database.repository import (
-    SatelliteRepository,
-    ObservationRepository,
-    StateVectorRepository,
-    ElementSetRepository,
-    DatasetRepository,
-    EventRepository,
+from uct_benchmark.database.connection import DatabaseManager
+from uct_benchmark.database.export import (
+    export_dataset_to_json,
+    export_observations_to_parquet,
+    import_dataset_from_json,
 )
 from uct_benchmark.database.ingestion import (
     DataIngestionPipeline,
     IngestionReport,
-    ValidationError,
 )
-from uct_benchmark.database.export import (
-    export_dataset_to_json,
-    import_dataset_from_json,
-    export_observations_to_parquet,
+from uct_benchmark.database.schema import (
+    SCHEMA_VERSION,
+    get_schema_version,
+    verify_schema,
 )
 
 
@@ -70,15 +59,17 @@ def populated_db(db):
     base_time = datetime(2025, 1, 1, 12, 0, 0)
     obs_data = []
     for i in range(10):
-        obs_data.append({
-            "id": f"obs-{i}",
-            "sat_no": 25544,
-            "ob_time": base_time + timedelta(hours=i),
-            "ra": 100.0 + i,
-            "declination": 45.0 + i * 0.1,
-            "sensor_name": "TEST_SENSOR",
-            "data_mode": "REAL",
-        })
+        obs_data.append(
+            {
+                "id": f"obs-{i}",
+                "sat_no": 25544,
+                "ob_time": base_time + timedelta(hours=i),
+                "ra": 100.0 + i,
+                "declination": 45.0 + i * 0.1,
+                "sensor_name": "TEST_SENSOR",
+                "data_mode": "REAL",
+            }
+        )
 
     obs_df = pd.DataFrame(obs_data)
     db.observations.bulk_insert(obs_df)
@@ -282,15 +273,25 @@ class TestStateVectorRepository:
         epoch2 = datetime(2025, 1, 2, 12, 0, 0)
 
         db.state_vectors.create(
-            sat_no=25544, epoch=epoch1,
-            x_pos=1.0, y_pos=0.0, z_pos=0.0,
-            x_vel=0.0, y_vel=0.0, z_vel=0.0,
+            sat_no=25544,
+            epoch=epoch1,
+            x_pos=1.0,
+            y_pos=0.0,
+            z_pos=0.0,
+            x_vel=0.0,
+            y_vel=0.0,
+            z_vel=0.0,
             source="TEST1",
         )
         db.state_vectors.create(
-            sat_no=25544, epoch=epoch2,
-            x_pos=2.0, y_pos=0.0, z_pos=0.0,
-            x_vel=0.0, y_vel=0.0, z_vel=0.0,
+            sat_no=25544,
+            epoch=epoch2,
+            x_pos=2.0,
+            y_pos=0.0,
+            z_pos=0.0,
+            x_vel=0.0,
+            y_vel=0.0,
+            z_vel=0.0,
             source="TEST2",
         )
 
@@ -361,9 +362,7 @@ class TestDatasetRepository:
     def test_update_dataset(self, db):
         """Test updating a dataset."""
         dataset_id = db.datasets.create_dataset(name="Test Dataset")
-        db.datasets.update_dataset(
-            dataset_id, status="complete", observation_count=100
-        )
+        db.datasets.update_dataset(dataset_id, status="complete", observation_count=100)
 
         dataset = db.datasets.get_dataset(dataset_id=dataset_id)
         assert dataset["status"] == "complete"
@@ -384,9 +383,7 @@ class TestDatasetRepository:
             generation_params={"param1": "value1"},
         )
 
-        child_id = db.datasets.create_version(
-            parent_id, changes={"param2": "value2"}
-        )
+        child_id = db.datasets.create_version(parent_id, changes={"param2": "value2"})
 
         child = db.datasets.get_dataset(dataset_id=child_id)
         assert child is not None
@@ -429,12 +426,8 @@ class TestDatasetRepository:
         ds2_id = populated_db.datasets.create_dataset(name="Dataset 2")
 
         # Add overlapping observations
-        populated_db.datasets.add_observations_to_dataset(
-            ds1_id, [f"obs-{i}" for i in range(5)]
-        )
-        populated_db.datasets.add_observations_to_dataset(
-            ds2_id, [f"obs-{i}" for i in range(3, 8)]
-        )
+        populated_db.datasets.add_observations_to_dataset(ds1_id, [f"obs-{i}" for i in range(5)])
+        populated_db.datasets.add_observations_to_dataset(ds2_id, [f"obs-{i}" for i in range(3, 8)])
 
         comparison = populated_db.datasets.compare_datasets(ds1_id, ds2_id)
         assert comparison["dataset_1"]["observation_count"] == 5
@@ -471,9 +464,7 @@ class TestEventRepository:
         events = populated_db.events.get_events_for_satellite(25544)
         assert len(events) == 2
 
-        maneuvers = populated_db.events.get_events_for_satellite(
-            25544, event_type="maneuver"
-        )
+        maneuvers = populated_db.events.get_events_for_satellite(25544, event_type="maneuver")
         assert len(maneuvers) == 1
 
 
@@ -557,15 +548,11 @@ class TestExportImport:
         )
         obs_ids = [f"obs-{i}" for i in range(5)]
         populated_db.datasets.add_observations_to_dataset(dataset_id, obs_ids)
-        populated_db.datasets.update_dataset(
-            dataset_id, observation_count=5, satellite_count=1
-        )
+        populated_db.datasets.update_dataset(dataset_id, observation_count=5, satellite_count=1)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "test_export.json"
-            result_path = export_dataset_to_json(
-                populated_db, dataset_id, output_path
-            )
+            result_path = export_dataset_to_json(populated_db, dataset_id, output_path)
 
             assert result_path.exists()
 
@@ -620,9 +607,7 @@ class TestExportImport:
         """Test exporting observations to Parquet."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "observations.parquet"
-            result_path = export_observations_to_parquet(
-                populated_db, output_path
-            )
+            result_path = export_observations_to_parquet(populated_db, output_path)
 
             assert result_path.exists()
 

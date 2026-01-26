@@ -6,20 +6,19 @@ submission evaluation results.
 """
 
 import json
-import os
 import tempfile
-import pytest
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 from uct_benchmark.database.connection import DatabaseManager
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def db_with_results():
@@ -52,23 +51,44 @@ def db_with_results():
     )
 
     # Create results with different scores for ranking tests
-    raw_results_1 = json.dumps({
-        "per_satellite": [
-            {"satellite_id": "25544", "status": "TP", "observations_used": 100, "total_observations": 120, "position_error_km": 5.2},
-            {"satellite_id": "25545", "status": "TP", "observations_used": 80, "total_observations": 100, "position_error_km": 3.1},
-        ],
-        "per_track": [{"track_id": 1, "match": True}],
-        "temporal_breakdown": [{"hour": 0, "accuracy": 0.95}],
-        "orbit_plots": [{"x": 1, "y": 2}],
-        "error_distribution": [0.1, 0.2, 0.3],
-        "temporal_analysis": [{"time": "2024-01-01", "error": 0.1}],
-    })
+    raw_results_1 = json.dumps(
+        {
+            "per_satellite": [
+                {
+                    "satellite_id": "25544",
+                    "status": "TP",
+                    "observations_used": 100,
+                    "total_observations": 120,
+                    "position_error_km": 5.2,
+                },
+                {
+                    "satellite_id": "25545",
+                    "status": "TP",
+                    "observations_used": 80,
+                    "total_observations": 100,
+                    "position_error_km": 3.1,
+                },
+            ],
+            "per_track": [{"track_id": 1, "match": True}],
+            "temporal_breakdown": [{"hour": 0, "accuracy": 0.95}],
+            "orbit_plots": [{"x": 1, "y": 2}],
+            "error_distribution": [0.1, 0.2, 0.3],
+            "temporal_analysis": [{"time": "2024-01-01", "error": 0.1}],
+        }
+    )
 
-    raw_results_2 = json.dumps({
-        "per_satellite": [
-            {"satellite_id": "25544", "status": "TP", "observations_used": 90, "total_observations": 100},
-        ],
-    })
+    raw_results_2 = json.dumps(
+        {
+            "per_satellite": [
+                {
+                    "satellite_id": "25544",
+                    "status": "TP",
+                    "observations_used": 90,
+                    "total_observations": 100,
+                },
+            ],
+        }
+    )
 
     db.execute(
         """
@@ -82,7 +102,7 @@ def db_with_results():
             (2, 800, 100, 100, 0.889, 0.889, 0.889, 15.0, 0.030, 1.5, 0.7, 0.8, ?, 30.0),
             (4, 900, 20, 80, 0.978, 0.918, 0.947, 10.0, 0.020, 1.0, 0.4, 0.5, NULL, 60.0)
         """,
-        (raw_results_1, raw_results_2)
+        (raw_results_1, raw_results_2),
     )
 
     yield db
@@ -90,6 +110,7 @@ def db_with_results():
     # Cleanup
     db.close()
     import shutil
+
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -108,10 +129,10 @@ def client_with_results(db_with_results: DatabaseManager) -> TestClient:
     from backend_api.main import app
 
     # Mock the init/close functions to prevent lifespan from changing our db
-    with patch('backend_api.main.init_database', return_value=db_with_results):
-        with patch('backend_api.main.close_database'):
-            with patch('backend_api.main.init_job_manager', return_value=MagicMock()):
-                with patch('backend_api.main.shutdown_executor'):
+    with patch("backend_api.main.init_database", return_value=db_with_results):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
+                with patch("backend_api.main.shutdown_executor"):
                     with TestClient(app) as client:
                         yield client
 
@@ -122,6 +143,7 @@ def client_with_results(db_with_results: DatabaseManager) -> TestClient:
 # =============================================================================
 # GET /api/v1/results/{submission_id} TESTS
 # =============================================================================
+
 
 class TestGetResults:
     """Tests for GET /api/v1/results/{submission_id}."""
@@ -212,6 +234,7 @@ class TestGetResults:
 # GET /api/v1/results/{submission_id}/metrics TESTS
 # =============================================================================
 
+
 class TestGetDetailedMetrics:
     """Tests for GET /api/v1/results/{submission_id}/metrics."""
 
@@ -266,6 +289,7 @@ class TestGetDetailedMetrics:
 # GET /api/v1/results/{submission_id}/visualization TESTS
 # =============================================================================
 
+
 class TestGetVisualizationData:
     """Tests for GET /api/v1/results/{submission_id}/visualization."""
 
@@ -317,6 +341,7 @@ class TestGetVisualizationData:
 # =============================================================================
 # GET /api/v1/results/{submission_id}/export TESTS
 # =============================================================================
+
 
 class TestExportResults:
     """Tests for GET /api/v1/results/{submission_id}/export."""

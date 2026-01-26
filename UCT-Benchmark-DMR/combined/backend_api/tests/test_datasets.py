@@ -4,8 +4,6 @@ Unit tests for the datasets router.
 Run with: uv run pytest backend_api/tests/test_datasets.py -v
 """
 
-import json
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -331,9 +329,7 @@ class TestGetDatasetObservations:
 
     def test_get_observations_pagination(self, populated_test_client: TestClient):
         """Test observation pagination parameters."""
-        response = populated_test_client.get(
-            "/api/v1/datasets/1/observations?limit=10&offset=5"
-        )
+        response = populated_test_client.get("/api/v1/datasets/1/observations?limit=10&offset=5")
         assert response.status_code == 200
 
         data = response.json()

@@ -7,18 +7,19 @@ ranked submissions and statistics.
 
 import shutil
 import tempfile
-import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 from uct_benchmark.database.connection import DatabaseManager
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def db_with_leaderboard_data():
@@ -59,14 +60,20 @@ def db_with_leaderboard_data():
             (7, 1, 'AlgoD', 'v1.0', 'processing', ?, NULL)
         """,
         (
-            now, now,           # submission 1
-            week_ago, week_ago, # submission 2
-            now, now,           # submission 3
-            month_ago, month_ago, # submission 4
-            now, now,           # submission 5
-            week_ago, week_ago, # submission 6
-            now,                # submission 7 (processing)
-        )
+            now,
+            now,  # submission 1
+            week_ago,
+            week_ago,  # submission 2
+            now,
+            now,  # submission 3
+            month_ago,
+            month_ago,  # submission 4
+            now,
+            now,  # submission 5
+            week_ago,
+            week_ago,  # submission 6
+            now,  # submission 7 (processing)
+        ),
     )
 
     # Create results with varying scores
@@ -104,10 +111,10 @@ def client_with_leaderboard(db_with_leaderboard_data) -> TestClient:
 
     from backend_api.main import app
 
-    with patch('backend_api.main.init_database', return_value=db):
-        with patch('backend_api.main.close_database'):
-            with patch('backend_api.main.init_job_manager', return_value=MagicMock()):
-                with patch('backend_api.main.shutdown_executor'):
+    with patch("backend_api.main.init_database", return_value=db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
+                with patch("backend_api.main.shutdown_executor"):
                     with TestClient(app) as client:
                         yield client
 
@@ -141,10 +148,10 @@ def client_empty(empty_db) -> TestClient:
 
     from backend_api.main import app
 
-    with patch('backend_api.main.init_database', return_value=db):
-        with patch('backend_api.main.close_database'):
-            with patch('backend_api.main.init_job_manager', return_value=MagicMock()):
-                with patch('backend_api.main.shutdown_executor'):
+    with patch("backend_api.main.init_database", return_value=db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
+                with patch("backend_api.main.shutdown_executor"):
                     with TestClient(app) as client:
                         yield client
 
@@ -154,6 +161,7 @@ def client_empty(empty_db) -> TestClient:
 # =============================================================================
 # GET /api/v1/leaderboard/ TESTS
 # =============================================================================
+
 
 class TestGetLeaderboard:
     """Tests for GET /api/v1/leaderboard/."""
@@ -273,6 +281,7 @@ class TestGetLeaderboard:
 # GET /api/v1/leaderboard/history TESTS
 # =============================================================================
 
+
 class TestGetLeaderboardHistory:
     """Tests for GET /api/v1/leaderboard/history."""
 
@@ -322,6 +331,7 @@ class TestGetLeaderboardHistory:
 # =============================================================================
 # GET /api/v1/leaderboard/statistics TESTS
 # =============================================================================
+
 
 class TestGetLeaderboardStatistics:
     """Tests for GET /api/v1/leaderboard/statistics."""

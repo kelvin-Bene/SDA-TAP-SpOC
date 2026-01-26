@@ -1,6 +1,5 @@
 """Submission handling endpoints."""
 
-import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +10,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_evaluation
 from backend_api.models import (
-    SubmissionCreate,
     SubmissionDetail,
     SubmissionStatus,
     SubmissionSummary,
@@ -120,7 +118,7 @@ async def get_submission(
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.id = ?
         """,
-        (int(submission_id),)
+        (int(submission_id),),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -173,18 +171,14 @@ async def create_submission(
     """
     # Verify dataset exists and is available
     dataset = db.execute(
-        "SELECT id, status FROM datasets WHERE id = ?",
-        (int(dataset_id),)
+        "SELECT id, status FROM datasets WHERE id = ?", (int(dataset_id),)
     ).fetchone()
 
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     if dataset[1] != "available":
-        raise HTTPException(
-            status_code=400,
-            detail="Dataset is not available for submissions"
-        )
+        raise HTTPException(status_code=400, detail="Dataset is not available for submissions")
 
     # Save uploaded file
     file_id = str(uuid.uuid4())
@@ -196,10 +190,7 @@ async def create_submission(
         with open(file_path, "wb") as f:
             f.write(contents)
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to save uploaded file: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
     # Create submission record using RETURNING to get the ID
     result = db.execute(
@@ -264,8 +255,7 @@ async def upload_results(
     """
     # Verify submission exists
     submission = db.execute(
-        "SELECT id, dataset_id, status FROM submissions WHERE id = ?",
-        (int(submission_id),)
+        "SELECT id, dataset_id, status FROM submissions WHERE id = ?", (int(submission_id),)
     ).fetchone()
 
     if submission is None:
@@ -274,8 +264,7 @@ async def upload_results(
     # Don't allow re-upload if currently processing
     if submission[2] in ("validating", "processing"):
         raise HTTPException(
-            status_code=400,
-            detail="Cannot upload results while submission is being processed"
+            status_code=400, detail="Cannot upload results while submission is being processed"
         )
 
     # Save uploaded file
@@ -288,10 +277,7 @@ async def upload_results(
         with open(file_path, "wb") as f:
             f.write(contents)
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to save uploaded file: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
     # Update submission with new file path and reset status
     db.execute(

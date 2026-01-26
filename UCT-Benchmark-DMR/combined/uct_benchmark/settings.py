@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -28,6 +28,7 @@ FIGURES_DIR = REPORTS_DIR / "figures"
 # https://github.com/Delgan/loguru/issues/135
 try:
     from tqdm import tqdm
+
     # Only remove handler if it exists
     if len(logger._core.handlers) > 0:
         logger.remove(0)
@@ -151,15 +152,15 @@ angularNoise = (1) * arcseconds2radians
 
 # Orbital coverage downsampling
 downsample_coverage_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats to downsample
-downsample_coverage_target = (0.15, 0.05)     # (max, min) orbital coverage threshold
+downsample_coverage_target = (0.15, 0.05)  # (max, min) orbital coverage threshold
 
 # Track gap downsampling
-downsample_gap_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
-downsample_gap_target = 2.0                   # Target max gap (2 orbital periods)
+downsample_gap_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats to downsample
+downsample_gap_target = 2.0  # Target max gap (2 orbital periods)
 
 # Observation count downsampling
-downsample_obs_bounds = (0.3, 0.5, 0.7)       # (min%, target%, max%) of sats to downsample
-downsample_obs_max = 50                       # Max observations per sat per 3 days
+downsample_obs_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of sats to downsample
+downsample_obs_max = 50  # Max observations per sat per 3 days
 
 # Minimum observations to keep per satellite (safety threshold)
 downsample_min_obs = 5
@@ -197,6 +198,7 @@ simulation_min_existing_obs = 3
 
 # --- API Configuration ---
 
+
 @dataclass
 class APIConfig:
     """Configuration for UDL API access and optimization."""
@@ -206,12 +208,14 @@ class APIConfig:
     max_concurrent_requests: int = 10  # Max concurrent async requests
 
     # Batch sizing by orbital regime (timedelta for time window)
-    batch_sizes: Dict[str, timedelta] = field(default_factory=lambda: {
-        'LEO': timedelta(hours=6),    # High obs density
-        'MEO': timedelta(hours=12),   # Medium density
-        'GEO': timedelta(days=1),     # Low density
-        'HEO': timedelta(hours=8),    # Variable density
-    })
+    batch_sizes: Dict[str, timedelta] = field(
+        default_factory=lambda: {
+            "LEO": timedelta(hours=6),  # High obs density
+            "MEO": timedelta(hours=12),  # Medium density
+            "GEO": timedelta(days=1),  # Low density
+            "HEO": timedelta(hours=8),  # Variable density
+        }
+    )
 
     # Count-first thresholds
     count_first_threshold: int = 10000  # Use count endpoint if expected > this
@@ -227,41 +231,50 @@ class APIConfig:
     retry_backoff_factor: float = 2.0
 
     # Available UDL services
-    observation_services: List[str] = field(default_factory=lambda: [
-        'eoobservation',
-        'radarobservation',
-        'rfobservation',
-        'sarobservation',
-        'passiveradarobservation',
-        'gnssobservationset',
-    ])
+    observation_services: List[str] = field(
+        default_factory=lambda: [
+            "eoobservation",
+            "radarobservation",
+            "rfobservation",
+            "sarobservation",
+            "passiveradarobservation",
+            "gnssobservationset",
+        ]
+    )
 
-    state_services: List[str] = field(default_factory=lambda: [
-        'statevector',
-        'elset',
-        'ephemeris',
-        'ephemerisset',
-        'orbitdetermination',
-    ])
+    state_services: List[str] = field(
+        default_factory=lambda: [
+            "statevector",
+            "elset",
+            "ephemeris",
+            "ephemerisset",
+            "orbitdetermination",
+        ]
+    )
 
-    catalog_services: List[str] = field(default_factory=lambda: [
-        'onorbit',
-        'onorbitdetails',
-        'onorbitlist',
-        'onorbitevent',
-        'onorbitassessment',
-    ])
+    catalog_services: List[str] = field(
+        default_factory=lambda: [
+            "onorbit",
+            "onorbitdetails",
+            "onorbitlist",
+            "onorbitevent",
+            "onorbitassessment",
+        ]
+    )
 
-    event_services: List[str] = field(default_factory=lambda: [
-        'conjunction',
-        'maneuver',
-        'launchevent',
-        'launchdetection',
-        'closelyspacedobjects',
-    ])
+    event_services: List[str] = field(
+        default_factory=lambda: [
+            "conjunction",
+            "maneuver",
+            "launchevent",
+            "launchdetection",
+            "closelyspacedobjects",
+        ]
+    )
 
 
 # --- Downsampling Configuration ---
+
 
 @dataclass
 class DownsampleConfig:
@@ -292,42 +305,43 @@ class DownsampleConfig:
 
 # Regime-specific downsampling profiles
 DOWNSAMPLING_PROFILES: Dict[str, Dict] = {
-    'LEO': {
-        'min_coverage_pct': 0.02,       # 2% orbital arc
-        'max_coverage_pct': 0.15,       # 15% orbital arc
-        'min_track_gap_periods': 1.5,   # Gap in orbital periods
-        'max_track_gap_periods': 5.0,
-        'obs_per_track': (3, 10),       # Min/max obs per track
-        'track_duration_periods': 0.1,  # Track spans 10% of period
+    "LEO": {
+        "min_coverage_pct": 0.02,  # 2% orbital arc
+        "max_coverage_pct": 0.15,  # 15% orbital arc
+        "min_track_gap_periods": 1.5,  # Gap in orbital periods
+        "max_track_gap_periods": 5.0,
+        "obs_per_track": (3, 10),  # Min/max obs per track
+        "track_duration_periods": 0.1,  # Track spans 10% of period
     },
-    'MEO': {
-        'min_coverage_pct': 0.03,
-        'max_coverage_pct': 0.20,
-        'min_track_gap_periods': 1.0,
-        'max_track_gap_periods': 3.0,
-        'obs_per_track': (5, 15),
-        'track_duration_periods': 0.15,
+    "MEO": {
+        "min_coverage_pct": 0.03,
+        "max_coverage_pct": 0.20,
+        "min_track_gap_periods": 1.0,
+        "max_track_gap_periods": 3.0,
+        "obs_per_track": (5, 15),
+        "track_duration_periods": 0.15,
     },
-    'GEO': {
-        'min_coverage_pct': 0.05,
-        'max_coverage_pct': 0.30,
-        'min_track_gap_periods': 0.5,
-        'max_track_gap_periods': 2.0,
-        'obs_per_track': (10, 30),
-        'track_duration_periods': 0.25,
+    "GEO": {
+        "min_coverage_pct": 0.05,
+        "max_coverage_pct": 0.30,
+        "min_track_gap_periods": 0.5,
+        "max_track_gap_periods": 2.0,
+        "obs_per_track": (10, 30),
+        "track_duration_periods": 0.25,
     },
-    'HEO': {
-        'min_coverage_pct': 0.01,
-        'max_coverage_pct': 0.10,
-        'min_track_gap_periods': 2.0,
-        'max_track_gap_periods': 8.0,
-        'obs_per_track': (3, 8),
-        'track_duration_periods': 0.05,
+    "HEO": {
+        "min_coverage_pct": 0.01,
+        "max_coverage_pct": 0.10,
+        "min_track_gap_periods": 2.0,
+        "max_track_gap_periods": 8.0,
+        "obs_per_track": (3, 8),
+        "track_duration_periods": 0.05,
     },
 }
 
 
 # --- Simulation Configuration ---
+
 
 @dataclass
 class SimulationConfig:
@@ -337,7 +351,7 @@ class SimulationConfig:
     apply_atmospheric_refraction: bool = True
     apply_velocity_aberration: bool = True
     apply_sensor_noise: bool = True
-    sensor_model: str = 'GEODSS'
+    sensor_model: str = "GEODSS"
 
     # Timing
     timing_noise_ms: float = 1.0
@@ -348,7 +362,7 @@ class SimulationConfig:
 
     # Coverage
     target_coverage_increase: float = 0.5  # 50% more coverage
-    max_synthetic_ratio: float = 0.5       # 50% max synthetic
+    max_synthetic_ratio: float = 0.5  # 50% max synthetic
 
     # Track generation
     obs_per_synthetic_track: int = 5
@@ -363,43 +377,44 @@ class SimulationConfig:
 
 # Sensor-specific noise models
 SENSOR_NOISE_MODELS: Dict[str, Dict] = {
-    'GEODSS': {
-        'angular_noise_arcsec': 0.5,
-        'timing_noise_ms': 1.0,
-        'mag_noise': 0.3,
-        'systematic_bias': {'az': 0.1, 'el': 0.05},
-        'sensor_type': 'optical',
+    "GEODSS": {
+        "angular_noise_arcsec": 0.5,
+        "timing_noise_ms": 1.0,
+        "mag_noise": 0.3,
+        "systematic_bias": {"az": 0.1, "el": 0.05},
+        "sensor_type": "optical",
     },
-    'SBSS': {
-        'angular_noise_arcsec': 0.3,
-        'timing_noise_ms': 0.5,
-        'mag_noise': 0.2,
-        'systematic_bias': {'az': 0.05, 'el': 0.02},
-        'sensor_type': 'optical',
+    "SBSS": {
+        "angular_noise_arcsec": 0.3,
+        "timing_noise_ms": 0.5,
+        "mag_noise": 0.2,
+        "systematic_bias": {"az": 0.05, "el": 0.02},
+        "sensor_type": "optical",
     },
-    'Commercial_EO': {
-        'angular_noise_arcsec': 1.0,
-        'timing_noise_ms': 5.0,
-        'mag_noise': 0.5,
-        'systematic_bias': {'az': 0.2, 'el': 0.1},
-        'sensor_type': 'optical',
+    "Commercial_EO": {
+        "angular_noise_arcsec": 1.0,
+        "timing_noise_ms": 5.0,
+        "mag_noise": 0.5,
+        "systematic_bias": {"az": 0.2, "el": 0.1},
+        "sensor_type": "optical",
     },
-    'Radar': {
-        'range_noise_m': 10.0,
-        'range_rate_noise_m_s': 0.01,
-        'angular_noise_deg': 0.01,
-        'timing_noise_ms': 0.1,
-        'sensor_type': 'radar',
+    "Radar": {
+        "range_noise_m": 10.0,
+        "range_rate_noise_m_s": 0.01,
+        "angular_noise_deg": 0.01,
+        "timing_noise_ms": 0.1,
+        "sensor_type": "radar",
     },
-    'RF': {
-        'angular_noise_deg': 0.1,
-        'timing_noise_ms': 10.0,
-        'sensor_type': 'rf',
+    "RF": {
+        "angular_noise_deg": 0.1,
+        "timing_noise_ms": 10.0,
+        "sensor_type": "rf",
     },
 }
 
 
 # --- Dataset Configuration ---
+
 
 @dataclass
 class DatasetConfig:
@@ -411,8 +426,8 @@ class DatasetConfig:
     description: str = ""
 
     # Satellite selection
-    regimes: List[str] = field(default_factory=lambda: ['LEO'])
-    object_types: List[str] = field(default_factory=lambda: ['NORM'])
+    regimes: List[str] = field(default_factory=lambda: ["LEO"])
+    object_types: List[str] = field(default_factory=lambda: ["NORM"])
     min_observations: int = 50
     target_count: int = 40
 
@@ -421,11 +436,11 @@ class DatasetConfig:
     start_date: Optional[str] = None  # ISO format, None = auto-select
 
     # Data sources
-    primary_source: str = 'eoobservation'
+    primary_source: str = "eoobservation"
     secondary_sources: List[str] = field(default_factory=list)
 
     # Quality targets
-    tier: str = 'T2'
+    tier: str = "T2"
     coverage_min: float = 0.02
     coverage_max: float = 0.10
     track_gap_min_periods: float = 1.5
@@ -439,7 +454,7 @@ class DatasetConfig:
     enable_simulation: bool = False
 
     # Output
-    output_format: str = 'json'
+    output_format: str = "json"
     include_covariance: bool = True
     anonymize: bool = True
 
@@ -449,38 +464,38 @@ class DatasetConfig:
 
 # Enhanced dataset code schema components
 DATASET_CODE_COMPONENTS = {
-    'object_types': {
-        'HAMR': 'High area-to-mass ratio objects',
-        'PROX': 'Proximity operations objects',
-        'NORM': 'Normal (typical) satellites',
-        'DEBR': 'Debris objects',
+    "object_types": {
+        "HAMR": "High area-to-mass ratio objects",
+        "PROX": "Proximity operations objects",
+        "NORM": "Normal (typical) satellites",
+        "DEBR": "Debris objects",
     },
-    'regimes': {
-        'LEO': 'Low Earth Orbit',
-        'MEO': 'Medium Earth Orbit',
-        'GEO': 'Geosynchronous/Geostationary Orbit',
-        'HEO': 'Highly Eccentric Orbit',
-        'ALL': 'All regimes',
+    "regimes": {
+        "LEO": "Low Earth Orbit",
+        "MEO": "Medium Earth Orbit",
+        "GEO": "Geosynchronous/Geostationary Orbit",
+        "HEO": "Highly Eccentric Orbit",
+        "ALL": "All regimes",
     },
-    'events': {
-        'NRM': 'Normal operations',
-        'MAN': 'Maneuver event',
-        'BRK': 'Breakup event',
-        'PRX': 'Proximity event',
+    "events": {
+        "NRM": "Normal operations",
+        "MAN": "Maneuver event",
+        "BRK": "Breakup event",
+        "PRX": "Proximity event",
     },
-    'sensors': {
-        'EO': 'Electro-optical only',
-        'RA': 'Radar only',
-        'RF': 'RF only',
-        'MX': 'Mixed/multi-phenomenology',
+    "sensors": {
+        "EO": "Electro-optical only",
+        "RA": "Radar only",
+        "RF": "RF only",
+        "MX": "Mixed/multi-phenomenology",
     },
-    'quality_tiers': {
-        'T1H': 'Tier 1 High quality',
-        'T1S': 'Tier 1 Standard quality',
-        'T2H': 'Tier 2 High quality',
-        'T2S': 'Tier 2 Standard quality',
-        'T3L': 'Tier 3 Low quality (simulation)',
-        'T4L': 'Tier 4 Low quality (full simulation)',
+    "quality_tiers": {
+        "T1H": "Tier 1 High quality",
+        "T1S": "Tier 1 Standard quality",
+        "T2H": "Tier 2 High quality",
+        "T2S": "Tier 2 Standard quality",
+        "T3L": "Tier 3 Low quality (simulation)",
+        "T4L": "Tier 4 Low quality (full simulation)",
     },
 }
 
@@ -530,6 +545,7 @@ SENSOR_MODE_DESCRIPTIONS = {
 
 # --- Logging Configuration ---
 
+
 @dataclass
 class LoggingConfig:
     """Configuration for enhanced logging."""
@@ -555,6 +571,7 @@ class LoggingConfig:
 
 
 # --- Metrics Collection ---
+
 
 @dataclass
 class DatasetMetrics:

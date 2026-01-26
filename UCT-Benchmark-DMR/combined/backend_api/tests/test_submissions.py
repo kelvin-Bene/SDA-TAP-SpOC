@@ -4,8 +4,6 @@ Unit tests for the submissions router.
 Run with: uv run pytest backend_api/tests/test_submissions.py -v
 """
 
-import io
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

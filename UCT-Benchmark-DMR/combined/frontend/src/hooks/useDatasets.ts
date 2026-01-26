@@ -211,6 +211,21 @@ export function useDownloadDataset() {
   });
 }
 
+export function useDeleteDataset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.deleteDataset(id);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch datasets list
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
+    },
+  });
+}
+
 // Hook for polling job status
 interface JobStatus {
   id: string;

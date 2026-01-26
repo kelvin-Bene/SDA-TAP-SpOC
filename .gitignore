@@ -15,3 +15,56 @@ provided-materials/SDA x SpOC UCT Processing/video*.mp4
 
 # Large PowerPoint files (over 50MB)
 provided-materials/Purdue-branded-powerpoint-template-reduced*.pptx
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+dist/
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+*.local
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+nul
+
+# ===== Project Specific =====
+UCT-Benchmark-DMR/combined/data/
+UCT-Benchmark-DMR/combined/orekit-data-main/
+validation/results/
+*.lock

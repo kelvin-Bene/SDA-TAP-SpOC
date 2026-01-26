@@ -17,27 +17,24 @@ import numpy as np
 
 from uct_benchmark.settings import SENSOR_NOISE_MODELS, SimulationConfig
 
-
 # =============================================================================
 # SENSOR NOISE MODEL CLASSES
 # =============================================================================
 
+
 @dataclass
 class OpticalNoiseModel:
     """Noise model for optical (EO) sensors."""
+
     angular_noise_arcsec: float = 0.5
     timing_noise_ms: float = 1.0
     mag_noise: float = 0.3
     systematic_bias_az: float = 0.0  # arcsec
     systematic_bias_el: float = 0.0  # arcsec
-    sensor_type: str = 'optical'
+    sensor_type: str = "optical"
 
     def apply_noise(
-        self,
-        ra: float,
-        dec: float,
-        obs_time: float,
-        rng: np.random.Generator = None
+        self, ra: float, dec: float, obs_time: float, rng: np.random.Generator = None
     ) -> Tuple[float, float, float]:
         """
         Apply optical sensor noise to measurements.
@@ -75,11 +72,12 @@ class OpticalNoiseModel:
 @dataclass
 class RadarNoiseModel:
     """Noise model for radar sensors."""
+
     range_noise_m: float = 10.0
     range_rate_noise_m_s: float = 0.01
     angular_noise_deg: float = 0.01
     timing_noise_ms: float = 0.1
-    sensor_type: str = 'radar'
+    sensor_type: str = "radar"
 
     def apply_noise(
         self,
@@ -88,7 +86,7 @@ class RadarNoiseModel:
         az: float,
         el: float,
         obs_time: float,
-        rng: np.random.Generator = None
+        rng: np.random.Generator = None,
     ) -> Tuple[float, float, float, float, float]:
         """
         Apply radar sensor noise to measurements.
@@ -127,10 +125,11 @@ class RadarNoiseModel:
 @dataclass
 class RFNoiseModel:
     """Noise model for RF sensors."""
+
     angular_noise_deg: float = 0.1
     timing_noise_ms: float = 10.0
     frequency_noise_hz: float = 100.0
-    sensor_type: str = 'rf'
+    sensor_type: str = "rf"
 
     def apply_noise(
         self,
@@ -138,7 +137,7 @@ class RFNoiseModel:
         el: float,
         obs_time: float,
         frequency_hz: float = None,
-        rng: np.random.Generator = None
+        rng: np.random.Generator = None,
     ) -> Tuple[float, float, float, Optional[float]]:
         """
         Apply RF sensor noise to measurements.
@@ -176,6 +175,7 @@ class RFNoiseModel:
 # SENSOR MODEL FACTORY
 # =============================================================================
 
+
 def get_sensor_noise_model(sensor_name: str) -> object:
     """
     Get the appropriate noise model for a sensor.
@@ -189,38 +189,34 @@ def get_sensor_noise_model(sensor_name: str) -> object:
     # Check if sensor is in predefined models
     if sensor_name in SENSOR_NOISE_MODELS:
         params = SENSOR_NOISE_MODELS[sensor_name]
-        sensor_type = params.get('sensor_type', 'optical')
+        sensor_type = params.get("sensor_type", "optical")
 
-        if sensor_type == 'optical':
+        if sensor_type == "optical":
             return OpticalNoiseModel(
-                angular_noise_arcsec=params.get('angular_noise_arcsec', 0.5),
-                timing_noise_ms=params.get('timing_noise_ms', 1.0),
-                mag_noise=params.get('mag_noise', 0.3),
-                systematic_bias_az=params.get('systematic_bias', {}).get('az', 0.0),
-                systematic_bias_el=params.get('systematic_bias', {}).get('el', 0.0),
+                angular_noise_arcsec=params.get("angular_noise_arcsec", 0.5),
+                timing_noise_ms=params.get("timing_noise_ms", 1.0),
+                mag_noise=params.get("mag_noise", 0.3),
+                systematic_bias_az=params.get("systematic_bias", {}).get("az", 0.0),
+                systematic_bias_el=params.get("systematic_bias", {}).get("el", 0.0),
             )
-        elif sensor_type == 'radar':
+        elif sensor_type == "radar":
             return RadarNoiseModel(
-                range_noise_m=params.get('range_noise_m', 10.0),
-                range_rate_noise_m_s=params.get('range_rate_noise_m_s', 0.01),
-                angular_noise_deg=params.get('angular_noise_deg', 0.01),
-                timing_noise_ms=params.get('timing_noise_ms', 0.1),
+                range_noise_m=params.get("range_noise_m", 10.0),
+                range_rate_noise_m_s=params.get("range_rate_noise_m_s", 0.01),
+                angular_noise_deg=params.get("angular_noise_deg", 0.01),
+                timing_noise_ms=params.get("timing_noise_ms", 0.1),
             )
-        elif sensor_type == 'rf':
+        elif sensor_type == "rf":
             return RFNoiseModel(
-                angular_noise_deg=params.get('angular_noise_deg', 0.1),
-                timing_noise_ms=params.get('timing_noise_ms', 10.0),
+                angular_noise_deg=params.get("angular_noise_deg", 0.1),
+                timing_noise_ms=params.get("timing_noise_ms", 10.0),
             )
 
     # Default to generic optical model
     return OpticalNoiseModel()
 
 
-def apply_sensor_noise(
-    obs_dict: Dict,
-    sensor_name: str,
-    rng: np.random.Generator = None
-) -> Dict:
+def apply_sensor_noise(obs_dict: Dict, sensor_name: str, rng: np.random.Generator = None) -> Dict:
     """
     Apply sensor-specific noise to an observation dictionary.
 
@@ -237,27 +233,27 @@ def apply_sensor_noise(
 
     if isinstance(model, OpticalNoiseModel):
         noisy_ra, noisy_dec, _ = model.apply_noise(
-            obs_dict.get('ra', 0),
-            obs_dict.get('declination', 0),
+            obs_dict.get("ra", 0),
+            obs_dict.get("declination", 0),
             0,  # Time handled separately
-            rng
+            rng,
         )
-        result['ra'] = noisy_ra
-        result['declination'] = noisy_dec
+        result["ra"] = noisy_ra
+        result["declination"] = noisy_dec
 
     elif isinstance(model, RadarNoiseModel):
         noisy_range, noisy_rr, noisy_az, noisy_el, _ = model.apply_noise(
-            obs_dict.get('range', 0),
-            obs_dict.get('rangeRate', 0),
-            obs_dict.get('azimuth', 0),
-            obs_dict.get('elevation', 0),
+            obs_dict.get("range", 0),
+            obs_dict.get("rangeRate", 0),
+            obs_dict.get("azimuth", 0),
+            obs_dict.get("elevation", 0),
             0,
-            rng
+            rng,
         )
-        result['range'] = noisy_range
-        result['rangeRate'] = noisy_rr
-        result['azimuth'] = noisy_az
-        result['elevation'] = noisy_el
+        result["range"] = noisy_range
+        result["rangeRate"] = noisy_rr
+        result["azimuth"] = noisy_az
+        result["elevation"] = noisy_el
 
     return result
 
@@ -266,10 +262,9 @@ def apply_sensor_noise(
 # PHOTOMETRIC SIMULATION
 # =============================================================================
 
+
 def compute_phase_angle(
-    sat_position: np.ndarray,
-    sun_position: np.ndarray,
-    observer_position: np.ndarray
+    sat_position: np.ndarray, sun_position: np.ndarray, observer_position: np.ndarray
 ) -> float:
     """
     Compute the phase angle (Sun-Satellite-Observer angle).
@@ -320,7 +315,7 @@ def simulate_magnitude(
     observer_position: np.ndarray,
     cross_section_m2: float,
     albedo: float = 0.2,
-    elevation_deg: float = 90.0
+    elevation_deg: float = 90.0,
 ) -> float:
     """
     Simulate visual magnitude using phase angle geometry.
@@ -367,12 +362,11 @@ def simulate_magnitude(
     # Reflected power per steradian
     # P_reflected = albedo * cross_section * solar_const / sun_dist_au^2 * phase_func / pi
     reflected_intensity = (
-        albedo * cross_section * solar_const *
-        phase_func / (np.pi * sun_dist_au ** 2)
+        albedo * cross_section * solar_const * phase_func / (np.pi * sun_dist_au**2)
     )
 
     # Intensity at observer (W/m^2)
-    intensity_at_observer = reflected_intensity / (4 * np.pi * range_m ** 2)
+    intensity_at_observer = reflected_intensity / (4 * np.pi * range_m**2)
 
     # Convert to magnitude
     # Sun apparent magnitude = -26.74
@@ -407,8 +401,8 @@ def get_sun_position_approx(obs_datetime) -> np.ndarray:
         Sun position vector in km (ECI frame)
     """
     # Days since J2000 epoch
-    j2000 = np.datetime64('2000-01-01T12:00:00')
-    days_since_j2000 = (np.datetime64(obs_datetime) - j2000) / np.timedelta64(1, 'D')
+    j2000 = np.datetime64("2000-01-01T12:00:00")
+    days_since_j2000 = (np.datetime64(obs_datetime) - j2000) / np.timedelta64(1, "D")
 
     # Mean longitude of the Sun (degrees)
     L = 280.460 + 0.9856474 * days_since_j2000
@@ -429,8 +423,7 @@ def get_sun_position_approx(obs_datetime) -> np.ndarray:
     ecliptic_lon_rad = np.radians(ecliptic_lon)
     obliquity_rad = np.radians(obliquity)
 
-    ra = np.arctan2(np.cos(obliquity_rad) * np.sin(ecliptic_lon_rad),
-                     np.cos(ecliptic_lon_rad))
+    ra = np.arctan2(np.cos(obliquity_rad) * np.sin(ecliptic_lon_rad), np.cos(ecliptic_lon_rad))
     dec = np.arcsin(np.sin(obliquity_rad) * np.sin(ecliptic_lon_rad))
 
     # Distance to Sun (AU) - simplified
@@ -446,9 +439,7 @@ def get_sun_position_approx(obs_datetime) -> np.ndarray:
 
 
 def is_satellite_illuminated(
-    sat_position: np.ndarray,
-    sun_position: np.ndarray,
-    earth_radius_km: float = 6378.137
+    sat_position: np.ndarray, sun_position: np.ndarray, earth_radius_km: float = 6378.137
 ) -> bool:
     """
     Check if satellite is illuminated (not in Earth's shadow).
@@ -484,13 +475,14 @@ def is_satellite_illuminated(
 # COMBINED NOISE APPLICATION
 # =============================================================================
 
+
 def apply_realistic_noise(
     ra: float,
     dec: float,
     obs_time,
-    sensor_name: str = 'GEODSS',
+    sensor_name: str = "GEODSS",
     config: SimulationConfig = None,
-    rng: np.random.Generator = None
+    rng: np.random.Generator = None,
 ) -> Tuple[float, float, float]:
     """
     Apply realistic sensor noise including all effects.
@@ -519,9 +511,7 @@ def apply_realistic_noise(
     model = get_sensor_noise_model(config.sensor_model if config else sensor_name)
 
     if isinstance(model, OpticalNoiseModel):
-        noisy_ra, noisy_dec, timing_offset = model.apply_noise(
-            ra, dec, 0, rng
-        )
+        noisy_ra, noisy_dec, timing_offset = model.apply_noise(ra, dec, 0, rng)
         return noisy_ra, noisy_dec, timing_offset
 
     # Default case

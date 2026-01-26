@@ -10,7 +10,6 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from backend_api.database import get_db
-from backend_api.jobs import get_job_manager
 from backend_api.jobs.workers import submit_dataset_generation
 from backend_api.models import (
     DatasetCreate,
@@ -18,10 +17,10 @@ from backend_api.models import (
     DatasetObservation,
     DatasetStatus,
     DatasetSummary,
-    OrbitalRegime,
     DataTier,
-    SensorType,
+    OrbitalRegime,
     SearchStrategy,
+    SensorType,
 )
 from uct_benchmark.database.connection import DatabaseManager
 
@@ -44,15 +43,11 @@ def validate_dataset_id(dataset_id: str) -> int:
     try:
         id_int = int(dataset_id)
         if id_int <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Dataset ID must be a positive integer"
-            )
+            raise HTTPException(status_code=400, detail="Dataset ID must be a positive integer")
         return id_int
     except ValueError:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid dataset ID: '{dataset_id}' is not a valid integer"
+            status_code=400, detail=f"Invalid dataset ID: '{dataset_id}' is not a valid integer"
         )
 
 
@@ -64,9 +59,11 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
     sensor_types = []
     if row_dict.get("generation_params"):
         try:
-            params = json.loads(row_dict["generation_params"]) if isinstance(
-                row_dict["generation_params"], str
-            ) else row_dict.get("generation_params", {})
+            params = (
+                json.loads(row_dict["generation_params"])
+                if isinstance(row_dict["generation_params"], str)
+                else row_dict.get("generation_params", {})
+            )
             sensor_types = params.get("sensors", ["optical"])
         except (json.JSONDecodeError, TypeError):
             sensor_types = ["optical"]
@@ -155,10 +152,7 @@ async def get_dataset(
         Detailed dataset information including satellites and parameters
     """
     id_int = validate_dataset_id(dataset_id)
-    result = db.execute(
-        "SELECT * FROM datasets WHERE id = ?",
-        (id_int,)
-    )
+    result = db.execute("SELECT * FROM datasets WHERE id = ?", (id_int,))
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
 
@@ -174,9 +168,11 @@ async def get_dataset(
 
     if row_dict.get("generation_params"):
         try:
-            params = json.loads(row_dict["generation_params"]) if isinstance(
-                row_dict["generation_params"], str
-            ) else row_dict.get("generation_params", {})
+            params = (
+                json.loads(row_dict["generation_params"])
+                if isinstance(row_dict["generation_params"], str)
+                else row_dict.get("generation_params", {})
+            )
             satellites = params.get("satIDs", [])
             sensor_types = params.get("sensors", ["optical"])
         except (json.JSONDecodeError, TypeError):
@@ -239,7 +235,9 @@ async def create_dataset(
     Returns:
         The created dataset summary with job_id for tracking progress
     """
-    logger.info(f"Creating dataset with: name={request.name}, regime={request.regime}, tier={request.tier}")
+    logger.info(
+        f"Creating dataset with: name={request.name}, regime={request.regime}, tier={request.tier}"
+    )
     # Prepare generation parameters (name will be set after uniqueness check)
     generation_params = {
         "regime": request.regime.value,
@@ -359,6 +357,7 @@ async def create_dataset(
         if job is not None:
             try:
                 from backend_api.jobs import get_job_manager
+
                 job_manager = get_job_manager()
                 job_manager.fail_job(job.id, "Dataset creation failed, job cancelled")
             except Exception as cancel_error:
@@ -370,8 +369,7 @@ async def create_dataset(
         error_str = str(e).lower()
         if "unique" in error_str or "duplicate" in error_str:
             raise HTTPException(
-                status_code=409,
-                detail="Dataset name conflict occurred. Please try again."
+                status_code=409, detail="Dataset name conflict occurred. Please try again."
             )
 
         raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
@@ -416,8 +414,7 @@ async def get_dataset_observations(
 
     # First verify dataset exists
     dataset_check = db.execute(
-        "SELECT id, observation_count FROM datasets WHERE id = ?",
-        (id_int,)
+        "SELECT id, observation_count FROM datasets WHERE id = ?", (id_int,)
     ).fetchone()
 
     if dataset_check is None:
@@ -427,8 +424,7 @@ async def get_dataset_observations(
 
     # Check for data integrity: observations should be linked during generation
     existing_links = db.execute(
-        "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?",
-        (id_int,)
+        "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?", (id_int,)
     ).fetchone()[0]
 
     if existing_links == 0 and total_count > 0:
@@ -442,7 +438,7 @@ async def get_dataset_observations(
         raise HTTPException(
             status_code=500,
             detail=f"Dataset has corrupted observation links ({total_count} observations expected, "
-                   f"0 linked). Please regenerate this dataset or use the /link-observations endpoint to repair."
+            f"0 linked). Please regenerate this dataset or use the /link-observations endpoint to repair.",
         )
 
     # Query observations linked to this dataset
@@ -464,14 +460,16 @@ async def get_dataset_observations(
     observations = []
     for row in rows:
         row_dict = dict(zip(columns, row))
-        observations.append(DatasetObservation(
-            id=str(row_dict["id"]),
-            ob_time=row_dict["ob_time"],
-            ra=float(row_dict["ra"] or 0),
-            declination=float(row_dict["declination"] or 0),
-            sensor_name=row_dict.get("sensor_name"),
-            track_id=str(row_dict["track_id"]) if row_dict.get("track_id") else None,
-        ))
+        observations.append(
+            DatasetObservation(
+                id=str(row_dict["id"]),
+                ob_time=row_dict["ob_time"],
+                ra=float(row_dict["ra"] or 0),
+                declination=float(row_dict["declination"] or 0),
+                sensor_name=row_dict.get("sensor_name"),
+                track_id=str(row_dict["track_id"]) if row_dict.get("track_id") else None,
+            )
+        )
 
     return {
         "dataset_id": dataset_id,
@@ -495,8 +493,7 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
 
     # Get dataset info
     dataset = db.execute(
-        "SELECT id, name, observation_count FROM datasets WHERE id = ?",
-        (id_int,)
+        "SELECT id, name, observation_count FROM datasets WHERE id = ?", (id_int,)
     ).fetchone()
 
     if dataset is None:
@@ -505,12 +502,14 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
 
     # Check if already linked
     existing_links = db.execute(
-        "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?",
-        (id_int,)
+        "SELECT COUNT(*) FROM dataset_observations WHERE dataset_id = ?", (id_int,)
     ).fetchone()[0]
 
     if existing_links > 0:
-        return {"message": f"Dataset already has {existing_links} linked observations", "linked": existing_links}
+        return {
+            "message": f"Dataset already has {existing_links} linked observations",
+            "linked": existing_links,
+        }
 
     # Get recent observations that match the dataset's time window
     # Since we don't have explicit time window, link the most recent observations
@@ -525,7 +524,7 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
         ORDER BY created_at DESC
         LIMIT ?
         """,
-        (obs_count,)
+        (obs_count,),
     )
     obs_ids = [row[0] for row in result.fetchall()]
 
@@ -536,7 +535,10 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
     try:
         db.datasets.add_observations_to_dataset(id_int, obs_ids)
         logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
-        return {"message": f"Successfully linked {len(obs_ids)} observations", "linked": len(obs_ids)}
+        return {
+            "message": f"Successfully linked {len(obs_ids)} observations",
+            "linked": len(obs_ids),
+        }
     except Exception as e:
         logger.error(f"Failed to link observations: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to link observations: {str(e)}")
@@ -564,10 +566,7 @@ async def update_dataset_coverage(
     if not 0 <= coverage <= 1:
         raise HTTPException(status_code=400, detail="Coverage must be between 0 and 1")
 
-    result = db.execute(
-        "SELECT id, name FROM datasets WHERE id = ?",
-        (id_int,)
-    )
+    result = db.execute("SELECT id, name FROM datasets WHERE id = ?", (id_int,))
     row = result.fetchone()
 
     if row is None:
@@ -599,10 +598,7 @@ async def delete_dataset(
     id_int = validate_dataset_id(dataset_id)
 
     # Check dataset exists
-    result = db.execute(
-        "SELECT id, name FROM datasets WHERE id = ?",
-        (id_int,)
-    )
+    result = db.execute("SELECT id, name FROM datasets WHERE id = ?", (id_int,))
     row = result.fetchone()
 
     if row is None:
@@ -611,16 +607,10 @@ async def delete_dataset(
     dataset_name = row[1]
 
     # Delete associated observations first
-    db.execute(
-        "DELETE FROM dataset_observations WHERE dataset_id = ?",
-        (id_int,)
-    )
+    db.execute("DELETE FROM dataset_observations WHERE dataset_id = ?", (id_int,))
 
     # Delete the dataset
-    db.execute(
-        "DELETE FROM datasets WHERE id = ?",
-        (id_int,)
-    )
+    db.execute("DELETE FROM datasets WHERE id = ?", (id_int,))
 
     return {"message": f"Dataset '{dataset_name}' (ID: {dataset_id}) deleted successfully"}
 
@@ -643,10 +633,7 @@ async def download_dataset(
     id_int = validate_dataset_id(dataset_id)
 
     # Get dataset info
-    result = db.execute(
-        "SELECT * FROM datasets WHERE id = ?",
-        (id_int,)
-    )
+    result = db.execute("SELECT * FROM datasets WHERE id = ?", (id_int,))
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
 
@@ -656,10 +643,7 @@ async def download_dataset(
     row_dict = dict(zip(columns, row))
 
     if row_dict.get("status") != "available":
-        raise HTTPException(
-            status_code=400,
-            detail="Dataset is not available for download"
-        )
+        raise HTTPException(status_code=400, detail="Dataset is not available for download")
 
     # Get observations
     obs_result = db.execute(
@@ -681,9 +665,11 @@ async def download_dataset(
         obs_dict = dict(zip(obs_columns, obs_row))
         # Convert datetime to string for JSON
         if obs_dict.get("ob_time"):
-            obs_dict["ob_time"] = obs_dict["ob_time"].isoformat() if hasattr(
-                obs_dict["ob_time"], "isoformat"
-            ) else str(obs_dict["ob_time"])
+            obs_dict["ob_time"] = (
+                obs_dict["ob_time"].isoformat()
+                if hasattr(obs_dict["ob_time"], "isoformat")
+                else str(obs_dict["ob_time"])
+            )
         observations.append(obs_dict)
 
     # Build export data
@@ -703,7 +689,5 @@ async def download_dataset(
     return JSONResponse(
         content=export_data,
         media_type="application/json",
-        headers={
-            "Content-Disposition": f'attachment; filename="{row_dict["name"]}.json"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{row_dict["name"]}.json"'},
     )

@@ -11,19 +11,19 @@ This module provides REST endpoints for:
 Note: Auto-links observations when retrieving dataset observations.
 """
 
-from contextlib import asynccontextmanager
 import json
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from .database import init_database, close_database
+from .database import close_database, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
-from .routers import datasets, submissions, results, leaderboard, jobs
+from .routers import datasets, jobs, leaderboard, results, submissions
 
 
 @asynccontextmanager
@@ -79,6 +79,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": exc.errors()},
     )
+
 
 # Configure CORS for frontend development
 app.add_middleware(

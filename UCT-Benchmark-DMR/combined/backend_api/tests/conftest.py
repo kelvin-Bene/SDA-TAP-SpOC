@@ -1,8 +1,6 @@
 """Shared test fixtures for backend API tests."""
 
 import json
-import tempfile
-from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
@@ -62,8 +60,8 @@ def populated_db(db: DatabaseManager) -> DatabaseManager:
 @pytest.fixture
 def test_client(db: DatabaseManager) -> Generator[TestClient, None, None]:
     """Create a test client with mocked database dependency."""
-    from backend_api.main import app
     from backend_api.database import get_db
+    from backend_api.main import app
 
     def override_get_db():
         return db
@@ -79,8 +77,8 @@ def test_client(db: DatabaseManager) -> Generator[TestClient, None, None]:
 @pytest.fixture
 def populated_test_client(populated_db: DatabaseManager) -> Generator[TestClient, None, None]:
     """Create a test client with mocked database containing sample data."""
-    from backend_api.main import app
     from backend_api.database import get_db
+    from backend_api.main import app
 
     def override_get_db():
         return populated_db
@@ -120,7 +118,7 @@ def sample_submission_file(tmp_path: Path) -> Path:
             {"observation_id": "obs-1", "track_id": 1, "confidence": 0.95},
             {"observation_id": "obs-2", "track_id": 1, "confidence": 0.90},
             {"observation_id": "obs-3", "track_id": 2, "confidence": 0.85},
-        ]
+        ],
     }
     file_path.write_text(json.dumps(submission_data))
     return file_path

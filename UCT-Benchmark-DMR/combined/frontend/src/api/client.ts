@@ -55,6 +55,9 @@ export const api = {
   getDatasetObservations: (id: string, params?: { limit?: number; offset?: number }) =>
     apiClient.get(`/datasets/${id}/observations/`, { params }),
 
+  deleteDataset: (id: string) =>
+    apiClient.delete(`/datasets/${id}`),
+
   // Submissions
   getSubmissions: (params?: Record<string, string>) =>
     apiClient.get('/submissions/', { params }),

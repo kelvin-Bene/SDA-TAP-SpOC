@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from backend_api.jobs import get_job_manager, JobStatus
+from backend_api.jobs import JobStatus, get_job_manager
 from backend_api.models import JobResponse, JobStatusEnum
 
 router = APIRouter()

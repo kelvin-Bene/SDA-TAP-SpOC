@@ -2,6 +2,30 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [1.2.0] - 2026-01-25
+
+### Added
+
+#### Dataset Management
+- **Dataset Deletion** (`c8346b5`): Added ability to delete datasets from the system
+- **Future Date Prevention** (`4f5913c`): Prevent dataset generation with dates in the future
+
+#### Bug Fixes
+- **INT32 Overflow Fix** (`030ac86`): Fixed INT32 overflow and NaN values in trackId database persistence
+
+#### UI Improvements
+- **Professional Redesign** (`49248db`): Redesigned frontend with professional space-themed UI
+  - Dark theme optimized for satellite tracking domain
+  - Improved navigation and user experience
+  - Better data visualization components
+
+### Changed
+- Updated documentation to match actual implementation status
+- Fixed Python version requirement references (now 3.12+)
+- Corrected configuration file references (`settings.py` instead of `config.py`)
+
+---
+
 ## [1.1.0] - 2026-01-19
 
 ### Added

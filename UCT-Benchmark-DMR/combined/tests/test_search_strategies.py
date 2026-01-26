@@ -18,8 +18,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from backend_api.models import SearchStrategy, DatasetCreate
-
+from backend_api.models import DatasetCreate, SearchStrategy
 
 # ============================================================
 # FIXTURES
@@ -29,19 +28,21 @@ from backend_api.models import SearchStrategy, DatasetCreate
 @pytest.fixture
 def mock_udl_response():
     """Create a mock UDL API response DataFrame."""
-    return pd.DataFrame({
-        'id': ['obs-1', 'obs-2', 'obs-3', 'obs-4', 'obs-5'],
-        'satNo': [25544, 25544, 25544, 28654, 28654],
-        'obTime': [
-            '2025-01-01T00:00:00Z',
-            '2025-01-01T00:05:00Z',
-            '2025-01-01T00:10:00Z',
-            '2025-01-01T00:02:00Z',
-            '2025-01-01T00:07:00Z',
-        ],
-        'ra': [123.45, 123.50, 123.55, 200.00, 200.10],
-        'declination': [45.0, 45.1, 45.2, -30.0, -30.1],
-    })
+    return pd.DataFrame(
+        {
+            "id": ["obs-1", "obs-2", "obs-3", "obs-4", "obs-5"],
+            "satNo": [25544, 25544, 25544, 28654, 28654],
+            "obTime": [
+                "2025-01-01T00:00:00Z",
+                "2025-01-01T00:05:00Z",
+                "2025-01-01T00:10:00Z",
+                "2025-01-01T00:02:00Z",
+                "2025-01-01T00:07:00Z",
+            ],
+            "ra": [123.45, 123.50, 123.55, 200.00, 200.10],
+            "declination": [45.0, 45.1, 45.2, -30.0, -30.1],
+        }
+    )
 
 
 @pytest.fixture
@@ -171,10 +172,8 @@ class TestDatasetCreateModel:
 class TestFastStrategy:
     """Tests for the _fetch_observations_fast function."""
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
-    def test_fast_strategy_single_query_per_satellite(
-        self, mock_batch_query, mock_udl_response
-    ):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_fast_strategy_single_query_per_satellite(self, mock_batch_query, mock_udl_response):
         """Test that FAST strategy makes one query per satellite."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_fast
 
@@ -200,7 +199,7 @@ class TestFastStrategy:
         assert params_list[0]["satNo"] == "25544"
         assert params_list[1]["satNo"] == "28654"
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
     def test_fast_strategy_returns_dataframe(self, mock_batch_query, mock_udl_response):
         """Test that FAST strategy returns a valid DataFrame."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_fast
@@ -217,10 +216,10 @@ class TestFastStrategy:
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 5
-        assert 'satNo' in result.columns
-        assert 'obTime' in result.columns
+        assert "satNo" in result.columns
+        assert "obTime" in result.columns
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
     def test_fast_strategy_with_max_datapoints(self, mock_batch_query, mock_udl_response):
         """Test that FAST strategy respects max_datapoints parameter."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_fast
@@ -239,7 +238,7 @@ class TestFastStrategy:
         params_list = mock_batch_query.call_args[0][2]
         assert params_list[0]["maxResults"] == 100
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
     def test_fast_strategy_no_max_datapoints(self, mock_batch_query, mock_udl_response):
         """Test that FAST strategy excludes maxResults when max_datapoints <= 0."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_fast
@@ -257,7 +256,7 @@ class TestFastStrategy:
         params_list = mock_batch_query.call_args[0][2]
         assert "maxResults" not in params_list[0]
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
     def test_fast_strategy_correct_service(self, mock_batch_query, mock_udl_response):
         """Test that FAST strategy queries the correct UDL service."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_fast
@@ -285,8 +284,8 @@ class TestFastStrategy:
 class TestWindowedStrategy:
     """Tests for the _fetch_observations_windowed function."""
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_windowed_strategy_creates_time_windows(
         self, mock_sleep, mock_query, mock_udl_response
     ):
@@ -310,13 +309,13 @@ class TestWindowedStrategy:
         # Should make 3 queries (0-10, 10-20, 20-30 minutes)
         assert mock_query.call_count == 3
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_windowed_strategy_uses_regime_range_filter(
         self, mock_sleep, mock_query, mock_udl_response
     ):
         """Test that each window query uses range filter based on regime."""
-        from uct_benchmark.api.apiIntegration import _fetch_observations_windowed, REGIME_RANGES
+        from uct_benchmark.api.apiIntegration import REGIME_RANGES, _fetch_observations_windowed
 
         mock_query.return_value = mock_udl_response
 
@@ -341,25 +340,27 @@ class TestWindowedStrategy:
         assert params["range"] == REGIME_RANGES["LEO"]
         assert "satNo" not in params  # Should NOT use satNo
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_windowed_strategy_concatenates_results(
-        self, mock_sleep, mock_query
-    ):
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_windowed_strategy_concatenates_results(self, mock_sleep, mock_query):
         """Test that WINDOWED strategy concatenates results from all windows."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
         # Return different data for each window
-        window1_data = pd.DataFrame({
-            'id': ['obs-1', 'obs-2'],
-            'satNo': [25544, 25544],
-            'obTime': ['2025-01-01T00:00:00Z', '2025-01-01T00:05:00Z'],
-        })
-        window2_data = pd.DataFrame({
-            'id': ['obs-3', 'obs-4'],
-            'satNo': [25544, 28654],
-            'obTime': ['2025-01-01T00:10:00Z', '2025-01-01T00:15:00Z'],
-        })
+        window1_data = pd.DataFrame(
+            {
+                "id": ["obs-1", "obs-2"],
+                "satNo": [25544, 25544],
+                "obTime": ["2025-01-01T00:00:00Z", "2025-01-01T00:05:00Z"],
+            }
+        )
+        window2_data = pd.DataFrame(
+            {
+                "id": ["obs-3", "obs-4"],
+                "satNo": [25544, 28654],
+                "obTime": ["2025-01-01T00:10:00Z", "2025-01-01T00:15:00Z"],
+            }
+        )
 
         mock_query.side_effect = [window1_data, window2_data]
 
@@ -377,11 +378,11 @@ class TestWindowedStrategy:
 
         # Should have 4 observations total
         assert len(result) == 4
-        assert 'obs-1' in result['id'].values
-        assert 'obs-4' in result['id'].values
+        assert "obs-1" in result["id"].values
+        assert "obs-4" in result["id"].values
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_windowed_strategy_handles_empty_windows(
         self, mock_sleep, mock_query, mock_udl_response
     ):
@@ -406,8 +407,8 @@ class TestWindowedStrategy:
         # Should only have data from first window
         assert len(result) == 5
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_windowed_strategy_respects_rate_limiting(
         self, mock_sleep, mock_query, mock_udl_response
     ):
@@ -432,11 +433,9 @@ class TestWindowedStrategy:
         assert mock_sleep.call_count == 3
         mock_sleep.assert_called_with(0.5)
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_windowed_strategy_progress_callback(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_windowed_strategy_progress_callback(self, mock_sleep, mock_query, mock_udl_response):
         """Test that WINDOWED strategy reports progress via callback."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
@@ -464,8 +463,8 @@ class TestWindowedStrategy:
         # Should report progress for each window (3 times)
         assert progress_callback.call_count == 3
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_windowed_strategy_different_window_sizes(
         self, mock_sleep, mock_query, mock_udl_response
     ):
@@ -489,13 +488,11 @@ class TestWindowedStrategy:
 
         assert mock_query.call_count == 4
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_windowed_strategy_different_regimes(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_windowed_strategy_different_regimes(self, mock_sleep, mock_query, mock_udl_response):
         """Test WINDOWED strategy uses correct range for different regimes."""
-        from uct_benchmark.api.apiIntegration import _fetch_observations_windowed, REGIME_RANGES
+        from uct_benchmark.api.apiIntegration import REGIME_RANGES, _fetch_observations_windowed
 
         mock_query.return_value = mock_udl_response
 
@@ -503,7 +500,7 @@ class TestWindowedStrategy:
         end_time = datetime.datetime(2025, 1, 1, 0, 10, 0)
 
         # Test each regime
-        for regime in ['LEO', 'MEO', 'GEO', 'HEO']:
+        for regime in ["LEO", "MEO", "GEO", "HEO"]:
             mock_query.reset_mock()
             _fetch_observations_windowed(
                 token="test_token",
@@ -527,8 +524,8 @@ class TestWindowedStrategy:
 class TestHybridStrategy:
     """Tests for the _fetch_observations_hybrid function."""
 
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_hybrid_strategy_uses_smart_query(
         self, mock_sleep, mock_smart_query, mock_udl_response
     ):
@@ -553,24 +550,26 @@ class TestHybridStrategy:
         # Should call smart_query once per satellite
         assert mock_smart_query.call_count == 2
 
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_hybrid_strategy_concatenates_satellite_results(
-        self, mock_sleep, mock_smart_query
-    ):
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_hybrid_strategy_concatenates_satellite_results(self, mock_sleep, mock_smart_query):
         """Test that HYBRID strategy concatenates results from all satellites."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_hybrid
 
-        sat1_data = pd.DataFrame({
-            'id': ['obs-1', 'obs-2'],
-            'satNo': [25544, 25544],
-            'obTime': ['2025-01-01T00:00:00Z', '2025-01-01T00:05:00Z'],
-        })
-        sat2_data = pd.DataFrame({
-            'id': ['obs-3'],
-            'satNo': [28654],
-            'obTime': ['2025-01-01T00:02:00Z'],
-        })
+        sat1_data = pd.DataFrame(
+            {
+                "id": ["obs-1", "obs-2"],
+                "satNo": [25544, 25544],
+                "obTime": ["2025-01-01T00:00:00Z", "2025-01-01T00:05:00Z"],
+            }
+        )
+        sat2_data = pd.DataFrame(
+            {
+                "id": ["obs-3"],
+                "satNo": [28654],
+                "obTime": ["2025-01-01T00:02:00Z"],
+            }
+        )
 
         mock_smart_query.side_effect = [sat1_data, sat2_data]
 
@@ -588,10 +587,10 @@ class TestHybridStrategy:
         )
 
         assert len(result) == 3
-        assert set(result['satNo'].unique()) == {25544, 28654}
+        assert set(result["satNo"].unique()) == {25544, 28654}
 
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_hybrid_strategy_handles_failed_queries(
         self, mock_sleep, mock_smart_query, mock_udl_response
     ):
@@ -617,8 +616,8 @@ class TestHybridStrategy:
         # Should still return data from successful query
         assert len(result) == 5
 
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_hybrid_strategy_progress_callback(
         self, mock_sleep, mock_smart_query, mock_udl_response
     ):
@@ -652,10 +651,10 @@ class TestHybridStrategy:
         # Check progress values increase
         calls = progress_callback.call_args_list
         progress_values = [call[0][1] for call in calls]
-        assert progress_values == [pytest.approx(1/3), pytest.approx(2/3), pytest.approx(1.0)]
+        assert progress_values == [pytest.approx(1 / 3), pytest.approx(2 / 3), pytest.approx(1.0)]
 
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_hybrid_strategy_with_max_datapoints(
         self, mock_sleep, mock_smart_query, mock_udl_response
     ):
@@ -691,10 +690,10 @@ class TestHybridStrategy:
 class TestGenerateDatasetStrategyIntegration:
     """Tests for generateDataset function using different strategies."""
 
-    @patch('uct_benchmark.api.apiIntegration._fetch_observations_fast')
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.discoswebQuery')
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_fast")
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.discoswebQuery")
     def test_generate_dataset_uses_fast_strategy(
         self,
         mock_discos,
@@ -708,18 +707,28 @@ class TestGenerateDatasetStrategyIntegration:
 
         # Setup mock returns
         mock_fast.return_value = mock_udl_response
-        mock_batch_query.return_value = pd.DataFrame({
-            'satNo': [25544],
-            'epoch': ['2025-01-01T00:00:00Z'],
-            'x': [6800], 'y': [0], 'z': [0],
-            'xDot': [0], 'yDot': [7.5], 'zDot': [0],
-        })
-        mock_udl_query.return_value = pd.DataFrame({
-            'satNo': [25544],
-            'line1': ['1 25544U 98067A   25001.00000000  .00000000  00000-0  00000-0 0  9991'],
-            'line2': ['2 25544  51.6400 000.0000 0000001 000.0000 000.0000 15.50000000000000'],
-        })
-        mock_discos.return_value = {'attributes': [{'satno': 25544, 'mass': 400000, 'xSectAvg': 100}]}
+        mock_batch_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "epoch": ["2025-01-01T00:00:00Z"],
+                "x": [6800],
+                "y": [0],
+                "z": [0],
+                "xDot": [0],
+                "yDot": [7.5],
+                "zDot": [0],
+            }
+        )
+        mock_udl_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "line1": ["1 25544U 98067A   25001.00000000  .00000000  00000-0  00000-0 0  9991"],
+                "line2": ["2 25544  51.6400 000.0000 0000001 000.0000 000.0000 15.50000000000000"],
+            }
+        )
+        mock_discos.return_value = {
+            "attributes": [{"satno": 25544, "mass": 400000, "xSectAvg": 100}]
+        }
 
         try:
             generateDataset(
@@ -735,10 +744,10 @@ class TestGenerateDatasetStrategyIntegration:
 
         mock_fast.assert_called_once()
 
-    @patch('uct_benchmark.api.apiIntegration._fetch_observations_windowed')
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.discoswebQuery')
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_windowed")
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.discoswebQuery")
     def test_generate_dataset_uses_windowed_strategy(
         self,
         mock_discos,
@@ -751,18 +760,28 @@ class TestGenerateDatasetStrategyIntegration:
         from uct_benchmark.api.apiIntegration import generateDataset
 
         mock_windowed.return_value = mock_udl_response
-        mock_batch_query.return_value = pd.DataFrame({
-            'satNo': [25544],
-            'epoch': ['2025-01-01T00:00:00Z'],
-            'x': [6800], 'y': [0], 'z': [0],
-            'xDot': [0], 'yDot': [7.5], 'zDot': [0],
-        })
-        mock_udl_query.return_value = pd.DataFrame({
-            'satNo': [25544],
-            'line1': ['1 25544U 98067A   25001.00000000  .00000000  00000-0  00000-0 0  9991'],
-            'line2': ['2 25544  51.6400 000.0000 0000001 000.0000 000.0000 15.50000000000000'],
-        })
-        mock_discos.return_value = {'attributes': [{'satno': 25544, 'mass': 400000, 'xSectAvg': 100}]}
+        mock_batch_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "epoch": ["2025-01-01T00:00:00Z"],
+                "x": [6800],
+                "y": [0],
+                "z": [0],
+                "xDot": [0],
+                "yDot": [7.5],
+                "zDot": [0],
+            }
+        )
+        mock_udl_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "line1": ["1 25544U 98067A   25001.00000000  .00000000  00000-0  00000-0 0  9991"],
+                "line2": ["2 25544  51.6400 000.0000 0000001 000.0000 000.0000 15.50000000000000"],
+            }
+        )
+        mock_discos.return_value = {
+            "attributes": [{"satno": 25544, "mass": 400000, "xSectAvg": 100}]
+        }
 
         try:
             generateDataset(
@@ -782,10 +801,10 @@ class TestGenerateDatasetStrategyIntegration:
         call_kwargs = mock_windowed.call_args
         assert call_kwargs[0][4] == 15  # window_size_minutes is 5th arg
 
-    @patch('uct_benchmark.api.apiIntegration._fetch_observations_hybrid')
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.discoswebQuery')
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_hybrid")
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.discoswebQuery")
     def test_generate_dataset_uses_hybrid_by_default(
         self,
         mock_discos,
@@ -798,18 +817,28 @@ class TestGenerateDatasetStrategyIntegration:
         from uct_benchmark.api.apiIntegration import generateDataset
 
         mock_hybrid.return_value = mock_udl_response
-        mock_batch_query.return_value = pd.DataFrame({
-            'satNo': [25544],
-            'epoch': ['2025-01-01T00:00:00Z'],
-            'x': [6800], 'y': [0], 'z': [0],
-            'xDot': [0], 'yDot': [7.5], 'zDot': [0],
-        })
-        mock_udl_query.return_value = pd.DataFrame({
-            'satNo': [25544],
-            'line1': ['1 25544U 98067A   25001.00000000  .00000000  00000-0  00000-0 0  9991'],
-            'line2': ['2 25544  51.6400 000.0000 0000001 000.0000 000.0000 15.50000000000000'],
-        })
-        mock_discos.return_value = {'attributes': [{'satno': 25544, 'mass': 400000, 'xSectAvg': 100}]}
+        mock_batch_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "epoch": ["2025-01-01T00:00:00Z"],
+                "x": [6800],
+                "y": [0],
+                "z": [0],
+                "xDot": [0],
+                "yDot": [7.5],
+                "zDot": [0],
+            }
+        )
+        mock_udl_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "line1": ["1 25544U 98067A   25001.00000000  .00000000  00000-0  00000-0 0  9991"],
+                "line2": ["2 25544  51.6400 000.0000 0000001 000.0000 000.0000 15.50000000000000"],
+            }
+        )
+        mock_discos.return_value = {
+            "attributes": [{"satno": 25544, "mass": 400000, "xSectAvg": 100}]
+        }
 
         try:
             generateDataset(
@@ -825,9 +854,9 @@ class TestGenerateDatasetStrategyIntegration:
 
         mock_hybrid.assert_called_once()
 
-    @patch('uct_benchmark.api.apiIntegration._fetch_observations_fast')
-    @patch('uct_benchmark.api.apiIntegration._fetch_observations_windowed')
-    @patch('uct_benchmark.api.apiIntegration._fetch_observations_hybrid')
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_fast")
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_windowed")
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_hybrid")
     def test_generate_dataset_strategy_routing(
         self,
         mock_hybrid,
@@ -844,12 +873,14 @@ class TestGenerateDatasetStrategyIntegration:
         mock_hybrid.return_value = mock_udl_response
 
         # Test fast - should only call fast
-        with patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery'), \
-             patch('uct_benchmark.api.apiIntegration.UDLQuery'), \
-             patch('uct_benchmark.api.apiIntegration.discoswebQuery'):
+        with (
+            patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery"),
+            patch("uct_benchmark.api.apiIntegration.UDLQuery"),
+            patch("uct_benchmark.api.apiIntegration.discoswebQuery"),
+        ):
             try:
                 generateDataset("t", "t", [25544], 1, "days", search_strategy="fast")
-            except:
+            except Exception:
                 pass
 
         assert mock_fast.called
@@ -862,12 +893,14 @@ class TestGenerateDatasetStrategyIntegration:
         mock_hybrid.reset_mock()
 
         # Test windowed
-        with patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery'), \
-             patch('uct_benchmark.api.apiIntegration.UDLQuery'), \
-             patch('uct_benchmark.api.apiIntegration.discoswebQuery'):
+        with (
+            patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery"),
+            patch("uct_benchmark.api.apiIntegration.UDLQuery"),
+            patch("uct_benchmark.api.apiIntegration.discoswebQuery"),
+        ):
             try:
                 generateDataset("t", "t", [25544], 1, "days", search_strategy="windowed")
-            except:
+            except Exception:
                 pass
 
         assert not mock_fast.called
@@ -883,22 +916,22 @@ class TestGenerateDatasetStrategyIntegration:
 class TestSearchStrategyEdgeCases:
     """Tests for edge cases and error handling in search strategies."""
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_windowed_handles_query_exception(
-        self, mock_sleep, mock_query
-    ):
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_windowed_handles_query_exception(self, mock_sleep, mock_query):
         """Test that WINDOWED strategy handles query exceptions gracefully."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
         # First query fails, second succeeds
         mock_query.side_effect = [
             Exception("Network error"),
-            pd.DataFrame({
-                'id': ['obs-1'],
-                'satNo': [25544],
-                'obTime': ['2025-01-01T00:10:00Z'],
-            })
+            pd.DataFrame(
+                {
+                    "id": ["obs-1"],
+                    "satNo": [25544],
+                    "obTime": ["2025-01-01T00:10:00Z"],
+                }
+            ),
         ]
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
@@ -916,11 +949,9 @@ class TestSearchStrategyEdgeCases:
         # Should still have data from successful window
         assert len(result) == 1
 
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_windowed_all_windows_fail(
-        self, mock_sleep, mock_query
-    ):
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_windowed_all_windows_fail(self, mock_sleep, mock_query):
         """Test WINDOWED strategy returns empty DataFrame if all windows fail."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
@@ -940,11 +971,9 @@ class TestSearchStrategyEdgeCases:
 
         assert result.empty
 
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
-    def test_hybrid_all_satellites_fail(
-        self, mock_sleep, mock_smart_query
-    ):
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    def test_hybrid_all_satellites_fail(self, mock_sleep, mock_smart_query):
         """Test HYBRID strategy returns empty DataFrame if all satellites fail."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_hybrid
 
@@ -965,7 +994,7 @@ class TestSearchStrategyEdgeCases:
 
         assert result.empty
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
     def test_fast_handles_empty_response(self, mock_batch_query):
         """Test FAST strategy handles empty API response."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_fast
@@ -996,10 +1025,10 @@ class TestEndToEndStrategyComparison:
     and can be used interchangeably in the pipeline.
     """
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_all_strategies_produce_same_columns(
         self,
         mock_sleep,
@@ -1011,8 +1040,8 @@ class TestEndToEndStrategyComparison:
         """Test that all strategies return DataFrames with the same columns."""
         from uct_benchmark.api.apiIntegration import (
             _fetch_observations_fast,
-            _fetch_observations_windowed,
             _fetch_observations_hybrid,
+            _fetch_observations_windowed,
         )
 
         mock_batch_query.return_value = mock_udl_response
@@ -1022,9 +1051,7 @@ class TestEndToEndStrategyComparison:
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 30, 0)
 
-        fast_result = _fetch_observations_fast(
-            "token", [25544], ">now-7 days", 0, 0.1
-        )
+        fast_result = _fetch_observations_fast("token", [25544], ">now-7 days", 0, 0.1)
         windowed_result = _fetch_observations_windowed(
             "token", "LEO", start_time, end_time, 10, 0.1
         )
@@ -1036,10 +1063,10 @@ class TestEndToEndStrategyComparison:
         assert set(fast_result.columns) == set(windowed_result.columns)
         assert set(fast_result.columns) == set(hybrid_result.columns)
 
-    @patch('uct_benchmark.api.apiIntegration.asyncUDLBatchQuery')
-    @patch('uct_benchmark.api.apiIntegration.UDLQuery')
-    @patch('uct_benchmark.api.apiIntegration.smart_query')
-    @patch('uct_benchmark.api.apiIntegration.time.sleep')
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_all_strategies_return_dataframes(
         self,
         mock_sleep,
@@ -1051,8 +1078,8 @@ class TestEndToEndStrategyComparison:
         """Test that all strategies return pandas DataFrames."""
         from uct_benchmark.api.apiIntegration import (
             _fetch_observations_fast,
-            _fetch_observations_windowed,
             _fetch_observations_hybrid,
+            _fetch_observations_windowed,
         )
 
         mock_batch_query.return_value = mock_udl_response
@@ -1062,9 +1089,7 @@ class TestEndToEndStrategyComparison:
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 30, 0)
 
-        fast_result = _fetch_observations_fast(
-            "token", [25544], ">now-7 days", 0, 0.1
-        )
+        fast_result = _fetch_observations_fast("token", [25544], ">now-7 days", 0, 0.1)
         windowed_result = _fetch_observations_windowed(
             "token", "LEO", start_time, end_time, 10, 0.1
         )

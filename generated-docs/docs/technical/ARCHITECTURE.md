@@ -63,29 +63,28 @@ The main codebase is located in `UCT-Benchmark-DMR/combined/`:
 UCT-Benchmark-DMR/combined/
 ├── uct_benchmark/              # Python package
 │   ├── __init__.py
-│   ├── config.py               # Configuration and constants
-│   ├── dataset.py              # Dataset utilities
-│   ├── Create_Dataset.py       # Dataset creation driver
-│   ├── Evaluation.py           # Evaluation driver
-│   ├── MainMVP.py              # Main pipeline driver
-│   ├── batchPull.py            # Batch data retrieval
+│   ├── settings.py             # Configuration and constants
+│   ├── logging_config.py       # Logging configuration
 │   │
 │   ├── api/                    # External API integrations
 │   │   ├── __init__.py
 │   │   └── apiIntegration.py   # UDL, Space-Track, CelesTrak, ESA APIs
+│   │
+│   ├── config/                 # Configuration module
+│   │   ├── __init__.py
+│   │   └── dataset_schema.py   # Dataset code schema
 │   │
 │   ├── data/                   # Data manipulation and processing
 │   │   ├── __init__.py
 │   │   ├── basicScoringFunction.py  # Data quality scoring
 │   │   ├── dataManipulation.py      # Data transformation utilities
 │   │   ├── readData.py              # Data loading utilities
-│   │   ├── windowCheck.py           # Window selection algorithm
-│   │   └── windowTools.py           # GUI and window utilities
+│   │   └── windowCheck.py           # Window selection algorithm
 │   │
 │   ├── database/               # Database layer
 │   │   ├── __init__.py
 │   │   ├── connection.py       # DuckDB connection management
-│   │   ├── schema.py           # Schema definitions
+│   │   ├── schema.py           # Schema definitions (14+ tables)
 │   │   ├── repository.py       # Data access layer
 │   │   ├── export.py           # Export utilities
 │   │   ├── ingestion.py        # Data ingestion pipeline
@@ -126,9 +125,14 @@ UCT-Benchmark-DMR/combined/
 │   ├── main.py                 # Application entry point
 │   ├── models/                 # Pydantic models
 │   ├── routers/                # API route handlers
-│   └── jobs/                   # Background jobs
+│   │   ├── datasets.py         # Dataset management
+│   │   ├── submissions.py      # Algorithm submissions
+│   │   ├── results.py          # Evaluation results
+│   │   ├── leaderboard.py      # Leaderboard API
+│   │   └── jobs.py             # Background job status
+│   └── jobs/                   # Background job processing
 │
-├── frontend/                   # React web application
+├── frontend/                   # React web application (45+ components)
 │   ├── src/
 │   │   ├── components/         # UI components
 │   │   ├── hooks/              # Custom React hooks
@@ -303,7 +307,7 @@ def stateMetrics(ref_sv, associated_orbits, propagator) -> dict:
 
 ---
 
-### 6. Configuration (`config.py`)
+### 6. Configuration (`settings.py`)
 
 Centralized configuration parameters.
 

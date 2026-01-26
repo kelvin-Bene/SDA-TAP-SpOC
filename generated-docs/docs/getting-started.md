@@ -10,7 +10,7 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 - **Windows**: 10+ (with WSL2 recommended)
 
 ### Software Prerequisites
-- **Python**: 3.9-3.12 (3.12 recommended)
+- **Python**: 3.12+ (required)
 - **Java Runtime Environment (JRE)**: Required for Orekit orbital mechanics library
 - **Git**: For version control and repository cloning
 
@@ -169,8 +169,8 @@ mkdir -p reports/figures
 ```bash
 # Test Python imports
 python -c "
-from uct_benchmark import config
-from uct_benchmark.Create_Dataset import launch_gui, create_datasets_from_codes
+from uct_benchmark import settings
+from uct_benchmark.database import DatabaseManager
 print('Core imports successful')
 "
 ```
@@ -192,14 +192,10 @@ print('Orekit integration successful')
 
 ### 3. Test GUI Components
 
-```bash
-# Test Solara web GUI (optional - requires display)
-python -c "
-import solara
-print('Solara GUI available')
-"
+The primary UI is the React web frontend (see "Running the Web Application" below).
 
-# Test legacy tkinter GUI (optional - requires display)
+```bash
+# Test legacy tkinter GUI (optional CLI tool - requires display)
 python -c "
 import customtkinter
 print('CustomTkinter GUI available')
@@ -326,7 +322,7 @@ After successful installation:
 - **Issues**: Report problems via GitHub Issues
 - **Documentation**: Check the technical reference section
 - **Examples**: See `notebooks/` for usage examples
-- **Configuration**: Review `uct_benchmark/config.py` for paths and settings
+- **Configuration**: Review `uct_benchmark/settings.py` for paths and settings
 
 ---
 

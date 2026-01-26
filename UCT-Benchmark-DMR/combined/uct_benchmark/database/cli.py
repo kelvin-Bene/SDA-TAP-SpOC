@@ -18,7 +18,6 @@ Commands:
 
 import argparse
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
@@ -52,7 +51,7 @@ def init_command(args):
 def status_command(args):
     """Show database status and statistics."""
     from .connection import DatabaseManager
-    from .schema import verify_schema, get_schema_version
+    from .schema import get_schema_version, verify_schema
 
     db_path = args.db_path if args.db_path else None
     db = DatabaseManager(db_path=db_path)
@@ -72,7 +71,7 @@ def status_command(args):
 
     # Get table statistics
     stats = db.get_statistics()
-    print(f"\nTable Statistics:")
+    print("\nTable Statistics:")
     print("-" * 50)
 
     for table, count in sorted(stats.items()):
@@ -189,7 +188,7 @@ def export_command(args):
 def import_command(args):
     """Import data from JSON or Parquet."""
     from .connection import DatabaseManager
-    from .export import import_dataset_from_json, import_parquet_to_database
+    from .export import import_dataset_from_json
     from .ingestion import DataIngestionPipeline
 
     db_path = args.db_path if args.db_path else None
@@ -206,9 +205,7 @@ def import_command(args):
 
     if input_path.suffix == ".json":
         logger.info(f"Importing dataset from JSON: {input_path}")
-        dataset_id = import_dataset_from_json(
-            db, input_path, dataset_name=args.name
-        )
+        dataset_id = import_dataset_from_json(db, input_path, dataset_name=args.name)
         logger.info(f"Dataset imported with ID: {dataset_id}")
 
     elif input_path.suffix == ".parquet":
@@ -251,8 +248,7 @@ def list_command(args):
     print(f"\nDatasets ({len(datasets)} found):")
     print("-" * 80)
     print(
-        f"{'ID':>5} {'Name':25s} {'Code':15s} {'Tier':5s} {'Regime':7s} "
-        f"{'Obs':>8} {'Status':12s}"
+        f"{'ID':>5} {'Name':25s} {'Code':15s} {'Tier':5s} {'Regime':7s} {'Obs':>8} {'Status':12s}"
     )
     print("-" * 80)
 
@@ -317,7 +313,9 @@ def vacuum_command(args):
     size_after = stats_after.get("_file_size_mb", 0)
 
     saved = size_before - size_after
-    logger.info(f"VACUUM complete. Size: {size_before:.2f} MB -> {size_after:.2f} MB (saved {saved:.2f} MB)")
+    logger.info(
+        f"VACUUM complete. Size: {size_before:.2f} MB -> {size_after:.2f} MB (saved {saved:.2f} MB)"
+    )
 
     return 0
 
@@ -338,18 +336,14 @@ def main():
 
     # init command
     init_parser = subparsers.add_parser("init", help="Initialize the database schema")
-    init_parser.add_argument(
-        "--force", action="store_true", help="Drop and recreate all tables"
-    )
+    init_parser.add_argument("--force", action="store_true", help="Drop and recreate all tables")
 
     # status command
     subparsers.add_parser("status", help="Show database status and statistics")
 
     # backup command
     backup_parser = subparsers.add_parser("backup", help="Create a database backup")
-    backup_parser.add_argument(
-        "-o", "--output", help="Output path for backup file"
-    )
+    backup_parser.add_argument("-o", "--output", help="Output path for backup file")
 
     # restore command
     restore_parser = subparsers.add_parser("restore", help="Restore from a backup")
@@ -357,15 +351,11 @@ def main():
 
     # export command
     export_parser = subparsers.add_parser("export", help="Export data to JSON/Parquet")
-    export_parser.add_argument(
-        "--dataset-id", type=int, help="ID of dataset to export"
-    )
+    export_parser.add_argument("--dataset-id", type=int, help="ID of dataset to export")
     export_parser.add_argument(
         "--observations", action="store_true", help="Export all observations"
     )
-    export_parser.add_argument(
-        "-o", "--output", help="Output file path"
-    )
+    export_parser.add_argument("-o", "--output", help="Output file path")
     export_parser.add_argument(
         "--no-truth", action="store_true", help="Exclude truth data from export"
     )
@@ -376,9 +366,7 @@ def main():
     # import command
     import_parser = subparsers.add_parser("import", help="Import data from JSON/Parquet")
     import_parser.add_argument("input_file", help="Path to input file")
-    import_parser.add_argument(
-        "--name", help="Override dataset name"
-    )
+    import_parser.add_argument("--name", help="Override dataset name")
     import_parser.add_argument(
         "--data-type",
         choices=["observations", "state_vectors", "element_sets", "satellites"],
@@ -399,9 +387,7 @@ def main():
         choices=["created", "processing", "complete", "failed"],
         help="Filter by status",
     )
-    list_parser.add_argument(
-        "--limit", type=int, default=50, help="Maximum number of results"
-    )
+    list_parser.add_argument("--limit", type=int, default=50, help="Maximum number of results")
 
     # verify command
     subparsers.add_parser("verify", help="Verify database schema integrity")

@@ -13,17 +13,17 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-
 # =============================================================================
 # ATMOSPHERIC REFRACTION
 # =============================================================================
+
 
 def apply_atmospheric_refraction(
     elevation_true: float,
     wavelength_nm: float = 550.0,
     temperature_c: float = 15.0,
     pressure_mbar: float = 1013.25,
-    humidity_pct: float = 50.0
+    humidity_pct: float = 50.0,
 ) -> Optional[float]:
     """
     Apply atmospheric refraction correction to elevation angle.
@@ -91,7 +91,7 @@ def refraction_correction_for_ra_dec(
     observer_lon: float,
     observer_alt_km: float,
     obs_time,
-    wavelength_nm: float = 550.0
+    wavelength_nm: float = 550.0,
 ) -> Tuple[float, float]:
     """
     Apply refraction correction to RA/Dec coordinates.
@@ -149,11 +149,12 @@ def get_refraction_at_elevation(elevation_deg: float) -> float:
 # VELOCITY ABERRATION
 # =============================================================================
 
+
 def compute_velocity_aberration(
     ra_deg: float,
     dec_deg: float,
     observer_velocity: np.ndarray,
-    target_velocity: Optional[np.ndarray] = None
+    target_velocity: Optional[np.ndarray] = None,
 ) -> Tuple[float, float]:
     """
     Apply velocity aberration correction due to relative motion.
@@ -209,10 +210,7 @@ def compute_velocity_aberration(
 
 
 def compute_observer_velocity(
-    observer_lat: float,
-    observer_lon: float,
-    observer_alt_km: float,
-    obs_time
+    observer_lat: float, observer_lon: float, observer_alt_km: float, obs_time
 ) -> np.ndarray:
     """
     Compute observer velocity in ECI frame due to Earth rotation.
@@ -250,10 +248,7 @@ def compute_observer_velocity(
     return np.array([0, v_east, 0])  # Simplified east direction
 
 
-def aberration_magnitude_arcsec(
-    velocity_km_s: float,
-    angle_to_velocity_deg: float = 90.0
-) -> float:
+def aberration_magnitude_arcsec(velocity_km_s: float, angle_to_velocity_deg: float = 90.0) -> float:
     """
     Calculate aberration magnitude in arcseconds.
 
@@ -277,6 +272,7 @@ def aberration_magnitude_arcsec(
 # COMBINED ATMOSPHERIC EFFECTS
 # =============================================================================
 
+
 def apply_atmospheric_effects(
     ra_deg: float,
     dec_deg: float,
@@ -289,7 +285,7 @@ def apply_atmospheric_effects(
     target_velocity: Optional[np.ndarray] = None,
     apply_refraction: bool = True,
     apply_aberration: bool = True,
-    wavelength_nm: float = 550.0
+    wavelength_nm: float = 550.0,
 ) -> Tuple[float, float, float]:
     """
     Apply all atmospheric effects to observation coordinates.

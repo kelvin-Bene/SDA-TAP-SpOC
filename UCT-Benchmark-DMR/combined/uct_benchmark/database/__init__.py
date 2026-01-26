@@ -24,21 +24,6 @@ Usage:
 """
 
 from .connection import DatabaseManager, get_db_path
-from .repository import (
-    BaseRepository,
-    SatelliteRepository,
-    ObservationRepository,
-    StateVectorRepository,
-    ElementSetRepository,
-    DatasetRepository,
-    EventRepository,
-)
-from .schema import (
-    initialize_schema,
-    verify_schema,
-    get_schema_version,
-    SCHEMA_VERSION,
-)
 from .export import (
     export_dataset_to_json,
     export_observations_to_parquet,
@@ -46,6 +31,21 @@ from .export import (
 )
 from .ingestion import DataIngestionPipeline, IngestionReport
 from .migration import DataMigration, MigrationReport, migrate_existing_data
+from .repository import (
+    BaseRepository,
+    DatasetRepository,
+    ElementSetRepository,
+    EventRepository,
+    ObservationRepository,
+    SatelliteRepository,
+    StateVectorRepository,
+)
+from .schema import (
+    SCHEMA_VERSION,
+    get_schema_version,
+    initialize_schema,
+    verify_schema,
+)
 
 __all__ = [
     # Connection management

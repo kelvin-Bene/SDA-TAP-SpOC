@@ -14,7 +14,6 @@ from fastapi import FastAPI
 
 from uct_benchmark.database.connection import DatabaseManager
 
-
 # Global database manager instance (singleton)
 _db_manager: Optional[DatabaseManager] = None
 
@@ -42,9 +41,7 @@ def get_db() -> DatabaseManager:
     """
     global _db_manager
     if _db_manager is None:
-        raise RuntimeError(
-            "Database not initialized. Ensure the app lifespan context is active."
-        )
+        raise RuntimeError("Database not initialized. Ensure the app lifespan context is active.")
     return _db_manager
 
 

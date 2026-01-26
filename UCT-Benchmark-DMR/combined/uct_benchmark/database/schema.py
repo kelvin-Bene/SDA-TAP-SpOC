@@ -609,9 +609,7 @@ def _seed_event_types(db: "DatabaseManager") -> None:
     """Seed default event types if they don't exist."""
     for idx, (name, description) in enumerate(DEFAULT_EVENT_TYPES, start=1):
         # Check if already exists
-        existing = db.execute(
-            "SELECT 1 FROM event_types WHERE name = ?", (name,)
-        ).fetchone()
+        existing = db.execute("SELECT 1 FROM event_types WHERE name = ?", (name,)).fetchone()
         if existing is None:
             db.execute(
                 "INSERT INTO event_types (id, name, description) VALUES (?, ?, ?)",
@@ -704,9 +702,7 @@ def get_schema_version(db: "DatabaseManager") -> str | None:
         Schema version string or None if not found
     """
     try:
-        result = db.execute(
-            "SELECT value FROM _schema_metadata WHERE key = 'version'"
-        ).fetchone()
+        result = db.execute("SELECT value FROM _schema_metadata WHERE key = 'version'").fetchone()
         return result[0] if result else None
     except Exception:
         return None

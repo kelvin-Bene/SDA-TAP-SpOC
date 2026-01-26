@@ -10,31 +10,26 @@ data migration utilities.
 import json
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
 # Import database modules directly to avoid circular imports
-from uct_benchmark.database.connection import DatabaseManager, get_db_path
-from uct_benchmark.database.schema import initialize_schema, verify_schema
-from uct_benchmark.database.repository import (
-    SatelliteRepository,
-    ObservationRepository,
-    StateVectorRepository,
-    ElementSetRepository,
-    DatasetRepository,
-)
-from uct_benchmark.database.migration import DataMigration, MigrationReport, migrate_existing_data
+from uct_benchmark.database.connection import DatabaseManager
+from uct_benchmark.database.migration import DataMigration, MigrationReport
 
 
 @pytest.fixture
 def temp_db():
     """Create a temporary database for testing."""
-    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as f:
+    # Create a temp file path without creating the actual file
+    # (DuckDB needs to create it itself)
+    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=True) as f:
         db_path = f.name
+    # The file is deleted after the context manager exits
 
     db = DatabaseManager(db_path=db_path)
     db.initialize()
@@ -51,56 +46,62 @@ def temp_db():
 @pytest.fixture
 def sample_observations():
     """Create sample observation data."""
-    return pd.DataFrame({
-        "id": ["obs1", "obs2", "obs3", "obs4"],
-        "sat_no": [25544, 25544, 43204, 43204],
-        "ob_time": [
-            datetime(2025, 1, 1, 12, 0, 0),
-            datetime(2025, 1, 1, 12, 5, 0),
-            datetime(2025, 1, 1, 13, 0, 0),
-            datetime(2025, 1, 1, 13, 5, 0),
-        ],
-        "ra": [180.5, 181.2, 200.3, 201.1],
-        "declination": [45.2, 45.8, 30.5, 31.0],
-        "sensor_name": ["sensor1", "sensor1", "sensor2", "sensor2"],
-        "data_mode": ["REAL", "REAL", "REAL", "REAL"],
-    })
+    return pd.DataFrame(
+        {
+            "id": ["obs1", "obs2", "obs3", "obs4"],
+            "sat_no": [25544, 25544, 43204, 43204],
+            "ob_time": [
+                datetime(2025, 1, 1, 12, 0, 0),
+                datetime(2025, 1, 1, 12, 5, 0),
+                datetime(2025, 1, 1, 13, 0, 0),
+                datetime(2025, 1, 1, 13, 5, 0),
+            ],
+            "ra": [180.5, 181.2, 200.3, 201.1],
+            "declination": [45.2, 45.8, 30.5, 31.0],
+            "sensor_name": ["sensor1", "sensor1", "sensor2", "sensor2"],
+            "data_mode": ["REAL", "REAL", "REAL", "REAL"],
+        }
+    )
 
 
 @pytest.fixture
 def sample_state_vectors():
     """Create sample state vector data."""
-    return pd.DataFrame({
-        "satNo": [25544, 43204],
-        "epoch": [datetime(2025, 1, 1, 12, 0, 0), datetime(2025, 1, 1, 13, 0, 0)],
-        "xpos": [6778.0, 7100.0],
-        "ypos": [0.0, 100.0],
-        "zpos": [0.0, 200.0],
-        "xvel": [0.0, 0.1],
-        "yvel": [7.5, 7.4],
-        "zvel": [0.0, 0.2],
-        "dataMode": ["REAL", "REAL"],
-    })
+    return pd.DataFrame(
+        {
+            "satNo": [25544, 43204],
+            "epoch": [datetime(2025, 1, 1, 12, 0, 0), datetime(2025, 1, 1, 13, 0, 0)],
+            "xpos": [6778.0, 7100.0],
+            "ypos": [0.0, 100.0],
+            "zpos": [0.0, 200.0],
+            "xvel": [0.0, 0.1],
+            "yvel": [7.5, 7.4],
+            "zvel": [0.0, 0.2],
+            "dataMode": ["REAL", "REAL"],
+        }
+    )
 
 
 @pytest.fixture
 def sample_element_sets():
     """Create sample TLE data."""
-    return pd.DataFrame({
-        "satNo": [25544, 43204],
-        "line1": [
-            "1 25544U 98067A   25001.50000000  .00016717  00000-0  10270-3 0  9999",
-            "1 43204U 18017A   25001.50000000  .00000123  00000-0  00000-0 0  9999",
-        ],
-        "line2": [
-            "2 25544  51.6441 123.4567 0001234 123.4567 234.5678 15.50000000123456",
-            "2 43204  97.4500 100.0000 0001000 100.0000 260.0000 15.25000000100000",
-        ],
-        "epoch": [datetime(2025, 1, 1, 12, 0, 0), datetime(2025, 1, 1, 12, 0, 0)],
-        "inclination": [51.64, 97.45],
-        "eccentricity": [0.0001234, 0.0001],
-        "mean_motion": [15.5, 15.25],
-    })
+    return pd.DataFrame(
+        {
+            "satNo": [25544, 43204],
+            "line1": [
+                "1 25544U 98067A   25001.50000000  .00016717  00000-0  10270-3 0  9999",
+                "1 43204U 18017A   25001.50000000  .00000123  00000-0  00000-0 0  9999",
+            ],
+            "line2": [
+                "2 25544  51.6441 123.4567 0001234 123.4567 234.5678 15.50000000123456",
+                "2 43204  97.4500 100.0000 0001000 100.0000 260.0000 15.25000000100000",
+            ],
+            "epoch": [datetime(2025, 1, 1, 12, 0, 0), datetime(2025, 1, 1, 12, 0, 0)],
+            "inclination": [51.64, 97.45],
+            "eccentricity": [0.0001234, 0.0001],
+            "mean_motion": [15.5, 15.25],
+        }
+    )
 
 
 class TestDatabaseManager:
@@ -130,9 +131,10 @@ class TestDatabaseManager:
         # Add some data
         temp_db.satellites.create(sat_no=12345, name="Test Satellite")
 
-        # Create backup
-        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as f:
+        # Create backup - use delete=True to get a temp path without an existing file
+        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=True) as f:
             backup_path = f.name
+        # File is now deleted, DuckDB can create it fresh
 
         try:
             temp_db.backup(backup_path)
@@ -140,7 +142,7 @@ class TestDatabaseManager:
 
             # Verify backup has data
             backup_db = DatabaseManager(db_path=backup_path)
-            sat = backup_db.satellites.get_by_sat_no(12345)
+            sat = backup_db.satellites.get(12345)
             assert sat is not None
             assert sat["name"] == "Test Satellite"
             backup_db.close()
@@ -165,14 +167,14 @@ class TestRepositoryIntegration:
         )
 
         # Read
-        sat = temp_db.satellites.get_by_sat_no(25544)
+        sat = temp_db.satellites.get(25544)
         assert sat is not None
         assert sat["name"] == "ISS"
         assert sat["orbital_regime"] == "LEO"
 
         # Update
         temp_db.satellites.update(25544, name="International Space Station")
-        sat = temp_db.satellites.get_by_sat_no(25544)
+        sat = temp_db.satellites.get(25544)
         assert sat["name"] == "International Space Station"
 
     def test_observation_bulk_insert(self, temp_db, sample_observations):
@@ -215,7 +217,7 @@ class TestRepositoryIntegration:
             assert sv_id is not None
 
         # Verify
-        sv = temp_db.state_vectors.get_latest_for_satellite(25544)
+        sv = temp_db.state_vectors.get_latest(25544)
         assert sv is not None
 
     def test_dataset_workflow(self, temp_db, sample_observations):
@@ -228,19 +230,19 @@ class TestRepositoryIntegration:
         temp_db.observations.bulk_insert(sample_observations)
 
         # Create dataset
-        dataset_id = temp_db.datasets.create(
+        dataset_id = temp_db.datasets.create_dataset(
             name="test_dataset",
-            params={"test": True},
+            generation_params={"test": True},
         )
         assert dataset_id is not None
 
         # Add observations to dataset
         obs_ids = sample_observations["id"].tolist()
         track_assignments = {obs_id: idx % 2 for idx, obs_id in enumerate(obs_ids)}
-        temp_db.datasets.add_observations(dataset_id, obs_ids, track_assignments)
+        temp_db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
 
         # Verify
-        dataset = temp_db.datasets.get_by_id(dataset_id)
+        dataset = temp_db.datasets.get_dataset(dataset_id=dataset_id)
         assert dataset is not None
         assert dataset["name"] == "test_dataset"
 
@@ -268,7 +270,11 @@ class TestDataMigration:
         """Test importing from JSON file."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json_path = f.name
-            data = sample_observations.to_dict(orient="records")
+            # Convert timestamps to ISO strings for JSON serialization
+            obs_copy = sample_observations.copy()
+            for col in obs_copy.select_dtypes(include=["datetime64", "datetime"]).columns:
+                obs_copy[col] = obs_copy[col].dt.strftime("%Y-%m-%dT%H:%M:%S")
+            data = obs_copy.to_dict(orient="records")
             json.dump(data, f)
 
         try:
@@ -284,11 +290,17 @@ class TestDataMigration:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create parquet files
             sample_observations.to_parquet(Path(temp_dir) / "observations.parquet")
-            sample_state_vectors.rename(columns={
-                "satNo": "sat_no",
-                "xpos": "x_pos", "ypos": "y_pos", "zpos": "z_pos",
-                "xvel": "x_vel", "yvel": "y_vel", "zvel": "z_vel",
-            }).to_parquet(Path(temp_dir) / "state_vectors.parquet")
+            sample_state_vectors.rename(
+                columns={
+                    "satNo": "sat_no",
+                    "xpos": "x_pos",
+                    "ypos": "y_pos",
+                    "zpos": "z_pos",
+                    "xvel": "x_vel",
+                    "yvel": "y_vel",
+                    "zvel": "z_vel",
+                }
+            ).to_parquet(Path(temp_dir) / "state_vectors.parquet")
 
             # Create metadata
             with open(Path(temp_dir) / "metadata.json", "w") as f:
@@ -353,27 +365,39 @@ class TestAPIIntegration:
         """Test generateDataset works without database flag."""
         # Setup mocks
         mock_async_batch.side_effect = [
-            pd.DataFrame({  # Observations
-                "id": ["obs1"],
-                "satNo": [25544],
-                "obTime": ["2025-01-01T12:00:00.000000Z"],
-                "ra": [180.0],
-                "declination": [45.0],
-            }),
-            pd.DataFrame({  # State vectors
-                "satNo": [25544],
-                "epoch": ["2025-01-01T12:00:00.000000Z"],
-                "xpos": [6778.0], "ypos": [0.0], "zpos": [0.0],
-                "xvel": [0.0], "yvel": [7.5], "zvel": [0.0],
-                "cov": [None],
-            }),
+            pd.DataFrame(
+                {  # Observations
+                    "id": ["obs1"],
+                    "satNo": [25544],
+                    "obTime": ["2025-01-01T12:00:00.000000Z"],
+                    "ra": [180.0],
+                    "declination": [45.0],
+                }
+            ),
+            pd.DataFrame(
+                {  # State vectors
+                    "satNo": [25544],
+                    "epoch": ["2025-01-01T12:00:00.000000Z"],
+                    "xpos": [6778.0],
+                    "ypos": [0.0],
+                    "zpos": [0.0],
+                    "xvel": [0.0],
+                    "yvel": [7.5],
+                    "zvel": [0.0],
+                    "cov": [None],
+                }
+            ),
         ]
-        mock_udl_query.return_value = pd.DataFrame({
-            "satNo": [25544],
-            "line1": ["1 25544U 98067A   25001.50000000  .00016717  00000-0  10270-3 0  9999"],
-            "line2": ["2 25544  51.6441 123.4567 0001234 123.4567 234.5678 15.50000000123456"],
-        })
-        mock_discoweb.return_value = {"attributes": [{"satno": 25544, "mass": 420000, "xSectAvg": 1000}]}
+        mock_udl_query.return_value = pd.DataFrame(
+            {
+                "satNo": [25544],
+                "line1": ["1 25544U 98067A   25001.50000000  .00016717  00000-0  10270-3 0  9999"],
+                "line2": ["2 25544  51.6441 123.4567 0001234 123.4567 234.5678 15.50000000123456"],
+            }
+        )
+        mock_discoweb.return_value = {
+            "attributes": [{"satno": 25544, "mass": 420000, "xSectAvg": 1000}]
+        }
         mock_bin_tracks.return_value = (
             [(25544, pd.DataFrame(), pd.DataFrame({"id": ["obs1"]}))],
             None,
@@ -382,10 +406,11 @@ class TestAPIIntegration:
         # Import and call (this may fail due to Orekit, which is expected in test environment)
         # The test verifies the function signature accepts the use_database parameter
         try:
-            from uct_benchmark.api.apiIntegration import generateDataset
-
             # Just verify the function has the expected parameters
             import inspect
+
+            from uct_benchmark.api.apiIntegration import generateDataset
+
             sig = inspect.signature(generateDataset)
             params = list(sig.parameters.keys())
 
@@ -403,11 +428,11 @@ class TestDatabaseCLI:
     def test_cli_module_exists(self):
         """Test that CLI module can be imported."""
         from uct_benchmark.database import cli
+
         assert hasattr(cli, "main")
 
     def test_cli_init_command(self, temp_db):
         """Test CLI init command."""
-        from uct_benchmark.database.cli import main
         import sys
 
         # Capture args
