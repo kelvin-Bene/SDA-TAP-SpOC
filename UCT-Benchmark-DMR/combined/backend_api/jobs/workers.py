@@ -93,14 +93,22 @@ def run_dataset_generation(
         from uct_benchmark.api.apiIntegration import generateDataset
         from uct_benchmark.settings import satIDs as DEFAULT_SATELLITES
 
-        # Get tokens from environment
-        udl_token = os.getenv("UDL_TOKEN")
-        esa_token = os.getenv("ESA_TOKEN")
+        # Resolve credentials: DB (encrypted) -> .env fallback
+        try:
+            from backend_api.database import get_credential_service
+
+            cred_service = get_credential_service()
+            udl_token, _, _src = cred_service.resolve_or_raise("udl")
+            esa_token, _, _src = cred_service.resolve_or_raise("esa")
+        except RuntimeError:
+            # Credential service not initialized — fall back to env vars
+            udl_token = os.getenv("UDL_TOKEN")
+            esa_token = os.getenv("ESA_TOKEN")
 
         if not udl_token or not esa_token:
             raise ValueError(
-                "Missing required environment variables: UDL_TOKEN and ESA_TOKEN. "
-                "Please set these in your .env file."
+                "Missing required credentials for UDL and ESA. "
+                "Configure them in Settings or set UDL_TOKEN and ESA_TOKEN in .env."
             )
 
         # Check if downsampling/simulation are enabled for progress weights

@@ -2,6 +2,7 @@
 
 import os
 import time
+from datetime import datetime, timedelta, timezone
 
 from .base import AbstractConnector, ConnectionResult
 
@@ -20,30 +21,44 @@ class UDLConnector(AbstractConnector):
         try:
             import requests
 
-            # UDL requires authentication; test the base endpoint
-            token = os.environ.get("UDL_TOKEN", "")
-            headers = {}
-            if token:
-                headers["Authorization"] = f"Bearer {token}"
+            # Resolve token: credential service -> env var fallback
+            token, _ = self._get_credential()
+            if not token:
+                token = os.environ.get("UDL_TOKEN", "")
+            if not token:
+                return self._make_result(
+                    status="unauthorized",
+                    error_message="UDL_TOKEN environment variable not set",
+                    metadata={"authenticated": False},
+                )
 
+            headers = {"Authorization": f"Basic {token}"}
+
+            # UDL has no /health endpoint; use a lightweight data query
+            yesterday = (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            ).strftime("%Y-%m-%dT%H:%M:%S.000Z")
             resp = requests.get(
-                f"{self.BASE_URL}/health",
+                f"{self.BASE_URL}/elset/history",
                 headers=headers,
-                timeout=10,
+                params={"epoch": f">{yesterday}", "satNo": "25544"},
+                timeout=15,
             )
             elapsed = (time.time() - start) * 1000
 
             if resp.status_code == 200:
+                data = resp.json()
+                count = len(data) if isinstance(data, list) else 0
                 return self._make_result(
                     status="connected",
                     response_time_ms=elapsed,
-                    metadata={"authenticated": bool(token)},
+                    metadata={"authenticated": True, "record_count": count},
                 )
             elif resp.status_code == 401:
                 return self._make_result(
                     status="unauthorized",
                     response_time_ms=elapsed,
-                    error_message="UDL_TOKEN not set or invalid",
+                    error_message="UDL_TOKEN is invalid or expired",
                     metadata={"authenticated": False},
                 )
             else:

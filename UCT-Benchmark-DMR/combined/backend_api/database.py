@@ -17,6 +17,9 @@ from uct_benchmark.database.connection import DatabaseManager
 # Global database manager instance (singleton)
 _db_manager: Optional[DatabaseManager] = None
 
+# Global credential service instance (singleton)
+_credential_service = None
+
 
 def get_database_path() -> Path:
     """Get database path from environment or use default."""
@@ -67,9 +70,48 @@ def init_database(db_path: Optional[Path] = None) -> DatabaseManager:
     return _db_manager
 
 
+def get_credential_service():
+    """
+    Get the credential service singleton.
+
+    Returns:
+        CredentialService instance.
+
+    Raises:
+        RuntimeError: If the credential service has not been initialized.
+    """
+    global _credential_service
+    if _credential_service is None:
+        raise RuntimeError(
+            "Credential service not initialized. Ensure the app lifespan context is active."
+        )
+    return _credential_service
+
+
+def init_credential_service():
+    """
+    Initialize the credential service singleton.
+
+    Requires the database to be initialized first.
+
+    Returns:
+        CredentialService instance.
+    """
+    global _credential_service
+    if _credential_service is not None:
+        return _credential_service
+
+    from backend_api.services.credential_service import CredentialService
+
+    db = get_db()
+    _credential_service = CredentialService(db)
+    return _credential_service
+
+
 def close_database() -> None:
     """Close the database connection and clear the singleton."""
-    global _db_manager
+    global _db_manager, _credential_service
+    _credential_service = None
     if _db_manager is not None:
         _db_manager.close()
         _db_manager = None

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.2.0"  # Added UCTP Lab tables
+SCHEMA_VERSION = "1.3.0"  # Added credentials table
 
 # ============================================================
 # SCHEMA CREATION SQL
@@ -578,6 +578,44 @@ UCTP_API_CONNECTIONS_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_uctp_api_service ON uctp_api_connections(service_name);
 """
 
+# ============================================================
+# CREDENTIALS TABLE (Encrypted credential storage)
+# ============================================================
+
+CREDENTIALS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS credentials_id_seq;
+"""
+
+CREDENTIALS_TABLE = """
+CREATE TABLE IF NOT EXISTS credentials (
+    id INTEGER PRIMARY KEY DEFAULT nextval('credentials_id_seq'),
+    service_name VARCHAR(50) NOT NULL UNIQUE,
+    credential_type VARCHAR(30) NOT NULL,
+    encrypted_primary VARCHAR(2000),
+    encrypted_secondary VARCHAR(2000),
+    label VARCHAR(100),
+    description TEXT,
+    is_configured BOOLEAN DEFAULT FALSE,
+    last_validated TIMESTAMP,
+    validation_status VARCHAR(20) DEFAULT 'untested',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CREDENTIALS_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_credentials_service ON credentials(service_name);
+"""
+
+# Default credential service definitions to seed
+DEFAULT_CREDENTIALS = [
+    ("udl", "bearer_token", "Unified Data Library", "UDL API token (Base64-encoded credentials)"),
+    ("esa", "bearer_token", "ESA Discosweb", "ESA API bearer token for space debris data"),
+    ("nasa_earthdata", "jwt", "NASA Earthdata", "NASA Earthdata JWT authentication token"),
+    ("spacetrack", "username_password", "Space-Track.org", "Space-Track.org login credentials"),
+    ("orekit", "path", "Orekit Data", "Local file path to Orekit data directory"),
+]
+
 # Default event types to seed
 DEFAULT_EVENT_TYPES = [
     ("launch", "Object launched into orbit"),
@@ -613,6 +651,7 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(UCTP_RUNS_SEQUENCE)
     db.execute(UCTP_MODELS_SEQUENCE)
     db.execute(UCTP_API_CONNECTIONS_SEQUENCE)
+    db.execute(CREDENTIALS_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
@@ -656,9 +695,14 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(UCTP_API_CONNECTIONS_TABLE)
     db.execute(UCTP_API_CONNECTIONS_INDEXES)
 
+    # Credentials table
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEX)
+
     # Seed default data
     _seed_event_types(db)
     _seed_data_sources(db)
+    _seed_credentials(db)
 
     # Store schema version
     db.execute(
@@ -673,6 +717,7 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
+        "credentials",
         "uctp_api_connections",
         "uctp_models",
         "uctp_runs",
@@ -698,6 +743,7 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
 
     # Drop sequences
     sequences = [
+        "credentials_id_seq",
         "uctp_runs_id_seq",
         "uctp_models_id_seq",
         "uctp_api_connections_id_seq",
@@ -741,6 +787,22 @@ def _seed_data_sources(db: "DatabaseManager") -> None:
             )
 
 
+def _seed_credentials(db: "DatabaseManager") -> None:
+    """Seed default credential service entries if they don't exist."""
+    for service_name, cred_type, label, description in DEFAULT_CREDENTIALS:
+        existing = db.execute(
+            "SELECT 1 FROM credentials WHERE service_name = ?", (service_name,)
+        ).fetchone()
+        if existing is None:
+            db.execute(
+                """
+                INSERT INTO credentials (service_name, credential_type, label, description)
+                VALUES (?, ?, ?, ?)
+                """,
+                (service_name, cred_type, label, description),
+            )
+
+
 def verify_schema(db: "DatabaseManager") -> dict:
     """
     Verify the database schema is correct.
@@ -774,6 +836,7 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "uctp_runs",
         "uctp_models",
         "uctp_api_connections",
+        "credentials",
         "_schema_metadata",
     ]
 

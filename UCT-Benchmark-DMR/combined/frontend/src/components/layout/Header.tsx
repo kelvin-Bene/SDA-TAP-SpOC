@@ -135,7 +135,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
-                <Link to="/profile" className="flex items-center">
+                <Link to="/settings" className="flex items-center">
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </Link>

@@ -20,10 +20,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from .database import close_database, init_database
+from .database import close_database, init_credential_service, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
-from .routers import datasets, jobs, leaderboard, results, submissions, uctp
+from .routers import credentials, datasets, jobs, leaderboard, results, submissions, uctp
 
 
 @asynccontextmanager
@@ -42,6 +42,19 @@ async def lifespan(app: FastAPI):
     # Initialize database
     db = init_database()
     print(f"Database initialized at: {db.db_path}")
+
+    # Initialize credential service
+    cred_service = init_credential_service()
+    print("Credential service initialized")
+
+    # Wire credential resolver into connectors
+    try:
+        from uct_benchmark.uctp_lab.connectors import init_credential_resolver
+
+        init_credential_resolver(cred_service.resolve)
+        print("Credential resolver wired to connectors")
+    except Exception as e:
+        print(f"Warning: Could not wire credential resolver: {e}")
 
     # Initialize job manager
     job_manager = init_job_manager()
@@ -104,6 +117,7 @@ app.include_router(results.router, prefix="/api/v1/results", tags=["Results"])
 app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"])
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
 app.include_router(uctp.router, prefix="/api/v1/uctp", tags=["UCTP Lab"])
+app.include_router(credentials.router, prefix="/api/v1/credentials", tags=["Credentials"])
 
 
 @app.get("/")

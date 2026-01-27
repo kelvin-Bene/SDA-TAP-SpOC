@@ -12,6 +12,7 @@ import { ResultsPage } from '@/pages/ResultsPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { DocumentationPage } from '@/pages/DocumentationPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { UCTPDashboardPage } from '@/pages/uctp/UCTPDashboardPage';
 import { AlgorithmWorkbenchPage } from '@/pages/uctp/AlgorithmWorkbenchPage';
@@ -48,6 +49,7 @@ function App() {
           </Route>
           <Route path="docs" element={<DocumentationPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

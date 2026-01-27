@@ -13,6 +13,7 @@ import {
   Sparkles,
   Zap,
   FlaskConical,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,11 @@ const navItems: NavItem[] = [
     title: 'Documentation',
     href: '/docs',
     icon: BookOpen,
+  },
+  {
+    title: 'Settings',
+    href: '/settings',
+    icon: Settings,
   },
 ];
 

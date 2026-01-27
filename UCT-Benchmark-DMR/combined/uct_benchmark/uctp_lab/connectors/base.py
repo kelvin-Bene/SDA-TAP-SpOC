@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 
 @dataclass
@@ -30,6 +30,41 @@ class ConnectionResult:
 
 class AbstractConnector(ABC):
     """Base class for all external service connectors."""
+
+    _credential_resolver: Optional[Callable[[str], Tuple[Optional[str], Optional[str], str]]] = None
+
+    @classmethod
+    def set_credential_resolver(
+        cls,
+        resolver: Callable[[str], Tuple[Optional[str], Optional[str], str]],
+    ) -> None:
+        """Set a credential resolver callable for all connectors.
+
+        Args:
+            resolver: A callable that takes a service_name and returns
+                      (primary, secondary, source).
+        """
+        cls._credential_resolver = resolver
+
+    def _get_credential(
+        self, service_name: Optional[str] = None
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Resolve credentials using the injected resolver.
+
+        Args:
+            service_name: Override service name. Defaults to self.service_name.
+
+        Returns:
+            Tuple of (primary, secondary). Both None if no resolver or no credentials.
+        """
+        name = service_name or self.service_name
+        if self._credential_resolver is not None:
+            try:
+                primary, secondary, _source = self._credential_resolver(name)
+                return primary, secondary
+            except Exception:
+                pass
+        return None, None
 
     @property
     @abstractmethod

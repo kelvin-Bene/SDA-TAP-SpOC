@@ -1,6 +1,6 @@
 """External API connectors for UCTP Lab."""
 
-from typing import Dict, List
+from typing import Callable, Dict, List, Optional, Tuple
 
 from .base import AbstractConnector, ConnectionResult
 from .celestrak_connector import CelesTrakConnector
@@ -36,10 +36,23 @@ def test_all_connections() -> List[ConnectionResult]:
     return [c.test_connection() for c in ALL_CONNECTORS]
 
 
+def init_credential_resolver(
+    resolver_fn: Callable[[str], Tuple[Optional[str], Optional[str], str]],
+) -> None:
+    """Wire a credential resolver into all connectors.
+
+    Args:
+        resolver_fn: A callable that takes a service_name and returns
+                     (primary, secondary, source).
+    """
+    AbstractConnector.set_credential_resolver(resolver_fn)
+
+
 __all__ = [
     "AbstractConnector",
     "ConnectionResult",
     "ALL_CONNECTORS",
     "get_connector",
     "test_all_connections",
+    "init_credential_resolver",
 ]

@@ -1,5 +1,6 @@
 """Space-Track.org connectivity tester."""
 
+import os
 import time
 
 from .base import AbstractConnector, ConnectionResult
@@ -18,6 +19,12 @@ class SpaceTrackConnector(AbstractConnector):
         start = time.time()
         try:
             import requests
+
+            # Resolve credentials: credential service -> env var fallback
+            username, password = self._get_credential()
+            if not username:
+                username = os.environ.get("SPACETRACK_USER", "")
+                password = os.environ.get("SPACETRACK_PASS", "")
 
             resp = requests.get(self.BASE_URL, timeout=10)
             elapsed = (time.time() - start) * 1000

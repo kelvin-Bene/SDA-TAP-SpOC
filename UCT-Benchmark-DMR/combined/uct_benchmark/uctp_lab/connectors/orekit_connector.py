@@ -15,7 +15,11 @@ class OrekitConnector(AbstractConnector):
     def test_connection(self) -> ConnectionResult:
         start = time.time()
         try:
-            import orekit
+            # Package is published as orekit-jpype; importable as either name
+            try:
+                import orekit
+            except ImportError:
+                import orekit_jpype as orekit
 
             vm = orekit.initVM()
             elapsed = (time.time() - start) * 1000
