@@ -43,7 +43,7 @@ A 6x6 matrix representing the uncertainty in a satellite's state (position and v
 Angular distance of a celestial object north or south of the celestial equator, measured in degrees.
 
 ### DuckDB
-An analytical SQL database used for data storage in this project.
+An analytical SQL database used for data storage in this project. Zero-configuration, embedded database optimized for OLAP workloads.
 
 ---
 
@@ -70,6 +70,9 @@ A reference object that was not successfully identified by the algorithm.
 
 ### False Positive (FP)
 An algorithm output that does not correspond to a real object.
+
+### FastAPI
+A modern Python web framework used for building the UCT Benchmark backend REST API. Known for automatic OpenAPI documentation and type validation.
 
 ---
 
@@ -166,6 +169,9 @@ The fraction of algorithm outputs that are correct: TP / (TP + FP)
 ### RAAN (Right Ascension of the Ascending Node)
 The angle from the vernal equinox to the ascending node of an orbit, measured in the equatorial plane.
 
+### React
+A JavaScript library for building user interfaces. Used for the UCT Benchmark web frontend with Vite as the build tool.
+
 ### Recall
 The fraction of reference objects successfully identified: TP / (TP + FN)
 
@@ -227,12 +233,18 @@ A data repository providing access to space surveillance observations and catalo
 ### Validation
 The process of verifying that an algorithm implementation meets specifications and produces correct results.
 
+### Vite
+A fast build tool and development server for modern web projects. Used with React for the UCT Benchmark frontend.
+
 ---
 
 ## W
 
 ### Window Selection
 The process of finding optimal time windows in observation data that meet quality criteria.
+
+### Zustand
+A lightweight state management library for React used in the UCT Benchmark frontend.
 
 ---
 

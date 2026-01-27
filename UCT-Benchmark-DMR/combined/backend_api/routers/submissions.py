@@ -144,7 +144,7 @@ async def get_submission(
     )
 
 
-@router.post("/", response_model=SubmissionSummary)
+@router.post("/", response_model=SubmissionSummary, status_code=201)
 async def create_submission(
     dataset_id: str = Form(...),
     algorithm_name: str = Form(...),

@@ -55,7 +55,7 @@ def basicScoring(datasetCode, allObs, satData):
         # Filter observations for the current satellite
         satObs = allObs[allObs["satNo"] == sat].copy()
         numObs = len(satObs)
-        numObsPer3day = 3 * (numObs / timeSpan)
+        numObsPer3day = 3 * (numObs / timeSpan) if timeSpan > 0 else 0
 
         # Skip if satellite is not in TLE database
         if sat not in satData["satNo"].values:
@@ -213,6 +213,10 @@ def basicScoring(datasetCode, allObs, satData):
         targetNumObj = config.highObjectCount
     elif objectCount == "L":
         targetNumObj = config.lowObjectCount
+
+    # Guard against division by zero
+    if targetNumObj <= 0:
+        targetNumObj = 1
 
     # Initialize scoring flags
     T1 = T2covg = T2Gap = T2Obs = T3covg = T3Gap = T3Obs = T4 = False

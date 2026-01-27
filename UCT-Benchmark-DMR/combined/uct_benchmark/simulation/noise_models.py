@@ -279,11 +279,17 @@ def compute_phase_angle(
     """
     # Vector from satellite to sun
     sat_to_sun = sun_position - sat_position
-    sat_to_sun = sat_to_sun / np.linalg.norm(sat_to_sun)
+    norm_sun = np.linalg.norm(sat_to_sun)
+    if norm_sun < 1e-10:
+        return 0.0  # Satellite at sun position (degenerate case)
+    sat_to_sun = sat_to_sun / norm_sun
 
     # Vector from satellite to observer
     sat_to_obs = observer_position - sat_position
-    sat_to_obs = sat_to_obs / np.linalg.norm(sat_to_obs)
+    norm_obs = np.linalg.norm(sat_to_obs)
+    if norm_obs < 1e-10:
+        return 0.0  # Satellite at observer position (degenerate case)
+    sat_to_obs = sat_to_obs / norm_obs
 
     # Phase angle is the angle between these vectors
     cos_phase = np.clip(np.dot(sat_to_sun, sat_to_obs), -1.0, 1.0)

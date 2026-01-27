@@ -52,7 +52,9 @@ def binTracks(ref_obs, ref_sv, cutoff=90):
     v_norms = np.linalg.norm(v_vecs, axis=1)
 
     # Semi-major axis from vis-viva equation
-    a = 1 / ((2 / r_norms) - (v_norms**2 / mu))
+    # Guard against division by zero when denominator is near zero
+    denom = (2 / r_norms) - (v_norms**2 / mu)
+    a = np.where(np.abs(denom) > 1e-10, 1 / denom, np.nan)
 
     # Orbital periods in seconds (NaN if hyperbolic/unbound)
     T = np.where(a > 0, 2 * np.pi * np.sqrt(a**3 / mu), np.nan)
@@ -65,7 +67,7 @@ def binTracks(ref_obs, ref_sv, cutoff=90):
     # --------------------------------------------------------------------
     # Instead of modifying the original DataFrame in-place, track temporary columns
     added_cols = ["grp_type", "grp_key", "grp_code"]
-    ref_obs_wip = ref_obs  # Work directly to avoid full memory copy
+    ref_obs_wip = ref_obs.copy()  # Avoid mutating input DataFrame
 
     # Determine if observations have a sensor ID or just location
     sensor_mask = ref_obs_wip["idSensor"].notna()
@@ -137,15 +139,17 @@ def binTracks(ref_obs, ref_sv, cutoff=90):
                 metrics[2] += 1  # discarded (too short)
 
     # --------------------------------------------------------------------
-    # Drop temporary columns to avoid modifying input
+    # Drop temporary columns from returned tracks to avoid leaking internal columns
     # --------------------------------------------------------------------
-    ref_obs.drop(
-        columns=[col for col in added_cols if col in ref_obs.columns],
-        inplace=True,
-        errors="ignore",
-    )
+    cleaned_tracks = []
+    for sat, P, track in tracks:
+        cleaned_track = track.drop(
+            columns=[col for col in added_cols if col in track.columns],
+            errors="ignore",
+        )
+        cleaned_tracks.append((sat, P, cleaned_track))
 
-    return tracks, metrics
+    return cleaned_tracks, metrics
 
 
 # =============================================================================
@@ -1011,7 +1015,11 @@ def _lowerOrbitCoverage(ref_obs, sat_params, objp, coveragep, rng, chosen_sats=N
         if points[sat] is None or len(points[sat]) < 3:
             continue  # skip unusable satellites
 
-        max_area = np.pi * sat_params[sat]["Semi-Major Axis"] ** 2
+        sma = sat_params[sat]["Semi-Major Axis"]
+        # Guard against invalid Semi-Major Axis values
+        if not np.isfinite(sma) or sma <= 0:
+            continue
+        max_area = np.pi * sma ** 2
         min_coverage_area = coveragep[1] * max_area
         target_coverage_area = coveragep[0] * max_area
         n = len(points[sat])

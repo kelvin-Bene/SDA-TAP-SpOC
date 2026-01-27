@@ -253,7 +253,7 @@ class TestFullSubmissionFlow:
             """
             INSERT INTO submission_results (
                 submission_id, true_positives, false_positives, false_negatives,
-                precision_score, recall_score, f1_score, position_rms_km, velocity_rms_km_s
+                precision, recall, f1_score, position_rms_km, velocity_rms_km_s
             ) VALUES (?, 902, 53, 98, 0.945, 0.902, 0.923, 11.5, 0.022)
             """,
             (int(submission_id),),
@@ -338,7 +338,7 @@ class TestUserScenarios:
 
         e2e_db.execute(
             """
-            INSERT INTO submission_results (submission_id, f1_score, precision_score, recall_score, position_rms_km, velocity_rms_km_s)
+            INSERT INTO submission_results (submission_id, f1_score, precision, recall, position_rms_km, velocity_rms_km_s)
             VALUES
                 (300, 0.85, 0.88, 0.82, 15.0, 0.03),
                 (301, 0.89, 0.91, 0.87, 12.0, 0.025)
@@ -384,7 +384,7 @@ class TestUserScenarios:
 
         e2e_db.execute(
             """
-            INSERT INTO submission_results (submission_id, f1_score, precision_score, recall_score, position_rms_km, velocity_rms_km_s)
+            INSERT INTO submission_results (submission_id, f1_score, precision, recall, position_rms_km, velocity_rms_km_s)
             VALUES
                 (400, 0.92, 0.94, 0.90, 10.5, 0.020),
                 (401, 0.88, 0.91, 0.85, 14.0, 0.028),

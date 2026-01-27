@@ -164,7 +164,13 @@ def monteCarloPropagator(
     # Propagate Monte Carlo Sample points
     if N > 1:
         # Sample Points from Initial distribution
-        MCpoints = np.random.multivariate_normal(stateVector, covariance, N)
+        # Use check_valid='warn' to handle non-positive semi-definite covariance matrices
+        try:
+            MCpoints = np.random.multivariate_normal(stateVector, covariance, N, check_valid='warn')
+        except np.linalg.LinAlgError:
+            # Covariance matrix is singular or not positive semi-definite
+            # Fall back to mean state only
+            return finalStateVector
         MCstates = []
         failedProps = 0
         for state_vector in MCpoints:
@@ -192,9 +198,9 @@ def monteCarloPropagator(
                         )
                     )
                 )
-            except (
-                Exception
-            ):  # Skip failed point, continue with rest of sample point (JavaError or similar)
+            except Exception as e:
+                # Skip failed point, continue with rest of sample points
+                # This catches Orekit errors (e.g., satellite decays to inside Earth radius)
                 failedProps += 1
                 continue
         # print(failedProps)
@@ -625,7 +631,11 @@ def orbit2OE(input1, input2):
         kep_orbit = KeplerianOrbit(orbit)
 
     # Find period from semi major axis using kepler laws
-    period = 2 * np.pi * np.sqrt(kep_orbit.getA() ** 3 / Constants.WGS84_EARTH_MU)
+    sma = kep_orbit.getA()
+    if sma > 0:
+        period = 2 * np.pi * np.sqrt(sma ** 3 / Constants.WGS84_EARTH_MU)
+    else:
+        period = np.nan  # Hyperbolic or invalid orbit
 
     # Extract Cartesian state vector (position and velocity in km and km/s)
     pos = pvCoord.getPosition()
