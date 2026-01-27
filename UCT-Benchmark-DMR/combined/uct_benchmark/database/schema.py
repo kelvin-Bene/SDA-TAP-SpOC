@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.1.0"  # Added open source data integration tables
+SCHEMA_VERSION = "1.2.0"  # Added UCTP Lab tables
 
 # ============================================================
 # SCHEMA CREATION SQL
@@ -487,6 +487,97 @@ CREATE TABLE IF NOT EXISTS _schema_metadata (
 );
 """
 
+# ============================================================
+# UCTP LAB TABLES
+# ============================================================
+
+UCTP_RUNS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS uctp_runs_id_seq;
+"""
+
+UCTP_RUNS_TABLE = """
+CREATE TABLE IF NOT EXISTS uctp_runs (
+    id INTEGER PRIMARY KEY DEFAULT nextval('uctp_runs_id_seq'),
+    dataset_id INTEGER,
+    algorithm_name VARCHAR(100) NOT NULL,
+    config JSON NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+
+    f1_score FLOAT,
+    precision FLOAT,
+    recall FLOAT,
+    position_rms_km FLOAT,
+    velocity_rms_km_s FLOAT,
+    clusters_found INTEGER,
+    objects_resolved INTEGER,
+
+    output_path VARCHAR(512),
+    log_output TEXT,
+    error_message TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+UCTP_RUNS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_uctp_runs_status ON uctp_runs(status);
+CREATE INDEX IF NOT EXISTS idx_uctp_runs_dataset ON uctp_runs(dataset_id);
+"""
+
+UCTP_MODELS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS uctp_models_id_seq;
+"""
+
+UCTP_MODELS_TABLE = """
+CREATE TABLE IF NOT EXISTS uctp_models (
+    id INTEGER PRIMARY KEY DEFAULT nextval('uctp_models_id_seq'),
+    name VARCHAR(100) NOT NULL,
+    model_type VARCHAR(50) NOT NULL,
+    version VARCHAR(20) NOT NULL,
+    description TEXT,
+
+    training_dataset_ids JSON,
+    training_config JSON,
+    training_epochs INTEGER,
+    training_loss FLOAT,
+    validation_loss FLOAT,
+
+    best_f1_score FLOAT,
+    best_position_rms_km FLOAT,
+
+    model_path VARCHAR(512),
+    status VARCHAR(20) DEFAULT 'training',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+UCTP_MODELS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_uctp_models_status ON uctp_models(status);
+"""
+
+UCTP_API_CONNECTIONS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS uctp_api_connections_id_seq;
+"""
+
+UCTP_API_CONNECTIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS uctp_api_connections (
+    id INTEGER PRIMARY KEY DEFAULT nextval('uctp_api_connections_id_seq'),
+    service_name VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    response_time_ms FLOAT,
+    last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    error_message TEXT,
+    metadata JSON
+);
+"""
+
+UCTP_API_CONNECTIONS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_uctp_api_service ON uctp_api_connections(service_name);
+"""
+
 # Default event types to seed
 DEFAULT_EVENT_TYPES = [
     ("launch", "Object launched into orbit"),
@@ -519,6 +610,9 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(SUBMISSIONS_SEQUENCE)
     db.execute(SUBMISSION_RESULTS_SEQUENCE)
     db.execute(VALIDATION_MEASUREMENTS_SEQUENCE)
+    db.execute(UCTP_RUNS_SEQUENCE)
+    db.execute(UCTP_MODELS_SEQUENCE)
+    db.execute(UCTP_API_CONNECTIONS_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
@@ -554,6 +648,14 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     db.execute(EVENTS_TABLE)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
+    # UCTP Lab tables
+    db.execute(UCTP_RUNS_TABLE)
+    db.execute(UCTP_RUNS_INDEXES)
+    db.execute(UCTP_MODELS_TABLE)
+    db.execute(UCTP_MODELS_INDEXES)
+    db.execute(UCTP_API_CONNECTIONS_TABLE)
+    db.execute(UCTP_API_CONNECTIONS_INDEXES)
+
     # Seed default data
     _seed_event_types(db)
     _seed_data_sources(db)
@@ -571,6 +673,9 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
+        "uctp_api_connections",
+        "uctp_models",
+        "uctp_runs",
         "event_observations",
         "events",
         "event_types",
@@ -593,6 +698,9 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
 
     # Drop sequences
     sequences = [
+        "uctp_runs_id_seq",
+        "uctp_models_id_seq",
+        "uctp_api_connections_id_seq",
         "state_vectors_id_seq",
         "element_sets_id_seq",
         "datasets_id_seq",
@@ -663,6 +771,9 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "event_observations",
         "data_sources",
         "validation_measurements",
+        "uctp_runs",
+        "uctp_models",
+        "uctp_api_connections",
         "_schema_metadata",
     ]
 

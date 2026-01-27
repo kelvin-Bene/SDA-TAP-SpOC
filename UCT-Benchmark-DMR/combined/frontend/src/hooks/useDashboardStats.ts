@@ -86,13 +86,9 @@ export function useDashboardStats() {
         ? ((stats.best_score - stats.average_score) / stats.average_score) * 100
         : 0;
 
-      // Map trend to percentage (rough estimate based on trend)
-      let trendPercentage = 0;
-      if (stats.submission_trend === 'increasing') {
-        trendPercentage = 15; // Placeholder positive trend
-      } else if (stats.submission_trend === 'decreasing') {
-        trendPercentage = -10; // Placeholder negative trend
-      }
+      // Trend percentage - actual calculation would require historical data
+      // For now, show 0 until we have real trend data from the API
+      const trendPercentage = 0;
 
       const dashboardStats: DashboardStats = {
         topRank: topEntry?.rank || 0,

@@ -124,4 +124,61 @@ export const api = {
 
   refreshToken: () =>
     apiClient.post('/auth/refresh/'),
+
+  // ============================================================
+  // UCTP Lab
+  // ============================================================
+
+  // Dashboard
+  getUCTPDashboardStats: () =>
+    apiClient.get('/uctp/dashboard/stats'),
+
+  // Runs
+  getUCTPRuns: (params?: { status?: string; dataset_id?: number; limit?: number; offset?: number }) =>
+    apiClient.get('/uctp/runs/', { params }),
+
+  createUCTPRun: (data: unknown) =>
+    apiClient.post('/uctp/runs/', data),
+
+  getUCTPRun: (runId: number) =>
+    apiClient.get(`/uctp/runs/${runId}`),
+
+  deleteUCTPRun: (runId: number) =>
+    apiClient.delete(`/uctp/runs/${runId}`),
+
+  getUCTPRunLogs: (runId: number) =>
+    apiClient.get(`/uctp/runs/${runId}/logs`),
+
+  compareUCTPRuns: (runIds: number[]) =>
+    apiClient.get('/uctp/runs/compare/', { params: { run_ids: runIds.join(',') } }),
+
+  // Models
+  getUCTPModels: (params?: { status?: string; limit?: number }) =>
+    apiClient.get('/uctp/models/', { params }),
+
+  trainUCTPModel: (data: unknown) =>
+    apiClient.post('/uctp/models/train', data),
+
+  getUCTPModel: (modelId: number) =>
+    apiClient.get(`/uctp/models/${modelId}`),
+
+  deleteUCTPModel: (modelId: number) =>
+    apiClient.delete(`/uctp/models/${modelId}`),
+
+  evaluateUCTPModel: (modelId: number, datasetId: number) =>
+    apiClient.post(`/uctp/models/${modelId}/evaluate`, null, { params: { dataset_id: datasetId } }),
+
+  // Connectivity
+  getConnectivity: () =>
+    apiClient.get('/uctp/connectivity/'),
+
+  testConnection: (serviceName: string) =>
+    apiClient.post('/uctp/connectivity/test', { service_name: serviceName }),
+
+  testAllConnections: () =>
+    apiClient.post('/uctp/connectivity/test-all'),
+
+  // Algorithm options
+  getAlgorithmOptions: () =>
+    apiClient.get('/uctp/algorithms/options'),
 };

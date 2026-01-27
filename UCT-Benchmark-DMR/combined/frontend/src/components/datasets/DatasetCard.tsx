@@ -44,6 +44,12 @@ const tierStyles: Record<DataTier, { color: string; bgColor: string; borderColor
     borderColor: 'border-aurora-green/30',
     label: 'Pristine',
   },
+  T1H: {
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-400/10',
+    borderColor: 'border-purple-400/30',
+    label: 'Validated (ILRS)',
+  },
   T2: {
     color: 'text-cosmic-blue',
     bgColor: 'bg-cosmic-blue/10',

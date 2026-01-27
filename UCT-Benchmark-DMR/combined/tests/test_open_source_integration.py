@@ -71,7 +71,7 @@ class TestSchemaExtensions:
         assert result[0] == 'Science'
         assert result[1] == 'NASA'
         assert result[2] == 'TYMSC'
-        assert abs(result[3] - 0.00238) < 0.0001
+        assert abs(float(result[3]) - 0.00238) < 0.0001
 
     def test_observations_source_tracking(self, db):
         """Test that observations table has source tracking columns."""
@@ -102,7 +102,7 @@ class TestSchemaExtensions:
             "SELECT range_m, station_code FROM validation_measurements WHERE sat_no = 8820"
         ).fetchone()
 
-        assert abs(result[0] - 5850000.123) < 0.001
+        assert abs(float(result[0]) - 5850000.123) < 0.001
         assert result[1] == 'YARL'
 
 
@@ -123,7 +123,7 @@ class TestIngestionPipeline:
 
         pipeline = DataIngestionPipeline(db)
 
-        with patch('uct_benchmark.database.ingestion.DataSourceManager') as MockDSM:
+        with patch('uct_benchmark.api.data_source_manager.DataSourceManager') as MockDSM:
             mock_dsm = MagicMock()
             mock_dsm.enrich_satellite.return_value = {
                 'enriched': True,
@@ -145,7 +145,7 @@ class TestIngestionPipeline:
 
         pipeline = DataIngestionPipeline(db)
 
-        with patch('uct_benchmark.database.ingestion.satnogsGetObservations') as mock_satnogs:
+        with patch('uct_benchmark.api.open_sources.satnogsGetObservations') as mock_satnogs:
             mock_satnogs.return_value = pd.DataFrame({
                 'id': [1, 2],
                 'start': ['2025-01-01T12:00:00Z', '2025-01-01T13:00:00Z'],
@@ -163,7 +163,7 @@ class TestIngestionPipeline:
 
         pipeline = DataIngestionPipeline(db)
 
-        with patch('uct_benchmark.database.ingestion.ilrsGetSatellites') as mock_ilrs:
+        with patch('uct_benchmark.api.open_sources.ilrsGetSatellites') as mock_ilrs:
             mock_ilrs.return_value = pd.DataFrame({
                 'norad_id': [8820, 22195],
                 'name': ['LAGEOS-1', 'LAGEOS-2'],
@@ -208,7 +208,7 @@ class TestValidationMetrics:
             (dataset_id,)
         )
 
-        with patch('uct_benchmark.evaluation.validationMetrics.DataSourceManager') as MockDSM:
+        with patch('uct_benchmark.api.data_source_manager.DataSourceManager') as MockDSM:
             mock_dsm = MagicMock()
             mock_dsm.get_ilrs_tracked_satellites.return_value = [8820, 22195]
             MockDSM.return_value = mock_dsm

@@ -176,13 +176,13 @@ def run_dataset_generation(
             except Exception as e:
                 logger.warning(f"Satellite enrichment failed (continuing without): {e}")
 
-        # Handle multi-phenomenology (MX) mode - add RF observations
-        if sensor_mode == "MX":
+        # Handle RF or multi-phenomenology (MX) mode - add RF observations from SatNOGS
+        if sensor_mode in ("MX", "RF"):
             try:
                 from uct_benchmark.database.ingestion import DataIngestionPipeline
 
                 pipeline = DataIngestionPipeline(db)
-                logger.info(f"Fetching SatNOGS RF observations for MX dataset...")
+                logger.info(f"Fetching SatNOGS RF observations for {sensor_mode} dataset...")
 
                 rf_report = pipeline.ingest_rf_observations(
                     satellites,
@@ -196,6 +196,27 @@ def run_dataset_generation(
 
             except Exception as e:
                 logger.warning(f"SatNOGS RF ingestion failed (continuing with EO only): {e}")
+
+        # Handle ILRS validation data ingestion (for T1H tier)
+        include_ilrs = open_source_config.get("include_ilrs_validation", False)
+        if include_ilrs:
+            try:
+                from uct_benchmark.database.ingestion import DataIngestionPipeline
+
+                pipeline = DataIngestionPipeline(db)
+                logger.info(f"Fetching ILRS validation data for T1H dataset...")
+
+                ilrs_report = pipeline.ingest_validation_data(
+                    sat_nos=satellites,
+                    progress_callback=lambda cur, tot: logger.debug(f"ILRS: {cur}/{tot}"),
+                )
+
+                logger.info(
+                    f"ILRS ingestion: {ilrs_report.inserted_records} satellites updated"
+                )
+
+            except Exception as e:
+                logger.warning(f"ILRS validation ingestion failed (continuing without): {e}")
 
         timeframe = config.get("timeframe", 7)
         timeunit = config.get("timeunit", "days")

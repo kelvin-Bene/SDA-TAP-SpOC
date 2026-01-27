@@ -100,6 +100,8 @@ class DatabaseManager:
         self._local = threading.local()
         self._lock = threading.Lock()
         self._initialized = False
+        # Shared connection for in-memory databases (not thread-local)
+        self._shared_connection: Optional[duckdb.DuckDBPyConnection] = None
 
         # Lazy-loaded repositories
         self._satellites: Optional["SatelliteRepository"] = None
@@ -110,7 +112,23 @@ class DatabaseManager:
         self._events: Optional["EventRepository"] = None
 
     def _get_connection(self) -> duckdb.DuckDBPyConnection:
-        """Get or create a thread-local connection."""
+        """Get or create a connection.
+
+        For in-memory databases, uses a shared connection across all threads
+        to ensure data persists. For file-based databases, uses thread-local
+        connections for better concurrency.
+        """
+        # For in-memory databases, use a single shared connection
+        # because each new connection to :memory: creates a new empty database
+        if self.in_memory:
+            if self._shared_connection is None:
+                config = {}
+                if self.read_only:
+                    config["access_mode"] = "read_only"
+                self._shared_connection = duckdb.connect(":memory:", config=config)
+            return self._shared_connection
+
+        # For file-based databases, use thread-local connections
         if not hasattr(self._local, "connection") or self._local.connection is None:
             config = {}
             if self.read_only:
@@ -192,7 +210,13 @@ class DatabaseManager:
             return False
 
     def close(self) -> None:
-        """Close the current thread's connection."""
+        """Close database connections."""
+        # Close shared connection for in-memory databases
+        if self._shared_connection is not None:
+            self._shared_connection.close()
+            self._shared_connection = None
+
+        # Close thread-local connection for file-based databases
         if hasattr(self._local, "connection") and self._local.connection is not None:
             self._local.connection.close()
             self._local.connection = None

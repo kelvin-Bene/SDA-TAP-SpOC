@@ -13,6 +13,12 @@ import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { DocumentationPage } from '@/pages/DocumentationPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { LoginPage } from '@/pages/LoginPage';
+import { UCTPDashboardPage } from '@/pages/uctp/UCTPDashboardPage';
+import { AlgorithmWorkbenchPage } from '@/pages/uctp/AlgorithmWorkbenchPage';
+import { RunResultsPage } from '@/pages/uctp/RunResultsPage';
+import { MLTrainingPage } from '@/pages/uctp/MLTrainingPage';
+import { APIConnectivityPage } from '@/pages/uctp/APIConnectivityPage';
+import { ComparisonPage } from '@/pages/uctp/ComparisonPage';
 
 function App() {
   return (
@@ -32,6 +38,14 @@ function App() {
           </Route>
           <Route path="results/:submissionId" element={<ResultsPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
+          <Route path="uctp">
+            <Route index element={<UCTPDashboardPage />} />
+            <Route path="workbench" element={<AlgorithmWorkbenchPage />} />
+            <Route path="runs/:runId" element={<RunResultsPage />} />
+            <Route path="training" element={<MLTrainingPage />} />
+            <Route path="connectivity" element={<APIConnectivityPage />} />
+            <Route path="compare" element={<ComparisonPage />} />
+          </Route>
           <Route path="docs" element={<DocumentationPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

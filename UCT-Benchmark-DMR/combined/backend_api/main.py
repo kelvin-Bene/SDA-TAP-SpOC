@@ -23,7 +23,7 @@ from loguru import logger
 from .database import close_database, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
-from .routers import datasets, jobs, leaderboard, results, submissions
+from .routers import datasets, jobs, leaderboard, results, submissions, uctp
 
 
 @asynccontextmanager
@@ -103,6 +103,7 @@ app.include_router(submissions.router, prefix="/api/v1/submissions", tags=["Subm
 app.include_router(results.router, prefix="/api/v1/results", tags=["Results"])
 app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"])
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
+app.include_router(uctp.router, prefix="/api/v1/uctp", tags=["UCTP Lab"])
 
 
 @app.get("/")

@@ -29,9 +29,18 @@ class DataTier(str, Enum):
     """Dataset complexity tier."""
 
     T1 = "T1"
+    T1H = "T1H"  # T1 with high-accuracy ILRS validation data
     T2 = "T2"
     T3 = "T3"
     T4 = "T4"
+
+
+class SensorMode(str, Enum):
+    """Observation sensor mode for data collection."""
+
+    EO = "EO"  # Electro-optical (optical) only
+    RF = "RF"  # Radio frequency only
+    MX = "MX"  # Multi-phenomenology (both EO and RF)
 
 
 class SensorType(str, Enum):
@@ -128,6 +137,23 @@ class SimulationOptions(BaseModel):
     seed: Optional[int] = Field(default=None, description="Random seed for reproducibility")
 
 
+class OpenSourceOptions(BaseModel):
+    """Options for open source data integration."""
+
+    enable_enrichment: bool = Field(
+        default=True,
+        description="Enable satellite metadata enrichment from UCS and GCAT databases"
+    )
+    sensor_mode: SensorMode = Field(
+        default=SensorMode.EO,
+        description="Sensor mode: EO (optical only), RF (radio only), MX (multi-phenomenology)"
+    )
+    include_ilrs_validation: bool = Field(
+        default=False,
+        description="Include ILRS laser-ranging reference data for validation (requires T1H tier)"
+    )
+
+
 # ============================================================
 # DATASET MODELS
 # ============================================================
@@ -163,6 +189,11 @@ class DatasetCreate(BaseModel):
     )
     window_size_minutes: Optional[int] = Field(
         default=10, ge=1, le=60, description="Window size for windowed strategy (default 10 min)"
+    )
+    # Open source data integration
+    open_source: Optional[OpenSourceOptions] = Field(
+        default=None,
+        description="Options for open source data integration (UCS, GCAT, SatNOGS, ILRS)"
     )
 
 

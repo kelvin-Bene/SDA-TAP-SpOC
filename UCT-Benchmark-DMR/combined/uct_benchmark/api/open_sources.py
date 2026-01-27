@@ -133,6 +133,9 @@ def satnogsQuery(
     except requests.exceptions.RequestException as e:
         logger.error(f"SatNOGS API error: {e}")
         return pd.DataFrame()
+    except (ValueError, Exception) as e:
+        logger.error(f"SatNOGS error processing response: {e}")
+        return pd.DataFrame()
 
     if not all_results:
         return pd.DataFrame()

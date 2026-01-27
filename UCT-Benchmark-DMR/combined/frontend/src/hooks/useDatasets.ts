@@ -127,13 +127,16 @@ export function useGenerateDataset() {
       // Timeframe is valid
       const validTimeframe = timeframeDays;
 
-      // Determine tier based on downsampling/simulation settings
-      let tier = 'T1';
-      if (config.downsampling?.enabled) {
-        tier = 'T2';
-      }
-      if (config.simulation?.enabled) {
-        tier = 'T3';
+      // Determine tier - use config tier if set, otherwise infer from settings
+      let tier = config.tier || 'T2';
+      if (!config.tier) {
+        if (config.simulation?.enabled) {
+          tier = 'T3';
+        } else if (config.downsampling?.enabled) {
+          tier = 'T2';
+        } else if (config.openSource?.includeIlrsValidation) {
+          tier = 'T1H';
+        }
       }
 
       const backendConfig: Record<string, unknown> = {
@@ -151,6 +154,15 @@ export function useGenerateDataset() {
         // Search strategy
         search_strategy: config.searchStrategy || 'hybrid',
       };
+
+      // Add open source data integration options
+      if (config.openSource) {
+        backendConfig.open_source = {
+          enable_enrichment: config.openSource.enableEnrichment,
+          sensor_mode: config.openSource.sensorMode,
+          include_ilrs_validation: config.openSource.includeIlrsValidation ?? false,
+        };
+      }
 
       // Add window size if using windowed strategy
       if (config.searchStrategy === 'windowed') {
