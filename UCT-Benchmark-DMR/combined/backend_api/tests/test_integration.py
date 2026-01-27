@@ -176,7 +176,7 @@ class TestSubmissionEvaluationFlow:
                 files={"file": ("submission.json", f, "application/json")},
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         submission = response.json()
         assert submission["status"] == "queued"
         assert submission["job_id"] is not None

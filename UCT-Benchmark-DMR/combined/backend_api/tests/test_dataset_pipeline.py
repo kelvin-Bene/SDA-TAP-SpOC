@@ -179,7 +179,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=base_dataset_request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["name"] == "test-dataset"
         assert data["regime"] == "LEO"
@@ -204,7 +204,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         # Verify the generation params include downsampling
         call_args = mock_submit.call_args
         config = call_args[0][1]
@@ -232,7 +232,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         call_args = mock_submit.call_args
         config = call_args[0][1]
         assert "simulation" in config
@@ -259,7 +259,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         call_args = mock_submit.call_args
         config = call_args[0][1]
         assert "downsampling" in config
@@ -378,7 +378,7 @@ class TestBackwardCompatibility:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["regime"] == "LEO"
 
