@@ -394,5 +394,119 @@ class TestHealthCheck:
         assert data["status"] == "healthy"
 
 
+class TestResultsListIntegration:
+    """Integration tests for the results list endpoint."""
+
+    def test_results_list_reflects_completed_submissions_with_results(
+        self,
+        integration_client: TestClient,
+        integration_db: DatabaseManager,
+    ):
+        """Test that results list only shows completed submissions with results."""
+        # Create dataset
+        integration_db.execute(
+            """
+            INSERT INTO datasets (id, name, tier, orbital_regime, status)
+            VALUES (1, 'Integration Test Dataset', 'T1', 'LEO', 'available')
+            """
+        )
+
+        # Create submissions with various statuses
+        integration_db.execute(
+            """
+            INSERT INTO submissions (id, dataset_id, algorithm_name, version, status, created_at, completed_at)
+            VALUES
+                (1, 1, 'CompletedAlgo', 'v1.0', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (2, 1, 'ProcessingAlgo', 'v1.0', 'processing', CURRENT_TIMESTAMP, NULL),
+                (3, 1, 'QueuedAlgo', 'v1.0', 'queued', CURRENT_TIMESTAMP, NULL)
+            """
+        )
+
+        # Only add results for completed submission
+        integration_db.execute(
+            """
+            INSERT INTO submission_results (
+                submission_id, true_positives, false_positives, false_negatives,
+                precision, recall, f1_score, position_rms_km, velocity_rms_km_s
+            ) VALUES (1, 80, 10, 10, 0.889, 0.889, 0.889, 15.0, 0.03)
+            """
+        )
+
+        # Get results list
+        response = integration_client.get("/api/v1/results/")
+        assert response.status_code == 200
+
+        results = response.json()
+        # Only the completed submission with results should appear
+        assert len(results) == 1
+        assert results[0]["submission_id"] == "1"
+        assert results[0]["algorithm_name"] == "CompletedAlgo"
+
+    def test_results_list_ranking_calculated_correctly(
+        self,
+        integration_client: TestClient,
+        integration_db: DatabaseManager,
+    ):
+        """Test that ranking is calculated correctly within datasets."""
+        # Create two datasets
+        integration_db.execute(
+            """
+            INSERT INTO datasets (id, name, tier, orbital_regime, status)
+            VALUES
+                (1, 'Dataset A', 'T1', 'LEO', 'available'),
+                (2, 'Dataset B', 'T1', 'GEO', 'available')
+            """
+        )
+
+        # Create submissions
+        integration_db.execute(
+            """
+            INSERT INTO submissions (id, dataset_id, algorithm_name, version, status, created_at, completed_at)
+            VALUES
+                (1, 1, 'AlgoLow', 'v1.0', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (2, 1, 'AlgoHigh', 'v1.0', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (3, 1, 'AlgoMid', 'v1.0', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (4, 2, 'AlgoOther', 'v1.0', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """
+        )
+
+        # Create results with different F1 scores
+        integration_db.execute(
+            """
+            INSERT INTO submission_results (
+                submission_id, true_positives, false_positives, false_negatives,
+                precision, recall, f1_score, position_rms_km, velocity_rms_km_s
+            ) VALUES
+                (1, 70, 15, 15, 0.824, 0.824, 0.700, 20.0, 0.04),
+                (2, 95, 3, 2, 0.969, 0.979, 0.950, 8.0, 0.015),
+                (3, 85, 8, 7, 0.914, 0.924, 0.850, 12.0, 0.025),
+                (4, 80, 10, 10, 0.889, 0.889, 0.889, 15.0, 0.03)
+            """
+        )
+
+        # Get results for dataset 1
+        response = integration_client.get("/api/v1/results/?dataset_id=1")
+        assert response.status_code == 200
+
+        results = response.json()
+        assert len(results) == 3
+
+        # Find each algorithm's result and check rank
+        results_by_algo = {r["algorithm_name"]: r for r in results}
+
+        # AlgoHigh has highest F1 (0.950) -> rank 1
+        assert results_by_algo["AlgoHigh"]["rank"] == 1
+        # AlgoMid has mid F1 (0.850) -> rank 2
+        assert results_by_algo["AlgoMid"]["rank"] == 2
+        # AlgoLow has lowest F1 (0.700) -> rank 3
+        assert results_by_algo["AlgoLow"]["rank"] == 3
+
+        # Check that dataset 2's submission has its own rank (rank 1 in its dataset)
+        response2 = integration_client.get("/api/v1/results/?dataset_id=2")
+        results2 = response2.json()
+        assert len(results2) == 1
+        assert results2[0]["rank"] == 1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

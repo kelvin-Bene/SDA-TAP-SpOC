@@ -333,6 +333,11 @@ def run_dataset_generation(
             from backend_api.database import get_db
 
             db = get_db()
+            # Rollback any failed transaction state before executing update
+            try:
+                db._connection.rollback()
+            except Exception:
+                pass  # Ignore if no transaction to rollback
             db.execute(
                 "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (dataset_id,),

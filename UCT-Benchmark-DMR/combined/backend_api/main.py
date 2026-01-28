@@ -41,7 +41,10 @@ async def lifespan(app: FastAPI):
 
     # Initialize database
     db = init_database()
-    print(f"Database initialized at: {db.db_path}")
+    if db.backend == "duckdb":
+        print(f"Database initialized (DuckDB): {db.db_path}")
+    else:
+        print(f"Database initialized (PostgreSQL): connection pool ready")
 
     # Initialize job manager
     job_manager = init_job_manager()

@@ -2,6 +2,7 @@
 Repository pattern implementation for UCT Benchmark database.
 
 Provides data access abstraction for all entity types.
+Supports both DuckDB and PostgreSQL backends.
 """
 
 import json
@@ -31,6 +32,20 @@ class BaseRepository(ABC):
         """
         self.db = db
 
+    @property
+    def backend(self) -> str:
+        """Get the database backend name."""
+        return self.db.backend
+
+    @property
+    def adapter(self):
+        """Get the database adapter."""
+        return self.db.adapter
+
+    def _convert_query(self, query: str) -> str:
+        """Convert query placeholders to backend-specific format."""
+        return self.adapter.convert_placeholders(query)
+
     def execute(self, query: str, params: tuple = ()):
         """Execute a SQL query and return the result."""
         return self.db.execute(query, params)
@@ -41,15 +56,56 @@ class BaseRepository(ABC):
 
     def to_dataframe(self, query: str, params: tuple = ()) -> pd.DataFrame:
         """Execute a query and return results as a DataFrame."""
-        return self.execute(query, params).fetchdf()
+        return self.adapter.fetchdf(self._convert_query(query), params)
 
     def fetchone(self, query: str, params: tuple = ()) -> Optional[tuple]:
         """Execute a query and return a single row."""
-        return self.execute(query, params).fetchone()
+        return self.adapter.fetchone(self._convert_query(query), params)
 
     def fetchall(self, query: str, params: tuple = ()) -> List[tuple]:
         """Execute a query and return all rows."""
-        return self.execute(query, params).fetchall()
+        return self.adapter.fetchall(self._convert_query(query), params)
+
+    def _get_conflict_sql(
+        self, action: str = "nothing", conflict_columns: Optional[List[str]] = None
+    ) -> str:
+        """
+        Get backend-specific conflict handling SQL.
+
+        Args:
+            action: 'nothing' or 'update'
+            conflict_columns: Columns for conflict detection
+
+        Returns:
+            SQL clause for conflict handling
+        """
+        if not conflict_columns:
+            return ""
+        cols = ", ".join(conflict_columns)
+        if action == "nothing":
+            return f"ON CONFLICT ({cols}) DO NOTHING"
+        return f"ON CONFLICT ({cols}) DO UPDATE SET"
+
+    def _get_insert_ignore_sql(self, table: str, columns: List[str], conflict_columns: List[str]) -> str:
+        """
+        Get backend-specific INSERT IGNORE equivalent.
+
+        Args:
+            table: Table name
+            columns: Columns to insert
+            conflict_columns: Columns for conflict detection
+
+        Returns:
+            Full INSERT statement with conflict handling
+        """
+        placeholders = ", ".join(["?"] * len(columns))
+        cols = ", ".join(columns)
+        conflict_cols = ", ".join(conflict_columns)
+        return f"""
+            INSERT INTO {table} ({cols})
+            VALUES ({placeholders})
+            ON CONFLICT ({conflict_cols}) DO NOTHING
+        """
 
 
 class SatelliteRepository(BaseRepository):
@@ -95,11 +151,12 @@ class SatelliteRepository(BaseRepository):
         placeholders = ", ".join(["?"] * len(values))
         field_names = ", ".join(fields)
 
-        # Use INSERT OR IGNORE to handle duplicate satellites gracefully
-        self.execute(
-            f"INSERT OR IGNORE INTO satellites ({field_names}) VALUES ({placeholders})",
-            tuple(values),
-        )
+        # Use ON CONFLICT DO NOTHING for both backends
+        query = f"""
+            INSERT INTO satellites ({field_names}) VALUES ({placeholders})
+            ON CONFLICT (sat_no) DO NOTHING
+        """
+        self.execute(query, tuple(values))
         return sat_no
 
     def get(self, sat_no: int) -> Optional[pd.Series]:
@@ -380,32 +437,14 @@ class ObservationRepository(BaseRepository):
         available_columns = [c for c in valid_columns if c in df.columns]
         insert_df = df[available_columns].copy()
 
-        # Convert pandas StringDtype and numpy str to object dtype for DuckDB compatibility
-        for col in insert_df.columns:
-            dtype_name = insert_df[col].dtype.name
-            dtype_str = str(insert_df[col].dtype)
-            if dtype_name in ("string", "str") or dtype_str in ("string", "str"):
-                insert_df[col] = insert_df[col].astype(object)
-
-        # Get connection and register DataFrame
-        conn = self.db._get_connection()
-        conn.register("temp_obs_df", insert_df)
-
-        try:
-            # Build column list for INSERT
-            columns = ", ".join(available_columns)
-            # Insert with conflict handling
-            conn.execute(
-                f"""
-                INSERT INTO observations ({columns})
-                SELECT {columns} FROM temp_obs_df
-                ON CONFLICT (id) DO NOTHING
-            """
-            )
-        finally:
-            conn.unregister("temp_obs_df")
-
-        return len(df)
+        # Use adapter's bulk insert method
+        return self.adapter.bulk_insert_df(
+            table="observations",
+            df=insert_df,
+            columns=available_columns,
+            on_conflict="nothing",
+            conflict_columns=["id"],
+        )
 
     def count_by_satellite(self, sat_no: int) -> int:
         """
@@ -545,15 +584,18 @@ class StateVectorRepository(BaseRepository):
             data_mode: REAL or SIMULATED
 
         Returns:
-            The inserted record ID
+            The inserted record ID, or -1 if skipped due to duplicate
         """
         cov_json = json.dumps(covariance) if covariance else None
 
+        # Use ON CONFLICT to handle duplicate (sat_no, epoch, source) gracefully
+        # This prevents transaction abort in PostgreSQL when duplicates exist
         result = self.fetchone(
             """
             INSERT INTO state_vectors (sat_no, epoch, x_pos, y_pos, z_pos,
                                         x_vel, y_vel, z_vel, covariance, source, data_mode)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (sat_no, epoch, source) DO NOTHING
             RETURNING id
             """,
             (sat_no, epoch, x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, cov_json, source, data_mode),
@@ -654,39 +696,28 @@ class StateVectorRepository(BaseRepository):
         if df.empty:
             return 0
 
+        # Prepare DataFrame
+        insert_df = df.copy()
+
         # Ensure covariance is JSON serialized
-        if "covariance" in df.columns:
-            df = df.copy()
-            df["covariance"] = df["covariance"].apply(
+        if "covariance" in insert_df.columns:
+            insert_df["covariance"] = insert_df["covariance"].apply(
                 lambda x: json.dumps(x) if isinstance(x, (list, dict)) else x
             )
 
-        # Convert pandas StringDtype and str to object dtype for DuckDB compatibility
-        for col in df.columns:
-            dtype_name = df[col].dtype.name
-            dtype_str = str(df[col].dtype)
-            if dtype_name in ("string", "str") or dtype_str in ("string", "str"):
-                df[col] = df[col].astype(object)
+        columns = [
+            "sat_no", "epoch", "x_pos", "y_pos", "z_pos",
+            "x_vel", "y_vel", "z_vel", "covariance", "source", "data_mode"
+        ]
+        available_columns = [c for c in columns if c in insert_df.columns]
 
-        # Get connection and register DataFrame
-        conn = self.db._get_connection()
-        conn.register("temp_sv_df", df)
-
-        try:
-            conn.execute(
-                """
-                INSERT INTO state_vectors (sat_no, epoch, x_pos, y_pos, z_pos,
-                                            x_vel, y_vel, z_vel, covariance, source, data_mode)
-                SELECT sat_no, epoch, x_pos, y_pos, z_pos,
-                       x_vel, y_vel, z_vel, covariance, source, data_mode
-                FROM temp_sv_df
-                ON CONFLICT (sat_no, epoch, source) DO NOTHING
-            """
-            )
-        finally:
-            conn.unregister("temp_sv_df")
-
-        return len(df)
+        return self.adapter.bulk_insert_df(
+            table="state_vectors",
+            df=insert_df,
+            columns=available_columns,
+            on_conflict="nothing",
+            conflict_columns=["sat_no", "epoch", "source"],
+        )
 
     def count(self) -> int:
         """Get total state vector count."""
@@ -734,14 +765,17 @@ class ElementSetRepository(BaseRepository):
             source: Data source
 
         Returns:
-            The inserted record ID
+            The inserted record ID, or -1 if skipped due to duplicate
         """
+        # Use ON CONFLICT to handle duplicate (sat_no, epoch) gracefully
+        # This prevents transaction abort in PostgreSQL when duplicates exist
         result = self.fetchone(
             """
             INSERT INTO element_sets (sat_no, line1, line2, epoch, inclination, raan,
                                        eccentricity, arg_perigee, mean_anomaly, mean_motion,
                                        b_star, semi_major_axis_km, period_minutes, source)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (sat_no, epoch) DO NOTHING
             RETURNING id
             """,
             (
@@ -857,35 +891,20 @@ class ElementSetRepository(BaseRepository):
         if df.empty:
             return 0
 
-        # Convert pandas StringDtype and str to object dtype for DuckDB compatibility
-        df = df.copy()
-        for col in df.columns:
-            dtype_name = df[col].dtype.name
-            dtype_str = str(df[col].dtype)
-            if dtype_name in ("string", "str") or dtype_str in ("string", "str"):
-                df[col] = df[col].astype(object)
+        columns = [
+            "sat_no", "line1", "line2", "epoch", "inclination", "raan",
+            "eccentricity", "arg_perigee", "mean_anomaly", "mean_motion",
+            "b_star", "semi_major_axis_km", "period_minutes", "source"
+        ]
+        available_columns = [c for c in columns if c in df.columns]
 
-        # Get connection and register DataFrame
-        conn = self.db._get_connection()
-        conn.register("temp_elset_df", df)
-
-        try:
-            conn.execute(
-                """
-                INSERT INTO element_sets (sat_no, line1, line2, epoch, inclination, raan,
-                                           eccentricity, arg_perigee, mean_anomaly, mean_motion,
-                                           b_star, semi_major_axis_km, period_minutes, source)
-                SELECT sat_no, line1, line2, epoch, inclination, raan,
-                       eccentricity, arg_perigee, mean_anomaly, mean_motion,
-                       b_star, semi_major_axis_km, period_minutes, source
-                FROM temp_elset_df
-                ON CONFLICT (sat_no, epoch) DO NOTHING
-            """
-            )
-        finally:
-            conn.unregister("temp_elset_df")
-
-        return len(df)
+        return self.adapter.bulk_insert_df(
+            table="element_sets",
+            df=df,
+            columns=available_columns,
+            on_conflict="nothing",
+            conflict_columns=["sat_no", "epoch"],
+        )
 
     def count(self) -> int:
         """Get total element set count."""
@@ -1321,14 +1340,12 @@ class DatasetRepository(BaseRepository):
             for obs_id in observation_ids
         ]
 
-        self.executemany(
-            """
+        query = """
             INSERT INTO dataset_observations (dataset_id, observation_id, assigned_track_id, assigned_object_id)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (dataset_id, observation_id) DO NOTHING
-            """,
-            data,
-        )
+        """
+        self.executemany(query, data)
         return len(observation_ids)
 
     def add_references_to_dataset(
@@ -1564,14 +1581,12 @@ class EventRepository(BaseRepository):
             Number of observations linked
         """
         data = [(event_id, obs_id) for obs_id in observation_ids]
-        self.executemany(
-            """
+        query = """
             INSERT INTO event_observations (event_id, observation_id)
             VALUES (?, ?)
             ON CONFLICT (event_id, observation_id) DO NOTHING
-            """,
-            data,
-        )
+        """
+        self.executemany(query, data)
         return len(observation_ids)
 
     def get_event_observations(self, event_id: int) -> pd.DataFrame:

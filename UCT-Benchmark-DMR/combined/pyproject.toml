@@ -37,10 +37,14 @@ dev = [
     "pytest-asyncio",
     "ruff>=0.14.0",
     "httpx",
+    "testcontainers[postgres]>=4.0.0",
 ]
 docs = [
     "mkdocs",
     "mkdocs-material",
+]
+postgres = [
+    "pg8000>=1.30.0",
 ]
 
 [build-system]

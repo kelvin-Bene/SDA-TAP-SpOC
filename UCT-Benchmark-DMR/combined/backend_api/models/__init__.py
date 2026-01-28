@@ -333,6 +333,30 @@ class SubmissionResults(BaseModel):
         from_attributes = True
 
 
+class ResultSummary(BaseModel):
+    """Lightweight summary for results list view."""
+
+    submission_id: str
+    dataset_id: str
+    dataset_name: Optional[str] = None
+    algorithm_name: str
+    version: str
+    status: SubmissionStatus
+    completed_at: Optional[datetime] = None
+
+    # Key metrics
+    f1_score: float = 0.0
+    precision: float = 0.0
+    recall: float = 0.0
+    position_rms_km: float = 0.0
+
+    # Ranking
+    rank: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ============================================================
 # LEADERBOARD MODELS
 # ============================================================
