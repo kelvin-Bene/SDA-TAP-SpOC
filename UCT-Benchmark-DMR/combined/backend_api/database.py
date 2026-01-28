@@ -13,10 +13,6 @@ from typing import Optional
 from fastapi import FastAPI
 
 from uct_benchmark.database.connection import DatabaseManager
-from uct_benchmark.database.adapters.factory import DEFAULT_SUPABASE_URL
-
-import logging
-logger = logging.getLogger(__name__)
 
 # Global database manager instance (singleton)
 _db_manager: Optional[DatabaseManager] = None
@@ -125,11 +121,9 @@ def init_database(
         url = database_url or get_database_url()
 
         if not url:
-            # Fall back to the shared UCT Benchmark Supabase instance (READ-ONLY)
-            url = DEFAULT_SUPABASE_URL
-            logger.warning(
-                "No DATABASE_URL configured. Using default READ-ONLY Supabase connection. "
-                "Dataset creation/modification will fail. Set DATABASE_URL for full access."
+            raise ValueError(
+                "DATABASE_URL environment variable must be set for PostgreSQL backend. "
+                "See docs/SUPABASE_SETUP.md for configuration instructions."
             )
 
         pool_config = get_pool_config()

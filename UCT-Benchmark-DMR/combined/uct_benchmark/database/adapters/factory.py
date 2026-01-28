@@ -12,17 +12,9 @@ from typing import Optional
 from .base import DatabaseAdapter
 from .duckdb_adapter import DuckDBAdapter
 
-# Default Supabase connection for UCT Benchmark shared database (READ-ONLY)
-# This allows users to connect and browse existing datasets without configuration
-# Using Supabase pooler (us-west-2) for IPv4 support (works in WSL and environments without IPv6)
-# NOTE: This is a READ-ONLY user. For write operations, set DATABASE_URL with full credentials.
-DEFAULT_SUPABASE_URL = (
-    "postgresql://uct_readonly.csuqtcizjfsmkoeevyau:UCTBenchmarkReadOnly2024@aws-0-us-west-2.pooler.supabase.com:5432/postgres"
-)
-
-# Full access URL - only use this for development/admin, NEVER commit real credentials
-# Set DATABASE_URL environment variable for write access
+# PostgreSQL/Supabase connection requires DATABASE_URL environment variable
 # Example: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres
+# See docs/SUPABASE_SETUP.md for configuration instructions
 
 
 def get_database_backend() -> str:
@@ -141,33 +133,26 @@ def _create_postgres_adapter(
 
     Args:
         database_url: PostgreSQL connection string.
-                      If None, reads from DATABASE_URL env var, then falls back
-                      to the default UCT Benchmark Supabase instance (READ-ONLY).
+                      If None, reads from DATABASE_URL env var.
         pool_min: Minimum connection pool size. Defaults to DATABASE_POOL_MIN env var or 2.
         pool_max: Maximum connection pool size. Defaults to DATABASE_POOL_MAX env var or 10.
 
     Returns:
         Configured PostgresAdapter instance.
 
-    Note:
-        If no DATABASE_URL is provided, a read-only connection to the shared
-        Supabase database is used. This allows browsing existing datasets but
-        not creating or modifying data.
+    Raises:
+        ValueError: If DATABASE_URL is not provided or set in environment.
     """
     # Import here to avoid requiring psycopg when using DuckDB
     from .postgres_adapter import PostgresAdapter
-    import logging
 
-    logger = logging.getLogger(__name__)
-
-    # Get connection URL (with fallback to default Supabase READ-ONLY)
+    # Get connection URL from parameter or environment
     url = database_url or os.environ.get("DATABASE_URL")
 
     if not url:
-        url = DEFAULT_SUPABASE_URL
-        logger.info(
-            "No DATABASE_URL configured. Using default READ-ONLY Supabase connection. "
-            "Set DATABASE_URL environment variable for write access."
+        raise ValueError(
+            "DATABASE_URL environment variable must be set for PostgreSQL backend. "
+            "See docs/SUPABASE_SETUP.md for configuration instructions."
         )
 
     # Get pool configuration from environment if not provided
