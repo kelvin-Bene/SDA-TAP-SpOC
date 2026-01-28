@@ -23,7 +23,7 @@ from loguru import logger
 from .database import close_database, init_credential_service, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
-from .routers import credentials, datasets, jobs, leaderboard, results, submissions, uctp
+from .routers import auth, credentials, datasets, jobs, leaderboard, results, submissions, uctp
 
 
 @asynccontextmanager
@@ -94,21 +94,40 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# Configure CORS for frontend development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Configure CORS
+# Read allowed origins from config, falling back to development defaults
+try:
+    from .config import get_config as _get_cors_config
+
+    _cors_origins = _get_cors_config().cors_origins
+except Exception:
+    _cors_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
         "http://127.0.0.1:5173",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register audit middleware when using PostgreSQL backend
+try:
+    from .config import DatabaseBackend, get_config as _get_audit_config
+
+    if _get_audit_config().db_backend == DatabaseBackend.POSTGRES:
+        from .middleware.audit import AuditMiddleware
+
+        app.add_middleware(AuditMiddleware)
+except Exception:
+    pass  # Audit middleware is optional; skip if config/module unavailable
 
 # Include routers
 app.include_router(datasets.router, prefix="/api/v1/datasets", tags=["Datasets"])
@@ -118,6 +137,7 @@ app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Lead
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
 app.include_router(uctp.router, prefix="/api/v1/uctp", tags=["UCTP Lab"])
 app.include_router(credentials.router, prefix="/api/v1/credentials", tags=["Credentials"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 
 
 @app.get("/")

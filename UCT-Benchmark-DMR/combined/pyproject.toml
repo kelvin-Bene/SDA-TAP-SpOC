@@ -30,6 +30,10 @@ dependencies = [
     "python-multipart>=0.0.6",
     # Security
     "cryptography>=43.0.0",
+    # Supabase / PostgreSQL migration
+    "psycopg[binary]>=3.1.0",
+    "psycopg-pool>=3.2.0",
+    "python-jose[cryptography]>=3.3.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +43,9 @@ dev = [
     "pytest-asyncio",
     "ruff>=0.14.0",
     "httpx",
+]
+supabase = [
+    "supabase>=2.0.0",
 ]
 docs = [
     "mkdocs",

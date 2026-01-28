@@ -10,9 +10,27 @@ export const apiClient = axios.create({
 });
 
 // Request interceptor for auth token
+// Prefers Supabase session token when available, falls back to localStorage
 apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token');
+  async (config) => {
+    let token: string | null = null;
+
+    // Try to get token from Supabase session first
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token ?? null;
+      }
+    } catch {
+      // Supabase not configured; fall through to localStorage
+    }
+
+    // Fallback to localStorage (non-Supabase auth or persisted token)
+    if (!token) {
+      token = localStorage.getItem('auth_token');
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -1,38 +1,48 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Orbit, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/stores/authStore';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation();
+  const { login, loginWithOAuth, loading: authLoading, error: authError } = useAuth();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Redirect if already authenticated
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  if (isAuthenticated) {
+    navigate(from, { replace: true });
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    setIsLoading(false);
-    navigate('/');
+    try {
+      await login(email, password);
+      navigate(from, { replace: true });
+    } catch {
+      // Error is surfaced via authError
+    }
   };
 
-  const handleOAuthLogin = async (_provider: 'google' | 'github') => {
-    setIsLoading(true);
-
-    // Simulate OAuth login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    setIsLoading(false);
-    navigate('/');
+  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+    try {
+      await loginWithOAuth(provider);
+      // OAuth redirects the browser; no navigate needed
+    } catch {
+      // Error is surfaced via authError
+    }
   };
+
+  const isLoading = authLoading;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 space-bg relative overflow-hidden">
@@ -126,6 +136,13 @@ export function LoginPage() {
               <span className="bg-card px-4 text-muted-foreground">Or continue with</span>
             </div>
           </div>
+
+          {/* Error message */}
+          {authError && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {authError}
+            </div>
+          )}
 
           {/* Email/Password Form */}
           <form onSubmit={handleLogin} className="space-y-4">
