@@ -370,6 +370,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     job_type VARCHAR(50) NOT NULL,        -- dataset_generation, evaluation
     status VARCHAR(20) DEFAULT 'pending', -- pending, running, completed, failed
     progress INTEGER DEFAULT 0,           -- 0-100
+    stage VARCHAR(200),                  -- Current stage description for progress display
     result JSON,
     error TEXT,
     metadata JSON,

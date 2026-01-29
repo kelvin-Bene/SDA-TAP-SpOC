@@ -10,7 +10,6 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from backend_api.database import get_db
-from backend_api.jobs.workers import submit_dataset_generation
 from backend_api.models import (
     DatasetCreate,
     DatasetDetail,
@@ -300,16 +299,17 @@ async def create_dataset(
     # Add the final unique name to generation params
     generation_params["name"] = dataset_name
 
-    # Use transaction to ensure atomicity of dataset creation
-    # If any step fails, rollback to prevent partial/corrupted records
+    # Create dataset and job records, then start background generation.
+    # Note: the PostgreSQL adapter auto-commits each execute(), so
+    # BEGIN/COMMIT blocks are not used.  Instead each INSERT/UPDATE is
+    # committed individually and the background thread is started only
+    # AFTER all database writes complete (pg8000 connections are not
+    # thread-safe).
     job = None
     dataset_id = None
 
     try:
-        # Start transaction
-        db.execute("BEGIN TRANSACTION")
-
-        # Create dataset record in database using RETURNING to get the ID
+        # 1. Create dataset record
         result = db.execute(
             """
             INSERT INTO datasets (
@@ -327,10 +327,16 @@ async def create_dataset(
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job for dataset generation
-        job = submit_dataset_generation(dataset_id, generation_params)
+        # 2. Create job record (DB write only, no background thread yet)
+        from backend_api.jobs import get_job_manager, JobType
 
-        # Update dataset with job_id
+        job_manager = get_job_manager()
+        job = job_manager.create_job(
+            JobType.DATASET_GENERATION,
+            metadata={"dataset_id": dataset_id, "config": generation_params},
+        )
+
+        # 3. Update dataset with job_id
         db.execute(
             """
             UPDATE datasets
@@ -343,29 +349,23 @@ async def create_dataset(
             ),
         )
 
-        # Commit transaction
-        db.execute("COMMIT")
+        # 4. Start background generation AFTER all DB writes are done
+        from backend_api.jobs.workers import get_executor, run_dataset_generation
+
+        get_executor().submit(run_dataset_generation, job.id, dataset_id, generation_params)
 
     except Exception as e:
-        # Rollback on any failure
-        try:
-            db.execute("ROLLBACK")
-        except Exception as rollback_error:
-            logger.warning(f"Rollback failed: {rollback_error}")
-
         # Cancel the job if it was created
         if job is not None:
             try:
-                from backend_api.jobs import get_job_manager
+                from backend_api.jobs import get_job_manager as _get_jm
 
-                job_manager = get_job_manager()
-                job_manager.fail_job(job.id, "Dataset creation failed, job cancelled")
+                _get_jm().fail_job(job.id, "Dataset creation failed, job cancelled")
             except Exception as cancel_error:
                 logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
 
         logger.error(f"Failed to create dataset: {e}")
 
-        # Check for UNIQUE constraint violation (extremely unlikely with UUID, but handle it)
         error_str = str(e).lower()
         if "unique" in error_str or "duplicate" in error_str:
             raise HTTPException(

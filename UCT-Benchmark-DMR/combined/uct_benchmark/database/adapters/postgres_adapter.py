@@ -6,6 +6,7 @@ using pg8000 for direct Supabase/PostgreSQL connectivity.
 """
 
 import os
+import threading
 from contextlib import contextmanager
 from typing import Any, Generator, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs
@@ -68,7 +69,9 @@ class PostgresAdapter(DatabaseAdapter):
         self.max_connections = max_connections
         self.connect_timeout = connect_timeout
 
-        self._connection: Optional[pg8000.Connection] = None
+        # Thread-local storage: each thread gets its own pg8000 connection
+        # because pg8000 connections are NOT thread-safe.
+        self._local = threading.local()
 
         # Parse connection string
         parsed = urlparse(self.database_url)
@@ -104,25 +107,32 @@ class PostgresAdapter(DatabaseAdapter):
         return pg8000.connect(**kwargs)
 
     def connect(self) -> None:
-        """Establish a database connection."""
-        if self._connection is None:
-            self._connection = self._create_connection()
+        """Establish a database connection for the current thread."""
+        conn = getattr(self._local, "connection", None)
+        if conn is None:
+            self._local.connection = self._create_connection()
 
     def close(self) -> None:
-        """Close the database connection."""
-        if self._connection is not None:
-            self._connection.close()
-            self._connection = None
+        """Close the database connection for the current thread."""
+        conn = getattr(self._local, "connection", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._local.connection = None
 
     def is_connected(self) -> bool:
-        """Check if the adapter has an active connection."""
-        return self._connection is not None
+        """Check if the current thread has an active connection."""
+        return getattr(self._local, "connection", None) is not None
 
     def _get_connection(self) -> pg8000.Connection:
-        """Get the current connection, creating one if needed."""
-        if self._connection is None:
+        """Get the current thread's connection, creating one if needed."""
+        conn = getattr(self._local, "connection", None)
+        if conn is None:
             self.connect()
-        return self._connection
+            conn = self._local.connection
+        return conn
 
     @contextmanager
     def connection(self) -> Generator[Any, None, None]:
@@ -153,8 +163,12 @@ class PostgresAdapter(DatabaseAdapter):
         converted_query = self.convert_placeholders(query)
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        conn.commit()
+        try:
+            cursor.execute(converted_query, params)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         return cursor
 
     def executemany(self, query: str, params_list: List[Tuple], batch_size: int = 500) -> None:
@@ -176,57 +190,61 @@ class PostgresAdapter(DatabaseAdapter):
         conn = self._get_connection()
         cursor = conn.cursor()
 
-        # Check if this is an INSERT statement that can be batched
-        # Normalize whitespace for easier parsing
-        normalized_query = " ".join(converted_query.split())
-        query_upper = normalized_query.upper()
+        try:
+            # Check if this is an INSERT statement that can be batched
+            # Normalize whitespace for easier parsing
+            normalized_query = " ".join(converted_query.split())
+            query_upper = normalized_query.upper()
 
-        if query_upper.startswith("INSERT"):
-            # Parse the INSERT query to extract table, columns, and conflict clause
-            import re
+            if query_upper.startswith("INSERT"):
+                # Parse the INSERT query to extract table, columns, and conflict clause
+                import re
 
-            # Match: INSERT INTO table (cols) VALUES (%s, %s, ...) [ON CONFLICT ...]
-            match = re.match(
-                r"INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)(.*)",
-                normalized_query,
-                re.IGNORECASE,
-            )
+                # Match: INSERT INTO table (cols) VALUES (%s, %s, ...) [ON CONFLICT ...]
+                match = re.match(
+                    r"INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)(.*)",
+                    normalized_query,
+                    re.IGNORECASE,
+                )
 
-            if match:
-                table = match.group(1)
-                columns = match.group(2)
-                placeholders = match.group(3)
-                conflict_clause = match.group(4).strip()
+                if match:
+                    table = match.group(1)
+                    columns = match.group(2)
+                    placeholders = match.group(3)
+                    conflict_clause = match.group(4).strip()
 
-                # Count number of placeholders per row
-                num_placeholders = placeholders.count("%s")
-                row_placeholder = "(" + ", ".join(["%s"] * num_placeholders) + ")"
+                    # Count number of placeholders per row
+                    num_placeholders = placeholders.count("%s")
+                    row_placeholder = "(" + ", ".join(["%s"] * num_placeholders) + ")"
 
-                # Process in batches
-                total = len(params_list)
-                for batch_start in range(0, total, batch_size):
-                    batch_end = min(batch_start + batch_size, total)
-                    batch = params_list[batch_start:batch_end]
+                    # Process in batches
+                    total = len(params_list)
+                    for batch_start in range(0, total, batch_size):
+                        batch_end = min(batch_start + batch_size, total)
+                        batch = params_list[batch_start:batch_end]
 
-                    if not batch:
-                        continue
+                        if not batch:
+                            continue
 
-                    values_clause = ", ".join([row_placeholder] * len(batch))
-                    batch_query = f"INSERT INTO {table} ({columns}) VALUES {values_clause} {conflict_clause}"
+                        values_clause = ", ".join([row_placeholder] * len(batch))
+                        batch_query = f"INSERT INTO {table} ({columns}) VALUES {values_clause} {conflict_clause}"
 
-                    # Flatten params
-                    flat_params = []
-                    for params in batch:
-                        flat_params.extend(params)
+                        # Flatten params
+                        flat_params = []
+                        for params in batch:
+                            flat_params.extend(params)
 
-                    cursor.execute(batch_query, tuple(flat_params))
-                    conn.commit()
-                return
+                        cursor.execute(batch_query, tuple(flat_params))
+                        conn.commit()
+                    return
 
-        # Fallback: execute one by one for non-INSERT queries
-        for params in params_list:
-            cursor.execute(converted_query, params)
-        conn.commit()
+            # Fallback: execute one by one for non-INSERT queries
+            for params in params_list:
+                cursor.execute(converted_query, params)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     def fetchone(self, query: str, params: Tuple = ()) -> Optional[Tuple]:
         """
@@ -242,8 +260,12 @@ class PostgresAdapter(DatabaseAdapter):
         converted_query = self.convert_placeholders(query)
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        return cursor.fetchone()
+        try:
+            cursor.execute(converted_query, params)
+            return cursor.fetchone()
+        except Exception:
+            conn.rollback()
+            raise
 
     def fetchall(self, query: str, params: Tuple = ()) -> List[Tuple]:
         """
@@ -259,8 +281,12 @@ class PostgresAdapter(DatabaseAdapter):
         converted_query = self.convert_placeholders(query)
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        return cursor.fetchall()
+        try:
+            cursor.execute(converted_query, params)
+            return cursor.fetchall()
+        except Exception:
+            conn.rollback()
+            raise
 
     def fetchdf(self, query: str, params: Tuple = ()) -> pd.DataFrame:
         """
@@ -276,10 +302,14 @@ class PostgresAdapter(DatabaseAdapter):
         converted_query = self.convert_placeholders(query)
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        columns = [desc[0] for desc in cursor.description] if cursor.description else []
-        rows = cursor.fetchall()
-        return pd.DataFrame(rows, columns=columns)
+        try:
+            cursor.execute(converted_query, params)
+            columns = [desc[0] for desc in cursor.description] if cursor.description else []
+            rows = cursor.fetchall()
+            return pd.DataFrame(rows, columns=columns)
+        except Exception:
+            conn.rollback()
+            raise
 
     def bulk_insert_df(
         self,

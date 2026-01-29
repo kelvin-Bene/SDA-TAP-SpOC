@@ -10,11 +10,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+from pathlib import Path as _Path
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
 # Load .env before reading any environment variables
-load_dotenv()
+# Use explicit path to ensure it's found regardless of CWD
+_env_path = _Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_env_path)
 
 from uct_benchmark.database.connection import DatabaseManager
 

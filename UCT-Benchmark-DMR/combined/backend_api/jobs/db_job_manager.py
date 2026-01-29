@@ -34,7 +34,7 @@ class DatabaseJobManager:
         db = self._get_db()
         db.execute(
             """
-            INSERT INTO jobs (job_id, job_type, status, progress, stage, result, error_message,
+            INSERT INTO jobs (id, job_type, status, progress, stage, result, error,
                               created_at, started_at, completed_at, metadata)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -54,8 +54,8 @@ class DatabaseJobManager:
     def get_job(self, job_id: str) -> Optional[Job]:
         db = self._get_db()
         row = db.execute(
-            "SELECT job_id, job_type, status, progress, stage, result, error_message, "
-            "created_at, started_at, completed_at, metadata FROM jobs WHERE job_id = ?",
+            "SELECT id, job_type, status, progress, stage, result, error, "
+            "created_at, started_at, completed_at, metadata FROM jobs WHERE id = ?",
             (job_id,),
         ).fetchone()
 
@@ -103,7 +103,7 @@ class DatabaseJobManager:
             params.append(json.dumps(result) if not isinstance(result, str) else result)
 
         if error is not None:
-            updates.append("error_message = ?")
+            updates.append("error = ?")
             params.append(error)
 
         if not updates:
@@ -112,7 +112,7 @@ class DatabaseJobManager:
         params.append(job_id)
         db = self._get_db()
         db.execute(
-            f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?",
+            f"UPDATE jobs SET {', '.join(updates)} WHERE id = ?",
             tuple(params),
         )
 
@@ -150,7 +150,7 @@ class DatabaseJobManager:
         params.append(limit)
         db = self._get_db()
         rows = db.execute(
-            f"SELECT job_id, job_type, status, progress, stage, result, error_message, "
+            f"SELECT id, job_type, status, progress, stage, result, error, "
             f"created_at, started_at, completed_at, metadata "
             f"FROM jobs {where} ORDER BY created_at DESC LIMIT ?",
             tuple(params),
