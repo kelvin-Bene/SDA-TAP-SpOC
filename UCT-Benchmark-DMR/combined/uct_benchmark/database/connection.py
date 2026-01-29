@@ -1,9 +1,9 @@
 """
 Database connection management for UCT Benchmark.
 
-Provides thread-safe connection pooling and database lifecycle management.
-Supports both DuckDB (default) and PostgreSQL (Supabase) backends via
-the DB_BACKEND feature flag.
+Provides thread-safe connection management and database lifecycle operations.
+Supports both DuckDB (local development) and PostgreSQL (Supabase production)
+through the adapter pattern.
 """
 
 import shutil
@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional
 
 import pandas as pd
+
+from .adapters import DatabaseAdapter, create_adapter
 
 if TYPE_CHECKING:
     from .backend_interface import DatabaseBackendInterface
@@ -53,78 +55,36 @@ def get_db_path(db_name: Optional[str] = None) -> Path:
     return base_dir / (db_name or DEFAULT_DB_NAME)
 
 
-def _resolve_backend(
-    backend: Optional[str],
-    db_path: Optional[str | Path],
-    read_only: bool,
-    in_memory: bool,
-) -> "DatabaseBackendInterface":
-    """Create the appropriate backend based on configuration.
-
-    Args:
-        backend: Explicit backend name ("duckdb" or "postgres"), or None to auto-detect
-        db_path: Database file path (DuckDB only)
-        read_only: Open in read-only mode (DuckDB only)
-        in_memory: Use in-memory database (DuckDB only)
-
-    Returns:
-        A DatabaseBackendInterface implementation
-    """
-    if backend is None:
-        try:
-            from backend_api.config import get_config
-
-            backend = get_config().db_backend.value
-        except Exception:
-            backend = "duckdb"
-
-    if backend == "postgres":
-        from backend_api.config import get_config
-
-        from .postgres_backend import PostgresBackend
-
-        config = get_config()
-        if not config.postgres_url:
-            raise ValueError(
-                "PostgreSQL backend selected but DATABASE_URL / SUPABASE_DB_URL is not set. "
-                "Set the DATABASE_URL environment variable to your PostgreSQL connection string."
-            )
-        return PostgresBackend(
-            connection_url=config.postgres_url,
-            min_size=config.postgres_pool_min,
-            max_size=config.postgres_pool_max,
-        )
-    else:
-        from .duckdb_backend import DuckDBBackend
-
-        return DuckDBBackend(db_path=db_path, read_only=read_only, in_memory=in_memory)
-
-
 class DatabaseManager:
     """
     Manages database connections and lifecycle.
 
     Supports both DuckDB (default, local development) and PostgreSQL
-    (production, Supabase) backends. The backend is selected via the
-    DB_BACKEND environment variable or the `backend` constructor parameter.
+    (production, Supabase) backends via the adapter pattern.
 
     Provides:
+    - Unified interface for DuckDB and PostgreSQL
     - Thread-safe connection management
     - Schema initialization
     - Backup/restore functionality (DuckDB only)
-    - Connection pooling for concurrent access
+    - Repository access
     - Backend-agnostic bulk insert via bulk_insert_df()
 
     Usage:
-        db = DatabaseManager()          # DuckDB (default)
-        db = DatabaseManager(backend="postgres")  # PostgreSQL
+        # DuckDB (default)
+        db = DatabaseManager()
+        db.initialize()
+
+        # PostgreSQL/Supabase
+        db = DatabaseManager(backend='postgres', database_url='postgresql://...')
         db.initialize()
 
         # Use repositories
         obs = db.observations.get_by_satellite_time_window(...)
 
-        # Or direct SQL
-        result = db.execute("SELECT * FROM satellites").fetchdf()
+        # Or direct SQL via adapter
+        with db.connection() as conn:
+            result = db.adapter.fetchdf("SELECT * FROM satellites")
     """
 
     def __init__(
@@ -133,33 +93,45 @@ class DatabaseManager:
         read_only: bool = False,
         in_memory: bool = False,
         backend: Optional[str] = None,
+        database_url: Optional[str] = None,
+        pool_min: Optional[int] = None,
+        pool_max: Optional[int] = None,
     ):
         """
         Initialize the database manager.
 
         Args:
-            db_path: Path to the DuckDB file. If None, uses default path. Ignored for PostgreSQL.
-            read_only: If True, open database in read-only mode. DuckDB only.
-            in_memory: If True, use an in-memory database. DuckDB only.
-            backend: Explicit backend ("duckdb" or "postgres"). If None, reads DB_BACKEND env var.
+            db_path: Path to the DuckDB file. If None, uses default path. (DuckDB only)
+            read_only: If True, open database in read-only mode. (DuckDB only)
+            in_memory: If True, use an in-memory database. (DuckDB only)
+            backend: Database backend ('duckdb' or 'postgres'). If None, auto-detects.
+            database_url: PostgreSQL connection string. (PostgreSQL only)
+            pool_min: Minimum connection pool size. (PostgreSQL only)
+            pool_max: Maximum connection pool size. (PostgreSQL only)
         """
+        # Store config for backup/restore
         self.in_memory = in_memory
         self.read_only = read_only
         self._backend_name = backend
 
-        # Resolve the backend implementation
-        self._backend: "DatabaseBackendInterface" = _resolve_backend(
-            backend=backend,
-            db_path=db_path,
-            read_only=read_only,
-            in_memory=in_memory,
-        )
-
-        # Set db_path for backward compatibility
-        if hasattr(self._backend, "db_path"):
-            self.db_path = self._backend.db_path
+        # Determine db_path for DuckDB
+        if in_memory:
+            self.db_path: str | Path = ":memory:"
+        elif db_path:
+            self.db_path = Path(db_path)
         else:
-            self.db_path = "<postgres>"
+            self.db_path = get_db_path()
+
+        # Create the appropriate adapter
+        self._adapter = create_adapter(
+            backend=backend,
+            db_path=self.db_path if not in_memory else None,
+            in_memory=in_memory,
+            read_only=read_only,
+            database_url=database_url,
+            pool_min=pool_min,
+            pool_max=pool_max,
+        )
 
         self._lock = threading.Lock()
         self._initialized = False
@@ -172,18 +144,15 @@ class DatabaseManager:
         self._datasets: Optional["DatasetRepository"] = None
         self._events: Optional["EventRepository"] = None
 
-    def _get_connection(self):
-        """Get a raw connection from the backend.
+    @property
+    def adapter(self) -> DatabaseAdapter:
+        """Get the underlying database adapter."""
+        return self._adapter
 
-        For DuckDB: returns a thread-local DuckDB connection.
-        For PostgreSQL: not recommended — use execute() or connection() instead.
-        """
-        if hasattr(self._backend, "_get_connection"):
-            return self._backend._get_connection()
-        raise NotImplementedError(
-            "Direct connection access is not supported for the PostgreSQL backend. "
-            "Use db.execute() or db.connection() instead."
-        )
+    @property
+    def backend(self) -> str:
+        """Get the database backend name ('duckdb' or 'postgres')."""
+        return self._adapter.backend_name
 
     @contextmanager
     def connection(self):
@@ -191,13 +160,14 @@ class DatabaseManager:
         Context manager for database connections.
 
         Yields:
-            Database connection object
+            Database connection object (backend-specific)
 
         Example:
             with db.connection() as conn:
-                result = conn.execute("SELECT * FROM satellites").fetchdf()
+                # Use connection directly (backend-specific)
+                ...
         """
-        with self._backend.connection() as conn:
+        with self._adapter.connection() as conn:
             yield conn
 
     def execute(self, query: str, params: tuple = ()) -> Any:
@@ -205,14 +175,13 @@ class DatabaseManager:
         Execute a SQL query.
 
         Args:
-            query: SQL query string (use ? placeholders — automatically
-                   converted to %s for PostgreSQL)
+            query: SQL query string (uses '?' placeholders)
             params: Query parameters for prepared statements
 
         Returns:
-            Result object with fetchone(), fetchall(), fetchdf() methods
+            Query result (backend-specific)
         """
-        return self._backend.execute(query, params)
+        return self._adapter.execute(query, params)
 
     def executemany(self, query: str, params_list: list) -> None:
         """
@@ -222,7 +191,7 @@ class DatabaseManager:
             query: SQL query string with placeholders
             params_list: List of parameter tuples
         """
-        self._backend.executemany(query, params_list)
+        self._adapter.executemany(query, params_list)
 
     def bulk_insert_df(
         self,
@@ -246,7 +215,16 @@ class DatabaseManager:
         Returns:
             Number of rows inserted
         """
-        return self._backend.execute_df_insert(table, df, columns, conflict_clause)
+        if hasattr(self._adapter, "execute_df_insert"):
+            return self._adapter.execute_df_insert(table, df, columns, conflict_clause)
+        # Fallback: use executemany
+        placeholders = ", ".join(["?"] * len(columns))
+        col_str = ", ".join(columns)
+        query = f"INSERT INTO {table} ({col_str}) VALUES ({placeholders}) {conflict_clause}"
+        query = self._adapter.convert_placeholders(query)
+        rows = [tuple(row[col] for col in columns) for _, row in df.iterrows()]
+        self._adapter.executemany(query, rows)
+        return len(rows)
 
     def initialize(self, force: bool = False) -> None:
         """
@@ -258,31 +236,43 @@ class DatabaseManager:
             force: If True, drop and recreate all tables
         """
         with self._lock:
-            self._backend.initialize_schema(force=force)
+            from .schema import initialize_schema
+
+            initialize_schema(self, force=force)
             self._initialized = True
 
     def is_initialized(self) -> bool:
         """Check if the database schema has been initialized."""
         if self._initialized:
             return True
-        return self._backend.is_initialized()
+
+        try:
+            tables = self._adapter.get_tables()
+            return len(tables) > 0
+        except Exception:
+            return False
 
     def close(self) -> None:
         """Close database connections."""
-        self._backend.close()
+        self._adapter.close()
 
     def backup(self, backup_path: Optional[Path] = None) -> Path:
         """
         Create a backup of the database (DuckDB only).
+
+        Note: Only supported for DuckDB file-based databases.
 
         Args:
             backup_path: Optional custom backup path.
 
         Returns:
             Path to the backup file
+
+        Raises:
+            ValueError: If using in-memory database or PostgreSQL
         """
-        if not hasattr(self._backend, "db_path"):
-            raise ValueError("Backup is only supported for the DuckDB backend")
+        if self.backend != "duckdb":
+            raise ValueError("Backup is only supported for DuckDB databases")
 
         if self.in_memory:
             raise ValueError("Cannot backup an in-memory database")
@@ -301,11 +291,17 @@ class DatabaseManager:
         """
         Restore the database from a backup (DuckDB only).
 
+        Note: Only supported for DuckDB file-based databases.
+
         Args:
             backup_path: Path to the backup file
+
+        Raises:
+            ValueError: If using in-memory database or PostgreSQL
+            FileNotFoundError: If backup file doesn't exist
         """
-        if not hasattr(self._backend, "db_path"):
-            raise ValueError("Restore is only supported for the DuckDB backend")
+        if self.backend != "duckdb":
+            raise ValueError("Restore is only supported for DuckDB databases")
 
         if self.in_memory:
             raise ValueError("Cannot restore to an in-memory database")
@@ -318,7 +314,10 @@ class DatabaseManager:
 
     def vacuum(self) -> None:
         """Optimize the database by reclaiming unused space."""
-        self.execute("VACUUM")
+        if self.backend == "duckdb":
+            self._adapter.vacuum()
+        else:
+            self._adapter.vacuum_analyze()
 
     def get_statistics(self) -> dict:
         """
@@ -328,19 +327,17 @@ class DatabaseManager:
             Dictionary with table row counts and database size
         """
         stats = {}
-        schema = self._backend.schema_name if hasattr(self._backend, "schema_name") else "main"
 
-        tables = self.execute(
-            f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
-        ).fetchall()
+        # Get row counts for each table
+        tables = self._adapter.get_tables()
+        for table_name in tables:
+            stats[table_name] = self._adapter.get_row_count(table_name)
 
-        for (table_name,) in tables:
-            count = self.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
-            stats[table_name] = count
-
-        if not self.in_memory and isinstance(self.db_path, Path):
-            if self.db_path.exists():
-                stats["_file_size_mb"] = self.db_path.stat().st_size / (1024 * 1024)
+        # Get database file size (DuckDB only)
+        if self.backend == "duckdb" and hasattr(self._adapter, "get_file_size_mb"):
+            file_size = self._adapter.get_file_size_mb()
+            if file_size is not None:
+                stats["_file_size_mb"] = file_size
 
         return stats
 
@@ -399,6 +396,22 @@ class DatabaseManager:
             self._events = EventRepository(self)
         return self._events
 
+    # Legacy DuckDB-specific access for backward compatibility
+    def _get_connection(self):
+        """
+        Get the underlying DuckDB connection.
+
+        Deprecated: Use adapter methods or connection() context manager instead.
+        This method exists for backward compatibility with existing repository code.
+        """
+        if self.backend == "duckdb":
+            return self._adapter._get_connection()
+        else:
+            raise NotImplementedError(
+                "_get_connection() is only available for DuckDB. "
+                "Use adapter methods for portable code."
+            )
+
     def __enter__(self) -> "DatabaseManager":
         """Context manager entry."""
         return self
@@ -408,4 +421,7 @@ class DatabaseManager:
         self.close()
 
     def __repr__(self) -> str:
-        return f"DatabaseManager(db_path={self.db_path!r}, read_only={self.read_only})"
+        if self.backend == "duckdb":
+            return f"DatabaseManager(backend='duckdb', db_path={self.db_path!r}, read_only={self.read_only})"
+        else:
+            return f"DatabaseManager(backend='postgres')"

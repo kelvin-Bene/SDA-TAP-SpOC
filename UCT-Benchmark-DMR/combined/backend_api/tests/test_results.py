@@ -390,5 +390,314 @@ class TestExportResults:
         assert "application/json" in response.headers["content-type"]
 
 
+# =============================================================================
+# GET /api/v1/results/ TESTS (LIST ENDPOINT)
+# =============================================================================
+
+
+@pytest.fixture
+def db_empty():
+    """Create an empty database for testing."""
+    temp_dir = tempfile.mkdtemp()
+    db_path = Path(temp_dir) / "test_empty.duckdb"
+
+    db = DatabaseManager(db_path=db_path)
+    db.initialize()
+
+    yield db
+
+    db.close()
+    import shutil
+
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def client_empty(db_empty: DatabaseManager) -> TestClient:
+    """Create a test client with empty database."""
+    import backend_api.database as db_module
+
+    original_db = db_module._db_manager
+    db_module._db_manager = db_empty
+
+    from backend_api.main import app
+
+    with patch("backend_api.main.init_database", return_value=db_empty):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
+                with patch("backend_api.main.shutdown_executor"):
+                    with TestClient(app) as client:
+                        yield client
+
+    db_module._db_manager = original_db
+
+
+@pytest.fixture
+def db_with_multiple_datasets():
+    """Create a database with multiple datasets and results for filtering tests."""
+    temp_dir = tempfile.mkdtemp()
+    db_path = Path(temp_dir) / "test_multi.duckdb"
+
+    db = DatabaseManager(db_path=db_path)
+    db.initialize()
+
+    # Create multiple datasets
+    db.execute(
+        """
+        INSERT INTO datasets (id, name, code, tier, orbital_regime, status, observation_count, satellite_count, created_at)
+        VALUES
+            (1, 'LEO Dataset', 'LEO_T1', 'T1', 'LEO', 'available', 1000, 5, CURRENT_TIMESTAMP),
+            (2, 'GEO Dataset', 'GEO_T1', 'T1', 'GEO', 'available', 500, 3, CURRENT_TIMESTAMP)
+        """
+    )
+
+    # Create submissions across datasets with various statuses
+    db.execute(
+        """
+        INSERT INTO submissions (id, dataset_id, algorithm_name, version, status, created_at, completed_at)
+        VALUES
+            (1, 1, 'AlphaAlgo', 'v1.0', 'completed', '2024-01-01 10:00:00', '2024-01-01 11:00:00'),
+            (2, 1, 'BetaAlgo', 'v1.0', 'completed', '2024-01-02 10:00:00', '2024-01-02 11:00:00'),
+            (3, 1, 'AlphaAlgo', 'v2.0', 'completed', '2024-01-03 10:00:00', '2024-01-03 11:00:00'),
+            (4, 2, 'GammaAlgo', 'v1.0', 'completed', '2024-01-04 10:00:00', '2024-01-04 11:00:00'),
+            (5, 1, 'DeltaAlgo', 'v1.0', 'processing', '2024-01-05 10:00:00', NULL),
+            (6, 1, 'FailedAlgo', 'v1.0', 'failed', '2024-01-06 10:00:00', '2024-01-06 11:00:00')
+        """
+    )
+
+    # Create results (only for completed submissions with actual results)
+    db.execute(
+        """
+        INSERT INTO submission_results (
+            submission_id, true_positives, false_positives, false_negatives,
+            precision, recall, f1_score, position_rms_km, velocity_rms_km_s
+        ) VALUES
+            (1, 800, 100, 100, 0.889, 0.889, 0.889, 15.0, 0.030),
+            (2, 850, 50, 100, 0.944, 0.895, 0.919, 12.5, 0.025),
+            (3, 900, 20, 80, 0.978, 0.918, 0.947, 10.0, 0.020),
+            (4, 700, 150, 150, 0.824, 0.824, 0.824, 20.0, 0.040)
+        """
+    )
+
+    yield db
+
+    db.close()
+    import shutil
+
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def client_with_multiple_datasets(db_with_multiple_datasets: DatabaseManager) -> TestClient:
+    """Create a test client with multiple datasets."""
+    import backend_api.database as db_module
+
+    original_db = db_module._db_manager
+    db_module._db_manager = db_with_multiple_datasets
+
+    from backend_api.main import app
+
+    with patch("backend_api.main.init_database", return_value=db_with_multiple_datasets):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
+                with patch("backend_api.main.shutdown_executor"):
+                    with TestClient(app) as client:
+                        yield client
+
+    db_module._db_manager = original_db
+
+
+class TestListResults:
+    """Tests for GET /api/v1/results/ (list endpoint)."""
+
+    def test_list_results_empty_database(self, client_empty):
+        """Test that empty database returns empty list."""
+        response = client_empty.get("/api/v1/results/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+    def test_list_results_returns_all(self, client_with_multiple_datasets):
+        """Test that list endpoint returns all results with correct fields."""
+        response = client_with_multiple_datasets.get("/api/v1/results/")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return 4 results (only submissions with results in submission_results)
+        assert len(data) == 4
+
+        # Check that all required fields are present
+        for result in data:
+            assert "submission_id" in result
+            assert "dataset_id" in result
+            assert "algorithm_name" in result
+            assert "version" in result
+            assert "status" in result
+            assert "f1_score" in result
+            assert "precision" in result
+            assert "recall" in result
+            assert "position_rms_km" in result
+            assert "rank" in result
+
+    def test_list_results_filter_by_dataset_id(self, client_with_multiple_datasets):
+        """Test filtering by dataset_id."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?dataset_id=1")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Dataset 1 has 3 submissions with results
+        assert len(data) == 3
+        for result in data:
+            assert result["dataset_id"] == "1"
+
+    def test_list_results_filter_by_status(self, client_with_multiple_datasets):
+        """Test filtering by status."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?status=completed")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # All returned results should be completed
+        for result in data:
+            assert result["status"] == "completed"
+
+    def test_list_results_filter_by_algorithm_name(self, client_with_multiple_datasets):
+        """Test filtering by algorithm_name (case-insensitive)."""
+        # Test with lowercase
+        response = client_with_multiple_datasets.get("/api/v1/results/?algorithm_name=alpha")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should find AlphaAlgo v1.0 and v2.0
+        assert len(data) == 2
+        for result in data:
+            assert "alpha" in result["algorithm_name"].lower()
+
+    def test_list_results_pagination_limit(self, client_with_multiple_datasets):
+        """Test pagination with limit."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?limit=2")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert len(data) == 2
+
+    def test_list_results_pagination_offset(self, client_with_multiple_datasets):
+        """Test pagination with offset."""
+        # Get all results first
+        all_response = client_with_multiple_datasets.get("/api/v1/results/")
+        all_data = all_response.json()
+
+        # Get with offset
+        response = client_with_multiple_datasets.get("/api/v1/results/?offset=2")
+        data = response.json()
+
+        # Should skip first 2
+        assert len(data) == len(all_data) - 2
+
+    def test_list_results_combined_filters(self, client_with_multiple_datasets):
+        """Test combining multiple filters."""
+        response = client_with_multiple_datasets.get(
+            "/api/v1/results/?dataset_id=1&algorithm_name=alpha&limit=10"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should find AlphaAlgo submissions in dataset 1
+        assert len(data) == 2
+        for result in data:
+            assert result["dataset_id"] == "1"
+            assert "alpha" in result["algorithm_name"].lower()
+
+    def test_list_results_includes_rank(self, client_with_multiple_datasets):
+        """Test that results include rank within dataset."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?dataset_id=1")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check ranks are assigned
+        ranks = [r["rank"] for r in data]
+        assert all(r is not None for r in ranks)
+
+        # Find the highest F1 score entry - should have rank 1
+        highest_f1 = max(data, key=lambda x: x["f1_score"])
+        assert highest_f1["rank"] == 1
+
+    def test_list_results_excludes_submissions_without_results(self, client_with_multiple_datasets):
+        """Test that submissions without results are not returned."""
+        response = client_with_multiple_datasets.get("/api/v1/results/")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Submission 5 (processing) and 6 (failed) should not appear
+        submission_ids = [r["submission_id"] for r in data]
+        assert "5" not in submission_ids
+        assert "6" not in submission_ids
+
+    def test_list_results_includes_dataset_name(self, client_with_multiple_datasets):
+        """Test that results include dataset_name from join."""
+        response = client_with_multiple_datasets.get("/api/v1/results/")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check dataset names are present
+        for result in data:
+            assert result["dataset_name"] is not None
+            assert result["dataset_name"] in ["LEO Dataset", "GEO Dataset"]
+
+
+class TestListResultsEdgeCases:
+    """Edge case tests for GET /api/v1/results/."""
+
+    def test_list_results_nonexistent_dataset_id(self, client_with_multiple_datasets):
+        """Test filtering by non-existent dataset_id returns empty list."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?dataset_id=999")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+    def test_list_results_invalid_status(self, client_with_multiple_datasets):
+        """Test filtering by invalid status returns empty list."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?status=invalid_status")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+    def test_list_results_special_characters_in_algorithm_name(self, client_with_multiple_datasets):
+        """Test filtering with special characters in algorithm_name."""
+        # This shouldn't match anything but also shouldn't error
+        response = client_with_multiple_datasets.get("/api/v1/results/?algorithm_name=%25%27")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+    def test_list_results_offset_beyond_data(self, client_with_multiple_datasets):
+        """Test offset beyond available data returns empty list."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?offset=1000")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+    def test_list_results_zero_limit(self, client_with_multiple_datasets):
+        """Test limit=0 returns empty list."""
+        response = client_with_multiple_datasets.get("/api/v1/results/?limit=0")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

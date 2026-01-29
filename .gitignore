@@ -64,7 +64,11 @@ Thumbs.db
 nul
 
 # ===== Project Specific =====
-UCT-Benchmark-DMR/combined/data/
+# Exclude data directory but include sample database for students without UDL access
+UCT-Benchmark-DMR/combined/data/*
+!UCT-Benchmark-DMR/combined/data/database/
+UCT-Benchmark-DMR/combined/data/database/*
+!UCT-Benchmark-DMR/combined/data/database/uct_benchmark_sample.duckdb
 UCT-Benchmark-DMR/combined/orekit-data-main/
 validation/results/
 *.lock

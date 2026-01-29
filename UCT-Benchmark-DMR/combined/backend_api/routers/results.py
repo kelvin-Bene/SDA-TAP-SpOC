@@ -1,11 +1,13 @@
 """Results retrieval endpoints."""
 
 import json
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend_api.database import get_db
 from backend_api.models import (
+    ResultSummary,
     SatelliteResult,
     SubmissionResults,
     SubmissionStatus,
@@ -13,6 +15,77 @@ from backend_api.models import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
+
+
+def _row_to_result_summary(row: tuple, columns: list) -> ResultSummary:
+    """Convert database row to ResultSummary."""
+    row_dict = dict(zip(columns, row))
+    return ResultSummary(
+        submission_id=str(row_dict["submission_id"]),
+        dataset_id=str(row_dict["dataset_id"]),
+        dataset_name=row_dict.get("dataset_name"),
+        algorithm_name=row_dict["algorithm_name"],
+        version=row_dict.get("version", "1.0"),
+        status=SubmissionStatus(row_dict.get("status", "completed")),
+        completed_at=row_dict.get("completed_at"),
+        f1_score=float(row_dict.get("f1_score") or 0),
+        precision=float(row_dict.get("precision") or 0),
+        recall=float(row_dict.get("recall") or 0),
+        position_rms_km=float(row_dict.get("position_rms_km") or 0),
+        rank=row_dict.get("rank"),
+    )
+
+
+@router.get("/", response_model=List[ResultSummary])
+async def list_results(
+    dataset_id: Optional[str] = None,
+    status: Optional[str] = None,
+    algorithm_name: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: DatabaseManager = Depends(get_db),
+):
+    """List all submission results with optional filtering."""
+    query = """
+        SELECT
+            s.id as submission_id,
+            s.dataset_id,
+            d.name as dataset_name,
+            s.algorithm_name,
+            s.version,
+            s.status,
+            s.completed_at,
+            sr.f1_score,
+            sr.precision,
+            sr.recall,
+            sr.position_rms_km,
+            RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC) as rank
+        FROM submissions s
+        INNER JOIN submission_results sr ON s.id = sr.submission_id
+        LEFT JOIN datasets d ON s.dataset_id = d.id
+        WHERE 1=1
+    """
+    params = []
+
+    if dataset_id:
+        query += " AND s.dataset_id = ?"
+        params.append(int(dataset_id))
+    if status:
+        query += " AND s.status = ?"
+        params.append(status)
+    if algorithm_name:
+        query += " AND s.algorithm_name ILIKE ?"
+        params.append(f"%{algorithm_name}%")
+
+    query += " ORDER BY s.completed_at DESC, sr.f1_score DESC"
+    query += " LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+
+    result = db.execute(query, tuple(params))
+    columns = [desc[0] for desc in result.description]
+    rows = result.fetchall()
+
+    return [_row_to_result_summary(row, columns) for row in rows]
 
 
 @router.get("/{submission_id}", response_model=SubmissionResults)

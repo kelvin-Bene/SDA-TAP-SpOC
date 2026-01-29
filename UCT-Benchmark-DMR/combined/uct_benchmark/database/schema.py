@@ -2,8 +2,10 @@
 Database schema definitions for UCT Benchmark.
 
 Provides SQL schema creation statements and migration utilities.
+Supports both DuckDB and PostgreSQL backends.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,7 +15,7 @@ if TYPE_CHECKING:
 SCHEMA_VERSION = "1.3.0"  # Added credentials table
 
 # ============================================================
-# SCHEMA CREATION SQL
+# DUCKDB SCHEMA CREATION SQL
 # ============================================================
 
 # ============================================================
@@ -627,19 +629,45 @@ DEFAULT_EVENT_TYPES = [
 ]
 
 
+def _get_schema_metadata_upsert(backend: str) -> str:
+    """Get backend-specific SQL for upserting schema metadata."""
+    if backend == "postgres":
+        return """
+            INSERT INTO _schema_metadata (key, value, updated_at)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+        """
+    else:  # duckdb
+        return """
+            INSERT OR REPLACE INTO _schema_metadata (key, value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        """
+
+
 def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     """
     Initialize the database schema.
 
     Creates all tables and indexes if they don't exist.
+    Supports both DuckDB and PostgreSQL backends.
 
     Args:
         db: DatabaseManager instance
         force: If True, drop and recreate all tables
     """
+    backend = db.backend
+
     if force:
         _drop_all_tables(db)
 
+    if backend == "postgres":
+        _initialize_postgres_schema(db)
+    else:
+        _initialize_duckdb_schema(db)
+
+
+def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
+    """Initialize schema using DuckDB-specific SQL."""
     # Create sequences first
     db.execute(STATE_VECTORS_SEQUENCE)
     db.execute(ELEMENT_SETS_SEQUENCE)
@@ -714,6 +742,79 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     )
 
 
+def _initialize_postgres_schema(db: "DatabaseManager") -> None:
+    """Initialize schema using PostgreSQL-specific SQL from schema file."""
+    schema_file = Path(__file__).parent / "schema_postgres.sql"
+
+    if schema_file.exists():
+        # Read and execute the SQL file
+        schema_sql = schema_file.read_text()
+        # Split on semicolons and execute each statement
+        statements = [s.strip() for s in schema_sql.split(";") if s.strip()]
+        for statement in statements:
+            if statement and not statement.startswith("--"):
+                db.execute(statement)
+    else:
+        # Fall back to converting DuckDB schema
+        _initialize_postgres_schema_fallback(db)
+
+
+def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
+    """Initialize PostgreSQL schema by converting DuckDB SQL (fallback method)."""
+    # Create sequences first
+    db.execute(STATE_VECTORS_SEQUENCE)
+    db.execute(ELEMENT_SETS_SEQUENCE)
+    db.execute(DATASETS_SEQUENCE)
+    db.execute(EVENTS_SEQUENCE)
+    db.execute(SUBMISSIONS_SEQUENCE)
+    db.execute(SUBMISSION_RESULTS_SEQUENCE)
+
+    # Create tables (JSON -> JSONB for PostgreSQL)
+    def convert_json_to_jsonb(sql: str) -> str:
+        return sql.replace(" JSON", " JSONB")
+
+    db.execute(SCHEMA_METADATA_TABLE)
+    db.execute(SATELLITES_TABLE)
+    db.execute(OBSERVATIONS_TABLE)
+    db.execute(OBSERVATIONS_INDEXES)
+    db.execute(convert_json_to_jsonb(STATE_VECTORS_TABLE))
+    db.execute(STATE_VECTORS_INDEXES)
+    db.execute(ELEMENT_SETS_TABLE)
+    db.execute(ELEMENT_SETS_INDEXES)
+    db.execute(convert_json_to_jsonb(DATASETS_TABLE))
+    db.execute(DATASET_OBSERVATIONS_TABLE)
+    db.execute(DATASET_OBSERVATIONS_INDEXES)
+    db.execute(convert_json_to_jsonb(DATASET_REFERENCES_TABLE))
+
+    # Submissions and results tables
+    db.execute(SUBMISSIONS_TABLE)
+    db.execute(SUBMISSIONS_INDEXES)
+    db.execute(convert_json_to_jsonb(SUBMISSION_RESULTS_TABLE))
+    db.execute(SUBMISSION_RESULTS_INDEXES)
+
+    # Jobs table
+    db.execute(convert_json_to_jsonb(JOBS_TABLE))
+    db.execute(JOBS_INDEXES)
+
+    # Event tables
+    db.execute(EVENT_TYPES_TABLE)
+    db.execute(EVENTS_TABLE)
+    db.execute(EVENT_OBSERVATIONS_TABLE)
+
+    # Seed default event types (PostgreSQL syntax)
+    _seed_event_types_postgres(db)
+
+    # Store schema version (PostgreSQL syntax)
+    db.execute(
+        """
+        INSERT INTO _schema_metadata (key, value, updated_at)
+        VALUES (%s, %s, CURRENT_TIMESTAMP)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+        """,
+        (SCHEMA_VERSION,),
+    )
+
+
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
@@ -760,10 +861,10 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:
-    """Seed default event types if they don't exist."""
+    """Seed default event types if they don't exist (DuckDB)."""
     for idx, (name, description) in enumerate(DEFAULT_EVENT_TYPES, start=1):
         # Check if already exists
-        existing = db.execute("SELECT 1 FROM event_types WHERE name = ?", (name,)).fetchone()
+        existing = db.adapter.fetchone("SELECT 1 FROM event_types WHERE name = ?", (name,))
         if existing is None:
             db.execute(
                 "INSERT INTO event_types (id, name, description) VALUES (?, ?, ?)",
@@ -771,12 +872,25 @@ def _seed_event_types(db: "DatabaseManager") -> None:
             )
 
 
+def _seed_event_types_postgres(db: "DatabaseManager") -> None:
+    """Seed default event types if they don't exist (PostgreSQL)."""
+    for idx, (name, description) in enumerate(DEFAULT_EVENT_TYPES, start=1):
+        db.execute(
+            """
+            INSERT INTO event_types (id, name, description)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            (idx, name, description),
+        )
+
+
 def _seed_data_sources(db: "DatabaseManager") -> None:
     """Seed default data sources if they don't exist."""
     for source_id, name, source_type, license_type, endpoint, notes in DATA_SOURCES_SEED:
-        existing = db.execute(
+        existing = db.adapter.fetchone(
             "SELECT 1 FROM data_sources WHERE source_name = ?", (name,)
-        ).fetchone()
+        )
         if existing is None:
             db.execute(
                 """
@@ -790,9 +904,9 @@ def _seed_data_sources(db: "DatabaseManager") -> None:
 def _seed_credentials(db: "DatabaseManager") -> None:
     """Seed default credential service entries if they don't exist."""
     for service_name, cred_type, label, description in DEFAULT_CREDENTIALS:
-        existing = db.execute(
+        existing = db.adapter.fetchone(
             "SELECT 1 FROM credentials WHERE service_name = ?", (service_name,)
-        ).fetchone()
+        )
         if existing is None:
             db.execute(
                 """
@@ -815,6 +929,7 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "missing_tables": [],
         "schema_version": None,
         "tables": {},
+        "backend": db.backend,
     }
 
     required_tables = [
@@ -841,12 +956,7 @@ def verify_schema(db: "DatabaseManager") -> dict:
     ]
 
     # Get existing tables
-    existing_tables = {
-        row[0]
-        for row in db.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
-        ).fetchall()
-    }
+    existing_tables = set(db.adapter.get_tables())
 
     for table in required_tables:
         if table not in existing_tables:
@@ -854,14 +964,17 @@ def verify_schema(db: "DatabaseManager") -> dict:
             results["valid"] = False
         else:
             # Get row count
-            count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            count = db.adapter.get_row_count(table)
             results["tables"][table] = {"row_count": count}
 
     # Get schema version
     if "_schema_metadata" in existing_tables:
-        version_row = db.execute(
-            "SELECT value FROM _schema_metadata WHERE key = 'version'"
-        ).fetchone()
+        version_row = db.adapter.fetchone(
+            db.adapter.convert_placeholders(
+                "SELECT value FROM _schema_metadata WHERE key = ?"
+            ),
+            ("version",),
+        )
         if version_row:
             results["schema_version"] = version_row[0]
 
@@ -876,7 +989,12 @@ def get_schema_version(db: "DatabaseManager") -> str | None:
         Schema version string or None if not found
     """
     try:
-        result = db.execute("SELECT value FROM _schema_metadata WHERE key = 'version'").fetchone()
+        result = db.adapter.fetchone(
+            db.adapter.convert_placeholders(
+                "SELECT value FROM _schema_metadata WHERE key = ?"
+            ),
+            ("version",),
+        )
         return result[0] if result else None
     except Exception:
         return None

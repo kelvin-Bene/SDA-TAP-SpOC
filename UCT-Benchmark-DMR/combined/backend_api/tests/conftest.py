@@ -1,6 +1,13 @@
-"""Shared test fixtures for backend API tests."""
+"""
+Shared test fixtures for backend API tests.
+
+Supports both DuckDB (default) and PostgreSQL backends.
+Set TEST_DATABASE_BACKEND=postgres and TEST_DATABASE_URL=postgresql://...
+to run tests against PostgreSQL.
+"""
 
 import json
+import os
 from pathlib import Path
 from typing import Generator
 from unittest.mock import patch
@@ -31,11 +38,47 @@ def _close_test_db() -> None:
         _test_db = None
 
 
+def get_test_backend() -> str:
+    """Get the test database backend from environment."""
+    return os.getenv("TEST_DATABASE_BACKEND", os.getenv("DATABASE_BACKEND", "duckdb")).lower()
+
+
+def create_test_db() -> DatabaseManager:
+    """
+    Create a test database based on environment configuration.
+
+    For DuckDB (default): Creates an in-memory database
+    For PostgreSQL: Connects to TEST_DATABASE_URL
+
+    Returns:
+        Configured DatabaseManager instance
+    """
+    backend = get_test_backend()
+
+    if backend in ("postgres", "postgresql", "supabase"):
+        test_url = os.getenv("TEST_DATABASE_URL")
+        if not test_url:
+            pytest.skip(
+                "PostgreSQL testing requires TEST_DATABASE_URL environment variable"
+            )
+        db = DatabaseManager(
+            backend="postgres",
+            database_url=test_url,
+            pool_min=1,
+            pool_max=5,
+        )
+    else:
+        # DuckDB in-memory (default)
+        db = DatabaseManager(in_memory=True)
+
+    return db
+
+
 @pytest.fixture
 def db() -> Generator[DatabaseManager, None, None]:
-    """Create an in-memory database for testing."""
-    db = DatabaseManager(in_memory=True)
-    db.initialize()
+    """Create a test database for testing."""
+    db = create_test_db()
+    db.initialize(force=True)  # Force clean schema for tests
     yield db
     db.close()
 
@@ -236,3 +279,22 @@ def sample_submission_file(tmp_path: Path) -> Path:
     }
     file_path.write_text(json.dumps(submission_data))
     return file_path
+
+
+# PostgreSQL-specific fixtures
+@pytest.fixture
+def postgres_db() -> Generator[DatabaseManager, None, None]:
+    """Create a PostgreSQL database for testing (requires TEST_DATABASE_URL)."""
+    test_url = os.getenv("TEST_DATABASE_URL")
+    if not test_url:
+        pytest.skip("PostgreSQL testing requires TEST_DATABASE_URL")
+
+    db = DatabaseManager(
+        backend="postgres",
+        database_url=test_url,
+        pool_min=1,
+        pool_max=5,
+    )
+    db.initialize(force=True)
+    yield db
+    db.close()

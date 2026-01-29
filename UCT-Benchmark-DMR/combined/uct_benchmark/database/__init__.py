@@ -2,17 +2,25 @@
 Database and data storage layer for UCT Benchmark.
 
 This module provides:
-- DuckDB connection management
+- Database adapter pattern supporting DuckDB and PostgreSQL
+- Connection management for both backends
 - Schema definitions for observations, state vectors, TLEs, and datasets
 - Repository pattern for data access
 - Data ingestion pipeline from external APIs
 - Export utilities for JSON/Parquet formats
 
 Usage:
-    from uct_benchmark.database import DatabaseManager, ObservationRepository
+    from uct_benchmark.database import DatabaseManager
 
-    # Initialize database
+    # DuckDB (default, for local development)
     db = DatabaseManager()
+    db.initialize()
+
+    # PostgreSQL/Supabase (for production)
+    db = DatabaseManager(
+        backend="postgres",
+        database_url="postgresql://user:pass@host:5432/db"
+    )
     db.initialize()
 
     # Access data through repositories
@@ -23,6 +31,13 @@ Usage:
     )
 """
 
+from .adapters import (
+    DatabaseAdapter,
+    DuckDBAdapter,
+    create_adapter,
+    create_test_adapter,
+    get_database_backend,
+)
 from .connection import DatabaseManager, get_db_path
 from .export import (
     export_dataset_to_json,
@@ -48,6 +63,12 @@ from .schema import (
 )
 
 __all__ = [
+    # Adapters
+    "DatabaseAdapter",
+    "DuckDBAdapter",
+    "create_adapter",
+    "create_test_adapter",
+    "get_database_backend",
     # Connection management
     "DatabaseManager",
     "get_db_path",
