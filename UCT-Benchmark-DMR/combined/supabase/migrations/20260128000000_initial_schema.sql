@@ -592,5 +592,44 @@ INSERT INTO _schema_metadata (key, value, updated_at) VALUES
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
 
 -- ============================================================
+-- AUDIT / LOGGING TABLES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS api_call_log (
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         VARCHAR(255),
+    method          VARCHAR(10),
+    path            VARCHAR(500),
+    status_code     INTEGER,
+    request_body_size   INTEGER,
+    response_body_size  INTEGER,
+    duration_ms     DOUBLE PRECISION,
+    ip_address      VARCHAR(45),
+    user_agent      TEXT,
+    error_message   TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS credential_access_log (
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         VARCHAR(255),
+    service_name    VARCHAR(100),
+    action          VARCHAR(50),
+    source          VARCHAR(50),
+    success         BOOLEAN DEFAULT TRUE,
+    ip_address      VARCHAR(45),
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS system_log (
+    id              BIGSERIAL PRIMARY KEY,
+    level           VARCHAR(20),
+    component       VARCHAR(100),
+    message         TEXT,
+    details         JSONB,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
 -- DONE
 -- ============================================================
