@@ -10,7 +10,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# Load .env before reading any environment variables
+load_dotenv()
 
 from uct_benchmark.database.connection import DatabaseManager
 
