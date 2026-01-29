@@ -30,14 +30,12 @@ import {
   Loader2,
   AlertCircle,
   Database,
-  Radio,
-  Eye,
   Layers,
   Shield,
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OrbitalRegime, DataTier, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions, SearchStrategy, OpenSourceOptions, SensorMode, DatasetPreset } from '@/types';
+import type { OrbitalRegime, DataTier, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions, SearchStrategy, OpenSourceOptions, DatasetPreset } from '@/types';
 
 const steps = [
   { id: 1, name: 'Preset', icon: Sparkles },
@@ -251,18 +249,6 @@ export function DatasetGeneratorPage() {
         openSource: preset.config.openSource ?? defaultOpenSource,
       }));
     }
-  };
-
-  const updateOpenSource = <K extends keyof OpenSourceOptions>(
-    key: K,
-    value: OpenSourceOptions[K]
-  ) => {
-    setConfig((prev) => ({
-      ...prev,
-      openSource: { ...(prev.openSource ?? defaultOpenSource), [key]: value },
-    }));
-    // Switch to custom preset when manually changing
-    setSelectedPreset('custom');
   };
 
   const getPresetIcon = (iconName: string) => {

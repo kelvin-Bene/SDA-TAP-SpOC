@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { BarChart3, Plus, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useUCTPRuns, useUCTPRunComparison } from '@/hooks/useUCTPRuns';
 import { AlgorithmComparisonTable } from '@/components/uctp/AlgorithmComparisonTable';
 import { MetricsChart } from '@/components/uctp/MetricsChart';

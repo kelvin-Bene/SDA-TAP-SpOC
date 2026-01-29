@@ -26,7 +26,6 @@ export function MetricsChart({ runs, metric, height = 200 }: MetricsChartProps) 
 
   const values = completedRuns.map((r) => r.metrics[metric] as number);
   const maxVal = Math.max(...values, 1);
-  const barWidth = Math.max(20, Math.min(60, (100 / completedRuns.length)));
 
   const metricLabels: Record<string, string> = {
     f1_score: 'F1 Score',
@@ -39,7 +38,7 @@ export function MetricsChart({ runs, metric, height = 200 }: MetricsChartProps) 
     <div className="rounded-xl border border-white/10 bg-white/5 p-4" style={{ height }}>
       <p className="text-xs text-muted-foreground mb-3 font-medium">{metricLabels[metric] || metric}</p>
       <div className="flex items-end gap-1 h-[calc(100%-40px)]">
-        {completedRuns.map((run, idx) => {
+        {completedRuns.map((run) => {
           const val = run.metrics[metric] as number;
           const pct = (val / maxVal) * 100;
 

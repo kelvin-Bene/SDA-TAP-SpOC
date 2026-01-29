@@ -5,7 +5,7 @@ import { useUCTPModels, useTrainUCTPModel } from '@/hooks/useUCTPModels';
 import { ModelCard } from '@/components/uctp/ModelCard';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { UCTPModelTrainRequest, UCTPModelType } from '@/types/uctp';
+import type { UCTPModelType } from '@/types/uctp';
 
 export function MLTrainingPage() {
   const { data: models } = useUCTPModels();

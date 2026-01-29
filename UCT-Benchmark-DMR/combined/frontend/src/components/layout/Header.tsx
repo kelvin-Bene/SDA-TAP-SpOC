@@ -24,7 +24,6 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/components/theme-provider';
 
 interface HeaderProps {

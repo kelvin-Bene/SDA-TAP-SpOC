@@ -24,7 +24,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!supabase) return;
 
     // Get the current session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       if (session?.user) {
         const user: User = {
           id: session.user.id,
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Subscribe to auth state changes (login, logout, token refresh, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const user: User = {
           id: session.user.id,

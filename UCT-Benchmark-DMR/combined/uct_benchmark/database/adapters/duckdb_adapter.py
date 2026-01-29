@@ -54,9 +54,23 @@ class DuckDBAdapter(DatabaseAdapter):
 
         self._local = threading.local()
         self._lock = threading.Lock()
+        self._shared_connection: Optional[duckdb.DuckDBPyConnection] = None
 
     def _get_connection(self) -> duckdb.DuckDBPyConnection:
-        """Get or create a thread-local connection."""
+        """Get or create a connection.
+
+        For in-memory databases, returns a shared connection (since separate
+        in-memory connections do not share data).
+        For file-based databases, returns a thread-local connection.
+        """
+        if self.in_memory:
+            if self._shared_connection is None:
+                config = {}
+                if self.read_only:
+                    config["access_mode"] = "read_only"
+                self._shared_connection = duckdb.connect(":memory:", config=config)
+            return self._shared_connection
+
         if not hasattr(self._local, "connection") or self._local.connection is None:
             config = {}
             if self.read_only:
@@ -73,13 +87,19 @@ class DuckDBAdapter(DatabaseAdapter):
         self._get_connection()
 
     def close(self) -> None:
-        """Close the current thread's connection."""
-        if hasattr(self._local, "connection") and self._local.connection is not None:
+        """Close database connections."""
+        if self.in_memory:
+            if self._shared_connection is not None:
+                self._shared_connection.close()
+                self._shared_connection = None
+        elif hasattr(self._local, "connection") and self._local.connection is not None:
             self._local.connection.close()
             self._local.connection = None
 
     def is_connected(self) -> bool:
         """Check if the adapter has an active connection."""
+        if self.in_memory:
+            return self._shared_connection is not None
         return hasattr(self._local, "connection") and self._local.connection is not None
 
     @contextmanager

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FlaskConical, Play, Brain, Wifi, TrendingUp, Target, BarChart3, ArrowRight } from 'lucide-react';
+import { FlaskConical, Play, Brain, Wifi, Target, BarChart3, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUCTPDashboard } from '@/hooks/useUCTPDashboard';
 import { RunStatusCard } from '@/components/uctp/RunStatusCard';

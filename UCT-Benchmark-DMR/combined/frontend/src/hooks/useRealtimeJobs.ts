@@ -48,7 +48,7 @@ export function useRealtimeJobs(onJobUpdate?: (job: JobUpdate) => void) {
           schema: 'public',
           table: 'jobs',
         },
-        (payload) => {
+        (payload: any) => {
           invalidateJobQueries();
           if (callbackRef.current) {
             callbackRef.current(payload.new as JobUpdate);
@@ -62,7 +62,7 @@ export function useRealtimeJobs(onJobUpdate?: (job: JobUpdate) => void) {
           schema: 'public',
           table: 'jobs',
         },
-        (payload) => {
+        (payload: any) => {
           invalidateJobQueries();
           if (callbackRef.current) {
             callbackRef.current(payload.new as JobUpdate);
@@ -72,7 +72,7 @@ export function useRealtimeJobs(onJobUpdate?: (job: JobUpdate) => void) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase!.removeChannel(channel);
     };
   }, [invalidateJobQueries]);
 }
