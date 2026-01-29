@@ -48,6 +48,7 @@ class DatasetStatus(str, Enum):
     CREATED = "created"
     GENERATING = "generating"
     AVAILABLE = "available"
+    COMPLETE = "complete"  # Alias used in Supabase
     FAILED = "failed"
 
 

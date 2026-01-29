@@ -95,7 +95,7 @@ export function RecentSubmissions() {
                         {submission.datasetName}
                       </p>
                     </div>
-                    {submission.results && (
+                    {submission.results && submission.results.f1Score != null && (
                       <div className="text-right">
                         <p className="font-mono text-lg font-semibold">
                           {submission.results.f1Score.toFixed(3)}
@@ -112,10 +112,14 @@ export function RecentSubmissions() {
                       </div>
                     )}
                   </div>
-                  {submission.results && (
+                  {submission.results && (submission.results.positionRmsKm != null || submission.results.rank != null) && (
                     <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
-                      <span>Position RMS: {submission.results.positionRmsKm.toFixed(2)} km</span>
-                      <span>Rank: #{submission.results.rank}</span>
+                      {submission.results.positionRmsKm != null && (
+                        <span>Position RMS: {submission.results.positionRmsKm.toFixed(2)} km</span>
+                      )}
+                      {submission.results.rank != null && (
+                        <span>Rank: #{submission.results.rank}</span>
+                      )}
                     </div>
                   )}
                 </div>

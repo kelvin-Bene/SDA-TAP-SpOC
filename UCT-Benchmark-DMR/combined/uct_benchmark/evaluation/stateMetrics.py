@@ -14,6 +14,11 @@ from scipy.stats import chi2
 import uct_benchmark.settings as config
 from uct_benchmark.api.apiIntegration import TLEToSV
 
+# Column name constants
+STATE_COLUMNS = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
+POSITION_COLUMNS = ["xpos", "ypos", "zpos"]
+VELOCITY_COLUMNS = ["xvel", "yvel", "zvel"]
+
 
 # --- Helper Functions ---
 def _propagate_single(args):
@@ -41,8 +46,7 @@ def _propRef(ref_orbits, cand_orbits, propagator):
     # Extract relevant epochs and reference values
     candidateEpochs = pd.to_datetime(cand_orbits["epoch"].values)
     referenceEpochs = pd.to_datetime(ref_orbits["epoch"].values)
-    state_cols = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
-    referenceStates = ref_orbits[state_cols].values
+    referenceStates = ref_orbits[STATE_COLUMNS].values
     referenceCovs = ref_orbits["cov_matrix"].values
     mass = ref_orbits["mass"].values
     area = ref_orbits["crossSection"].values
@@ -148,9 +152,8 @@ def _compute_MD(truth, estimation):
     if truth.shape[0] != estimation.shape[0]:
         raise ValueError("Inputs must have same number of vectors.")
 
-    state_cols = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
-    x_true = truth[state_cols].values
-    x_est = estimation[state_cols].values
+    x_true = truth[STATE_COLUMNS].values
+    x_est = estimation[STATE_COLUMNS].values
     MD = np.zeros(len(x_true))
 
     # Compute MD
@@ -188,9 +191,8 @@ def _compute_NEES(truth, estimation):
     if truth.shape[0] != estimation.shape[0]:
         raise ValueError("Inputs must have same number of vectors.")
 
-    state_cols = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
-    x_true = truth[state_cols].values
-    x_est = estimation[state_cols].values
+    x_true = truth[STATE_COLUMNS].values
+    x_est = estimation[STATE_COLUMNS].values
     NEES = np.zeros(len(x_true))
 
     # Compute NEES
@@ -272,10 +274,6 @@ def stateMetrics(ref, candidate, propagator, elset_mode=False):
         vel_delta = delta[:, 3:]
         stats["Velocity Error Norm"] = np.linalg.norm(vel_delta, axis=1)
     else:
-        state_cols = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
-        pos_cols = ["xpos", "ypos", "zpos"]
-        vel_cols = ["xvel", "yvel", "zvel"]
-
         # Propagate reference to candidate epochs
         prop_ref = _propRef(ref, candidate, propagator)
 
@@ -285,18 +283,18 @@ def stateMetrics(ref, candidate, propagator, elset_mode=False):
         stats["MD P-Score"] = 1 - chi2.cdf(MD, df=6)
 
         # Euclidean Error Norms
-        delta = candidate[state_cols].values - prop_ref[state_cols].values
+        delta = candidate[STATE_COLUMNS].values - prop_ref[STATE_COLUMNS].values
         stats["Total Error Norm"] = np.linalg.norm(delta, axis=1)
 
-        delta = candidate[pos_cols].values - prop_ref[pos_cols].values
+        delta = candidate[POSITION_COLUMNS].values - prop_ref[POSITION_COLUMNS].values
         stats["Position Error Norm"] = np.linalg.norm(delta, axis=1)
 
-        delta = candidate[vel_cols].values - prop_ref[vel_cols].values
+        delta = candidate[VELOCITY_COLUMNS].values - prop_ref[VELOCITY_COLUMNS].values
         stats["Velocity Error Norm"] = np.linalg.norm(delta, axis=1)
 
         # Bias
-        bias = candidate[state_cols].values - prop_ref[state_cols].values
-        stats[[f"{col} Bias" for col in state_cols]] = bias / point_size
+        bias = candidate[STATE_COLUMNS].values - prop_ref[STATE_COLUMNS].values
+        stats[[f"{col} Bias" for col in STATE_COLUMNS]] = bias / point_size
         stats["Total Bias"] = np.sum(bias / point_size, axis=1)
 
         # NEES and p-score

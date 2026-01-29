@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Tue Jun 10 2025
 
@@ -7,6 +7,7 @@ Created on Tue Jun 10 2025
 
 import ast
 
+from loguru import logger
 import numpy as np
 
 # Import Orekit
@@ -124,7 +125,7 @@ def _convert_eq_to_cartesian(row):
         return cov_cart
 
     except Exception as e:
-        print(f"[ERROR] Covariance conversion failed for row: {e}")
+        logger.warning(f"Covariance conversion failed for row {row.name}: {e}")
         return np.nan
 
 

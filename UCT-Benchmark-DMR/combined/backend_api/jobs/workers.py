@@ -336,8 +336,8 @@ def run_dataset_generation(
             # Rollback any failed transaction state before executing update
             try:
                 db._connection.rollback()
-            except Exception:
-                pass  # Ignore if no transaction to rollback
+            except Exception as rollback_error:
+                logger.debug(f"Rollback not needed or failed: {rollback_error}")
             db.execute(
                 "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (dataset_id,),
@@ -400,14 +400,14 @@ def run_evaluation_pipeline(
 
         # Get reference data from database
         # This would load the truth observations and states for comparison
-        observations = db.execute(
+        observations = db.adapter.fetchdf(
             """
             SELECT o.* FROM observations o
             JOIN dataset_observations dso ON o.id = dso.observation_id
             WHERE dso.dataset_id = ?
             """,
             (dataset_id,),
-        ).fetchdf()
+        )
 
         job_manager.update_job(job_id, progress=40)
 

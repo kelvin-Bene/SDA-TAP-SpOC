@@ -8,6 +8,7 @@ Created on Fri Jun 27 11:45:50 2025
 import heapq
 from typing import Any, Dict, List, Optional, Tuple
 
+from loguru import logger
 import numpy as np
 import pandas as pd
 
@@ -1497,7 +1498,8 @@ def apply_downsampling(
                         "Orbital Coverage": 0.5,
                         "Max Track Gap": 2,
                     }
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Skipping satellite {sat_id}: {e}")
                 continue
 
     if not sat_params:
@@ -1574,8 +1576,9 @@ def apply_downsampling(
             bins=10,
             rand=config.seed,
         )
-    except Exception:
+    except Exception as e:
         # Fall back to regime-based downsampling
+        logger.warning(f"Downsampling failed, falling back to regime-based: {e}")
         rng = np.random.default_rng(config.seed)
         downsampled_df = downsample_by_regime(obs_df.copy(), sat_params, config, rng)
         p_reached = (0, 0, 0)
@@ -1747,7 +1750,8 @@ def apply_simulation_to_gaps(
                 all_simulated.append(sim_obs)
                 satellites_processed += 1
 
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Simulation failed for satellite {sat_id}: {e}")
             satellites_failed += 1
             continue
 

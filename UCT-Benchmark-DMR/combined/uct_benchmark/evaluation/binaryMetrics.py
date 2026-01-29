@@ -9,7 +9,6 @@ by Binyamin Stivi
 """
 
 import pandas as pd
-import urllib3
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -18,8 +17,6 @@ from sklearn.metrics import (
     matthews_corrcoef,
     recall_score,
 )
-
-urllib3.disable_warnings()
 
 
 def binaryMetrics(ref_obs, associated_orbits):
@@ -109,7 +106,7 @@ def binaryMetrics(ref_obs, associated_orbits):
         "MatthewsCorrCoef": [matthews_corrcoef(y_true, y_pred)],
         "F1Score": [f1_score(y_true, y_pred, zero_division=0)],
         "Sensitivity": [recall_score(y_true, y_pred, zero_division=0)],
-        "Specifcity": [recall_score(y_true, y_pred, pos_label=0)],
+        "Specificity": [recall_score(y_true, y_pred, pos_label=0)],
     }
 
     return pd.DataFrame(metrics_dict)

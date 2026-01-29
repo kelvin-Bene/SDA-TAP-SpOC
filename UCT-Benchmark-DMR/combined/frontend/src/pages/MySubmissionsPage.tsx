@@ -206,7 +206,7 @@ export function MySubmissionsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {submission.results ? (
+                      {submission.results && submission.results.f1Score != null ? (
                         <span className="font-mono font-semibold">
                           {submission.results.f1Score.toFixed(4)}
                         </span>
@@ -215,10 +215,10 @@ export function MySubmissionsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {submission.results ? (
+                      {submission.results && submission.results.rank != null ? (
                         <div className="flex items-center gap-1">
                           <span className="font-semibold">#{submission.results.rank}</span>
-                          {submission.results.previousRank &&
+                          {submission.results.previousRank != null &&
                             submission.results.previousRank > submission.results.rank && (
                               <span className="text-xs text-green-600">
                                 (+{submission.results.previousRank - submission.results.rank})

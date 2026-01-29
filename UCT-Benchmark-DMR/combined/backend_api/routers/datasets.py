@@ -76,9 +76,9 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         id=str(row_dict["id"]),
         name=row_dict["name"],
         description=row_dict.get("code"),  # Use code as description if no separate field
-        regime=OrbitalRegime(row_dict.get("orbital_regime", "LEO")),
-        tier=DataTier(row_dict.get("tier", "T1")),
-        status=DatasetStatus(row_dict.get("status", "created")),
+        regime=OrbitalRegime(row_dict.get("orbital_regime") or "LEO"),
+        tier=DataTier(row_dict.get("tier") or "T1"),
+        status=DatasetStatus(row_dict.get("status") or "created"),
         created_at=row_dict["created_at"] or datetime.utcnow(),
         observation_count=obs_count,
         satellite_count=row_dict.get("satellite_count") or 0,

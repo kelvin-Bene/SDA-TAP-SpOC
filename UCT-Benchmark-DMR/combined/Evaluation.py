@@ -11,7 +11,6 @@ import time
 import pandas as pd
 
 # === Import Local Dependencies ==
-# from uct_benchmark.data.readData import readData
 from uct_benchmark.api.apiIntegration import loadDataset
 from uct_benchmark.evaluation.binaryMetrics import binaryMetrics
 from uct_benchmark.evaluation.evaluationReport import evaluationReport
@@ -24,8 +23,6 @@ from uct_benchmark.simulation.propagator import (
 )
 from uct_benchmark.utils.generateCov import generateCov
 from uct_benchmark.utils.generatePDF import generatePDF
-
-# import libraries.reportGenerator
 
 
 # === Main Execution Block ===
@@ -50,7 +47,6 @@ if __name__ == "__main__":
     associated_orbits, association_results, nonassociated_orbits = orbitAssociation(
         ref_sv, uctp_output, ephemerisPropagator
     )
-    # associated_orbits.to_csv("associated_orbits.csv", index=False)
 
     # Obtain binary metrics
     print("Computing binary metrics")
@@ -80,7 +76,6 @@ if __name__ == "__main__":
     print("Outputting to PDF")
     PDF_output_path = "./data/evaluation_report.pdf"
     PDF = generatePDF(evals, PDF_output_path)
-    # subprocess.run([sys.executable, "libraries/reportGenerator.py"])
 
     end = time.perf_counter()
     # Print time elapsed

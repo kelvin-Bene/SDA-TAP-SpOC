@@ -252,6 +252,7 @@ class TestDataMigration:
 
     def test_import_from_parquet(self, temp_db, sample_observations):
         """Test importing observations from Parquet."""
+        pytest.importorskip("pyarrow", reason="pyarrow required for parquet support")
         with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
             parquet_path = f.name
 
@@ -287,6 +288,7 @@ class TestDataMigration:
 
     def test_import_dataset_directory(self, temp_db, sample_observations, sample_state_vectors):
         """Test importing a complete dataset directory."""
+        pytest.importorskip("pyarrow", reason="pyarrow required for parquet support")
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create parquet files
             sample_observations.to_parquet(Path(temp_dir) / "observations.parquet")
@@ -345,68 +347,19 @@ class TestAPIIntegration:
 
     def test_database_availability_flag(self):
         """Test that database availability is correctly detected."""
-        # Import should work
-        from uct_benchmark.api.apiIntegration import _DATABASE_AVAILABLE
+        # Skip if orekit_jpype/jpype not available
+        try:
+            from uct_benchmark.api.apiIntegration import _DATABASE_AVAILABLE
+        except (ImportError, ModuleNotFoundError) as e:
+            pytest.skip(f"orekit_jpype/jpype not available: {e}")
 
         # DatabaseManager should be importable if database module exists
         assert _DATABASE_AVAILABLE is True or _DATABASE_AVAILABLE is False
 
-    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.discoswebQuery")
-    @patch("uct_benchmark.api.apiIntegration.binTracks")
-    def test_generate_dataset_without_database(
-        self,
-        mock_bin_tracks,
-        mock_discoweb,
-        mock_udl_query,
-        mock_async_batch,
-    ):
+    def test_generate_dataset_without_database(self):
         """Test generateDataset works without database flag."""
-        # Setup mocks
-        mock_async_batch.side_effect = [
-            pd.DataFrame(
-                {  # Observations
-                    "id": ["obs1"],
-                    "satNo": [25544],
-                    "obTime": ["2025-01-01T12:00:00.000000Z"],
-                    "ra": [180.0],
-                    "declination": [45.0],
-                }
-            ),
-            pd.DataFrame(
-                {  # State vectors
-                    "satNo": [25544],
-                    "epoch": ["2025-01-01T12:00:00.000000Z"],
-                    "xpos": [6778.0],
-                    "ypos": [0.0],
-                    "zpos": [0.0],
-                    "xvel": [0.0],
-                    "yvel": [7.5],
-                    "zvel": [0.0],
-                    "cov": [None],
-                }
-            ),
-        ]
-        mock_udl_query.return_value = pd.DataFrame(
-            {
-                "satNo": [25544],
-                "line1": ["1 25544U 98067A   25001.50000000  .00016717  00000-0  10270-3 0  9999"],
-                "line2": ["2 25544  51.6441 123.4567 0001234 123.4567 234.5678 15.50000000123456"],
-            }
-        )
-        mock_discoweb.return_value = {
-            "attributes": [{"satno": 25544, "mass": 420000, "xSectAvg": 1000}]
-        }
-        mock_bin_tracks.return_value = (
-            [(25544, pd.DataFrame(), pd.DataFrame({"id": ["obs1"]}))],
-            None,
-        )
-
-        # Import and call (this may fail due to Orekit, which is expected in test environment)
-        # The test verifies the function signature accepts the use_database parameter
+        # Import and check if available (this may fail due to Orekit)
         try:
-            # Just verify the function has the expected parameters
             import inspect
 
             from uct_benchmark.api.apiIntegration import generateDataset
@@ -417,9 +370,8 @@ class TestAPIIntegration:
             assert "use_database" in params
             assert "db_path" in params
             assert "dataset_name" in params
-        except ImportError as e:
-            # This is expected if Orekit is not available
-            pytest.skip(f"Orekit not available: {e}")
+        except (ImportError, ModuleNotFoundError) as e:
+            pytest.skip(f"orekit_jpype/jpype not available: {e}")
 
 
 class TestDatabaseCLI:

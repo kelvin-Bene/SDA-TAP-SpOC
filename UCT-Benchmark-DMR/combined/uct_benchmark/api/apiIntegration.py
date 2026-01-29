@@ -62,8 +62,41 @@ except ImportError:
 
 
 # Because HTTPS is annoying
-def _supressWarn():
+def _suppress_warnings():
+    """Suppress HTTPS verification warnings."""
     warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+
+
+# Backward-compatible alias (deprecated)
+_supressWarn = _suppress_warnings
+
+
+def _check_api_response(response: "requests.Response", service_name: str) -> None:
+    """
+    Check API response and raise appropriate errors.
+
+    Args:
+        response: The requests Response object
+        service_name: Name of the API service for error messages
+
+    Raises:
+        requests.exceptions.HTTPError: If response indicates an error
+    """
+    if response.status_code == 200:
+        return
+
+    error_messages = {
+        401: "Authentication failed",
+        403: "Access forbidden",
+        404: "Resource not found",
+        429: "Rate limit exceeded",
+        500: "Server error",
+        502: "Bad gateway",
+        503: "Service unavailable",
+    }
+
+    msg = error_messages.get(response.status_code, f"HTTP {response.status_code}")
+    raise requests.exceptions.HTTPError(f"{service_name}: {msg}")
 
 
 # =============================================================================

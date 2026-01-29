@@ -25,10 +25,10 @@ def readData(ref_obs_path, ref_orbits_path, dataset_path, uctp_output_path):
 
     # Load dataset df
     dataset = pd.read_csv(dataset_path, dtype={"trackId": str, "origin": str})
-    dataset["obTime"] = pd.to_datetime(ref_obs["obTime"])
+    dataset["obTime"] = pd.to_datetime(dataset["obTime"])
 
     # Load uctp_output df
-    uctp_output = pd.read_json("./data/uctp_output.json")
+    uctp_output = pd.read_json(uctp_output_path)
     uctp_output["epoch"] = pd.to_datetime(uctp_output["epoch"])
     uctp_output = generateCov(uctp_output)
 

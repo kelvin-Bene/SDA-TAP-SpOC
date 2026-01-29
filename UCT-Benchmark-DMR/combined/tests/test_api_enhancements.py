@@ -12,6 +12,18 @@ Tests:
 import pandas as pd
 import pytest
 
+# Check if orekit/jpype is available - these tests require it for imports
+try:
+    from uct_benchmark.api.apiIntegration import QueryCache
+    OREKIT_AVAILABLE = True
+except (ImportError, ModuleNotFoundError, OSError, RuntimeError):
+    OREKIT_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not OREKIT_AVAILABLE,
+    reason="orekit_jpype/jpype not available - required for apiIntegration imports"
+)
+
 
 class TestQueryCache:
     """Tests for the QueryCache class."""
