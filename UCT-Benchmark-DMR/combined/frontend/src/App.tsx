@@ -16,6 +16,7 @@ import { DocumentationPage } from '@/pages/DocumentationPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { LandingPage } from '@/pages/LandingPage';
 import { UCTPDashboardPage } from '@/pages/uctp/UCTPDashboardPage';
 import { AlgorithmWorkbenchPage } from '@/pages/uctp/AlgorithmWorkbenchPage';
 import { RunResultsPage } from '@/pages/uctp/RunResultsPage';
@@ -28,6 +29,7 @@ function App() {
     <AuthProvider>
       <ThemeProvider defaultTheme="system" storageKey="spoc-theme">
         <Routes>
+          <Route path="/welcome" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/"
