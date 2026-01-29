@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Menu,
   Bell,
@@ -10,6 +10,8 @@ import {
   Monitor,
   Orbit,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -32,6 +34,9 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const user = useAuthStore((s) => s.user);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
@@ -122,8 +127,12 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuContent align="end" className="w-56 glass border-white/10">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none font-display">researcher</p>
-                  <p className="text-xs leading-none text-muted-foreground">researcher@aerospace.org</p>
+                  <p className="text-sm font-medium leading-none font-display">
+                    {user?.username || user?.email?.split('@')[0] || 'User'}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email || ''}
+                  </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
@@ -168,7 +177,13 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer">
+              <DropdownMenuItem
+                className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                onClick={async () => {
+                  await logout();
+                  navigate('/login');
+                }}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
