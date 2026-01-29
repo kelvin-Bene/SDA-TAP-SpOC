@@ -20,3 +20,4 @@ export * from './scroll-area';
 export * from './switch';
 export * from './skeleton';
 export * from './textarea';
+export * from './info-popover';

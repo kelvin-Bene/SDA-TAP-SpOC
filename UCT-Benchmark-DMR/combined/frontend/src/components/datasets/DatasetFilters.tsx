@@ -9,8 +9,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { X } from 'lucide-react';
+import { InfoPopover } from '@/components/ui/info-popover';
+import { X, Filter, Orbit, Layers, Radio } from 'lucide-react';
 import type { DatasetFilters as FilterType, OrbitalRegime, DataTier, SensorType } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface DatasetFiltersProps {
   filters: FilterType;
@@ -49,19 +51,51 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
     filters.objectCountRange;
 
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <Card className="border-white/10 bg-white/[0.02]">
+      <CardContent className="pt-5 pb-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="h-4 w-4 text-cosmic-cyan" />
+          <span className="text-sm font-medium">Filters</span>
+          {hasFilters && (
+            <span className="ml-auto">
+              <Button variant="ghost" size="sm" onClick={onClear} className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-foreground">
+                <X className="h-3 w-3" />
+                Clear All
+              </Button>
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap items-end gap-4">
           {/* Regime Filter */}
           <div className="space-y-2 min-w-[180px]">
-            <Label htmlFor="regime-filter">Orbital Regime</Label>
+            <div className="flex items-center gap-1.5">
+              <Orbit className="h-3 w-3 text-muted-foreground" />
+              <Label htmlFor="regime-filter" className="text-xs text-muted-foreground">Orbital Regime</Label>
+              <InfoPopover
+                title="Orbital Regime"
+                description="Filter datasets by the altitude band of their objects."
+                details={[
+                  'LEO: Fast-moving objects at 200-2,000 km',
+                  'MEO: Navigation satellites at 2,000-35,786 km',
+                  'GEO: Stationary comms satellites at ~35,786 km',
+                  'HEO: Highly elliptical orbits with variable altitude',
+                ]}
+                variant="info"
+              />
+            </div>
             <Select
               value={filters.regime || 'all'}
               onValueChange={(value) =>
                 onFiltersChange({ ...filters, regime: value as OrbitalRegime | 'all' })
               }
             >
-              <SelectTrigger id="regime-filter">
+              <SelectTrigger
+                id="regime-filter"
+                className={cn(
+                  'border-white/10 bg-white/5',
+                  filters.regime !== 'all' && 'border-cosmic-cyan/30 bg-cosmic-cyan/5',
+                )}
+              >
                 <SelectValue placeholder="Select regime" />
               </SelectTrigger>
               <SelectContent>
@@ -76,14 +110,34 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Tier Filter */}
           <div className="space-y-2 min-w-[180px]">
-            <Label htmlFor="tier-filter">Data Tier</Label>
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3 w-3 text-muted-foreground" />
+              <Label htmlFor="tier-filter" className="text-xs text-muted-foreground">Data Tier</Label>
+              <InfoPopover
+                title="Data Tier"
+                description="Filter by data quality and origin."
+                details={[
+                  'T1: Full-quality real observations',
+                  'T2: Downsampled real observations',
+                  'T3: Gap-filled with simulated data',
+                  'T4: Fully synthetic scenario',
+                ]}
+                variant="info"
+              />
+            </div>
             <Select
               value={filters.tier || 'all'}
               onValueChange={(value) =>
                 onFiltersChange({ ...filters, tier: value as DataTier | 'all' })
               }
             >
-              <SelectTrigger id="tier-filter">
+              <SelectTrigger
+                id="tier-filter"
+                className={cn(
+                  'border-white/10 bg-white/5',
+                  filters.tier !== 'all' && 'border-stellar-purple/30 bg-stellar-purple/5',
+                )}
+              >
                 <SelectValue placeholder="Select tier" />
               </SelectTrigger>
               <SelectContent>
@@ -98,14 +152,33 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Sensor Filter */}
           <div className="space-y-2 min-w-[180px]">
-            <Label htmlFor="sensor-filter">Sensor Type</Label>
+            <div className="flex items-center gap-1.5">
+              <Radio className="h-3 w-3 text-muted-foreground" />
+              <Label htmlFor="sensor-filter" className="text-xs text-muted-foreground">Sensor Type</Label>
+              <InfoPopover
+                title="Sensor Type"
+                description="Filter by the type of sensor observations in the dataset."
+                details={[
+                  'Optical: Measures angles (RA, Dec) against the star background',
+                  'Radar: Provides range and range-rate in addition to angles',
+                  'RF: Radio-frequency observations (signal, Doppler) from SatNOGS',
+                ]}
+                variant="info"
+              />
+            </div>
             <Select
               value={filters.sensor || 'all'}
               onValueChange={(value) =>
                 onFiltersChange({ ...filters, sensor: value as SensorType | 'all' })
               }
             >
-              <SelectTrigger id="sensor-filter">
+              <SelectTrigger
+                id="sensor-filter"
+                className={cn(
+                  'border-white/10 bg-white/5',
+                  filters.sensor !== 'all' && 'border-aurora-green/30 bg-aurora-green/5',
+                )}
+              >
                 <SelectValue placeholder="Select sensor" />
               </SelectTrigger>
               <SelectContent>
@@ -120,7 +193,9 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Object Count Range */}
           <div className="space-y-2 min-w-[200px] flex-1 max-w-[300px]">
-            <Label>Object Count: {filters.objectCountRange?.min || 10} - {filters.objectCountRange?.max || 100}</Label>
+            <Label className="text-xs text-muted-foreground">
+              Object Count: <span className="font-mono text-foreground">{filters.objectCountRange?.min || 10}</span> - <span className="font-mono text-foreground">{filters.objectCountRange?.max || 100}</span>
+            </Label>
             <Slider
               defaultValue={[filters.objectCountRange?.min || 10, filters.objectCountRange?.max || 100]}
               min={10}
@@ -135,14 +210,6 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
               className="mt-2"
             />
           </div>
-
-          {/* Clear Filters */}
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={onClear} className="gap-1">
-              <X className="h-4 w-4" />
-              Clear Filters
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>
