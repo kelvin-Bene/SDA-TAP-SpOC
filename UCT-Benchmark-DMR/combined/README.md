@@ -94,6 +94,7 @@ combined/
 - Space-Track and CelesTrak integration
 - ESA Discosweb queries
 - Smart batch querying with adaptive sizing
+- **Open Source Data Integration** (SatNOGS, GCAT, UCS, ILRS)
 
 ### Data Processing (`uct_benchmark/data/`)
 
@@ -113,6 +114,35 @@ combined/
 - DuckDB-based storage
 - Dataset and result persistence
 - Export/import functionality
+
+### Open Source Data Integration
+
+The benchmark integrates four open source data providers for enhanced analysis:
+
+| Source | Data | Use Case |
+|--------|------|----------|
+| **UCS** | Satellite metadata (mass, purpose, operator) | Accurate HAMR detection |
+| **GCAT** | Launch info, object classification | Satellite enrichment |
+| **SatNOGS** | RF observation timing | Multi-phenomenology datasets |
+| **ILRS** | Sub-cm laser ranging | Algorithm validation |
+
+**Example: Enrich satellites with metadata**
+```python
+from uct_benchmark.api.data_source_manager import DataSourceManager
+from uct_benchmark.database import DatabaseManager
+
+db = DatabaseManager('data/uct_benchmark.db')
+dsm = DataSourceManager(db)
+
+# Enrich satellite data from UCS/GCAT
+data = dsm.enrich_satellite(25544)  # ISS
+print(data['data']['purpose'])  # "Science/Research"
+
+# Check if satellite is HAMR (High Area-to-Mass Ratio)
+is_hamr = dsm.is_hamr_object(12345)
+```
+
+See [docs/OPEN_SOURCE_API.md](docs/OPEN_SOURCE_API.md) for full API reference.
 
 ## Environment Variables
 
@@ -144,6 +174,9 @@ pytest tests/ --cov=uct_benchmark --cov-report=html
 
 # Run specific test file
 pytest tests/test_api_enhancements.py -v
+
+# Run open source integration tests
+pytest tests/test_open_sources.py tests/test_data_source_manager.py tests/test_open_source_integration.py -v
 ```
 
 ## Documentation
@@ -154,6 +187,8 @@ See the `docs/` directory for detailed documentation:
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
 - [API_INTEGRATION.md](docs/API_INTEGRATION.md) - API usage patterns
 - [DATABASE_ARCHITECTURE.md](docs/DATABASE_ARCHITECTURE.md) - Database design
+- [OPEN_SOURCE_API.md](docs/OPEN_SOURCE_API.md) - Open source data integration
+- [OPEN_SOURCE_INTEGRATION_ANALYSIS.md](docs/OPEN_SOURCE_INTEGRATION_ANALYSIS.md) - Data source analysis
 - [WINDOWS_OREKIT_SETUP.md](docs/WINDOWS_OREKIT_SETUP.md) - Orekit setup on Windows
 - [COMPONENTS.md](docs/COMPONENTS.md) - UI component reference
 - [CHANGELOG.md](docs/CHANGELOG.md) - Version history

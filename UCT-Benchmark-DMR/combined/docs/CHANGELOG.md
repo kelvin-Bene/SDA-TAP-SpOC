@@ -5,6 +5,87 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [2.0.0] - 2026-01-27
+
+### Added
+
+#### Supabase / PostgreSQL Migration
+
+Full migration from DuckDB-only to dual-backend (DuckDB + PostgreSQL/Supabase) with feature-flagged auth, audit logging, and production data tracking.
+
+**Database Abstraction Layer (`uct_benchmark/database/`)**
+- `backend_interface.py` — `DatabaseBackendInterface` abstract base class with `execute()`, `executemany()`, `execute_df_insert()`, `connection()`, `initialize_schema()`, `close()`
+- `duckdb_backend.py` — DuckDB implementation extracted from `connection.py`, implements the interface with thread-local connections and register/unregister bulk insert
+- `postgres_backend.py` — PostgreSQL implementation using `psycopg_pool.ConnectionPool`, with placeholder conversion (`?` to `%s`), `INSERT OR REPLACE` to `ON CONFLICT DO UPDATE`, `JSON` to `JSONB`
+- `schema_postgres.py` — PostgreSQL-adapted schema (v2.0.0) with JSONB, TIMESTAMPTZ, 6 new production tables
+- `connection.py` — Refactored `DatabaseManager` to delegate to backend interface via `_resolve_backend()` factory; public API unchanged
+
+**Backend Auth Module (`backend_api/auth/`)**
+- `middleware.py` — `verify_jwt()` decodes Supabase JWTs using `python-jose` HS256
+- `dependencies.py` — FastAPI dependencies: `get_current_user()`, `require_auth()`, `require_admin()`
+- `models.py` — Pydantic models: `LoginRequest`, `SignupRequest`, `UserProfile`, `TokenResponse`
+- `routers/auth.py` — Auth endpoints: `/signup`, `/login`, `/logout`, `/me`, `PATCH /me`
+
+**Audit & Logging (`backend_api/middleware/`, `backend_api/services/`)**
+- `middleware/audit.py` — `AuditMiddleware` captures POST/PUT/PATCH/DELETE to `api_call_log`
+- `middleware/query_logging.py` — `QueryLoggingMiddleware` logs slow requests (>500ms) to `system_log`
+- `services/audit_service.py` — `log_api_call()`, `log_audit_event()`, `log_credential_access()`, `log_system_event()`
+
+**Database-backed Job Manager (`backend_api/jobs/`)**
+- `db_job_manager.py` — `DatabaseJobManager` persists jobs in the `jobs` table for PostgreSQL mode; same API as in-memory `JobManager`
+- `__init__.py` — `init_job_manager()` selects backend based on `DB_BACKEND` config
+
+**Centralized Configuration (`backend_api/config.py`)**
+- `AppConfig` dataclass with `DatabaseBackend` enum (`duckdb` | `postgres`)
+- Reads: `DB_BACKEND`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `DATABASE_URL`, `PG_POOL_MIN/MAX`, `AUTH_ENABLED`, `CORS_ORIGINS`
+- Singleton pattern with `get_config()` / `reset_config()`
+
+**PostgreSQL Schema — 6 New Production Tables**
+- `users` — UUID PK, `auth_user_id` UNIQUE for Supabase Auth, email, username, organization, role, timestamps
+- `audit_log` — action, resource_type, resource_id, details JSONB, ip_address
+- `api_call_log` — method, path, status_code, duration_ms, request/response body size
+- `query_log` — query_hash, query_text, duration_ms, rows_affected, source
+- `credential_access_log` — service_name, action, source, success
+- `system_log` — level, component, message, details JSONB
+
+**SQL Migration**
+- `backend_api/db/migrations/001_initial_schema.sql` — Full 26-table PostgreSQL migration with indexes, foreign keys, RLS policies, seed data
+
+**Data Migration Script**
+- `scripts/migrate_duckdb_to_postgres.py` — CLI script to migrate existing DuckDB data to PostgreSQL with `--batch-size`, `--dry-run`, `--verify`, FK-safe table ordering, JSON-to-JSONB conversion, sequence reset
+
+**Frontend Supabase Integration**
+- `frontend/src/lib/supabase.ts` — Conditional Supabase client (null when not configured)
+- `frontend/src/hooks/useAuth.ts` — Login/signup/logout with Supabase SDK + API fallback
+- `frontend/src/hooks/useRealtimeJobs.ts` — Supabase Realtime subscriptions for job progress
+- `frontend/src/components/auth/AuthProvider.tsx` — Syncs Supabase auth state with Zustand store
+- `frontend/src/components/auth/ProtectedRoute.tsx` — Route guard controlled by `VITE_AUTH_ENABLED`
+- Updated `App.tsx`, `LoginPage.tsx`, `ProfilePage.tsx`, `api/client.ts`
+
+**Tests (89 new tests)**
+- `test_config.py` (8) — Config singleton, env var parsing, defaults
+- `test_auth_middleware.py` (12) — JWT verification, auth dependencies, role guards
+- `test_audit_service.py` (17) — All 4 logging functions, DB unavailable handling
+- `test_db_job_manager.py` (34) — Full CRUD, persistence, factory, filters
+- `test_query_logging.py` (6) — Slow request logging, threshold, skip conditions
+- `tests/test_data_migration.py` (32) — Migration script: JSON conversion, table ordering, batch processing
+
+### Changed
+- `pyproject.toml` — Added: `psycopg[binary]>=3.1.0`, `psycopg-pool>=3.2.0`, `python-jose[cryptography]>=3.3.0`
+- `frontend/package.json` — Added: `@supabase/supabase-js@^2.45.0`
+- `.env.example` — Added DB_BACKEND, Supabase, PostgreSQL, and auth sections
+- `backend_api/main.py` — Auth router, CORS from config, audit middleware registration
+- `backend_api/routers/__init__.py` — Added `auth` module
+
+### Architecture Decisions
+- **Feature-flagged**: `DB_BACKEND=duckdb` (default) preserves all existing behavior; `DB_BACKEND=postgres` enables Supabase/PostgreSQL
+- **AUTH_ENABLED=false** (default): All endpoints work without tokens; `true` requires valid Supabase JWT
+- **Backend interface pattern**: All database access goes through `DatabaseBackendInterface`, enabling runtime backend switching
+- **Placeholder conversion**: `?` to `%s` at runtime in PostgreSQL backend; safe because no SQL uses `?` inside string literals
+- **Audit never breaks requests**: All logging functions swallow exceptions
+
+---
+
 ## [1.1.0] - 2026-01-19
 
 ### Added
@@ -186,13 +267,14 @@ No new dependencies added. Uses existing:
 
 ## Future Work
 
-### Phase 2 (Planned)
-- Add `use_database=True` flag to `generateDataset()`
-- Automatic persistence during dataset generation
-- Data migration utilities for existing files
+### Completed in v2.0.0
+- ~~Data migration utilities for existing files~~ (see `scripts/migrate_duckdb_to_postgres.py`)
+- ~~Query caching layer~~ (see `QueryCache` in API and query logging in middleware)
 
-### Phase 3 (Planned)
+### Planned
+- Add `use_database=True` flag to `generateDataset()` for automatic persistence
 - Event detection hooks
-- Query caching layer
 - Automated daily backups
-- Performance optimization
+- Performance optimization for bulk PostgreSQL inserts
+- Supabase Realtime for live leaderboard updates
+- Row-Level Security (RLS) policy enforcement per user role

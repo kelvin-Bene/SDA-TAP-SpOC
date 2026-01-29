@@ -21,11 +21,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useLeaderboardStatistics } from '@/hooks/useLeaderboard';
 import { useSubmissions } from '@/hooks/useSubmissions';
+import { useAuthStore } from '@/stores/authStore';
 
 export function ProfilePage() {
   const { toast } = useToast();
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+
+  // Get authenticated user from store
+  const authUser = useAuthStore((s) => s.user);
 
   // Fetch real stats from API
   const { data: stats } = useLeaderboardStatistics();
@@ -99,17 +103,17 @@ export function ProfilePage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
-                  <Input id="username" defaultValue="researcher" />
+                  <Input id="username" defaultValue={authUser?.username || 'researcher'} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="researcher@aerospace.org" />
+                  <Input id="email" type="email" defaultValue={authUser?.email || 'researcher@aerospace.org'} />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="organization">Organization</Label>
                   <div className="flex gap-2">
                     <Building2 className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
-                    <Input id="organization" defaultValue="Aerospace Corporation" className="flex-1" />
+                    <Input id="organization" defaultValue={authUser?.organization || 'Aerospace Corporation'} className="flex-1" />
                   </div>
                 </div>
               </div>

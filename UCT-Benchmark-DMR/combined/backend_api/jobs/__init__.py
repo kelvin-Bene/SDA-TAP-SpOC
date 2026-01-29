@@ -227,15 +227,19 @@ class JobManager:
 
 
 # Global job manager instance (singleton)
-_job_manager: Optional[JobManager] = None
+# The type is a union: either in-memory JobManager or DatabaseJobManager
+_job_manager = None
 
 
-def get_job_manager() -> JobManager:
+def get_job_manager():
     """
     Get the global job manager instance.
 
+    Returns the active job manager (either in-memory or database-backed,
+    depending on how init_job_manager() was called).
+
     Returns:
-        JobManager: The singleton job manager
+        JobManager or DatabaseJobManager: The singleton job manager
     """
     global _job_manager
     if _job_manager is None:
@@ -243,8 +247,30 @@ def get_job_manager() -> JobManager:
     return _job_manager
 
 
-def init_job_manager() -> JobManager:
-    """Initialize the global job manager."""
+def init_job_manager():
+    """
+    Initialize the global job manager.
+
+    Selects DatabaseJobManager when DB_BACKEND=postgres, otherwise
+    uses the in-memory JobManager. The DatabaseJobManager stores jobs
+    in the PostgreSQL `jobs` table for persistence across restarts.
+
+    Returns:
+        JobManager or DatabaseJobManager: The initialized job manager
+    """
     global _job_manager
+
+    try:
+        from backend_api.config import DatabaseBackend, get_config
+
+        config = get_config()
+        if config.db_backend == DatabaseBackend.POSTGRES:
+            from backend_api.jobs.db_job_manager import DatabaseJobManager
+
+            _job_manager = DatabaseJobManager()
+            return _job_manager
+    except Exception:
+        pass  # Fall back to in-memory if config is unavailable
+
     _job_manager = JobManager()
     return _job_manager

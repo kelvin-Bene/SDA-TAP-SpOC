@@ -3,15 +3,15 @@ import {
   LayoutDashboard,
   Database,
   Plus,
-  FolderOpen,
   Upload,
-  FileText,
   Trophy,
   BookOpen,
   X,
   ChevronDown,
   Sparkles,
   Zap,
+  FlaskConical,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,17 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    title: 'UCTP Lab',
+    icon: FlaskConical,
+    children: [
+      { title: 'Dashboard', href: '/uctp' },
+      { title: 'Algorithm Workbench', href: '/uctp/workbench' },
+      { title: 'ML Training', href: '/uctp/training' },
+      { title: 'API Connectivity', href: '/uctp/connectivity' },
+      { title: 'Compare Runs', href: '/uctp/compare' },
+    ],
+  },
+  {
     title: 'Leaderboard',
     href: '/leaderboard',
     icon: Trophy,
@@ -62,6 +73,11 @@ const navItems: NavItem[] = [
     title: 'Documentation',
     href: '/docs',
     icon: BookOpen,
+  },
+  {
+    title: 'Settings',
+    href: '/settings',
+    icon: Settings,
   },
 ];
 
@@ -220,21 +236,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <Sparkles className="h-3 w-3" />
                 Recent
               </h4>
-              <div className="space-y-1">
-                <Link
-                  to="/results/1"
-                  className="flex items-center gap-3 rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200 group"
-                >
-                  <FileText className="h-4 w-4 group-hover:text-cosmic-cyan transition-colors" />
-                  <span className="truncate">MyUCTP v2.1 Results</span>
-                </Link>
-                <Link
-                  to="/datasets"
-                  className="flex items-center gap-3 rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200 group"
-                >
-                  <FolderOpen className="h-4 w-4 group-hover:text-cosmic-cyan transition-colors" />
-                  <span className="truncate">LEO-T2-2026-01-15</span>
-                </Link>
+              <div className="px-4 py-2 text-sm text-muted-foreground">
+                No recent activity
               </div>
             </div>
           </ScrollArea>

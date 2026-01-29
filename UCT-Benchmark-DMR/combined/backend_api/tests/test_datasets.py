@@ -130,7 +130,7 @@ class TestCreateDataset:
             json=sample_dataset_create,
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         dataset = response.json()
         assert dataset["name"] == sample_dataset_create["name"]
         assert dataset["status"] == "generating"
@@ -281,7 +281,7 @@ class TestCreateDataset:
                 "sensors": ["optical"],
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
 
     @patch("backend_api.routers.datasets.submit_dataset_generation")
     def test_create_dataset_timeframe_at_min_boundary(
@@ -306,7 +306,7 @@ class TestCreateDataset:
                 "sensors": ["optical"],
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
 
 
 class TestGetDatasetObservations:

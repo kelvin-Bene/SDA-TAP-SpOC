@@ -11,11 +11,14 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
+
+import pandas as pd
 
 from .adapters import DatabaseAdapter, create_adapter
 
 if TYPE_CHECKING:
+    from .backend_interface import DatabaseBackendInterface
     from .repository import (
         DatasetRepository,
         ElementSetRepository,
@@ -56,12 +59,16 @@ class DatabaseManager:
     """
     Manages database connections and lifecycle.
 
+    Supports both DuckDB (default, local development) and PostgreSQL
+    (production, Supabase) backends via the adapter pattern.
+
     Provides:
     - Unified interface for DuckDB and PostgreSQL
     - Thread-safe connection management
     - Schema initialization
     - Backup/restore functionality (DuckDB only)
     - Repository access
+    - Backend-agnostic bulk insert via bulk_insert_df()
 
     Usage:
         # DuckDB (default)
@@ -105,6 +112,7 @@ class DatabaseManager:
         # Store config for backup/restore
         self.in_memory = in_memory
         self.read_only = read_only
+        self._backend_name = backend
 
         # Determine db_path for DuckDB
         if in_memory:
@@ -185,6 +193,39 @@ class DatabaseManager:
         """
         self._adapter.executemany(query, params_list)
 
+    def bulk_insert_df(
+        self,
+        table: str,
+        df: pd.DataFrame,
+        columns: List[str],
+        conflict_clause: str = "",
+    ) -> int:
+        """
+        Bulk insert from a DataFrame using the backend-optimal method.
+
+        For DuckDB: uses register/unregister pattern.
+        For PostgreSQL: uses executemany with ON CONFLICT support.
+
+        Args:
+            table: Target table name
+            df: DataFrame containing the data
+            columns: Column names to insert
+            conflict_clause: ON CONFLICT clause
+
+        Returns:
+            Number of rows inserted
+        """
+        if hasattr(self._adapter, "execute_df_insert"):
+            return self._adapter.execute_df_insert(table, df, columns, conflict_clause)
+        # Fallback: use executemany
+        placeholders = ", ".join(["?"] * len(columns))
+        col_str = ", ".join(columns)
+        query = f"INSERT INTO {table} ({col_str}) VALUES ({placeholders}) {conflict_clause}"
+        query = self._adapter.convert_placeholders(query)
+        rows = [tuple(row[col] for col in columns) for _, row in df.iterrows()]
+        self._adapter.executemany(query, rows)
+        return len(rows)
+
     def initialize(self, force: bool = False) -> None:
         """
         Initialize the database schema.
@@ -194,9 +235,9 @@ class DatabaseManager:
         Args:
             force: If True, drop and recreate all tables
         """
-        from .schema import initialize_schema
-
         with self._lock:
+            from .schema import initialize_schema
+
             initialize_schema(self, force=force)
             self._initialized = True
 
@@ -217,12 +258,12 @@ class DatabaseManager:
 
     def backup(self, backup_path: Optional[Path] = None) -> Path:
         """
-        Create a backup of the database.
+        Create a backup of the database (DuckDB only).
 
         Note: Only supported for DuckDB file-based databases.
 
         Args:
-            backup_path: Optional custom backup path. If None, uses default backup directory.
+            backup_path: Optional custom backup path.
 
         Returns:
             Path to the backup file
@@ -242,17 +283,13 @@ class DatabaseManager:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_path = backup_dir / f"uct_benchmark_{timestamp}.duckdb"
 
-        # Close any open connections before backup
         self.close()
-
-        # Copy the database file
         shutil.copy2(self.db_path, backup_path)
-
         return backup_path
 
     def restore(self, backup_path: Path) -> None:
         """
-        Restore the database from a backup.
+        Restore the database from a backup (DuckDB only).
 
         Note: Only supported for DuckDB file-based databases.
 
@@ -272,10 +309,7 @@ class DatabaseManager:
         if not backup_path.exists():
             raise FileNotFoundError(f"Backup file not found: {backup_path}")
 
-        # Close any open connections
         self.close()
-
-        # Restore from backup
         shutil.copy2(backup_path, self.db_path)
 
     def vacuum(self) -> None:

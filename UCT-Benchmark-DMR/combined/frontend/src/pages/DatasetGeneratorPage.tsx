@@ -29,16 +29,115 @@ import {
   FileCheck,
   Loader2,
   AlertCircle,
+  Database,
+  Layers,
+  Shield,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OrbitalRegime, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions, SearchStrategy } from '@/types';
+import type { OrbitalRegime, DataTier, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions, SearchStrategy, OpenSourceOptions, DatasetPreset } from '@/types';
 
 const steps = [
-  { id: 1, name: 'Regime', icon: Satellite },
-  { id: 2, name: 'Quality', icon: Settings2 },
-  { id: 3, name: 'Objects', icon: Zap },
-  { id: 4, name: 'Advanced', icon: Settings2 },
-  { id: 5, name: 'Review', icon: FileCheck },
+  { id: 1, name: 'Preset', icon: Sparkles },
+  { id: 2, name: 'Regime', icon: Satellite },
+  { id: 3, name: 'Quality', icon: Settings2 },
+  { id: 4, name: 'Objects', icon: Zap },
+  { id: 5, name: 'Advanced', icon: Settings2 },
+  { id: 6, name: 'Review', icon: FileCheck },
+];
+
+// Dataset presets with different data source configurations
+const datasetPresets: DatasetPreset[] = [
+  {
+    id: 'quick-test',
+    name: 'Quick Test',
+    description: 'Fast dataset with UDL data only. No enrichment for quick testing.',
+    icon: 'zap',
+    dataSources: ['UDL', 'ESA'],
+    config: {
+      tier: 'T2',
+      objectCount: 10,
+      openSource: {
+        enableEnrichment: false,
+        sensorMode: 'EO',
+        includeIlrsValidation: false,
+      },
+    },
+  },
+  {
+    id: 'standard',
+    name: 'Standard Dataset',
+    description: 'UDL observations enriched with UCS/GCAT satellite metadata for accurate HAMR detection.',
+    icon: 'database',
+    dataSources: ['UDL', 'ESA', 'UCS', 'GCAT'],
+    config: {
+      tier: 'T2',
+      objectCount: 40,
+      openSource: {
+        enableEnrichment: true,
+        sensorMode: 'EO',
+        includeIlrsValidation: false,
+      },
+    },
+  },
+  {
+    id: 'multi-phenom',
+    name: 'Multi-Phenomenology',
+    description: 'Combines optical (UDL) and RF (SatNOGS) observations for sensor fusion testing.',
+    icon: 'layers',
+    dataSources: ['UDL', 'ESA', 'UCS', 'GCAT', 'SatNOGS'],
+    config: {
+      tier: 'T2',
+      objectCount: 30,
+      openSource: {
+        enableEnrichment: true,
+        sensorMode: 'MX',
+        includeIlrsValidation: false,
+      },
+    },
+  },
+  {
+    id: 'validation',
+    name: 'Validation Dataset (T1H)',
+    description: 'Highest quality tier with ILRS laser-ranging ground truth for algorithm validation.',
+    icon: 'shield',
+    dataSources: ['UDL', 'ESA', 'UCS', 'GCAT', 'ILRS'],
+    config: {
+      tier: 'T1H' as DataTier,
+      objectCount: 20,
+      coverage: 'high',
+      openSource: {
+        enableEnrichment: true,
+        sensorMode: 'EO',
+        includeIlrsValidation: true,
+      },
+    },
+  },
+  {
+    id: 'full-integration',
+    name: 'Full Integration',
+    description: 'All data sources enabled: UDL + ESA + UCS + GCAT + SatNOGS + ILRS validation.',
+    icon: 'sparkles',
+    dataSources: ['UDL', 'ESA', 'UCS', 'GCAT', 'SatNOGS', 'ILRS'],
+    config: {
+      tier: 'T1H' as DataTier,
+      objectCount: 25,
+      coverage: 'high',
+      openSource: {
+        enableEnrichment: true,
+        sensorMode: 'MX',
+        includeIlrsValidation: true,
+      },
+    },
+  },
+  {
+    id: 'custom',
+    name: 'Custom Configuration',
+    description: 'Start from scratch and configure all data sources manually.',
+    icon: 'settings',
+    dataSources: [],
+    config: {},
+  },
 ];
 
 // Calculate timeframe in days from start and end dates
@@ -67,8 +166,15 @@ const defaultSimulation: SimulationOptions = {
   maxSyntheticRatio: 0.5,
 };
 
+const defaultOpenSource: OpenSourceOptions = {
+  enableEnrichment: true,
+  sensorMode: 'EO',
+  includeIlrsValidation: false,
+};
+
 const defaultConfig: DatasetGenerationConfig = {
   regime: 'LEO',
+  tier: 'T2',
   coverage: 'standard',
   observationDensity: 50,
   trackGapTarget: 2,
@@ -82,12 +188,14 @@ const defaultConfig: DatasetGenerationConfig = {
   simulation: defaultSimulation,
   searchStrategy: 'hybrid',
   windowSizeMinutes: 10,
+  openSource: defaultOpenSource,
 };
 
 export function DatasetGeneratorPage() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [config, setConfig] = useState<DatasetGenerationConfig>(defaultConfig);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -129,8 +237,30 @@ export function DatasetGeneratorPage() {
     setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
-  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 5));
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 6));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+
+  const applyPreset = (preset: DatasetPreset) => {
+    setSelectedPreset(preset.id);
+    if (preset.id !== 'custom') {
+      setConfig((prev) => ({
+        ...prev,
+        ...preset.config,
+        openSource: preset.config.openSource ?? defaultOpenSource,
+      }));
+    }
+  };
+
+  const getPresetIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'zap': return <Zap className="h-5 w-5" />;
+      case 'database': return <Database className="h-5 w-5" />;
+      case 'layers': return <Layers className="h-5 w-5" />;
+      case 'shield': return <Shield className="h-5 w-5" />;
+      case 'sparkles': return <Sparkles className="h-5 w-5" />;
+      default: return <Settings2 className="h-5 w-5" />;
+    }
+  };
 
   const updateDownsampling = <K extends keyof DownsamplingOptions>(
     key: K,
@@ -243,8 +373,96 @@ export function DatasetGeneratorPage() {
 
         {/* Step Content */}
         <Card>
-          {/* Step 1: Regime Selection */}
+          {/* Step 1: Preset Selection */}
           {currentStep === 1 && (
+            <>
+              <CardHeader>
+                <CardTitle>Choose Data Source Configuration</CardTitle>
+                <CardDescription>
+                  Select a preset to configure which data sources to pull from, or choose custom for full control
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4">
+                  {datasetPresets.map((preset) => (
+                    <div
+                      key={preset.id}
+                      onClick={() => applyPreset(preset)}
+                      className={cn(
+                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
+                        selectedPreset === preset.id && 'border-primary bg-primary/5 ring-1 ring-primary'
+                      )}
+                    >
+                      <div className={cn(
+                        'p-2 rounded-lg',
+                        selectedPreset === preset.id ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      )}>
+                        {getPresetIcon(preset.icon)}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{preset.name}</span>
+                          {preset.id === 'standard' && (
+                            <Badge>Recommended</Badge>
+                          )}
+                          {preset.id === 'full-integration' && (
+                            <Badge variant="secondary">All Sources</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{preset.description}</p>
+                        {preset.dataSources.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {preset.dataSources.map((source) => (
+                              <Badge key={source} variant="outline" className="text-xs">
+                                {source}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {selectedPreset === preset.id && (
+                        <Check className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Data Sources Legend */}
+                <div className="rounded-lg border p-4 bg-muted/30">
+                  <h4 className="font-medium mb-3">Data Source Reference</h4>
+                  <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">UDL</Badge>
+                      <span className="text-muted-foreground">Unified Data Library - primary satellite observations</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">ESA</Badge>
+                      <span className="text-muted-foreground">ESA Discosweb - orbital elements and TLEs</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">UCS</Badge>
+                      <span className="text-muted-foreground">Union of Concerned Scientists - satellite metadata</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">GCAT</Badge>
+                      <span className="text-muted-foreground">General Catalog - mass data for HAMR detection</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">SatNOGS</Badge>
+                      <span className="text-muted-foreground">RF observations for multi-phenomenology</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">ILRS</Badge>
+                      <span className="text-muted-foreground">Laser ranging - ground truth for validation</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </>
+          )}
+
+          {/* Step 2: Regime Selection */}
+          {currentStep === 2 && (
             <>
               <CardHeader>
                 <CardTitle>Select Orbital Regime</CardTitle>
@@ -287,8 +505,8 @@ export function DatasetGeneratorPage() {
             </>
           )}
 
-          {/* Step 2: Quality Parameters */}
-          {currentStep === 2 && (
+          {/* Step 3: Quality Parameters */}
+          {currentStep === 3 && (
             <>
               <CardHeader>
                 <CardTitle>Data Quality Parameters</CardTitle>
@@ -409,8 +627,8 @@ export function DatasetGeneratorPage() {
             </>
           )}
 
-          {/* Step 3: Object Selection */}
-          {currentStep === 3 && (
+          {/* Step 4: Object Selection */}
+          {currentStep === 4 && (
             <>
               <CardHeader>
                 <CardTitle>Object Selection</CardTitle>
@@ -514,8 +732,8 @@ export function DatasetGeneratorPage() {
             </>
           )}
 
-          {/* Step 4: Advanced (Downsampling & Simulation) */}
-          {currentStep === 4 && (
+          {/* Step 5: Advanced (Downsampling & Simulation) */}
+          {currentStep === 5 && (
             <>
               <CardHeader>
                 <CardTitle>Advanced Options</CardTitle>
@@ -822,8 +1040,8 @@ export function DatasetGeneratorPage() {
             </>
           )}
 
-          {/* Step 5: Review */}
-          {currentStep === 5 && (
+          {/* Step 6: Review */}
+          {currentStep === 6 && (
             <>
               <CardHeader>
                 <CardTitle>Review Configuration</CardTitle>
@@ -933,6 +1151,51 @@ export function DatasetGeneratorPage() {
                       </div>
                     </div>
 
+                    {/* Data Sources Summary */}
+                    <div className="rounded-lg border p-4 space-y-3 bg-gradient-to-r from-primary/5 to-transparent">
+                      <div className="flex items-center gap-2">
+                        <Database className="h-5 w-5 text-primary" />
+                        <h4 className="font-medium">Data Sources</h4>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="default">UDL</Badge>
+                        <Badge variant="default">ESA</Badge>
+                        {config.openSource?.enableEnrichment && (
+                          <>
+                            <Badge variant="secondary">UCS</Badge>
+                            <Badge variant="secondary">GCAT</Badge>
+                          </>
+                        )}
+                        {config.openSource?.sensorMode === 'MX' && (
+                          <Badge variant="secondary">SatNOGS</Badge>
+                        )}
+                        {config.openSource?.sensorMode === 'RF' && (
+                          <Badge variant="secondary">SatNOGS</Badge>
+                        )}
+                        {config.openSource?.includeIlrsValidation && (
+                          <Badge variant="secondary">ILRS</Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-sm mt-2">
+                        <div>
+                          <span className="text-muted-foreground">Tier: </span>
+                          <span className="font-medium">{config.tier}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Sensor: </span>
+                          <span className="font-medium">
+                            {config.openSource?.sensorMode === 'EO' && 'Optical Only'}
+                            {config.openSource?.sensorMode === 'RF' && 'RF Only'}
+                            {config.openSource?.sensorMode === 'MX' && 'Multi-Phenom'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Enrichment: </span>
+                          <span className="font-medium">{config.openSource?.enableEnrichment ? 'Yes' : 'No'}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     {timeframeError && (
                       <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive text-destructive">
                         <AlertCircle className="h-5 w-5 flex-shrink-0" />
@@ -977,11 +1240,11 @@ export function DatasetGeneratorPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            {currentStep < 5 ? (
+            {currentStep < 6 ? (
               <Button
                 onClick={nextStep}
                 className="gap-2"
-                disabled={currentStep === 3 && !isTimeframeValid}
+                disabled={(currentStep === 1 && !selectedPreset) || (currentStep === 4 && !isTimeframeValid)}
               >
                 Next
                 <ArrowRight className="h-4 w-4" />

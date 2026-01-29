@@ -10,11 +10,32 @@ import json
 import os
 from pathlib import Path
 from typing import Generator
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from uct_benchmark.database.connection import DatabaseManager
+
+# Global test database instance
+_test_db: DatabaseManager = None
+
+
+def _get_test_db() -> DatabaseManager:
+    """Get or create the test database instance."""
+    global _test_db
+    if _test_db is None:
+        _test_db = DatabaseManager(in_memory=True)
+        _test_db.initialize()
+    return _test_db
+
+
+def _close_test_db() -> None:
+    """Close the test database."""
+    global _test_db
+    if _test_db is not None:
+        _test_db.close()
+        _test_db = None
 
 
 def get_test_backend() -> str:
@@ -97,41 +118,134 @@ def populated_db(db: DatabaseManager) -> DatabaseManager:
         """
     )
 
+    # Create sample satellites
+    db.execute(
+        """
+        INSERT INTO satellites (sat_no, name, orbital_regime)
+        VALUES
+            (25544, 'ISS', 'LEO'),
+            (43013, 'STARLINK-1', 'LEO')
+        """
+    )
+
+    # Create sample observations for dataset 1
+    for i in range(20):
+        obs_id = f"obs-{i+1}"
+        sat_no = 25544 if i % 2 == 0 else 43013
+        db.execute(
+            """
+            INSERT INTO observations (id, sat_no, ob_time, ra, declination)
+            VALUES (?, ?, CURRENT_TIMESTAMP, 100.0, 45.0)
+            """,
+            (obs_id, sat_no),
+        )
+        # Link observation to dataset 1
+        db.execute(
+            """
+            INSERT INTO dataset_observations (dataset_id, observation_id)
+            VALUES (1, ?)
+            """,
+            (obs_id,),
+        )
+
+    # Update observation_count to match actual count
+    db.execute(
+        """
+        UPDATE datasets SET observation_count = 20 WHERE id = 1
+        """
+    )
+
     return db
 
 
 @pytest.fixture
 def test_client(db: DatabaseManager) -> Generator[TestClient, None, None]:
     """Create a test client with mocked database dependency."""
+    import backend_api.database as db_module
+    import backend_api.jobs.workers as workers_module
     from backend_api.database import get_db
     from backend_api.main import app
 
     def override_get_db():
         return db
 
+    # Patch the database module functions to use in-memory test db
+    original_init = db_module.init_database
+    original_close = db_module.close_database
+    original_db_manager = db_module._db_manager
+    original_shutdown = workers_module.shutdown_executor
+
+    def mock_init_database(db_path=None):
+        db_module._db_manager = db
+        return db
+
+    def mock_close_database():
+        db_module._db_manager = None
+
+    def mock_shutdown_executor():
+        pass  # No-op for tests
+
+    db_module.init_database = mock_init_database
+    db_module.close_database = mock_close_database
+    db_module._db_manager = db
+    workers_module.shutdown_executor = mock_shutdown_executor
+
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as client:
-        yield client
-
-    app.dependency_overrides.clear()
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        db_module.init_database = original_init
+        db_module.close_database = original_close
+        db_module._db_manager = original_db_manager
+        workers_module.shutdown_executor = original_shutdown
 
 
 @pytest.fixture
 def populated_test_client(populated_db: DatabaseManager) -> Generator[TestClient, None, None]:
     """Create a test client with mocked database containing sample data."""
+    import backend_api.database as db_module
+    import backend_api.jobs.workers as workers_module
     from backend_api.database import get_db
     from backend_api.main import app
 
     def override_get_db():
         return populated_db
 
+    # Patch the database module functions to use in-memory test db
+    original_init = db_module.init_database
+    original_close = db_module.close_database
+    original_db_manager = db_module._db_manager
+    original_shutdown = workers_module.shutdown_executor
+
+    def mock_init_database(db_path=None):
+        db_module._db_manager = populated_db
+        return populated_db
+
+    def mock_close_database():
+        db_module._db_manager = None
+
+    def mock_shutdown_executor():
+        pass  # No-op for tests
+
+    db_module.init_database = mock_init_database
+    db_module.close_database = mock_close_database
+    db_module._db_manager = populated_db
+    workers_module.shutdown_executor = mock_shutdown_executor
+
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as client:
-        yield client
-
-    app.dependency_overrides.clear()
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        db_module.init_database = original_init
+        db_module.close_database = original_close
+        db_module._db_manager = original_db_manager
+        workers_module.shutdown_executor = original_shutdown
 
 
 @pytest.fixture
@@ -145,7 +259,7 @@ def sample_dataset_create() -> dict:
         "timeframe": 7,
         "timeunit": "days",
         "sensors": ["optical"],
-        "coverage": 0.8,
+        "coverage": "standard",  # high, standard, low, mixed
         "include_hamr": False,
     }
 

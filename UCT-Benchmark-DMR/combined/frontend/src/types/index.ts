@@ -2,13 +2,33 @@
 export type OrbitalRegime = 'LEO' | 'MEO' | 'GEO' | 'HEO';
 
 // Data Tiers
-export type DataTier = 'T1' | 'T2' | 'T3' | 'T4';
+export type DataTier = 'T1' | 'T1H' | 'T2' | 'T3' | 'T4';
 
 // Sensor Types
 export type SensorType = 'optical' | 'radar' | 'rf';
 
 // Search Strategy for data fetching
 export type SearchStrategy = 'fast' | 'windowed' | 'hybrid';
+
+// Sensor Mode for observation types
+export type SensorMode = 'EO' | 'RF' | 'MX';
+
+// Open Source Data Integration Options
+export interface OpenSourceOptions {
+  enableEnrichment: boolean;      // UCS/GCAT satellite metadata enrichment
+  sensorMode: SensorMode;         // EO=optical only, RF=radio only, MX=multi-phenomenology
+  includeIlrsValidation: boolean; // Include ILRS laser-ranging reference data
+}
+
+// Dataset Preset Configuration
+export interface DatasetPreset {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  dataSources: string[];
+  config: Partial<DatasetGenerationConfig>;
+}
 
 // Dataset Types
 export interface Dataset {
@@ -63,6 +83,7 @@ export interface SimulationOptions {
 // Dataset Generation Configuration
 export interface DatasetGenerationConfig {
   regime: OrbitalRegime;
+  tier: DataTier;
   coverage: 'high' | 'standard' | 'low' | 'mixed';
   observationDensity: number;
   trackGapTarget: number;
@@ -77,6 +98,8 @@ export interface DatasetGenerationConfig {
   // Search strategy options
   searchStrategy: SearchStrategy;
   windowSizeMinutes?: number;
+  // Open source data integration
+  openSource?: OpenSourceOptions;
 }
 
 // Submission Types

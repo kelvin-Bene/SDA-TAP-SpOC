@@ -12,11 +12,38 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.3.0"  # Added credentials table
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
 # ============================================================
+
+# ============================================================
+# DATA PROVENANCE TRACKING
+# ============================================================
+
+DATA_SOURCES_TABLE = """
+CREATE TABLE IF NOT EXISTS data_sources (
+    id INTEGER PRIMARY KEY,
+    source_name VARCHAR(50) NOT NULL UNIQUE,  -- SATNOGS, GCAT, ILRS, UCS
+    source_type VARCHAR(30),                   -- CATALOG, OBSERVATION, VALIDATION
+    license VARCHAR(50),                       -- CC-BY-SA, CC-BY, PUBLIC_DOMAIN, OPEN
+    api_endpoint VARCHAR(500),
+    last_sync TIMESTAMP,
+    record_count INTEGER DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+DATA_SOURCES_SEED = [
+    (1, 'UDL', 'OBSERVATION', 'RESTRICTED', 'https://unifieddatalibrary.com', 'Primary observation source (authenticated)'),
+    (2, 'SATNOGS', 'OBSERVATION', 'CC-BY-SA', 'https://network.satnogs.org/api', 'RF observations from ground stations'),
+    (3, 'GCAT', 'CATALOG', 'CC-BY', 'https://planet4589.org/space/gcat', 'Space object catalog by J. McDowell'),
+    (4, 'UCS', 'CATALOG', 'OPEN', 'https://www.ucs.org', 'Operational satellite database'),
+    (5, 'ILRS', 'VALIDATION', 'PUBLIC_DOMAIN', 'https://ilrs.gsfc.nasa.gov', 'Laser ranging ground truth'),
+    (6, 'SPACE_TRACK', 'CATALOG', 'RESTRICTED', 'https://space-track.org', 'Official US space catalog'),
+]
 
 SATELLITES_TABLE = """
 CREATE TABLE IF NOT EXISTS satellites (
@@ -35,6 +62,19 @@ CREATE TABLE IF NOT EXISTS satellites (
 
     -- Orbital classification
     orbital_regime VARCHAR(10),           -- LEO, MEO, GEO, HEO
+
+    -- Open source enrichment data (UCS/GCAT)
+    purpose VARCHAR(100),                 -- Communications, Earth Observation, etc.
+    operator VARCHAR(100),                -- Owner/operator organization
+    launch_site VARCHAR(100),             -- Launch facility
+    power_watts DECIMAL(10,2),            -- Power output from UCS
+
+    -- Area-to-mass ratio for HAMR detection
+    amr_m2_kg DECIMAL(12,6),              -- Calculated area-to-mass ratio
+
+    -- Data provenance timestamps
+    ucs_synced_at TIMESTAMP,              -- Last sync with UCS database
+    gcat_synced_at TIMESTAMP,             -- Last sync with GCAT catalog
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -70,6 +110,10 @@ CREATE TABLE IF NOT EXISTS observations (
     -- UCT processing flags
     is_uct BOOLEAN DEFAULT FALSE,
     is_simulated BOOLEAN DEFAULT FALSE,
+
+    -- Data source tracking (open source integration)
+    source_id INTEGER,                    -- References data_sources(id)
+    observation_type VARCHAR(10) DEFAULT 'EO',  -- EO (electro-optical), RF, RADAR
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -341,6 +385,46 @@ CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
 """
 
 # ============================================================
+# VALIDATION MEASUREMENTS (ILRS Ground Truth)
+# ============================================================
+
+VALIDATION_MEASUREMENTS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS validation_measurements_id_seq;
+"""
+
+VALIDATION_MEASUREMENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS validation_measurements (
+    id INTEGER PRIMARY KEY DEFAULT nextval('validation_measurements_id_seq'),
+    sat_no INTEGER NOT NULL,              -- NORAD catalog number
+    epoch TIMESTAMP NOT NULL,             -- Measurement epoch
+
+    -- Range measurement
+    range_m DECIMAL(15,6),                -- Range in meters (mm precision)
+
+    -- Station info
+    station_code VARCHAR(10),             -- ILRS station code (e.g., YARL, GRZL)
+    station_name VARCHAR(100),            -- Full station name
+
+    -- Measurement quality
+    normal_point_rms_m DECIMAL(10,6),     -- Normal point RMS
+    num_returns INTEGER,                   -- Number of laser returns
+
+    -- Data source
+    source VARCHAR(20) DEFAULT 'ILRS',
+
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(sat_no, epoch, station_code)
+);
+"""
+
+VALIDATION_MEASUREMENTS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_val_sat_epoch ON validation_measurements(sat_no, epoch);
+CREATE INDEX IF NOT EXISTS idx_val_station ON validation_measurements(station_code);
+"""
+
+# ============================================================
 # EVENT LABELLING TABLES (Future Implementation)
 # ============================================================
 
@@ -405,6 +489,135 @@ CREATE TABLE IF NOT EXISTS _schema_metadata (
 );
 """
 
+# ============================================================
+# UCTP LAB TABLES
+# ============================================================
+
+UCTP_RUNS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS uctp_runs_id_seq;
+"""
+
+UCTP_RUNS_TABLE = """
+CREATE TABLE IF NOT EXISTS uctp_runs (
+    id INTEGER PRIMARY KEY DEFAULT nextval('uctp_runs_id_seq'),
+    dataset_id INTEGER,
+    algorithm_name VARCHAR(100) NOT NULL,
+    config JSON NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+
+    f1_score FLOAT,
+    precision FLOAT,
+    recall FLOAT,
+    position_rms_km FLOAT,
+    velocity_rms_km_s FLOAT,
+    clusters_found INTEGER,
+    objects_resolved INTEGER,
+
+    output_path VARCHAR(512),
+    log_output TEXT,
+    error_message TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+UCTP_RUNS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_uctp_runs_status ON uctp_runs(status);
+CREATE INDEX IF NOT EXISTS idx_uctp_runs_dataset ON uctp_runs(dataset_id);
+"""
+
+UCTP_MODELS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS uctp_models_id_seq;
+"""
+
+UCTP_MODELS_TABLE = """
+CREATE TABLE IF NOT EXISTS uctp_models (
+    id INTEGER PRIMARY KEY DEFAULT nextval('uctp_models_id_seq'),
+    name VARCHAR(100) NOT NULL,
+    model_type VARCHAR(50) NOT NULL,
+    version VARCHAR(20) NOT NULL,
+    description TEXT,
+
+    training_dataset_ids JSON,
+    training_config JSON,
+    training_epochs INTEGER,
+    training_loss FLOAT,
+    validation_loss FLOAT,
+
+    best_f1_score FLOAT,
+    best_position_rms_km FLOAT,
+
+    model_path VARCHAR(512),
+    status VARCHAR(20) DEFAULT 'training',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+UCTP_MODELS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_uctp_models_status ON uctp_models(status);
+"""
+
+UCTP_API_CONNECTIONS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS uctp_api_connections_id_seq;
+"""
+
+UCTP_API_CONNECTIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS uctp_api_connections (
+    id INTEGER PRIMARY KEY DEFAULT nextval('uctp_api_connections_id_seq'),
+    service_name VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    response_time_ms FLOAT,
+    last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    error_message TEXT,
+    metadata JSON
+);
+"""
+
+UCTP_API_CONNECTIONS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_uctp_api_service ON uctp_api_connections(service_name);
+"""
+
+# ============================================================
+# CREDENTIALS TABLE (Encrypted credential storage)
+# ============================================================
+
+CREDENTIALS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS credentials_id_seq;
+"""
+
+CREDENTIALS_TABLE = """
+CREATE TABLE IF NOT EXISTS credentials (
+    id INTEGER PRIMARY KEY DEFAULT nextval('credentials_id_seq'),
+    service_name VARCHAR(50) NOT NULL UNIQUE,
+    credential_type VARCHAR(30) NOT NULL,
+    encrypted_primary VARCHAR(2000),
+    encrypted_secondary VARCHAR(2000),
+    label VARCHAR(100),
+    description TEXT,
+    is_configured BOOLEAN DEFAULT FALSE,
+    last_validated TIMESTAMP,
+    validation_status VARCHAR(20) DEFAULT 'untested',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CREDENTIALS_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_credentials_service ON credentials(service_name);
+"""
+
+# Default credential service definitions to seed
+DEFAULT_CREDENTIALS = [
+    ("udl", "bearer_token", "Unified Data Library", "UDL API token (Base64-encoded credentials)"),
+    ("esa", "bearer_token", "ESA Discosweb", "ESA API bearer token for space debris data"),
+    ("nasa_earthdata", "jwt", "NASA Earthdata", "NASA Earthdata JWT authentication token"),
+    ("spacetrack", "username_password", "Space-Track.org", "Space-Track.org login credentials"),
+    ("orekit", "path", "Orekit Data", "Local file path to Orekit data directory"),
+]
+
 # Default event types to seed
 DEFAULT_EVENT_TYPES = [
     ("launch", "Object launched into orbit"),
@@ -462,9 +675,15 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(EVENTS_SEQUENCE)
     db.execute(SUBMISSIONS_SEQUENCE)
     db.execute(SUBMISSION_RESULTS_SEQUENCE)
+    db.execute(VALIDATION_MEASUREMENTS_SEQUENCE)
+    db.execute(UCTP_RUNS_SEQUENCE)
+    db.execute(UCTP_MODELS_SEQUENCE)
+    db.execute(UCTP_API_CONNECTIONS_SEQUENCE)
+    db.execute(CREDENTIALS_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
+    db.execute(DATA_SOURCES_TABLE)  # Provenance tracking
     db.execute(SATELLITES_TABLE)
     db.execute(OBSERVATIONS_TABLE)
     db.execute(OBSERVATIONS_INDEXES)
@@ -476,6 +695,10 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(DATASET_REFERENCES_TABLE)
+
+    # Validation measurements (ILRS ground truth)
+    db.execute(VALIDATION_MEASUREMENTS_TABLE)
+    db.execute(VALIDATION_MEASUREMENTS_INDEXES)
 
     # Submissions and results tables
     db.execute(SUBMISSIONS_TABLE)
@@ -492,8 +715,22 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(EVENTS_TABLE)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
-    # Seed default event types
+    # UCTP Lab tables
+    db.execute(UCTP_RUNS_TABLE)
+    db.execute(UCTP_RUNS_INDEXES)
+    db.execute(UCTP_MODELS_TABLE)
+    db.execute(UCTP_MODELS_INDEXES)
+    db.execute(UCTP_API_CONNECTIONS_TABLE)
+    db.execute(UCTP_API_CONNECTIONS_INDEXES)
+
+    # Credentials table
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEX)
+
+    # Seed default data
     _seed_event_types(db)
+    _seed_data_sources(db)
+    _seed_credentials(db)
 
     # Store schema version
     db.execute(
@@ -581,6 +818,10 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
+        "credentials",
+        "uctp_api_connections",
+        "uctp_models",
+        "uctp_runs",
         "event_observations",
         "events",
         "event_types",
@@ -590,10 +831,12 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "dataset_references",
         "dataset_observations",
         "datasets",
+        "validation_measurements",
         "element_sets",
         "state_vectors",
         "observations",
         "satellites",
+        "data_sources",
         "_schema_metadata",
     ]
     for table in tables:
@@ -601,12 +844,17 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
 
     # Drop sequences
     sequences = [
+        "credentials_id_seq",
+        "uctp_runs_id_seq",
+        "uctp_models_id_seq",
+        "uctp_api_connections_id_seq",
         "state_vectors_id_seq",
         "element_sets_id_seq",
         "datasets_id_seq",
         "events_id_seq",
         "submissions_id_seq",
         "submission_results_id_seq",
+        "validation_measurements_id_seq",
     ]
     for seq in sequences:
         db.execute(f"DROP SEQUENCE IF EXISTS {seq}")
@@ -635,6 +883,38 @@ def _seed_event_types_postgres(db: "DatabaseManager") -> None:
             """,
             (idx, name, description),
         )
+
+
+def _seed_data_sources(db: "DatabaseManager") -> None:
+    """Seed default data sources if they don't exist."""
+    for source_id, name, source_type, license_type, endpoint, notes in DATA_SOURCES_SEED:
+        existing = db.adapter.fetchone(
+            "SELECT 1 FROM data_sources WHERE source_name = ?", (name,)
+        )
+        if existing is None:
+            db.execute(
+                """
+                INSERT INTO data_sources (id, source_name, source_type, license, api_endpoint, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (source_id, name, source_type, license_type, endpoint, notes),
+            )
+
+
+def _seed_credentials(db: "DatabaseManager") -> None:
+    """Seed default credential service entries if they don't exist."""
+    for service_name, cred_type, label, description in DEFAULT_CREDENTIALS:
+        existing = db.adapter.fetchone(
+            "SELECT 1 FROM credentials WHERE service_name = ?", (service_name,)
+        )
+        if existing is None:
+            db.execute(
+                """
+                INSERT INTO credentials (service_name, credential_type, label, description)
+                VALUES (?, ?, ?, ?)
+                """,
+                (service_name, cred_type, label, description),
+            )
 
 
 def verify_schema(db: "DatabaseManager") -> dict:
@@ -666,6 +946,12 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "event_types",
         "events",
         "event_observations",
+        "data_sources",
+        "validation_measurements",
+        "uctp_runs",
+        "uctp_models",
+        "uctp_api_connections",
+        "credentials",
         "_schema_metadata",
     ]
 

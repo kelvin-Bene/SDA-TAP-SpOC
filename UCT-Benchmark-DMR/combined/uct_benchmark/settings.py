@@ -500,6 +500,49 @@ DATASET_CODE_COMPONENTS = {
 }
 
 
+# --- Open Source Data Configuration ---
+
+@dataclass
+class OpenSourceConfig:
+    """Configuration for open source data integration."""
+
+    # Enrichment settings
+    enable_enrichment: bool = True
+    enrichment_cache_hours: int = 24
+    batch_enrich_on_generation: bool = True
+
+    # HAMR detection
+    hamr_amr_threshold: float = 0.1  # m²/kg
+    use_real_mass_data: bool = True  # Use UCS mass vs estimates
+
+    # Sensor modes for multi-phenomenology
+    sensor_modes: List[str] = field(default_factory=lambda: ['EO', 'RF', 'RADAR', 'MX'])
+    default_sensor_mode: str = 'EO'
+
+    # SatNOGS RF integration
+    enable_satnogs: bool = True
+    satnogs_rate_limit_sec: float = 1.0  # Respectful rate limiting
+
+    # ILRS validation
+    enable_ilrs_validation: bool = True
+    validation_time_tolerance_sec: float = 60.0
+
+    # Data source priorities (for enrichment)
+    enrichment_sources: List[str] = field(default_factory=lambda: ['UCS', 'GCAT'])
+
+    # Cache settings
+    catalog_cache_hours: int = 24
+
+
+# Sensor mode descriptions
+SENSOR_MODE_DESCRIPTIONS = {
+    'EO': 'Electro-optical observations only (RA/Dec)',
+    'RF': 'Radio frequency observations only (timing, no position)',
+    'RADAR': 'Radar observations only (range, range-rate)',
+    'MX': 'Multi-phenomenology (mixed EO + RF + Radar)',
+}
+
+
 # --- Logging Configuration ---
 
 
@@ -561,3 +604,4 @@ api_config = APIConfig()
 downsample_config = DownsampleConfig()
 simulation_config = SimulationConfig()
 logging_config = LoggingConfig()
+open_source_config = OpenSourceConfig()
