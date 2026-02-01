@@ -21,6 +21,9 @@ def export_dataset_to_json(
     dataset_id: int,
     output_path: Optional[Union[str, Path]] = None,
     include_truth: bool = True,
+    publish_to_udl: bool = False,
+    udl_token: Optional[str] = None,
+    udl_dry_run: bool = True,
 ) -> Path:
     """
     Export a dataset to the standard JSON format.
@@ -33,6 +36,9 @@ def export_dataset_to_json(
         dataset_id: ID of the dataset to export
         output_path: Optional output path. If None, uses default location.
         include_truth: If True, include truth data for evaluation
+        publish_to_udl: If True, also publish the dataset to UDL via UDLPublisher
+        udl_token: UDL auth token (required if publish_to_udl=True and udl_dry_run=False)
+        udl_dry_run: If True (default), validate UDL payload without pushing
 
     Returns:
         Path to the exported JSON file
@@ -178,6 +184,16 @@ def export_dataset_to_json(
 
     # Update dataset with export path
     db.datasets.update_dataset(dataset_id, json_path=str(output_path))
+
+    # Optionally publish to UDL
+    if publish_to_udl:
+        from uct_benchmark.api.udl_publisher import UDLPublisher
+
+        publisher = UDLPublisher(
+            token=udl_token,
+            dry_run=udl_dry_run,
+        )
+        publisher.publish_dataset(output_data, dry_run=udl_dry_run)
 
     return output_path
 

@@ -1,5 +1,19 @@
 """API integration module for UDL and other data sources."""
 
+from .udl_publisher import (
+    UDLPublisher,
+    PublishResult,
+    ValidationResult,
+    DryRunReport,
+    DataMode,
+    UDLService,
+    TIER_DATA_MODE_MAP,
+    validate_payload,
+    map_observation_to_udl,
+    map_state_vector_to_udl,
+    map_element_set_to_udl,
+)
+
 from .apiIntegration import (
     TLEToSV,
     UDLQuery,
@@ -56,6 +70,18 @@ from .data_source_manager import (
 )
 
 __all__ = [
+    # UDL Publisher (write integration)
+    "UDLPublisher",
+    "PublishResult",
+    "ValidationResult",
+    "DryRunReport",
+    "DataMode",
+    "UDLService",
+    "TIER_DATA_MODE_MAP",
+    "validate_payload",
+    "map_observation_to_udl",
+    "map_state_vector_to_udl",
+    "map_element_set_to_udl",
     # Primary sources (existing)
     "UDLTokenGen",
     "spacetrackTokenGen",
