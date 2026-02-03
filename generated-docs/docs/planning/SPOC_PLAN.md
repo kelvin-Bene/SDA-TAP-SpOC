@@ -1,5 +1,14 @@
 # SpOC Team Plan
 
+<!-- AI_METADATA
+purpose: Task planning and tracking for SpOC team
+status: active
+related_files: [planning/PROJECT_STATUS.md, planning/INTEGRATED_ROADMAP.md, planning/SDA_TAP_LAB_PLAN.md, planning/FUTURE_IMPLEMENTATIONS.md]
+last_updated: 2026-02-03
+-->
+
+<!-- NEEDS_UPDATE: Web UI is now complete (90%). Many TODO items have been completed - check PROJECT_STATUS.md for current status -->
+
 ## Team Mission
 
 **Benchmark Dataset Generation & Evaluation Criteria**: Generate standardized benchmark datasets from stored data, define and implement evaluation criteria for UCTP algorithms, develop the Web UI for algorithm developers, and create comparison/leaderboard systems.
@@ -33,6 +42,8 @@
 ---
 
 ## TODO List by Priority
+
+<!-- AI_SECTION: priority1_evaluation -->
 
 ### PRIORITY 1: Complete Evaluation Pipeline
 
@@ -70,6 +81,9 @@ def main(dataset_path, uctp_output_path, report_path):
 ---
 
 #### TODO 1.2: Add Radar Observation Support
+
+<!-- AI_IMPROVEMENT_OPPORTUNITY: Radar metrics not fully implemented. See FUTURE_IMPLEMENTATIONS.md -->
+
 **Estimated Effort**: Medium
 **Dependencies**: None
 **Files**: `residualMetrics.py`, `stateMetrics.py`
@@ -98,7 +112,13 @@ def main(dataset_path, uctp_output_path, report_path):
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority2_web_ui -->
+
 ### PRIORITY 2: Web UI Development
+
+<!-- NOTE: Web UI is COMPLETE (90%) as of 2026-01-25. React frontend implemented. See PROJECT_STATUS.md -->
 
 #### TODO 2.1: Frontend Framework Setup
 **Estimated Effort**: High
@@ -246,7 +266,13 @@ Build:
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority3_submission -->
+
 ### PRIORITY 3: Algorithm Submission System
+
+<!-- NOTE: Submission system is COMPLETE (90%) as of 2026-01-25. See PROJECT_STATUS.md -->
 
 #### TODO 3.1: Submission Format Specification
 **Estimated Effort**: Low
@@ -317,7 +343,13 @@ Build:
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority4_leaderboard -->
+
 ### PRIORITY 4: Leaderboard System
+
+<!-- NOTE: Leaderboard is COMPLETE (90%) as of 2026-01-25. See PROJECT_STATUS.md -->
 
 #### TODO 4.1: Ranking Algorithm Design
 **Estimated Effort**: Medium
@@ -386,6 +418,10 @@ Separate leaderboards per:
 - [ ] Identify state-of-the-art progression
 
 ---
+
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority5_documentation -->
 
 ### PRIORITY 5: Documentation for Algorithm Developers
 
@@ -536,3 +572,5 @@ Before the evaluation pipeline can be considered production-ready, it must be va
 - Shared documentation
 - Git-based collaboration
 - Issue tracking for cross-team items
+
+<!-- /AI_SECTION -->

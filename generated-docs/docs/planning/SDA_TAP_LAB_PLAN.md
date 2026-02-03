@@ -1,5 +1,14 @@
 # SDA TAP Lab Team Plan
 
+<!-- AI_METADATA
+purpose: Task planning and tracking for SDA TAP Lab team
+status: active
+related_files: [planning/PROJECT_STATUS.md, planning/INTEGRATED_ROADMAP.md, planning/SPOC_PLAN.md, planning/FUTURE_IMPLEMENTATIONS.md]
+last_updated: 2026-02-03
+-->
+
+<!-- NEEDS_UPDATE: Some TODO items in this document have been completed - check PROJECT_STATUS.md for current status -->
+
 ## Team Mission
 
 **Labelling & Data Storage**: Develop software tools to pull event data from available data sources, label that data according to predefined classifications, parse and extract relevant measurement data, and clean and store the labelled data in a centrally available database.
@@ -32,7 +41,11 @@
 
 ## TODO List by Priority
 
+<!-- AI_SECTION: priority1_todos -->
+
 ### PRIORITY 1: Critical Path Items
+
+<!-- NOTE: T3 Processing and Downsampling are COMPLETE as of 2026-01-19. See PROJECT_STATUS.md -->
 
 #### TODO 1.1: Implement T3 Processing (Observation Simulation)
 **Estimated Effort**: Medium
@@ -60,6 +73,9 @@ if tierThreshold == "T3":
 ---
 
 #### TODO 1.2: Implement T4 Processing (Object Simulation)
+
+<!-- AI_IMPROVEMENT_OPPORTUNITY: T4 is the main remaining tier processing work. See FUTURE_IMPLEMENTATIONS.md -->
+
 **Estimated Effort**: High
 **Dependencies**: T3 Processing should be complete first
 **Files**: `Create_Dataset.py`, new file `simulateObjects.py`
@@ -108,7 +124,13 @@ Solution:
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority2_event_labelling -->
+
 ### PRIORITY 2: Event Labelling System
+
+<!-- AI_IMPROVEMENT_OPPORTUNITY: Event labelling is a major feature gap (0% complete). High value for benchmark realism. -->
 
 #### TODO 2.1: Design Event Labelling Schema
 **Estimated Effort**: Medium
@@ -200,9 +222,13 @@ class EventType(Enum):
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority3_database -->
+
 ### PRIORITY 3: Centralized Database
 
-#### TODO 3.1: Database Schema Design
+<!-- NOTE: Database is COMPLETE (95%) as of 2026-01-25 using DuckDB. See PROJECT_STATUS.md -->
 **Estimated Effort**: High
 **Dependencies**: Event labelling schema
 **Files**: New folder `uct_benchmark/database/`
@@ -279,6 +305,10 @@ datasets
 - [ ] Log ingestion statistics
 
 ---
+
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority4_infrastructure -->
 
 ### PRIORITY 4: Infrastructure & Quality
 
@@ -416,6 +446,10 @@ The following items must be delivered to SpOC:
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: stretch_goals -->
+
 ## Stretch Goal: Open Evolve Integration
 
 As outlined by tech lead Lewis in the initial project meeting, once the evaluation pipeline is fully validated, a potential future use case is **Open Evolve** integration:
@@ -438,3 +472,5 @@ As outlined by tech lead Lewis in the initial project meeting, once the evaluati
 - Does the iterative process produce meaningful performance gains?
 
 **Timeline**: "Towards the end of the semester if things are in a good spot" - Lewis
+
+<!-- /AI_SECTION -->

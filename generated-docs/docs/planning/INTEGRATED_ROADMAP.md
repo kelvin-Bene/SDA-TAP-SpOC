@@ -1,5 +1,12 @@
 # Integrated Project Roadmap
 
+<!-- AI_METADATA
+purpose: Project timeline and milestone tracking for UCT Benchmark
+status: active
+related_files: [planning/PROJECT_STATUS.md, planning/SDA_TAP_LAB_PLAN.md, planning/SPOC_PLAN.md, planning/FUTURE_IMPLEMENTATIONS.md]
+last_updated: 2026-02-03
+-->
+
 ## Project Vision
 
 Deliver a fully functional Web-hosted Common Task Framework for UCT Processing that enables algorithm developers to:
@@ -10,7 +17,11 @@ Deliver a fully functional Web-hosted Common Task Framework for UCT Processing t
 
 ---
 
+<!-- AI_SECTION: milestone_overview -->
+
 ## Milestone Overview
+
+<!-- NEEDS_UPDATE: Phases 1-3 are largely complete. Check PROJECT_STATUS.md for current status -->
 
 ```
 Phase 1: Foundation (Current)
@@ -61,7 +72,11 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 
 ---
 
+<!-- /AI_SECTION -->
+
 ## Detailed Phase Breakdown
+
+<!-- AI_SECTION: phase1_foundation -->
 
 ### PHASE 1: Foundation (COMPLETE - 90%)
 
@@ -83,7 +98,11 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 - [ ] Add radar support to evaluation metrics
 - [ ] Fix Evaluation.py entry point
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase2_pipeline -->
 
 ### PHASE 2: Data Pipeline (IN PROGRESS - 25%)
 
@@ -109,7 +128,11 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 - 2.5-2.7 (Event Labelling) can proceed independently
 - 2.8-2.9 (Database) can proceed in parallel with 2.1-2.3
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase3_web -->
 
 ### PHASE 3: Web Platform (NOT STARTED - 0%)
 
@@ -132,7 +155,11 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 - 3.4 Dataset API Endpoints
 - 3.5 Dataset Browser UI
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase4_algorithm -->
 
 ### PHASE 4: Algorithm Framework (NOT STARTED - 0%)
 
@@ -151,7 +178,11 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 **Can Start Now**:
 - 4.1 Submission Format Specification
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase5_production -->
 
 ### PHASE 5: Production (NOT STARTED - 0%)
 
@@ -165,6 +196,8 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 | 5.4 Deployment Setup | Shared | Not Started | 0% | 5.1-5.3 |
 | 5.5 Beta Testing | Shared | Not Started | 0% | 5.4 |
 | 5.6 Public Launch | Shared | Not Started | 0% | 5.5 |
+
+<!-- /AI_SECTION -->
 
 ---
 

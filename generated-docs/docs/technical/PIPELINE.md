@@ -1,8 +1,17 @@
 # Data Pipeline and Flow
 
+<!-- AI_METADATA
+purpose: High-level overview of the UCT Benchmark data pipeline and flow
+status: active
+related_files: [technical/PIPELINE_DEEP_DIVE.md, technical/ARCHITECTURE.md, technical/CONFIGURATION.md]
+last_updated: 2026-02-03
+-->
+
 ## Overview
 
 The UCT Benchmarking pipeline transforms raw observational data from space surveillance networks into standardized benchmark datasets for evaluating Uncorrelated Track Processing (UCTP) algorithms.
+
+<!-- AI_SECTION: pipeline_phases -->
 
 ## Pipeline Phases
 
@@ -39,7 +48,11 @@ The pipeline operates in three main phases:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase1_dataset_creation -->
 
 ## Phase 1: Dataset Creation
 
@@ -154,6 +167,8 @@ When data quality is insufficient, synthetic observations are added:
 #### T4: Object Simulation (Not Yet Implemented)
 For very sparse data, entire synthetic satellites may need to be generated.
 
+<!-- AI_IMPROVEMENT_OPPORTUNITY: T4 object simulation is not implemented. See planning/FUTURE_IMPLEMENTATIONS.md for details. -->
+
 ### Step 6: Reference State Pull
 **File**: `uct_benchmark/api/apiIntegration.py` → `pullStates()`
 
@@ -174,7 +189,11 @@ Creates output JSON with structure:
 }
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase2_uctp_processing -->
 
 ## Phase 2: UCTP Processing
 
@@ -200,7 +219,11 @@ The dummy UCTP simulates realistic output for testing:
 30% → False Positive (incorrect association)
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase3_evaluation -->
 
 ## Phase 3: Evaluation
 
@@ -255,7 +278,11 @@ Creates PDF report containing:
 - Performance charts
 - Detailed metrics tables
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: data_flow -->
 
 ## Data Flow Diagram
 
@@ -332,7 +359,11 @@ Creates PDF report containing:
                     └─────────────────────┘
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: key_files -->
 
 ## Key Files Summary
 
@@ -374,3 +405,5 @@ See `uct_benchmark/settings.py` for adjustable parameters:
   - `simulation_track_size`, `simulation_track_spacing`
 
 See [CONFIGURATION.md](CONFIGURATION.md) for detailed parameter documentation.
+
+<!-- /AI_SECTION -->

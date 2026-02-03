@@ -1,11 +1,20 @@
 # Issues Backlog
 
+<!-- AI_METADATA
+purpose: Track deferred issues and technical debt from consistency audits
+status: active
+related_files: [reports/CONSISTENCY_AUDIT_REPORT.md, planning/PROJECT_STATUS.md]
+last_updated: 2026-02-03
+-->
+
 **Last Updated:** January 13, 2026
 **Status:** Deferred for future resolution
 
 This document tracks issues identified during the documentation consistency audit that are deferred for later resolution.
 
 ---
+
+<!-- AI_SECTION: high_priority_issues -->
 
 ## HIGH Priority Issues
 
@@ -76,7 +85,11 @@ if [ -d "data" ]; then
 **Fix Required:**
 - [ ] Update README Linux Setup section to document available setup.sh
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: medium_priority_issues -->
 
 ## MEDIUM Priority Issues
 
@@ -148,7 +161,11 @@ The module structure differs significantly between branches. See CONSISTENCY_AUD
 - [ ] Align on standard project structure
 - [ ] Document the standard structure
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: low_priority_issues -->
 
 ## LOW Priority / Informational
 
@@ -159,6 +176,8 @@ The module structure differs significantly between branches. See CONSISTENCY_AUD
 Many important documents are in .docx format which doesn't diff well in git.
 
 **Recommendation:** Consider converting critical documentation to Markdown over time.
+
+<!-- /AI_SECTION -->
 
 ---
 

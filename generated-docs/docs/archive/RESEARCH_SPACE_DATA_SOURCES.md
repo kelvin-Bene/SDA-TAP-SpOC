@@ -1,5 +1,20 @@
 # Space Tracking Data Sources Research
 
+<!-- AI_METADATA
+purpose: Archived research document on space data sources
+status: archived
+related_files: [planning/FUTURE_IMPLEMENTATIONS.md, technical/DATA_SOURCE_RATIONALE.md]
+last_updated: 2026-02-03
+archived_from: /RESEARCH_SPACE_DATA_SOURCES.md
+archive_reason: Initial research document. Content synthesized into DATA_SOURCE_RATIONALE.md and FUTURE_IMPLEMENTATIONS.md
+-->
+
+> **ARCHIVED**: This research document has been synthesized into:
+> - [DATA_SOURCE_RATIONALE.md](../technical/DATA_SOURCE_RATIONALE.md) - Why each data source was chosen
+> - [FUTURE_IMPLEMENTATIONS.md](../planning/FUTURE_IMPLEMENTATIONS.md) - Planned future integrations
+
+---
+
 ## Executive Summary
 
 This document catalogs open and accessible space tracking data sources that can enhance the SDA-TAP-SpOC UCT Benchmark project. The research focuses on sources compatible with open-source distribution.

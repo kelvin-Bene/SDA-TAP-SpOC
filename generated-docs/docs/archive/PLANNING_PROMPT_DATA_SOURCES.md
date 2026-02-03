@@ -1,5 +1,20 @@
 # Planning Prompt: Space Data Sources Integration Strategy
 
+<!-- AI_METADATA
+purpose: Archived Claude prompt template for data source planning
+status: archived
+related_files: [planning/FUTURE_IMPLEMENTATIONS.md, technical/DATA_SOURCE_RATIONALE.md]
+last_updated: 2026-02-03
+archived_from: /PLANNING_PROMPT_DATA_SOURCES.md
+archive_reason: Claude prompt template, not ongoing documentation. Content synthesized into DATA_SOURCE_RATIONALE.md and FUTURE_IMPLEMENTATIONS.md
+-->
+
+> **ARCHIVED**: This was a Claude prompt template used for strategic planning. The actionable content has been synthesized into:
+> - [DATA_SOURCE_RATIONALE.md](../technical/DATA_SOURCE_RATIONALE.md) - Why each data source was chosen
+> - [FUTURE_IMPLEMENTATIONS.md](../planning/FUTURE_IMPLEMENTATIONS.md) - Planned future integrations
+
+---
+
 ## Instructions for Claude
 
 You are helping plan data source integrations for the **SDA-TAP-SpOC UCT Benchmark** project. Your task is to analyze the research document and create a detailed implementation plan that maps each data source to **specific functional improvements** in the application.

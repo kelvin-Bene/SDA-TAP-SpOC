@@ -1,5 +1,11 @@
 # UCT Benchmark Documentation
 
+<!-- AI_METADATA
+purpose: Documentation home page and navigation hub
+status: active
+last_updated: 2026-02-03
+-->
+
 Welcome to the project documentation for the SDA TAP Lab & SpOC UCT Processing project.
 
 ## Project Overview
@@ -21,12 +27,17 @@ This codebase is **shared between two teams**:
 
 ## Documentation Sections
 
+### For AI Contributors
+- [AI Contributor Guide](AI_CONTRIBUTOR_GUIDE.md) - Guide for AI agents (Claude Code) to understand and contribute
+
 ### Technical Reference
 Detailed documentation about the codebase and system architecture.
 
 - [Architecture](technical/ARCHITECTURE.md) - Code structure and modules
 - [Pipeline](technical/PIPELINE.md) - Data flow documentation
+- [Pipeline Deep Dive](technical/PIPELINE_DEEP_DIVE.md) - Detailed tier system and algorithms
 - [Data Sources](technical/DATA_SOURCES.md) - API integrations
+- [Data Source Rationale](technical/DATA_SOURCE_RATIONALE.md) - Why each source was chosen
 - [Database](technical/DATABASE.md) - DuckDB storage architecture
 - [Frontend](technical/FRONTEND.md) - React web interface
 - [Backend API](technical/BACKEND_API.md) - FastAPI integration
@@ -43,12 +54,15 @@ How-to guides for common tasks.
 - [Dataset Generation](guides/DATASET_GENERATION.md) - Creating datasets
 - [Evaluation Guide](guides/EVALUATION_GUIDE.md) - Running evaluations
 - [Web UI Guide](guides/UI_GUIDE.md) - Using the web interface
+- [UDL Publishing Guide](guides/UDL_PUBLISHING_GUIDE.md) - Pushing datasets to UDL
 
 ### Project Planning
 Project management and planning documents.
 
 - [Project Status](planning/PROJECT_STATUS.md) - Current state assessment
 - [Integrated Roadmap](planning/INTEGRATED_ROADMAP.md) - Project timeline
+- [Future Implementations](planning/FUTURE_IMPLEMENTATIONS.md) - Planned future work
+- [Decision Log](planning/DECISION_LOG.md) - Major project decisions
 - [Dependencies](planning/DEPENDENCIES.md) - Inter-team dependencies
 - [SDA TAP Lab Plan](planning/SDA_TAP_LAB_PLAN.md) - SDA team tasks
 - [SpOC Plan](planning/SPOC_PLAN.md) - SpOC team tasks

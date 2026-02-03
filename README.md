@@ -67,6 +67,8 @@ generated-docs/
 - [Getting Started](./generated-docs/docs/getting-started.md) - Installation and setup guide
 - [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) - Current state of all components
 - [Architecture](./generated-docs/docs/technical/ARCHITECTURE.md) - Code structure overview
+- [AI Contributor Guide](./generated-docs/docs/AI_CONTRIBUTOR_GUIDE.md) - Guide for AI agents
+- [Future Implementations](./generated-docs/docs/planning/FUTURE_IMPLEMENTATIONS.md) - Planned work
 
 ### 3. `provided-materials/` - Reference Materials
 **Materials provided to us** - do not modify.
@@ -111,18 +113,21 @@ Build a **Web-hosted User Interface** where algorithm developers can:
 
 ---
 
-## Current Status (January 2026)
+## Current Status (February 2026)
 
-**Overall Progress: ~60%**
+**Overall Progress: ~85%**
 
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
-| Data Pipeline (T1-T3, Downsampling, Database) | Complete | 85% |
-| Web Platform (UI, Backend, Auth) | Complete | 95% |
+| Data Pipeline (T1-T3, Downsampling, Database) | Complete | 95% |
+| Web Platform (UI, Backend) | Complete | 90% |
+| Authentication | Not Started | 0% |
 | Event Labelling | Not Started | 0% |
 
 See [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) for detailed breakdown.
+
+**For AI Contributors:** See the [AI Contributor Guide](./generated-docs/docs/AI_CONTRIBUTOR_GUIDE.md) for how to understand and contribute to this project.
 
 ---
 

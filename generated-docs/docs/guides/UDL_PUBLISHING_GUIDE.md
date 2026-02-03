@@ -1,4 +1,12 @@
-# UDL Write Integration Guide
+# UDL Publishing Guide
+
+<!-- AI_METADATA
+purpose: Guide for pushing benchmark datasets to the Unified Data Library (UDL)
+status: active
+related_files: [technical/DATA_SOURCES.md, technical/DATA_SOURCE_RATIONALE.md]
+last_updated: 2026-02-03
+renamed_from: UDL_Integration_Guide.md
+-->
 
 ## SDA TAP SpOC UCT Benchmark - Pushing Datasets to the Unified Data Library
 
