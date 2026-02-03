@@ -90,6 +90,75 @@ apiClient.interceptors.response.use(
 | GET | `/api/v1/users/me` | Get current user profile |
 | PATCH | `/api/v1/users/me` | Update profile |
 
+### Credentials (v2.0+)
+
+Manage data source credentials for UDL, ESA, SatNOGS, ILRS, and other services.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/credentials/` | List all credential services and their status |
+| GET | `/api/v1/credentials/:service` | Get specific service info |
+| PUT | `/api/v1/credentials/:service` | Save encrypted credentials |
+| DELETE | `/api/v1/credentials/:service` | Clear stored credentials |
+| POST | `/api/v1/credentials/:service/test` | Test credential connectivity |
+| POST | `/api/v1/credentials/generate-key` | Generate new encryption key |
+
+#### Response: CredentialServiceInfo
+
+```json
+{
+  "service_name": "udl",
+  "credential_type": "bearer_token",
+  "label": "Unified Data Library",
+  "is_configured": true,
+  "validation_status": "valid",
+  "source": "database",
+  "has_env_fallback": false,
+  "last_validated": "2026-01-27T15:30:00Z"
+}
+```
+
+**Validation Status Values:**
+- `untested` - Credentials saved but not validated
+- `valid` - Connection test passed
+- `invalid` - Connection test failed (wrong credentials)
+- `error` - Connection test errored (network/service issue)
+- `not_configured` - No credentials saved
+
+### UCTP Lab API (v2.0+)
+
+Pipeline management and model training endpoints for the UCT Processing Lab.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/uctp/dashboard/stats` | Dashboard statistics |
+| GET | `/api/v1/uctp/runs/` | List pipeline runs |
+| POST | `/api/v1/uctp/runs/` | Start new UCTP run |
+| GET | `/api/v1/uctp/runs/:id` | Run details and results |
+| DELETE | `/api/v1/uctp/runs/:id` | Cancel/delete a run |
+| GET | `/api/v1/uctp/connectivity/` | Check all service connections |
+| POST | `/api/v1/uctp/connectivity/test` | Test specific service |
+| GET | `/api/v1/uctp/models/` | List trained ML models |
+| POST | `/api/v1/uctp/models/train` | Train new model |
+| GET | `/api/v1/uctp/models/:id` | Get model details |
+
+#### UCTP Run Configuration
+
+```typescript
+interface UCTPRunConfig {
+  name: string;                  // Run name
+  datasetId?: string;            // Existing dataset or generate new
+  propagator: 'SGP4' | 'Orekit'; // Propagation method
+  correlationThresholds: {
+    positionKm: number;
+    velocityKmS: number;
+    mahalanobis: number;
+  };
+  enableAnomalyDetection: boolean;
+  modelId?: string;              // Pre-trained model for inference
+}
+```
+
 ---
 
 ## React Query Hooks

@@ -2,6 +2,35 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [2.1.0] - 2026-02-02
+
+### Merged from Kelvin's Branch
+
+- **Repository reorganization**: Moved `docs/` to `generated-docs/docs/` for consistency
+- **Security**: Removed hardcoded credentials from `start_supabase.bat`
+- **Code Quality**: Null-safety fixes with `or` fallback pattern in datasets.py
+- **Better logging**: Improved rollback error logging in workers.py
+- **PostgreSQL**: Auto SSL detection for remote hosts, 60s socket timeout
+- **Frontend**: Null-safety for submission results in RecentSubmissions and MySubmissionsPage
+- **Testing**: Added skip conditions for orekit/jpype dependencies
+
+### New Features
+
+- **Data Source Status Indicator**: Shows credential configuration status in Dataset Generator UI
+- **Pre-Generation Validation**: Checks required credentials before allowing dataset generation
+- **Smart Defaults**: "Quick Test" preset works without UDL credentials (uses cached/sample data)
+- **Toast Notifications**: Replaced `alert()` with consistent toast UI for errors and success messages
+- **COMPLETE Enum**: Added `DatasetStatus.COMPLETE` for Supabase compatibility
+
+### Documentation
+
+- Added Credentials API documentation to BACKEND_API.md
+- Added UCTP Lab API documentation to BACKEND_API.md
+- Added AUTH_SETUP.md guide for authentication configuration
+- Added UTILITIES.md (from Kelvin's branch)
+
+---
+
 ## [2.0.0] - 2026-01-27
 
 ### Added

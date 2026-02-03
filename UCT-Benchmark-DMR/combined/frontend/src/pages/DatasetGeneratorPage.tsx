@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGenerateDataset, useJobStatus, MAX_TIMEFRAME_DAYS } from '@/hooks/useDatasets';
+import { useDataSourceStatus } from '@/hooks/useDataSourceStatus';
+import { useToast } from '@/hooks/use-toast';
+import { DataSourceStatusIndicator } from '@/components/generator/DataSourceStatusIndicator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -57,10 +60,10 @@ const steps = [
 const datasetPresets: DatasetPreset[] = [
   {
     id: 'quick-test',
-    name: 'Quick Test',
-    description: 'Fast dataset with UDL data only. No enrichment for quick testing.',
+    name: 'Quick Test (No Credentials Required)',
+    description: 'Fast test dataset using cached/sample data. Works without UDL credentials for rapid iteration.',
     icon: 'zap',
-    dataSources: ['UDL', 'ESA'],
+    dataSources: ['ESA'],
     config: {
       tier: 'T2',
       objectCount: 10,
@@ -271,6 +274,8 @@ export function DatasetGeneratorPage() {
 
   const generateDatasetMutation = useGenerateDataset();
   const { data: jobStatus } = useJobStatus(jobId);
+  const { toast } = useToast();
+  const { getMissingForPreset, getServiceLabel } = useDataSourceStatus();
 
   const calculatedTimeframe = calculateTimeframeDays(config.startDate, config.endDate);
   const today = new Date().toISOString().split('T')[0];
@@ -339,13 +344,33 @@ export function DatasetGeneratorPage() {
   };
 
   const handleGenerate = async () => {
+    // Pre-flight credential check
+    const presetId = selectedPreset || 'custom';
+    const missing = getMissingForPreset(presetId);
+    if (missing.length > 0) {
+      toast({
+        title: 'Configuration Required',
+        description: `Missing credentials: ${missing.map(getServiceLabel).join(', ')}. Configure them in Settings to continue.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
     try {
       const result = await generateDatasetMutation.mutateAsync(config);
       if (result?.job_id) {
         setJobId(result.job_id);
+        toast({
+          title: 'Dataset Generation Started',
+          description: 'Your dataset is being generated. This may take a few minutes.',
+        });
       } else {
+        toast({
+          title: 'Dataset Created',
+          description: 'Your dataset has been created successfully.',
+        });
         setTimeout(() => {
           setIsGenerating(false);
           navigate('/datasets/my-datasets');
@@ -363,7 +388,11 @@ export function DatasetGeneratorPage() {
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      alert(`Failed to generate dataset:\n${errorMessage}`);
+      toast({
+        title: 'Dataset Generation Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
       setIsGenerating(false);
     }
   };
@@ -482,6 +511,9 @@ export function DatasetGeneratorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Data Source Status Indicator */}
+              <DataSourceStatusIndicator selectedPreset={selectedPreset} />
+
               {/* Preset cards */}
               <div className="grid gap-3">
                 {datasetPresets.map((preset) => {
