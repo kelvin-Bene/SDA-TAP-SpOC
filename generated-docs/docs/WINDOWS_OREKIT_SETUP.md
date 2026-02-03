@@ -68,7 +68,7 @@ If JAVA_HOME is not set, add it manually:
 ### Navigate to Project Directory
 
 ```powershell
-cd C:\Users\kelvi\Documents\SDAxSpOCUCTProcessing\kelvin-local-work
+cd C:\path\to\UCT-Benchmark-DMR\combined
 ```
 
 ### Create/Activate Virtual Environment
@@ -94,7 +94,8 @@ python -m venv .venv
 pip install orekit-jpype
 
 # Install orekitdata (bundled ephemeris data files)
-pip install orekitdata
+# NOTE: orekitdata is NOT on PyPI - must install from GitLab
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 ```
 
 ### Install Full Project Dependencies
@@ -271,7 +272,7 @@ pip uninstall orekit
 
 ```powershell
 # 1. Navigate to project
-cd C:\Users\kelvi\Documents\SDAxSpOCUCTProcessing\kelvin-local-work
+cd C:\path\to\UCT-Benchmark-DMR\combined
 
 # 2. Activate virtual environment
 .\.venv\Scripts\Activate.ps1

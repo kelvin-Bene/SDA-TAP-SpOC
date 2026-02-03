@@ -108,8 +108,11 @@ setup_orekit_curdir(from_pip_library=True)
 
 ```bash
 pip uninstall orekit
-pip install orekit-jpype orekitdata
+pip install orekit-jpype
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 ```
+
+**Note:** `orekitdata` is NOT on PyPI - it must be installed from GitLab.
 
 ### Q: My propagation is very slow
 

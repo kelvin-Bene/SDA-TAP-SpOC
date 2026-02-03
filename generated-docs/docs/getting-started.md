@@ -11,7 +11,7 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 ### Software Prerequisites
 - **Python**: 3.12+ (required)
-- **Java Runtime Environment (JRE)**: Required for Orekit orbital mechanics library
+- **Java Development Kit (JDK) 17+**: Required for Orekit orbital mechanics library (JRE alone is insufficient)
 - **Git**: For version control and repository cloning
 
 ### Hardware Requirements
@@ -119,15 +119,17 @@ For detailed Windows Orekit setup, see the [Orekit Setup Guide](guides/OREKIT_SE
 
 ### 2. Orekit Data Files
 
-Orekit requires ephemeris data for orbit propagation. The recommended approach is to install via pip:
+Orekit requires ephemeris data for orbit propagation. The recommended approach is to install via pip directly from GitLab:
 
 ```bash
-# Install orekitdata package (recommended)
-pip install orekitdata
+# Install orekitdata package from GitLab (required - NOT on PyPI)
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 
 # This automatically provides required ephemeris data when using:
 # setup_orekit_curdir(from_pip_library=True)
 ```
+
+**Note:** The `orekitdata` package is NOT available on PyPI. You must install it from the GitLab repository as shown above.
 
 Alternatively, the project includes orekit-data in multiple locations:
 ```bash
@@ -262,7 +264,8 @@ echo $JAVA_HOME  # Linux/macOS
 
 # Reinstall orekit packages
 pip uninstall orekit-jpype orekitdata
-pip install orekit-jpype orekitdata
+pip install orekit-jpype
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 ```
 
 **3. GUI Display Issues**

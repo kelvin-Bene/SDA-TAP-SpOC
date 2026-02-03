@@ -27,6 +27,9 @@ source .venv/bin/activate
 
 # Install Python package
 pip install -e .
+
+# Install Orekit data (NOT on PyPI - must use GitLab)
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 ```
 
 ## 2. Verify Installation (30 seconds)
