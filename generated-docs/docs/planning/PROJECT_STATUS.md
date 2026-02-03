@@ -6,11 +6,19 @@
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~85% Complete** *(Updated 2026-01-25)*
+**Overall Progress: ~90% Complete** *(Updated 2026-01-31)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
 
-### Recent Updates (2026-01-25)
+### Recent Updates (2026-01-31) - Lewis Alignment Work
+- ✅ **TIER_5 Detection**: Added impossible criteria detection in window selection
+- ✅ **TrackTLE Pipeline**: Complete Modified Gauss IOD + BatchLSEstimator integration
+- ✅ **Close (C) Filter**: Implemented with velocity threshold (distance < 100km AND velocity < 100 m/s)
+- ✅ **Target Percentage**: Enforcement from 16-char dataset codes verified
+- ✅ **ML Fallback**: Graceful handling when ML event model unavailable
+- ✅ **Alignment Tests**: 6 new test files with 92 total tests for specification compliance
+
+### Previous Updates (2026-01-25)
 - ✅ **Web UI**: Full React frontend with 45+ components implemented
 - ✅ **Backend API**: FastAPI backend with 5 routers (datasets, submissions, results, leaderboard, jobs)
 - ✅ **Centralized Database**: DuckDB schema with 14+ tables, repository pattern
@@ -35,21 +43,24 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 | Component | Status | Owner | Progress |
 |-----------|--------|-------|----------|
 | API Integrations | Complete | SDA TAP | 95% |
-| Window Selection | Complete | SDA TAP | 90% |
-| Basic Scoring | Complete | SDA TAP | 85% |
+| Window Selection | Complete | SDA TAP | 95% |
+| Basic Scoring | Complete | SDA TAP | 90% |
 | Propagators | Complete | Shared | 95% |
 | Evaluation Metrics | Complete | SpOC | 90% |
 | Orbit Association | Complete | SpOC | 95% |
 | PDF Report Generation | Complete | SpOC | 80% |
-| Observation Simulation | ✅ **Complete** | SDA TAP | **95%** |
-| Event Labelling | Not Started | SDA TAP | 0% |
-| Centralized Database | ✅ **Complete** | SDA TAP | **95%** |
-| **T3 Processing** | ✅ **Complete** | SDA TAP | **100%** |
+| Observation Simulation | Complete | SDA TAP | 95% |
+| Event Labelling | Partial (ML Fallback) | SDA TAP | 40% |
+| Centralized Database | Complete | SDA TAP | 95% |
+| **T3 Processing** | Complete | SDA TAP | **100%** |
 | T4 Processing | Not Started | SDA TAP | 0% |
-| **Downsampling (T1/T2)** | ✅ **Complete** | SDA TAP | **100%** |
-| Web UI | ✅ **Complete** | SpOC | **90%** |
-| Algorithm Submission | ✅ **Complete** | SpOC | **90%** |
-| Leaderboard | ✅ **Complete** | SpOC | **90%** |
+| **Downsampling (T1/T2)** | Complete | SDA TAP | **100%** |
+| **TIER_5 Detection** | Complete | SDA TAP | **100%** |
+| **TrackTLE Pipeline** | Complete | SDA TAP | **90%** |
+| **Object Type Filters** | Complete | SDA TAP | **90%** |
+| Web UI | Complete | SpOC | 90% |
+| Algorithm Submission | Complete | SpOC | 90% |
+| Leaderboard | Complete | SpOC | 90% |
 | Multi-Dataset Support | In Progress | Shared | 60% |
 
 ---

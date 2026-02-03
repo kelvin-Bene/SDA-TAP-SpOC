@@ -7,7 +7,7 @@ ranked submissions and statistics.
 
 import shutil
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -43,7 +43,7 @@ def db_with_leaderboard_data():
     )
 
     # Create submissions with various algorithms and scores
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     week_ago = now - timedelta(days=5)
     month_ago = now - timedelta(days=20)
 

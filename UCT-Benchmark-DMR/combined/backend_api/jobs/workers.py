@@ -208,6 +208,23 @@ def run_dataset_generation(
         # Get regime from config (used for windowed strategy)
         regime = config.get("regime", "LEO")
 
+        # Get non-reference observation config (for True Negative calculation)
+        include_non_ref_obs = config.get("include_non_ref_obs", False)
+        non_ref_ratio = config.get("non_ref_ratio", 0.1)
+
+        # Get object type and event codes (per Louis's 16-character code spec)
+        object_type_code = config.get("object_type_code", "U")
+        event_code = config.get("event_code", "NE")
+
+        # Get window selection parameters (per Louis's bisecting search spec)
+        use_window_selection = config.get("use_window_selection", True)
+
+        # Get target percentage (positions 2-3 of 16-char code)
+        target_percentage = config.get("target_percentage", "UN")
+
+        # Get TrackTLE output option
+        output_tracktle = config.get("output_tracktle", False)
+
         # Call the pipeline function
         # Use dt=0.5 for rate limiting to avoid overwhelming the UDL API
         (
@@ -236,6 +253,13 @@ def run_dataset_generation(
             search_strategy=search_strategy,
             window_size_minutes=window_size_minutes,
             regime=regime,
+            include_non_ref_obs=include_non_ref_obs,
+            non_ref_ratio=non_ref_ratio,
+            object_type_code=object_type_code,
+            event_code=event_code,
+            use_window_selection=use_window_selection,
+            target_percentage=target_percentage,
+            output_tracktle=output_tracktle,
         )
 
         # Update progress - persisting to database
@@ -409,6 +433,25 @@ def run_evaluation_pipeline(
             (dataset_id,),
         )
 
+        # Load non-reference observations for True Negative calculation
+        non_ref_obs_df = db.adapter.fetchdf(
+            """
+            SELECT
+                observation_id as id,
+                source_norad_id,
+                sensor_id,
+                obs_time,
+                ra_deg as ra,
+                dec_deg as declination
+            FROM non_reference_observations
+            WHERE dataset_id = ?
+            """,
+            (dataset_id,),
+        )
+
+        # Get reference satellite set from dataset
+        reference_satellites = observations["sat_no"].unique().tolist() if not observations.empty else []
+
         job_manager.update_job(job_id, progress=40)
 
         # Run orbit association
@@ -425,19 +468,26 @@ def run_evaluation_pipeline(
 
         job_manager.update_job(job_id, progress=60)
 
-        # Compute binary metrics (TP, FP, FN, precision, recall, F1)
-        binary_results = (
-            binaryMetrics(associations)
-            if associations
-            else {
+        # Compute binary metrics (TP, FP, FN, TN, precision, recall, F1)
+        # Pass non-reference observations for True Negative calculation
+        if associations:
+            binary_results = binaryMetrics(
+                associations,
+                non_ref_obs_df=non_ref_obs_df if not non_ref_obs_df.empty else None,
+                reference_satellites=reference_satellites,
+            )
+        else:
+            binary_results = {
                 "true_positives": 0,
+                "true_negatives": 0,
                 "false_positives": 0,
                 "false_negatives": 0,
                 "precision": 0.0,
                 "recall": 0.0,
                 "f1_score": 0.0,
+                "accuracy": 0.0,
+                "specificity": 0.0,
             }
-        )
 
         job_manager.update_job(job_id, progress=80)
 
@@ -458,24 +508,30 @@ def run_evaluation_pipeline(
             INSERT INTO submission_results (
                 submission_id,
                 true_positives,
+                true_negatives,
                 false_positives,
                 false_negatives,
                 precision,
                 recall,
                 f1_score,
+                specificity,
+                accuracy,
                 position_rms_km,
                 velocity_rms_km_s,
                 raw_results
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 submission_id,
-                binary_results.get("true_positives", 0),
-                binary_results.get("false_positives", 0),
-                binary_results.get("false_negatives", 0),
-                binary_results.get("precision", 0.0),
-                binary_results.get("recall", 0.0),
-                binary_results.get("f1_score", 0.0),
+                binary_results.get("true_positives", binary_results.get("TruePositives", 0)),
+                binary_results.get("true_negatives", binary_results.get("TrueNegatives", 0)),
+                binary_results.get("false_positives", binary_results.get("FalsePositives", 0)),
+                binary_results.get("false_negatives", binary_results.get("FalseNegatives", 0)),
+                binary_results.get("precision", binary_results.get("Precision", 0.0)),
+                binary_results.get("recall", binary_results.get("Sensitivity", 0.0)),
+                binary_results.get("f1_score", binary_results.get("F1Score", 0.0)),
+                binary_results.get("specificity", binary_results.get("Specificity", 0.0)),
+                binary_results.get("accuracy", binary_results.get("Accuracy", 0.0)),
                 state_results.get("position_rms_km", 0.0),
                 state_results.get("velocity_rms_km_s", 0.0),
                 json.dumps({"binary": binary_results, "state": state_results}),

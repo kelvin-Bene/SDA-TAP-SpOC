@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,9 +18,17 @@ from backend_api.models import (
     DatasetStatus,
     DatasetSummary,
     DataTier,
+    LegacyCodeValidation,
+    LegacyDatasetCreate,
     OrbitalRegime,
     SearchStrategy,
     SensorType,
+)
+from uct_benchmark.config.dataset_schema import (
+    LegacyDatasetCode,
+    detect_code_format,
+    validate_dataset_code,
+    validate_legacy_code,
 )
 from uct_benchmark.database.connection import DatabaseManager
 
@@ -79,7 +87,7 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         regime=OrbitalRegime(row_dict.get("orbital_regime") or "LEO"),
         tier=DataTier(row_dict.get("tier") or "T1"),
         status=DatasetStatus(row_dict.get("status") or "created"),
-        created_at=row_dict["created_at"] or datetime.utcnow(),
+        created_at=row_dict["created_at"] or datetime.now(timezone.utc),
         observation_count=obs_count,
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
@@ -189,7 +197,7 @@ async def get_dataset(
         regime=OrbitalRegime(row_dict.get("orbital_regime", "LEO")),
         tier=DataTier(row_dict.get("tier", "T1")),
         status=DatasetStatus(row_dict.get("status", "created")),
-        created_at=row_dict["created_at"] or datetime.utcnow(),
+        created_at=row_dict["created_at"] or datetime.now(timezone.utc),
         observation_count=obs_count,
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
@@ -289,10 +297,25 @@ async def create_dataset(
         generation_params["window_size_minutes"] = request.window_size_minutes or 10
     logger.info(f"Search strategy: {request.search_strategy.value}")
 
+    # Add non-reference observation options (for True Negative calculation per Louis's spec)
+    generation_params["include_non_ref_obs"] = request.include_non_ref_obs
+    generation_params["non_ref_ratio"] = request.non_ref_ratio
+    if request.include_non_ref_obs:
+        logger.info(f"Non-ref observations enabled: ratio={request.non_ref_ratio}")
+
+    # Add object type and event codes (per Louis's 16-character code spec)
+    generation_params["object_type_code"] = getattr(request, "object_type_code", "U")
+    generation_params["event_code"] = getattr(request, "event_code", "NE")
+
+    # Add window selection option (per Louis's bisecting search spec)
+    generation_params["use_window_selection"] = getattr(request, "use_window_selection", False)
+    if generation_params["use_window_selection"]:
+        logger.info("Window selection algorithm enabled")
+
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
     # Format: {user_name}-{YYYYMMDD}-{HHMMSS}-{short_uuid}
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     short_uuid = str(uuid.uuid4())[:8]
     dataset_name = f"{request.name}-{timestamp}-{short_uuid}"
     logger.info(f"Generated unique dataset name: {dataset_name}")
@@ -381,7 +404,7 @@ async def create_dataset(
         regime=request.regime,
         tier=request.tier,
         status=DatasetStatus.GENERATING,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         observation_count=0,
         satellite_count=request.object_count,
         coverage=0.0,
@@ -691,3 +714,366 @@ async def download_dataset(
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{row_dict["name"]}.json"'},
     )
+
+
+# ============================================================
+# LEGACY CODE ENDPOINTS
+# ============================================================
+
+
+@router.post("/legacy", response_model=DatasetSummary, status_code=201)
+async def create_dataset_from_legacy_code(
+    request: LegacyDatasetCreate,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Create a new dataset using legacy 16-character code format.
+
+    This endpoint creates a dataset using Louis's documented 16-character format.
+    You can either provide the complete code string or individual components.
+
+    Format: OTTRRREWSSCSNS##
+    Example: H50LEONEOPSSSS07 = HAMR, 50% target, LEO, No Events, Optical, Standard metrics, 7 days
+
+    Args:
+        request: Legacy dataset creation parameters
+
+    Returns:
+        The created dataset summary with job_id for tracking progress
+    """
+    # Generate or validate the legacy code
+    legacy_code = request.to_legacy_code()
+
+    # Validate the code
+    is_valid, error_msg = validate_legacy_code(legacy_code)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid legacy code: {error_msg}")
+
+    # Parse the code to get all components
+    parsed = LegacyDatasetCode.from_code(legacy_code)
+
+    # Map legacy sensor to API sensor type
+    sensor_map = {
+        "OP": SensorType.OPTICAL,
+        "RA": SensorType.RADAR,
+        "RF": SensorType.RF,
+        "FU": SensorType.OPTICAL,  # Fusion defaults to optical primary
+        "OR": SensorType.OPTICAL,
+        "RO": SensorType.RADAR,
+        "RR": SensorType.RADAR,
+    }
+    sensor_type = sensor_map.get(parsed.sensor_type, SensorType.OPTICAL)
+
+    # Map object count level to actual count
+    object_count = parsed.get_object_count_value()
+
+    # Map coverage level to downsampling configuration
+    downsample_config = parsed.get_downsample_config()
+
+    # Generate dataset name
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    short_uuid = str(uuid.uuid4())[:8]
+    dataset_name = request.name or f"{legacy_code}-{timestamp}-{short_uuid}"
+
+    # Build generation parameters
+    generation_params = {
+        "name": dataset_name,
+        "legacy_code": legacy_code,
+        "regime": parsed.orbital_regime,
+        "tier": "T" + str({'A': 1, 'S': 2, 'N': 3}.get(parsed.orbit_coverage, 2)),
+        "object_count": object_count,
+        "timeframe": parsed.fitspan_days,
+        "timeunit": "days",
+        "sensors": [sensor_type.value],
+        "coverage": {"A": "high", "S": "standard", "N": "low"}.get(parsed.orbit_coverage, "standard"),
+        "include_hamr": parsed.object_type == "H",
+        # Store all legacy components
+        "legacy_components": {
+            "object_type": parsed.object_type,
+            "target_percentage": parsed.target_percentage,
+            "orbital_regime": parsed.orbital_regime,
+            "event": parsed.event,
+            "sensor_type": parsed.sensor_type,
+            "orbit_coverage": parsed.orbit_coverage,
+            "track_gap": parsed.track_gap,
+            "observation_count": parsed.observation_count,
+            "object_count": parsed.object_count,
+            "fitspan_days": parsed.fitspan_days,
+        },
+    }
+
+    if request.start_date:
+        generation_params["start_date"] = request.start_date.isoformat()
+
+    # Add downsampling based on coverage level
+    if parsed.orbit_coverage in ["A", "S"]:  # High or Standard coverage = need downsampling
+        generation_params["downsampling"] = {
+            "enabled": True,
+            "target_coverage": downsample_config["target_coverage"],
+            "target_gap": 2.0,  # Default gap target
+            "max_obs_per_sat": 50,
+            "preserve_tracks": True,
+        }
+
+    # Add simulation if coverage level is N (low/sparse data needed)
+    if parsed.orbit_coverage == "N":
+        generation_params["simulation"] = {
+            "enabled": False,  # Don't simulate for low coverage - we want sparse data
+        }
+
+    logger.info(f"Creating dataset from legacy code: {legacy_code}")
+
+    # Map regime to OrbitalRegime enum
+    regime_map = {"LEO": OrbitalRegime.LEO, "MEO": OrbitalRegime.MEO, "GEO": OrbitalRegime.GEO, "HEO": OrbitalRegime.HEO}
+    regime = regime_map.get(parsed.orbital_regime, OrbitalRegime.LEO)
+
+    # Map tier
+    tier_map = {"A": DataTier.T1, "S": DataTier.T2, "N": DataTier.T3}
+    tier = tier_map.get(parsed.orbit_coverage, DataTier.T2)
+
+    # Use transaction for atomicity
+    job = None
+    dataset_id = None
+
+    try:
+        db.execute("BEGIN TRANSACTION")
+
+        # Create dataset with legacy code fields
+        result = db.execute(
+            """
+            INSERT INTO datasets (
+                name, code, legacy_code,
+                object_type_code, target_percentage, event_code, sensor_code,
+                coverage_level, track_gap_level, obs_count_level, object_count_level, fitspan_days,
+                tier, orbital_regime, status, generation_params, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'generating', ?, CURRENT_TIMESTAMP)
+            RETURNING id
+            """,
+            (
+                dataset_name,
+                parsed.to_enhanced().to_code(),  # Enhanced code
+                legacy_code,
+                parsed.object_type,
+                parsed.target_percentage,
+                parsed.event,
+                parsed.sensor_type,
+                parsed.orbit_coverage,
+                parsed.track_gap,
+                parsed.observation_count,
+                parsed.object_count,
+                parsed.fitspan_days,
+                tier.value,
+                regime.value,
+                json.dumps(generation_params),
+            ),
+        )
+        dataset_id = result.fetchone()[0]
+
+        # Submit background job
+        job = submit_dataset_generation(dataset_id, generation_params)
+
+        # Update with job_id
+        db.execute(
+            "UPDATE datasets SET generation_params = ? WHERE id = ?",
+            (json.dumps({**generation_params, "job_id": job.id}), dataset_id),
+        )
+
+        db.execute("COMMIT")
+
+    except Exception as e:
+        try:
+            db.execute("ROLLBACK")
+        except Exception:
+            pass
+
+        if job is not None:
+            try:
+                from backend_api.jobs import get_job_manager
+                job_manager = get_job_manager()
+                job_manager.fail_job(job.id, "Dataset creation failed")
+            except Exception:
+                pass
+
+        logger.error(f"Failed to create dataset from legacy code: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+
+    return DatasetSummary(
+        id=str(dataset_id),
+        name=dataset_name,
+        description=request.description,
+        regime=regime,
+        tier=tier,
+        status=DatasetStatus.GENERATING,
+        created_at=datetime.now(timezone.utc),
+        observation_count=0,
+        satellite_count=object_count,
+        coverage=0.0,
+        size_bytes=0,
+        sensor_types=[sensor_type],
+        job_id=job.id,
+        legacy_code=legacy_code,
+        code=parsed.to_enhanced().to_code(),
+    )
+
+
+@router.get("/code/{legacy_code}", response_model=DatasetDetail)
+async def get_dataset_by_legacy_code(
+    legacy_code: str,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Get a dataset by its legacy 16-character code.
+
+    Args:
+        legacy_code: The 16-character legacy dataset code
+
+    Returns:
+        Dataset details if found
+    """
+    # Validate the code format
+    if len(legacy_code) != 16:
+        raise HTTPException(status_code=400, detail="Legacy code must be exactly 16 characters")
+
+    is_valid, error_msg = validate_legacy_code(legacy_code)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid legacy code: {error_msg}")
+
+    # Query by legacy_code
+    result = db.execute("SELECT * FROM datasets WHERE legacy_code = ?", (legacy_code,))
+    columns = [desc[0] for desc in result.description]
+    row = result.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"No dataset found with legacy code: {legacy_code}")
+
+    row_dict = dict(zip(columns, row))
+
+    # Parse generation parameters
+    params = {}
+    satellites = []
+    sensor_types = ["optical"]
+
+    if row_dict.get("generation_params"):
+        try:
+            params = (
+                json.loads(row_dict["generation_params"])
+                if isinstance(row_dict["generation_params"], str)
+                else row_dict.get("generation_params", {})
+            )
+            satellites = params.get("satIDs", [])
+            sensor_types = params.get("sensors", ["optical"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    obs_count = row_dict.get("observation_count") or 0
+    estimated_size = obs_count * 500
+
+    return DatasetDetail(
+        id=str(row_dict["id"]),
+        name=row_dict["name"],
+        description=row_dict.get("code"),
+        regime=OrbitalRegime(row_dict.get("orbital_regime", "LEO")),
+        tier=DataTier(row_dict.get("tier", "T1")),
+        status=DatasetStatus(row_dict.get("status", "created")),
+        created_at=row_dict["created_at"] or datetime.now(timezone.utc),
+        observation_count=obs_count,
+        satellite_count=row_dict.get("satellite_count") or 0,
+        coverage=float(row_dict.get("avg_coverage") or 0),
+        size_bytes=estimated_size,
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        satellites=satellites,
+        parameters=params,
+        time_window_start=row_dict.get("time_window_start"),
+        time_window_end=row_dict.get("time_window_end"),
+        avg_obs_count=float(row_dict.get("avg_obs_count") or 0),
+        max_track_gap=float(row_dict.get("max_track_gap") or 0),
+        json_path=row_dict.get("json_path"),
+        legacy_code=row_dict.get("legacy_code"),
+        code=row_dict.get("code"),
+        # Legacy component fields
+        object_type_code=row_dict.get("object_type_code"),
+        target_percentage=row_dict.get("target_percentage"),
+        event_code=row_dict.get("event_code"),
+        sensor_code=row_dict.get("sensor_code"),
+        coverage_level=row_dict.get("coverage_level"),
+        track_gap_level=row_dict.get("track_gap_level"),
+        obs_count_level=row_dict.get("obs_count_level"),
+        object_count_level=row_dict.get("object_count_level"),
+        fitspan_days=row_dict.get("fitspan_days"),
+    )
+
+
+@router.get("/validate/{code}", response_model=LegacyCodeValidation)
+async def validate_code(code: str):
+    """
+    Validate a dataset code in either legacy or enhanced format.
+
+    Args:
+        code: Dataset code to validate (legacy 16-char or enhanced underscore-separated)
+
+    Returns:
+        Validation result with parsed components if valid
+    """
+    format_type = detect_code_format(code)
+
+    if format_type == "legacy":
+        is_valid, error_msg = validate_legacy_code(code)
+        components = None
+
+        if is_valid:
+            parsed = LegacyDatasetCode.from_code(code)
+            components = {
+                "object_type": parsed.object_type,
+                "target_percentage": parsed.target_percentage,
+                "orbital_regime": parsed.orbital_regime,
+                "event": parsed.event,
+                "sensor_type": parsed.sensor_type,
+                "orbit_coverage": parsed.orbit_coverage,
+                "track_gap": parsed.track_gap,
+                "observation_count": parsed.observation_count,
+                "object_count": parsed.object_count,
+                "fitspan_days": parsed.fitspan_days,
+                "description": parsed.describe(),
+            }
+
+        return LegacyCodeValidation(
+            code=code,
+            is_valid=is_valid,
+            format_type="legacy",
+            error_message=error_msg,
+            components=components,
+        )
+
+    elif format_type == "enhanced":
+        is_valid, error_msg = validate_dataset_code(code)
+        components = None
+
+        if is_valid:
+            from uct_benchmark.config.dataset_schema import EnhancedDatasetCode
+            parsed = EnhancedDatasetCode.from_code(code)
+            components = {
+                "object_type": parsed.object_type,
+                "regime": parsed.regime,
+                "event": parsed.event,
+                "sensor": parsed.sensor,
+                "quality_tier": parsed.quality_tier,
+                "time_window_days": parsed.time_window_days,
+                "version": parsed.version,
+            }
+
+        return LegacyCodeValidation(
+            code=code,
+            is_valid=is_valid,
+            format_type="enhanced",
+            error_message=error_msg,
+            components=components,
+        )
+
+    else:
+        return LegacyCodeValidation(
+            code=code,
+            is_valid=False,
+            format_type="unknown",
+            error_message="Cannot detect code format. Expected 16-char legacy or underscore-separated enhanced format.",
+            components=None,
+        )

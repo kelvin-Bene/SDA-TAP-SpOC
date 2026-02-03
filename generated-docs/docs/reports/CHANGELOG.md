@@ -2,6 +2,85 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [1.3.0] - 2026-01-31
+
+### Added
+
+#### Lewis Alignment Work
+
+This release completes alignment with Lewis's (Louis's) original UCT Benchmark specifications, bringing the implementation to ~90% alignment.
+
+**TIER_5 "Impossible Criteria" Detection (`uct_benchmark/data/windowSelection.py`)**
+- `_is_criteria_impossible()` function to detect when criteria can never be met
+- TIER_5 is now assigned when:
+  - No objects exist in the search space (object_count == 0)
+  - Requested more objects than exist in catalog (min_objects > max_available_objects)
+  - Data window far below required fit span (duration_days < 10% of fit_span_days)
+  - All satellites have zero orbital coverage (avg_coverage == 0)
+- `WindowEvaluation.recommended_action = "criteria_impossible"` for TIER_5 results
+
+**TrackTLE Generation Pipeline (`uct_benchmark/simulation/tracktle.py`)**
+- `Observation` dataclass for angular observations with site information
+- `TrackTLEResult` dataclass for TLE generation results with covariance
+- `PropagatorConfig` dataclass for force model configuration
+- `modified_gauss_iod()` - Initial Orbit Determination using Modified Gauss method
+- `batch_ls_refinement_orekit()` - Orbit refinement using Orekit BatchLSEstimator with:
+  - Holmes-Featherstone gravity model (degree/order 120)
+  - NRLMSISE-00 atmospheric drag
+  - Solar radiation pressure with umbra/penumbra
+  - Sun and Moon third-body perturbations
+- `state_to_tle()` - Convert refined state vector to TLE format
+- `generate_tracktle()` - Main pipeline function for TLE generation from observations
+- `_add_force_models_to_builder()` - Force model configuration helper
+- `_create_topocentric_frame()` - Ground station frame creation
+
+**Close (C) Object Filter with Velocity Threshold (`uct_benchmark/data/objectTypeFiltering.py`)**
+- `compute_velocity_difference()` - Calculate relative velocity between objects
+- `filter_physical_proximity()` now accepts `velocity_threshold_m_s` parameter
+- Per Lewis's specification: "distance < X km, velocity < X m/s" - both thresholds must be met
+- New settings constants:
+  - `PROXIMITY_DISTANCE_THRESHOLD_KM = 100.0` km
+  - `PROXIMITY_VELOCITY_THRESHOLD_M_S = 100.0` m/s
+
+**Target Percentage Enforcement (`uct_benchmark/api/apiIntegration.py`)**
+- `enforce_target_percentage()` function to enforce target object percentage from 16-char dataset codes
+- Supports percentage values: "50" (50%), "10" (10%), "01" (1%), "UN" (unspecified)
+- Integrated with dataset generation pipeline
+
+**ML Model Fallback for Event Detection (`uct_benchmark/data/eventDetection.py`)**
+- `EventDetectionConfig` now includes:
+  - `ml_model_available: bool = False` - Flag for ML model availability
+  - `use_tle_fallback: bool = True` - Use TLE-based detection when ML unavailable
+  - `warn_on_ml_unavailable: bool = True` - Log warnings when ML model not available
+- Graceful degradation to TLE discontinuity detection when ML Labelling Team model is unavailable
+
+**Comprehensive Alignment Test Suite (`tests/`)**
+- `test_16char_code_comprehensive.py` - 38 tests for all 16-character code positions
+- `test_tier5_impossible.py` - 10 tests for TIER_5 detection logic
+- `test_tracktle_batch_ls.py` - 11 tests for TrackTLE pipeline
+- `test_target_percentage_enforcement.py` - 13 tests for target percentage
+- `test_close_velocity_filter.py` - 12 tests for Close (C) object filter with velocity
+- `test_ml_fallback.py` - 8 tests for ML model fallback handling
+
+### Changed
+
+- Updated `WindowTier` enum to include `TIER_5 = 5` for impossible criteria
+- `filter_by_object_type_code()` for "C" (Close) objects now checks both position AND velocity thresholds
+- `LegacyDatasetCode` class is now the authoritative API for 16-character code parsing
+
+### Fixed
+
+- TIER_4 vs TIER_5 distinction now properly implemented (TIER_4 = difficult but possible, TIER_5 = impossible)
+- Close object detection no longer incorrectly includes high-velocity flyby objects
+
+### Documentation
+
+- Updated all documentation to reflect ~90% alignment with Lewis's specifications
+- Added LIMITATIONS.md with known data constraints and workarounds
+- Documented 16-character legacy code format with all position meanings
+
+---
+
 ## [1.2.0] - 2026-01-25
 
 ### Added

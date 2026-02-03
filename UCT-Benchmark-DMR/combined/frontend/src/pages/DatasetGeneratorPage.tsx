@@ -31,8 +31,78 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OrbitalRegime, DatasetGenerationConfig, DownsamplingOptions, SimulationOptions, SearchStrategy } from '@/types';
+import type {
+  OrbitalRegime,
+  DatasetGenerationConfig,
+  DownsamplingOptions,
+  SimulationOptions,
+  SearchStrategy,
+  LegacyDatasetCodeConfig,
+  LegacyObjectType,
+  TargetPercentage,
+  LegacyEventType,
+  LegacySensorType,
+  QualityLevel,
+  ObjectCountLevel,
+} from '@/types';
+import {
+  LEGACY_OBJECT_TYPES,
+  TARGET_PERCENTAGES,
+  LEGACY_EVENT_TYPES,
+  LEGACY_SENSOR_TYPES,
+  QUALITY_LEVELS,
+  OBJECT_COUNT_LEVELS,
+  generateLegacyCode,
+  parseLegacyCode,
+  validateLegacyCode,
+} from '@/types';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
+// Regime-specific coverage thresholds per Lewis's specification
+// These define what constitutes "low coverage" for each orbital regime
+// Based on ground-based sensor visibility constraints
+const COVERAGE_THRESHOLDS: Record<OrbitalRegime, { low: number; display: string }> = {
+  LEO: { low: 0.000213, display: '<0.02%' },   // 0.0213% - short passes
+  MEO: { low: 0.000449, display: '<0.05%' },   // 0.0449% - longer visibility
+  GEO: { low: 0.41656, display: '<42%' },      // 41.656% - always visible but arc limited
+  HEO: { low: 0.20, display: '<20%' },         // Highly variable
+};
+
+// Get coverage option labels based on selected regime
+function getCoverageOptions(regime: OrbitalRegime): { value: string; label: string }[] {
+  const threshold = COVERAGE_THRESHOLDS[regime] || COVERAGE_THRESHOLDS.LEO;
+  // For LEO/MEO, "high" is much higher than threshold
+  // For GEO, the ranges are different due to higher visibility
+  if (regime === 'GEO') {
+    return [
+      { value: 'high', label: 'High (>60%)' },
+      { value: 'standard', label: `Standard (${threshold.display}-60%)` },
+      { value: 'low', label: `Low (${threshold.display})` },
+      { value: 'mixed', label: 'Mixed' },
+    ];
+  }
+  // LEO/MEO/HEO have very low coverage thresholds
+  return [
+    { value: 'high', label: 'High (>5%)' },
+    { value: 'standard', label: `Standard (${threshold.display}-5%)` },
+    { value: 'low', label: `Low (${threshold.display})` },
+    { value: 'mixed', label: 'Mixed' },
+  ];
+}
+
+// Standard wizard steps
 const steps = [
   { id: 1, name: 'Regime', icon: Satellite },
   { id: 2, name: 'Quality', icon: Settings2 },
@@ -40,6 +110,31 @@ const steps = [
   { id: 4, name: 'Advanced', icon: Settings2 },
   { id: 5, name: 'Review', icon: FileCheck },
 ];
+
+// Legacy code wizard steps
+const legacySteps = [
+  { id: 1, name: 'Object', icon: Satellite },
+  { id: 2, name: 'Regime', icon: Satellite },
+  { id: 3, name: 'Event', icon: Settings2 },
+  { id: 4, name: 'Sensor', icon: Settings2 },
+  { id: 5, name: 'Quality', icon: Zap },
+  { id: 6, name: 'Objects', icon: Zap },
+  { id: 7, name: 'Review', icon: FileCheck },
+];
+
+// Default legacy code config
+const defaultLegacyConfig: LegacyDatasetCodeConfig = {
+  objectType: 'U',
+  targetPercentage: '50',
+  orbitalRegime: 'LEO',
+  event: 'NE',
+  sensorType: 'OP',
+  orbitCoverage: 'S',
+  trackGap: 'S',
+  observationCount: 'S',
+  objectCount: 'S',
+  fitspanDays: 7,
+};
 
 // Calculate timeframe in days from start and end dates
 function calculateTimeframeDays(startDate: string, endDate: string): number {
@@ -92,8 +187,19 @@ export function DatasetGeneratorPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
 
+  // Legacy code mode state
+  const [mode, setMode] = useState<'standard' | 'legacy'>('standard');
+  const [legacyConfig, setLegacyConfig] = useState<LegacyDatasetCodeConfig>(defaultLegacyConfig);
+  const [legacyStep, setLegacyStep] = useState(1);
+  const [directCodeInput, setDirectCodeInput] = useState('');
+  const [codeInputMode, setCodeInputMode] = useState<'wizard' | 'direct'>('wizard');
+
   const generateDatasetMutation = useGenerateDataset();
   const { data: jobStatus } = useJobStatus(jobId);
+
+  // Generate the legacy code from current config
+  const currentLegacyCode = generateLegacyCode(legacyConfig);
+  const legacyCodeValidation = validateLegacyCode(codeInputMode === 'direct' ? directCodeInput : currentLegacyCode);
 
   // Calculate and validate the timeframe
   const calculatedTimeframe = calculateTimeframeDays(config.startDate, config.endDate);
@@ -131,6 +237,29 @@ export function DatasetGeneratorPage() {
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 5));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+
+  // Legacy mode navigation
+  const nextLegacyStep = () => setLegacyStep((prev) => Math.min(prev + 1, 7));
+  const prevLegacyStep = () => setLegacyStep((prev) => Math.max(prev - 1, 1));
+
+  // Update legacy config
+  const updateLegacyConfig = <K extends keyof LegacyDatasetCodeConfig>(
+    key: K,
+    value: LegacyDatasetCodeConfig[K]
+  ) => {
+    setLegacyConfig((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Handle direct code input
+  const handleDirectCodeInput = (code: string) => {
+    setDirectCodeInput(code.toUpperCase());
+    if (code.length === 16) {
+      const parsed = parseLegacyCode(code.toUpperCase());
+      if (parsed) {
+        setLegacyConfig(parsed);
+      }
+    }
+  };
 
   const updateDownsampling = <K extends keyof DownsamplingOptions>(
     key: K,
@@ -197,6 +326,65 @@ export function DatasetGeneratorPage() {
     }
   };
 
+  // Handle legacy code generation
+  const handleLegacyGenerate = async () => {
+    const code = codeInputMode === 'direct' ? directCodeInput : currentLegacyCode;
+    const validation = validateLegacyCode(code);
+
+    if (!validation.valid) {
+      alert(`Invalid legacy code:\n${validation.errors.join('\n')}`);
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    try {
+      // Call the legacy endpoint
+      const response = await fetch('/api/v1/datasets/legacy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          legacy_code: code,
+          object_type: legacyConfig.objectType,
+          target_percentage: legacyConfig.targetPercentage,
+          orbital_regime: legacyConfig.orbitalRegime,
+          event: legacyConfig.event,
+          sensor_type: legacyConfig.sensorType,
+          orbit_coverage: legacyConfig.orbitCoverage,
+          track_gap: legacyConfig.trackGap,
+          observation_count: legacyConfig.observationCount,
+          object_count_level: legacyConfig.objectCount,
+          fitspan_days: legacyConfig.fitspanDays,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create dataset');
+      }
+
+      const result = await response.json();
+      if (result?.job_id) {
+        setJobId(result.job_id);
+      } else {
+        setTimeout(() => {
+          setIsGenerating(false);
+          navigate('/datasets/my-datasets');
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error('Failed to generate dataset from legacy code:', error);
+      alert(`Failed to generate dataset:\n${error.message}`);
+      setIsGenerating(false);
+    }
+  };
+
+  // Get current steps based on mode
+  const activeSteps = mode === 'legacy' ? legacySteps : steps;
+  const activeStep = mode === 'legacy' ? legacyStep : currentStep;
+  const maxSteps = mode === 'legacy' ? 7 : 5;
+
   return (
     <TooltipProvider>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -208,32 +396,87 @@ export function DatasetGeneratorPage() {
           </p>
         </div>
 
+        {/* Mode Tabs */}
+        <Tabs value={mode} onValueChange={(v) => setMode(v as 'standard' | 'legacy')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="standard">Standard Wizard</TabsTrigger>
+            <TabsTrigger value="legacy">Legacy Code (16-char)</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Live Code Preview for Legacy Mode */}
+        {mode === 'legacy' && (
+          <Card className="bg-muted/50">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Current Dataset Code</Label>
+                  <div className="font-mono text-2xl tracking-wider mt-1">
+                    {codeInputMode === 'direct' ? (
+                      <Input
+                        value={directCodeInput}
+                        onChange={(e) => handleDirectCodeInput(e.target.value)}
+                        placeholder="H50LEONEOPSSSS07"
+                        className="font-mono text-xl tracking-wider w-48"
+                        maxLength={16}
+                      />
+                    ) : (
+                      <span className="text-primary">{currentLegacyCode}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={codeInputMode === 'wizard' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCodeInputMode('wizard')}
+                  >
+                    Use Wizard
+                  </Button>
+                  <Button
+                    variant={codeInputMode === 'direct' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCodeInputMode('direct')}
+                  >
+                    Enter Code
+                  </Button>
+                </div>
+              </div>
+              {!legacyCodeValidation.valid && codeInputMode === 'direct' && directCodeInput.length > 0 && (
+                <div className="mt-2 text-sm text-destructive">
+                  {legacyCodeValidation.errors[0]}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-8">
-          {steps.map((step, index) => (
+        <div className="flex items-center justify-between mb-8 overflow-x-auto">
+          {activeSteps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <div
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-full transition-colors',
-                  currentStep === step.id
+                  'flex items-center gap-2 px-3 py-2 rounded-full transition-colors',
+                  activeStep === step.id
                     ? 'bg-primary text-primary-foreground'
-                    : currentStep > step.id
+                    : activeStep > step.id
                     ? 'bg-primary/20 text-primary'
                     : 'bg-muted text-muted-foreground'
                 )}
               >
-                {currentStep > step.id ? (
+                {activeStep > step.id ? (
                   <Check className="h-4 w-4" />
                 ) : (
                   <step.icon className="h-4 w-4" />
                 )}
-                <span className="font-medium text-sm hidden sm:inline">{step.name}</span>
+                <span className="font-medium text-xs hidden sm:inline">{step.name}</span>
               </div>
-              {index < steps.length - 1 && (
+              {index < activeSteps.length - 1 && (
                 <div
                   className={cn(
-                    'h-0.5 w-8 sm:w-16 mx-2',
-                    currentStep > step.id ? 'bg-primary' : 'bg-muted'
+                    'h-0.5 w-4 sm:w-8 mx-1',
+                    activeStep > step.id ? 'bg-primary' : 'bg-muted'
                   )}
                 />
               )}
@@ -243,8 +486,490 @@ export function DatasetGeneratorPage() {
 
         {/* Step Content */}
         <Card>
+          {/* ============ LEGACY MODE STEPS ============ */}
+          {mode === 'legacy' && codeInputMode === 'wizard' && (
+            <>
+              {/* Legacy Step 1: Object Type */}
+              {legacyStep === 1 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Select Object Type</CardTitle>
+                    <CardDescription>
+                      Choose the type of objects to include in the dataset
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <RadioGroup
+                      value={legacyConfig.objectType}
+                      onValueChange={(v) => updateLegacyConfig('objectType', v as LegacyObjectType)}
+                      className="grid gap-3"
+                    >
+                      {(Object.entries(LEGACY_OBJECT_TYPES) as [LegacyObjectType, string][]).map(([value, label]) => (
+                        <Label
+                          key={value}
+                          className={cn(
+                            'flex items-center gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
+                            legacyConfig.objectType === value && 'border-primary bg-primary/5'
+                          )}
+                        >
+                          <RadioGroupItem value={value} />
+                          <div>
+                            <span className="font-mono text-lg mr-2">{value}</span>
+                            <span>{label}</span>
+                          </div>
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                    <Separator />
+                    <div className="space-y-3">
+                      <Label>Target Percentage</Label>
+                      <RadioGroup
+                        value={legacyConfig.targetPercentage}
+                        onValueChange={(v) => updateLegacyConfig('targetPercentage', v as TargetPercentage)}
+                        className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+                      >
+                        {(Object.entries(TARGET_PERCENTAGES) as [TargetPercentage, string][]).map(([value, label]) => (
+                          <Label
+                            key={value}
+                            className={cn(
+                              'flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-accent text-sm',
+                              legacyConfig.targetPercentage === value && 'border-primary bg-primary/5'
+                            )}
+                          >
+                            <RadioGroupItem value={value} />
+                            <span className="font-mono">{value}</span>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Legacy Step 2: Orbital Regime */}
+              {legacyStep === 2 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Select Orbital Regime</CardTitle>
+                    <CardDescription>
+                      Choose the orbital regime for the dataset
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <RadioGroup
+                      value={legacyConfig.orbitalRegime}
+                      onValueChange={(v) => updateLegacyConfig('orbitalRegime', v as OrbitalRegime)}
+                      className="grid grid-cols-2 gap-4"
+                    >
+                      {[
+                        { value: 'LEO', label: 'Low Earth Orbit', desc: '200-2000 km altitude' },
+                        { value: 'MEO', label: 'Medium Earth Orbit', desc: '2000-35,786 km' },
+                        { value: 'GEO', label: 'Geostationary Orbit', desc: '35,786 km' },
+                        { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Variable altitude' },
+                      ].map((regime) => (
+                        <Label
+                          key={regime.value}
+                          className={cn(
+                            'flex items-start gap-4 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                            legacyConfig.orbitalRegime === regime.value && 'border-primary bg-primary/5'
+                          )}
+                        >
+                          <RadioGroupItem value={regime.value} />
+                          <div>
+                            <span className="font-medium">{regime.label}</span>
+                            <p className="text-sm text-muted-foreground">{regime.desc}</p>
+                          </div>
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Legacy Step 3: Event Type */}
+              {legacyStep === 3 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Select Event Type</CardTitle>
+                    <CardDescription>
+                      Choose whether to include specific events in the dataset
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <RadioGroup
+                      value={legacyConfig.event}
+                      onValueChange={(v) => updateLegacyConfig('event', v as LegacyEventType)}
+                      className="grid gap-3"
+                    >
+                      {(Object.entries(LEGACY_EVENT_TYPES) as [LegacyEventType, string][]).map(([value, label]) => (
+                        <Label
+                          key={value}
+                          className={cn(
+                            'flex items-center gap-4 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                            legacyConfig.event === value && 'border-primary bg-primary/5'
+                          )}
+                        >
+                          <RadioGroupItem value={value} />
+                          <div>
+                            <span className="font-mono text-lg mr-2">{value}</span>
+                            <span>{label}</span>
+                          </div>
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Legacy Step 4: Sensor Type */}
+              {legacyStep === 4 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Select Sensor Type</CardTitle>
+                    <CardDescription>
+                      Choose the sensor types to include in observations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <RadioGroup
+                      value={legacyConfig.sensorType}
+                      onValueChange={(v) => updateLegacyConfig('sensorType', v as LegacySensorType)}
+                      className="grid gap-3"
+                    >
+                      {(Object.entries(LEGACY_SENSOR_TYPES) as [LegacySensorType, string][]).map(([value, label]) => (
+                        <Label
+                          key={value}
+                          className={cn(
+                            'flex items-center gap-4 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                            legacyConfig.sensorType === value && 'border-primary bg-primary/5'
+                          )}
+                        >
+                          <RadioGroupItem value={value} />
+                          <div>
+                            <span className="font-mono text-lg mr-2">{value}</span>
+                            <span>{label}</span>
+                          </div>
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Legacy Step 5: Quality Metrics (A/S/N for coverage, gap, obs count) */}
+              {legacyStep === 5 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Quality Metrics</CardTitle>
+                    <CardDescription>
+                      Set quality levels for coverage, track gaps, and observation count
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-8">
+                    {/* Orbit Coverage */}
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Orbit Coverage Level</Label>
+                      <RadioGroup
+                        value={legacyConfig.orbitCoverage}
+                        onValueChange={(v) => updateLegacyConfig('orbitCoverage', v as QualityLevel)}
+                        className="grid grid-cols-3 gap-2"
+                      >
+                        {(Object.entries(QUALITY_LEVELS) as [QualityLevel, string][]).map(([value, label]) => (
+                          <Label
+                            key={value}
+                            className={cn(
+                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                              legacyConfig.orbitCoverage === value && 'border-primary bg-primary/5'
+                            )}
+                          >
+                            <RadioGroupItem value={value} />
+                            <span className="font-mono text-xl">{value}</span>
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Track Gap */}
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Track Gap Level</Label>
+                      <RadioGroup
+                        value={legacyConfig.trackGap}
+                        onValueChange={(v) => updateLegacyConfig('trackGap', v as QualityLevel)}
+                        className="grid grid-cols-3 gap-2"
+                      >
+                        {(Object.entries(QUALITY_LEVELS) as [QualityLevel, string][]).map(([value, label]) => (
+                          <Label
+                            key={value}
+                            className={cn(
+                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                              legacyConfig.trackGap === value && 'border-primary bg-primary/5'
+                            )}
+                          >
+                            <RadioGroupItem value={value} />
+                            <span className="font-mono text-xl">{value}</span>
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Observation Count */}
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Observation Count Level</Label>
+                      <RadioGroup
+                        value={legacyConfig.observationCount}
+                        onValueChange={(v) => updateLegacyConfig('observationCount', v as QualityLevel)}
+                        className="grid grid-cols-3 gap-2"
+                      >
+                        {(Object.entries(QUALITY_LEVELS) as [QualityLevel, string][]).map(([value, label]) => (
+                          <Label
+                            key={value}
+                            className={cn(
+                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                              legacyConfig.observationCount === value && 'border-primary bg-primary/5'
+                            )}
+                          >
+                            <RadioGroupItem value={value} />
+                            <span className="font-mono text-xl">{value}</span>
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Legacy Step 6: Object Count & Fitspan */}
+              {legacyStep === 6 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Object Count & Fitspan</CardTitle>
+                    <CardDescription>
+                      Set the number of objects and observation window duration
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-8">
+                    {/* Object Count */}
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Object Count</Label>
+                      <RadioGroup
+                        value={legacyConfig.objectCount}
+                        onValueChange={(v) => updateLegacyConfig('objectCount', v as ObjectCountLevel)}
+                        className="grid grid-cols-3 gap-4"
+                      >
+                        {(Object.entries(OBJECT_COUNT_LEVELS) as [ObjectCountLevel, { label: string; count: number }][]).map(
+                          ([value, { label, count }]) => (
+                            <Label
+                              key={value}
+                              className={cn(
+                                'flex flex-col items-center gap-2 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                                legacyConfig.objectCount === value && 'border-primary bg-primary/5'
+                              )}
+                            >
+                              <RadioGroupItem value={value} />
+                              <span className="font-mono text-2xl">{value}</span>
+                              <span className="text-sm">{label}</span>
+                              <span className="text-muted-foreground">{count} objects</span>
+                            </Label>
+                          )
+                        )}
+                      </RadioGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Fitspan Days */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-base font-medium">Fitspan (Days)</Label>
+                        <span className="font-mono text-lg bg-muted px-3 py-1 rounded">
+                          {legacyConfig.fitspanDays.toString().padStart(2, '0')}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[legacyConfig.fitspanDays]}
+                        onValueChange={([v]) => updateLegacyConfig('fitspanDays', v)}
+                        min={1}
+                        max={14}
+                        step={1}
+                        className="py-4"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>1 day</span>
+                        <span>7 days</span>
+                        <span>14 days</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Legacy Step 7: Review */}
+              {legacyStep === 7 && (
+                <>
+                  <CardHeader>
+                    <CardTitle>Review Configuration</CardTitle>
+                    <CardDescription>
+                      Verify your dataset code before generation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {isGenerating ? (
+                      <div className="space-y-4 py-8">
+                        <div className="flex items-center justify-center gap-3">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <span className="text-lg font-medium">Generating dataset...</span>
+                        </div>
+                        <Progress value={generationProgress} className="w-full" />
+                        <p className="text-center text-sm text-muted-foreground">
+                          {jobStatus?.stage || 'Initializing...'}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Code Display */}
+                        <div className="text-center py-6 bg-muted/50 rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-2">Your Dataset Code</p>
+                          <p className="font-mono text-4xl tracking-widest text-primary">{currentLegacyCode}</p>
+                        </div>
+
+                        {/* Code Breakdown */}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.objectType}</p>
+                            <p className="text-xs text-muted-foreground">Object Type</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.targetPercentage}</p>
+                            <p className="text-xs text-muted-foreground">Target %</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.orbitalRegime}</p>
+                            <p className="text-xs text-muted-foreground">Regime</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.event}</p>
+                            <p className="text-xs text-muted-foreground">Event</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.sensorType}</p>
+                            <p className="text-xs text-muted-foreground">Sensor</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.orbitCoverage}</p>
+                            <p className="text-xs text-muted-foreground">Coverage</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.trackGap}</p>
+                            <p className="text-xs text-muted-foreground">Track Gap</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.observationCount}</p>
+                            <p className="text-xs text-muted-foreground">Obs Count</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.objectCount}</p>
+                            <p className="text-xs text-muted-foreground">Obj Count</p>
+                          </div>
+                          <div className="rounded-lg border p-3 text-center">
+                            <p className="font-mono text-lg">{legacyConfig.fitspanDays.toString().padStart(2, '0')}</p>
+                            <p className="text-xs text-muted-foreground">Fitspan</p>
+                          </div>
+                        </div>
+
+                        {/* Summary */}
+                        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                          <h4 className="font-medium">Summary</h4>
+                          <ul className="text-sm space-y-1 text-muted-foreground">
+                            <li>Object Type: {LEGACY_OBJECT_TYPES[legacyConfig.objectType]}</li>
+                            <li>Regime: {legacyConfig.orbitalRegime}</li>
+                            <li>Event: {LEGACY_EVENT_TYPES[legacyConfig.event]}</li>
+                            <li>Sensor: {LEGACY_SENSOR_TYPES[legacyConfig.sensorType]}</li>
+                            <li>Objects: {OBJECT_COUNT_LEVELS[legacyConfig.objectCount].count}</li>
+                            <li>Duration: {legacyConfig.fitspanDays} days</li>
+                          </ul>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </>
+              )}
+            </>
+          )}
+
+          {/* Legacy Mode - Direct Code Input Review */}
+          {mode === 'legacy' && codeInputMode === 'direct' && (
+            <>
+              <CardHeader>
+                <CardTitle>Direct Code Entry</CardTitle>
+                <CardDescription>
+                  Enter a 16-character dataset code directly
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {isGenerating ? (
+                  <div className="space-y-4 py-8">
+                    <div className="flex items-center justify-center gap-3">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span className="text-lg font-medium">Generating dataset...</span>
+                    </div>
+                    <Progress value={generationProgress} className="w-full" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-center py-6">
+                      <Input
+                        value={directCodeInput}
+                        onChange={(e) => handleDirectCodeInput(e.target.value)}
+                        placeholder="H50LEONEOPSSSS07"
+                        className={cn(
+                          'font-mono text-3xl tracking-widest text-center max-w-xs mx-auto h-14',
+                          legacyCodeValidation.valid ? 'border-green-500' : directCodeInput.length > 0 ? 'border-destructive' : ''
+                        )}
+                        maxLength={16}
+                      />
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {directCodeInput.length}/16 characters
+                      </p>
+                    </div>
+
+                    {legacyCodeValidation.valid && directCodeInput.length === 16 && (
+                      <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4">
+                        <p className="text-green-700 dark:text-green-300 font-medium">Valid code!</p>
+                        <ul className="text-sm mt-2 space-y-1 text-green-600 dark:text-green-400">
+                          <li>Object Type: {LEGACY_OBJECT_TYPES[legacyConfig.objectType]}</li>
+                          <li>Regime: {legacyConfig.orbitalRegime}</li>
+                          <li>Event: {LEGACY_EVENT_TYPES[legacyConfig.event]}</li>
+                          <li>Sensor: {LEGACY_SENSOR_TYPES[legacyConfig.sensorType]}</li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {!legacyCodeValidation.valid && directCodeInput.length > 0 && (
+                      <div className="bg-destructive/10 rounded-lg p-4">
+                        <p className="text-destructive font-medium">Invalid code</p>
+                        <ul className="text-sm mt-2 space-y-1 text-destructive">
+                          {legacyCodeValidation.errors.map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </>
+          )}
+
+          {/* ============ STANDARD MODE STEPS ============ */}
           {/* Step 1: Regime Selection */}
-          {currentStep === 1 && (
+          {mode === 'standard' && currentStep === 1 && (
             <>
               <CardHeader>
                 <CardTitle>Select Orbital Regime</CardTitle>
@@ -288,7 +1013,7 @@ export function DatasetGeneratorPage() {
           )}
 
           {/* Step 2: Quality Parameters */}
-          {currentStep === 2 && (
+          {mode === 'standard' && currentStep === 2 && (
             <>
               <CardHeader>
                 <CardTitle>Data Quality Parameters</CardTitle>
@@ -306,7 +1031,7 @@ export function DatasetGeneratorPage() {
                         <Info className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p>Percentage of the orbital arc covered by observations. Lower coverage simulates sparse observation scenarios.</p>
+                        <p>Percentage of the orbital arc covered by observations. Thresholds are regime-specific (e.g., GEO has higher visibility than LEO). Lower coverage simulates sparse observation scenarios.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -315,12 +1040,7 @@ export function DatasetGeneratorPage() {
                     onValueChange={(value) => updateConfig('coverage', value as typeof config.coverage)}
                     className="grid grid-cols-2 sm:grid-cols-4 gap-2"
                   >
-                    {[
-                      { value: 'high', label: 'High (>70%)' },
-                      { value: 'standard', label: 'Standard (30-70%)' },
-                      { value: 'low', label: 'Low (<30%)' },
-                      { value: 'mixed', label: 'Mixed' },
-                    ].map((opt) => (
+                    {getCoverageOptions(config.regime).map((opt) => (
                       <Label
                         key={opt.value}
                         htmlFor={`coverage-${opt.value}`}
@@ -410,7 +1130,7 @@ export function DatasetGeneratorPage() {
           )}
 
           {/* Step 3: Object Selection */}
-          {currentStep === 3 && (
+          {mode === 'standard' && currentStep === 3 && (
             <>
               <CardHeader>
                 <CardTitle>Object Selection</CardTitle>
@@ -515,7 +1235,7 @@ export function DatasetGeneratorPage() {
           )}
 
           {/* Step 4: Advanced (Downsampling & Simulation) */}
-          {currentStep === 4 && (
+          {mode === 'standard' && currentStep === 4 && (
             <>
               <CardHeader>
                 <CardTitle>Advanced Options</CardTitle>
@@ -818,12 +1538,102 @@ export function DatasetGeneratorPage() {
                     </div>
                   )}
                 </div>
+
+                <Separator />
+
+                {/* Advanced Louis's Spec Options */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Louis's Benchmark Options</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Advanced options per Louis's Benchmarking Documentation for comprehensive evaluation.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  {/* True Negative / Non-Reference Observations */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Label>Include Non-Reference Observations</Label>
+                        <Badge variant="outline">True Negatives</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Add observations from satellites NOT in the reference set (for TN evaluation)
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.includeNonRefObs ?? false}
+                      onCheckedChange={(checked) => updateConfig('includeNonRefObs', checked)}
+                    />
+                  </div>
+
+                  {/* Window Selection Algorithm */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Label>Use Window Selection Algorithm</Label>
+                        <Badge variant="outline">Bisecting Search</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Automatically find the optimal time window and tier classification
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.useWindowSelection ?? false}
+                      onCheckedChange={(checked) => updateConfig('useWindowSelection', checked)}
+                    />
+                  </div>
+
+                  {/* Object Type Code */}
+                  <div className="space-y-2">
+                    <Label>Object Type Filter</Label>
+                    <Select
+                      value={config.objectTypeCode ?? 'U'}
+                      onValueChange={(value) => updateConfig('objectTypeCode', value as 'H' | 'C' | 'A' | 'U' | 'N')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select object type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="U">Unspecified (All objects)</SelectItem>
+                        <SelectItem value="H">HAMR (High Area-to-Mass Ratio)</SelectItem>
+                        <SelectItem value="C">Close (Physical proximity)</SelectItem>
+                        <SelectItem value="A">Apparent (Angular proximity)</SelectItem>
+                        <SelectItem value="N">Calibration satellites</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Event Code */}
+                  <div className="space-y-2">
+                    <Label>Event Filter</Label>
+                    <Select
+                      value={config.eventCode ?? 'NE'}
+                      onValueChange={(value) => updateConfig('eventCode', value as 'MB' | 'BU' | 'LL' | 'NE')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select event type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NE">No Events (Normal)</SelectItem>
+                        <SelectItem value="MB">Maneuver Between observations</SelectItem>
+                        <SelectItem value="BU">Breakup event</SelectItem>
+                        <SelectItem value="LL">Long-duration Low-thrust</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardContent>
             </>
           )}
 
           {/* Step 5: Review */}
-          {currentStep === 5 && (
+          {mode === 'standard' && currentStep === 5 && (
             <>
               <CardHeader>
                 <CardTitle>Review Configuration</CardTitle>
@@ -968,42 +1778,95 @@ export function DatasetGeneratorPage() {
 
           {/* Navigation Buttons */}
           <div className="flex justify-between p-6 pt-0">
+            {/* Back Button */}
             <Button
               variant="outline"
-              onClick={prevStep}
-              disabled={currentStep === 1 || isGenerating}
+              onClick={mode === 'legacy' ? prevLegacyStep : prevStep}
+              disabled={activeStep === 1 || isGenerating || (mode === 'legacy' && codeInputMode === 'direct')}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            {currentStep < 5 ? (
-              <Button
-                onClick={nextStep}
-                className="gap-2"
-                disabled={currentStep === 3 && !isTimeframeValid}
-              >
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+
+            {/* Next / Generate Button */}
+            {mode === 'standard' ? (
+              // Standard mode navigation
+              currentStep < 5 ? (
+                <Button
+                  onClick={nextStep}
+                  className="gap-2"
+                  disabled={mode === 'standard' && currentStep === 3 && !isTimeframeValid}
+                >
+                  Next
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !isTimeframeValid}
+                  className="gap-2"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Generate Dataset
+                    </>
+                  )}
+                </Button>
+              )
             ) : (
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !isTimeframeValid}
-                className="gap-2"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
+              // Legacy mode navigation
+              codeInputMode === 'wizard' ? (
+                legacyStep < 7 ? (
+                  <Button onClick={nextLegacyStep} className="gap-2">
+                    Next
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
                 ) : (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Generate Dataset
-                  </>
-                )}
-              </Button>
+                  <Button
+                    onClick={handleLegacyGenerate}
+                    disabled={isGenerating || !legacyCodeValidation.valid}
+                    className="gap-2"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Generate Dataset
+                      </>
+                    )}
+                  </Button>
+                )
+              ) : (
+                // Direct code entry mode
+                <Button
+                  onClick={handleLegacyGenerate}
+                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16}
+                  className="gap-2"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Generate Dataset
+                    </>
+                  )}
+                </Button>
+              )
             )}
           </div>
         </Card>

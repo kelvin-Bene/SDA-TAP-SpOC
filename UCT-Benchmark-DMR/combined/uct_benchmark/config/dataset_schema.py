@@ -15,7 +15,7 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -26,6 +26,21 @@ from uct_benchmark.settings import (
     DatasetConfig,
     DatasetMetrics,
     DownsampleConfig,
+    LEGACY_OBJECT_TYPE_MAP,
+    LEGACY_OBJECT_TYPE_REVERSE,
+    LEGACY_TARGET_PERCENTAGE_VALUES,
+    LEGACY_REGIME_VALUES,
+    LEGACY_EVENT_MAP,
+    LEGACY_EVENT_REVERSE,
+    LEGACY_SENSOR_MAP,
+    LEGACY_SENSOR_REVERSE,
+    LEGACY_QUALITY_LEVELS,
+    QUALITY_LEVEL_THRESHOLDS,
+    OBJECT_COUNT_MAP,
+    OBJECT_COUNT_REVERSE,
+    LEGACY_FITSPAN_MIN,
+    LEGACY_FITSPAN_MAX,
+    LEGACY_COVERAGE_DOWNSAMPLE,
 )
 
 # =============================================================================
@@ -118,39 +133,428 @@ class EnhancedDatasetCode:
         return "S"
 
 
-def validate_dataset_code(code: str) -> Tuple[bool, Optional[str]]:
+# =============================================================================
+# LEGACY 16-CHARACTER DATASET CODE SCHEMA (Louis's Documentation)
+# =============================================================================
+
+# Format: OTTRRREWSSCSNS##
+# Position | Length | Component
+# 1        | 1      | Object Type: H, C, A, U, N
+# 2-3      | 2      | Target %: 50, 10, 01, UN
+# 4-6      | 3      | Orbital Regime: LEO, MEO, GEO, HEO, ALL, etc.
+# 7-8      | 2      | Event: MB, BU, LL, NE
+# 9-10     | 2      | Sensor: OP, RA, RF, FU, OR, RO, RR
+# 11       | 1      | Orbit Coverage: A, S, N
+# 12       | 1      | Track Gap: A, S, N
+# 13       | 1      | Observation Count: A, S, N
+# 14       | 1      | Object Count: H, S, L
+# 15-16    | 2      | Fitspan Days: 01-14
+
+# Example: H50LEONEOPSSSS07 = HAMR, 50% target, LEO, No Events, Optical, Standard metrics, Standard count, 7 days
+
+
+@dataclass
+class LegacyDatasetCode:
     """
-    Validate a dataset code string.
+    Legacy 16-character dataset code format from Louis's documentation.
+
+    This format encodes all dataset parameters in a compact 16-character string.
+    """
+
+    object_type: str = "U"         # H, C, A, U, N
+    target_percentage: str = "50"  # 50, 10, 01, UN
+    orbital_regime: str = "LEO"    # LEO, MEO, GEO, HEO, ALL, combos
+    event: str = "NE"              # MB, BU, LL, NE
+    sensor_type: str = "OP"        # OP, RA, RF, FU, OR, RO, RR
+    orbit_coverage: str = "S"      # A, S, N
+    track_gap: str = "S"           # A, S, N
+    observation_count: str = "S"   # A, S, N
+    object_count: str = "S"        # H, S, L
+    fitspan_days: int = 7          # 01-14
+
+    def to_code(self) -> str:
+        """
+        Generate the 16-character dataset code string.
+
+        Returns:
+            16-character code string, e.g., "H50LEONEOPSSSS07"
+        """
+        return (
+            f"{self.object_type}"
+            f"{self.target_percentage}"
+            f"{self.orbital_regime}"
+            f"{self.event}"
+            f"{self.sensor_type}"
+            f"{self.orbit_coverage}"
+            f"{self.track_gap}"
+            f"{self.observation_count}"
+            f"{self.object_count}"
+            f"{self.fitspan_days:02d}"
+        )
+
+    @classmethod
+    def from_code(cls, code: str) -> "LegacyDatasetCode":
+        """
+        Parse a 16-character dataset code string into components.
+
+        Args:
+            code: 16-character dataset code string
+
+        Returns:
+            LegacyDatasetCode instance
+
+        Raises:
+            ValueError: If code is invalid or cannot be parsed
+        """
+        if len(code) != 16:
+            raise ValueError(f"Legacy code must be exactly 16 characters, got {len(code)}: '{code}'")
+
+        try:
+            return cls(
+                object_type=code[0],
+                target_percentage=code[1:3],
+                orbital_regime=code[3:6],
+                event=code[6:8],
+                sensor_type=code[8:10],
+                orbit_coverage=code[10],
+                track_gap=code[11],
+                observation_count=code[12],
+                object_count=code[13],
+                fitspan_days=int(code[14:16]),
+            )
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Failed to parse legacy code '{code}': {e}")
+
+    def to_enhanced(self) -> "EnhancedDatasetCode":
+        """
+        Convert legacy code to enhanced format.
+
+        Returns:
+            EnhancedDatasetCode with mapped values
+        """
+        # Map object type
+        object_type = LEGACY_OBJECT_TYPE_MAP.get(self.object_type, "NORM")
+
+        # Regime stays the same
+        regime = self.orbital_regime if self.orbital_regime in ["LEO", "MEO", "GEO", "HEO", "ALL"] else "LEO"
+
+        # Map event
+        event = LEGACY_EVENT_MAP.get(self.event, "NRM")
+
+        # Map sensor
+        sensor_mapped = LEGACY_SENSOR_MAP.get(self.sensor_type, "EO")
+        # Simplify multi-sensor to MX for enhanced format
+        sensor = sensor_mapped if sensor_mapped in ["EO", "RA", "RF", "MX"] else "MX"
+
+        # Determine quality tier from coverage level
+        # Per Louis's documentation:
+        # A = >90% objects have LOW quality (sparse dataset) → lower tier, L suffix
+        # S = 40-60% objects have LOW quality (mixed) → mid tier, S suffix
+        # N = <10% objects have LOW quality (dense/high quality dataset) → higher tier, H suffix
+        tier_map = {"A": "T3", "S": "T2", "N": "T1"}
+        tier_num = tier_map.get(self.orbit_coverage, "T2")
+        # Map quality levels: A->L (sparse/low), S->S (standard), N->H (dense/high)
+        quality_suffix = {"A": "L", "S": "S", "N": "H"}.get(self.orbit_coverage, "S")
+        quality_tier = f"{tier_num}{quality_suffix}"
+
+        return EnhancedDatasetCode(
+            object_type=object_type,
+            regime=regime,
+            event=event,
+            sensor=sensor,
+            quality_tier=quality_tier,
+            time_window_days=self.fitspan_days,
+            version="001",
+        )
+
+    @classmethod
+    def from_enhanced(cls, enhanced: "EnhancedDatasetCode") -> "LegacyDatasetCode":
+        """
+        Convert enhanced format to legacy code.
+
+        Args:
+            enhanced: EnhancedDatasetCode instance
+
+        Returns:
+            LegacyDatasetCode with reverse-mapped values
+        """
+        # Reverse map object type
+        object_type = LEGACY_OBJECT_TYPE_REVERSE.get(enhanced.object_type, "U")
+
+        # Default target percentage
+        target_percentage = "50"
+
+        # Regime
+        orbital_regime = enhanced.regime if enhanced.regime in LEGACY_REGIME_VALUES else "LEO"
+
+        # Reverse map event
+        event = LEGACY_EVENT_REVERSE.get(enhanced.event, "NE")
+
+        # Reverse map sensor
+        sensor_type = LEGACY_SENSOR_REVERSE.get(enhanced.sensor, "OP")
+
+        # Determine quality levels from tier
+        # Per Louis's documentation:
+        # H (high quality in enhanced) → N (dense, <10% low quality in legacy)
+        # S (standard quality) → S (mixed, 40-60% low quality)
+        # L (low quality in enhanced) → A (sparse, >90% low quality in legacy)
+        quality_level = enhanced.get_quality_level()  # H, S, L
+        quality_map = {"H": "N", "S": "S", "L": "A"}
+        quality_code = quality_map.get(quality_level, "S")
+
+        # Use same quality for all three metrics by default
+        orbit_coverage = quality_code
+        track_gap = quality_code
+        observation_count = quality_code
+
+        # Object count from quality level (separate mapping for H/S/L counts)
+        object_count = {"H": "H", "S": "S", "L": "L"}.get(quality_level, "S")
+
+        return cls(
+            object_type=object_type,
+            target_percentage=target_percentage,
+            orbital_regime=orbital_regime,
+            event=event,
+            sensor_type=sensor_type,
+            orbit_coverage=orbit_coverage,
+            track_gap=track_gap,
+            observation_count=observation_count,
+            object_count=object_count,
+            fitspan_days=enhanced.time_window_days,
+        )
+
+    def get_object_count_value(self) -> int:
+        """Get the numeric object count from the H/S/L code."""
+        return OBJECT_COUNT_MAP.get(self.object_count, 40)
+
+    def get_coverage_thresholds(self) -> Tuple[float, float]:
+        """Get (min, max) coverage thresholds from the A/S/N code."""
+        return QUALITY_LEVEL_THRESHOLDS["coverage"].get(self.orbit_coverage, (0.40, 0.60))
+
+    def get_track_gap_thresholds(self) -> Tuple[float, float]:
+        """Get (min, max) track gap thresholds from the A/S/N code."""
+        return QUALITY_LEVEL_THRESHOLDS["track_gap"].get(self.track_gap, (0.40, 0.60))
+
+    def get_obs_count_thresholds(self) -> Tuple[float, float]:
+        """Get (min, max) observation count thresholds from the A/S/N code."""
+        return QUALITY_LEVEL_THRESHOLDS["observation_count"].get(self.observation_count, (0.40, 0.60))
+
+    def get_downsample_config(self) -> Dict[str, float]:
+        """Get downsampling configuration based on coverage level."""
+        return LEGACY_COVERAGE_DOWNSAMPLE.get(self.orbit_coverage, LEGACY_COVERAGE_DOWNSAMPLE["S"])
+
+    def describe(self) -> str:
+        """Return a human-readable description of the dataset code."""
+        obj_desc = {
+            "H": "HAMR (High Area-to-Mass Ratio)",
+            "C": "Close physical proximity",
+            "A": "Apparent angular proximity",
+            "U": "Unspecified/Normal",
+            "N": "Calibration satellites",
+        }.get(self.object_type, "Unknown")
+
+        event_desc = {
+            "MB": "Maneuver between observations",
+            "BU": "Breakup event",
+            "LL": "Long-duration/Low-thrust",
+            "NE": "No events",
+        }.get(self.event, "Unknown")
+
+        sensor_desc = {
+            "OP": "Optical",
+            "RA": "Radar",
+            "RF": "RF",
+            "FU": "Fusion (multi-sensor)",
+            "OR": "Optical+Radar",
+            "RO": "Radar+Optical",
+            "RR": "Radar+RF",
+        }.get(self.sensor_type, "Unknown")
+
+        # Per Louis's documentation, A/S/N refer to % of objects with LOW quality:
+        # A = >90% objects have LOW quality (sparse dataset)
+        # S = 40-60% objects have LOW quality (mixed)
+        # N = <10% objects have LOW quality (dense/high-quality dataset)
+        coverage_desc = {
+            "A": "Sparse (>90% objects have low coverage)",
+            "S": "Mixed (40-60% objects have low coverage)",
+            "N": "Dense (<10% objects have low coverage)",
+        }
+        gap_desc = {
+            "A": "Sparse (>90% objects have long gaps)",
+            "S": "Mixed (40-60% objects have long gaps)",
+            "N": "Dense (<10% objects have long gaps)",
+        }
+        obs_desc = {
+            "A": "Sparse (>90% objects have few obs)",
+            "S": "Mixed (40-60% objects have few obs)",
+            "N": "Dense (<10% objects have few obs)",
+        }
+        count_desc = {"H": "80", "S": "40", "L": "10"}
+
+        return (
+            f"Dataset Code: {self.to_code()}\n"
+            f"  Object Type: {obj_desc}\n"
+            f"  Target %: {self.target_percentage}%\n"
+            f"  Regime: {self.orbital_regime}\n"
+            f"  Event: {event_desc}\n"
+            f"  Sensor: {sensor_desc}\n"
+            f"  Orbit Coverage: {coverage_desc.get(self.orbit_coverage, 'Unknown')}\n"
+            f"  Track Gap: {gap_desc.get(self.track_gap, 'Unknown')}\n"
+            f"  Obs Count: {obs_desc.get(self.observation_count, 'Unknown')}\n"
+            f"  Object Count: {count_desc.get(self.object_count, 'Unknown')}\n"
+            f"  Fitspan: {self.fitspan_days} days"
+        )
+
+
+def validate_legacy_code(code: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate a 16-character legacy dataset code.
+
+    Args:
+        code: 16-character dataset code string
 
     Returns:
         Tuple of (is_valid, error_message)
     """
+    if len(code) != 16:
+        return False, f"Code must be 16 characters, got {len(code)}"
+
+    errors = []
+
+    # Position 1: Object Type
+    if code[0] not in LEGACY_OBJECT_TYPE_MAP:
+        errors.append(f"Invalid object type '{code[0]}' at position 1. Valid: H, C, A, U, N")
+
+    # Position 2-3: Target Percentage
+    if code[1:3] not in LEGACY_TARGET_PERCENTAGE_VALUES:
+        errors.append(f"Invalid target percentage '{code[1:3]}' at positions 2-3. Valid: 50, 10, 01, UN")
+
+    # Position 4-6: Orbital Regime
+    if code[3:6] not in LEGACY_REGIME_VALUES:
+        errors.append(f"Invalid regime '{code[3:6]}' at positions 4-6. Valid: {', '.join(LEGACY_REGIME_VALUES)}")
+
+    # Position 7-8: Event
+    if code[6:8] not in LEGACY_EVENT_MAP:
+        errors.append(f"Invalid event '{code[6:8]}' at positions 7-8. Valid: MB, BU, LL, NE")
+
+    # Position 9-10: Sensor Type
+    if code[8:10] not in LEGACY_SENSOR_MAP:
+        errors.append(f"Invalid sensor '{code[8:10]}' at positions 9-10. Valid: OP, RA, RF, FU, OR, RO, RR")
+
+    # Position 11: Orbit Coverage
+    if code[10] not in LEGACY_QUALITY_LEVELS:
+        errors.append(f"Invalid orbit coverage '{code[10]}' at position 11. Valid: A, S, N")
+
+    # Position 12: Track Gap
+    if code[11] not in LEGACY_QUALITY_LEVELS:
+        errors.append(f"Invalid track gap '{code[11]}' at position 12. Valid: A, S, N")
+
+    # Position 13: Observation Count
+    if code[12] not in LEGACY_QUALITY_LEVELS:
+        errors.append(f"Invalid observation count '{code[12]}' at position 13. Valid: A, S, N")
+
+    # Position 14: Object Count
+    if code[13] not in ["H", "S", "L"]:
+        errors.append(f"Invalid object count '{code[13]}' at position 14. Valid: H, S, L")
+
+    # Position 15-16: Fitspan Days
     try:
-        parsed = EnhancedDatasetCode.from_code(code)
+        fitspan = int(code[14:16])
+        if not (LEGACY_FITSPAN_MIN <= fitspan <= LEGACY_FITSPAN_MAX):
+            errors.append(f"Fitspan {fitspan} out of range at positions 15-16. Valid: {LEGACY_FITSPAN_MIN:02d}-{LEGACY_FITSPAN_MAX:02d}")
+    except ValueError:
+        errors.append(f"Invalid fitspan '{code[14:16]}' at positions 15-16. Must be 2-digit number")
 
-        # Validate components
-        if parsed.object_type not in DATASET_CODE_COMPONENTS["object_types"]:
-            return False, f"Invalid object type: {parsed.object_type}"
+    if errors:
+        return False, "; ".join(errors)
 
-        if parsed.regime not in DATASET_CODE_COMPONENTS["regimes"]:
-            return False, f"Invalid regime: {parsed.regime}"
+    return True, None
 
-        if parsed.event not in DATASET_CODE_COMPONENTS["events"]:
-            return False, f"Invalid event: {parsed.event}"
 
-        if parsed.sensor not in DATASET_CODE_COMPONENTS["sensors"]:
-            return False, f"Invalid sensor: {parsed.sensor}"
+def detect_code_format(code: str) -> str:
+    """
+    Detect whether a code is in legacy (16-char) or enhanced (underscore) format.
 
-        if parsed.quality_tier not in DATASET_CODE_COMPONENTS["quality_tiers"]:
-            return False, f"Invalid quality tier: {parsed.quality_tier}"
+    Args:
+        code: Dataset code string
 
-        if not 1 <= parsed.time_window_days <= 99:
-            return False, f"Invalid time window: {parsed.time_window_days}"
+    Returns:
+        "legacy" or "enhanced" or "unknown"
+    """
+    if "_" in code:
+        return "enhanced"
+    elif len(code) == 16:
+        return "legacy"
+    else:
+        return "unknown"
 
-        return True, None
 
-    except ValueError as e:
-        return False, str(e)
+def parse_any_code(code: str) -> Union[LegacyDatasetCode, EnhancedDatasetCode]:
+    """
+    Parse a dataset code in either legacy or enhanced format.
+
+    Args:
+        code: Dataset code string (16-char legacy or underscore-separated enhanced)
+
+    Returns:
+        LegacyDatasetCode or EnhancedDatasetCode instance
+
+    Raises:
+        ValueError: If code cannot be parsed
+    """
+    format_type = detect_code_format(code)
+
+    if format_type == "legacy":
+        return LegacyDatasetCode.from_code(code)
+    elif format_type == "enhanced":
+        return EnhancedDatasetCode.from_code(code)
+    else:
+        raise ValueError(f"Cannot detect format of code: '{code}'")
+
+
+def validate_dataset_code(code: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate a dataset code string in either legacy or enhanced format.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    format_type = detect_code_format(code)
+
+    # Handle legacy 16-character format
+    if format_type == "legacy":
+        return validate_legacy_code(code)
+
+    # Handle enhanced underscore-separated format
+    if format_type == "enhanced":
+        try:
+            parsed = EnhancedDatasetCode.from_code(code)
+
+            # Validate components
+            if parsed.object_type not in DATASET_CODE_COMPONENTS["object_types"]:
+                return False, f"Invalid object type: {parsed.object_type}"
+
+            if parsed.regime not in DATASET_CODE_COMPONENTS["regimes"]:
+                return False, f"Invalid regime: {parsed.regime}"
+
+            if parsed.event not in DATASET_CODE_COMPONENTS["events"]:
+                return False, f"Invalid event: {parsed.event}"
+
+            if parsed.sensor not in DATASET_CODE_COMPONENTS["sensors"]:
+                return False, f"Invalid sensor: {parsed.sensor}"
+
+            if parsed.quality_tier not in DATASET_CODE_COMPONENTS["quality_tiers"]:
+                return False, f"Invalid quality tier: {parsed.quality_tier}"
+
+            if not 1 <= parsed.time_window_days <= 99:
+                return False, f"Invalid time window: {parsed.time_window_days}"
+
+            return True, None
+
+        except ValueError as e:
+            return False, str(e)
+
+    return False, f"Unknown code format: '{code}'. Expected 16-char legacy or underscore-separated enhanced format."
 
 
 # =============================================================================
@@ -349,7 +753,7 @@ def generate_config_hash(config: DatasetConfig) -> str:
 
 def generate_run_id() -> str:
     """Generate a unique run ID based on timestamp."""
-    return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 
 def generate_dataset_metadata(
@@ -371,7 +775,7 @@ def generate_dataset_metadata(
 
     metadata = {
         "run_id": run_id,
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat() + "Z",
         "config_hash": generate_config_hash(config),
         "dataset_code": config_to_dataset_code(config),
         "configuration": {

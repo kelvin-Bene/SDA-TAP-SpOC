@@ -33,6 +33,7 @@ Detailed documentation about the codebase and system architecture.
 - [Configuration](technical/CONFIGURATION.md) - System settings
 - [Evaluation Metrics](technical/EVALUATION_METRICS.md) - Scoring algorithms
 - [Validation Suite](technical/VALIDATION.md) - Testing framework
+- [Limitations](technical/LIMITATIONS.md) - Known constraints and workarounds
 - [Team Roles](technical/TEAM_ROLES.md) - Responsibilities breakdown
 
 ### User Guides
@@ -88,6 +89,7 @@ The project implements a tiered pipeline system:
 | T2 | Heavy Downsampling | Real data with significant gaps |
 | T3 | Observation Simulation | Fill gaps with simulated observations |
 | T4 | Object Simulation | Synthetic satellites (not implemented) |
+| T5 | Impossible | Criteria cannot be met - adjust parameters |
 
 ### Core Components
 
@@ -97,13 +99,14 @@ The project implements a tiered pipeline system:
 
 ## Current Status
 
-**Overall Progress: ~85%** *(Updated 2026-01-25)*
+**Overall Progress: ~90%** *(Updated 2026-01-31)*
 
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
 | Data Pipeline (T1-T3, Downsampling, Database) | Complete | 95% |
 | Web Platform (UI, Backend, API) | Complete | 90% |
+| Lewis Alignment (TIER_5, TrackTLE, Object Filters) | Complete | 90% |
 | Authentication | Not Started | 0% |
 
 See [Project Status](planning/PROJECT_STATUS.md) for detailed breakdown.

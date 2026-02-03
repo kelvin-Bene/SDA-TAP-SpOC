@@ -8,7 +8,7 @@ for long-running operations like dataset generation and evaluation.
 import threading
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -137,9 +137,9 @@ class JobManager:
             if status is not None:
                 job.status = status
                 if status == JobStatus.RUNNING and job.started_at is None:
-                    job.started_at = datetime.utcnow()
+                    job.started_at = datetime.now(timezone.utc)
                 elif status in (JobStatus.COMPLETED, JobStatus.FAILED):
-                    job.completed_at = datetime.utcnow()
+                    job.completed_at = datetime.now(timezone.utc)
 
             if progress is not None:
                 job.progress = min(100, max(0, progress))
@@ -210,7 +210,7 @@ class JobManager:
         """
         from datetime import timedelta
 
-        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
         removed = 0
 
         with self._lock:

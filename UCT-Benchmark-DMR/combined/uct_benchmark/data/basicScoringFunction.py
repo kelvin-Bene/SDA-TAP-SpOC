@@ -18,9 +18,84 @@ sys.path.insert(0, str((Path(__file__).resolve().parent.parent)))
 
 # Function to incorporate scoring logic
 
+from typing import Dict, Tuple, Optional
 import uct_benchmark.settings as config
 from uct_benchmark.simulation.orbitCoverage import orbitCoverage
 from uct_benchmark.simulation.propagator import orbit2OE
+
+
+def _evaluate_criterion(
+    low_count: int,
+    std_count: int,
+    target_type: str,
+    target_num_obj: int,
+    thresholds: Tuple[float, float, float],
+    enough_obj: bool,
+    high_count: Optional[int] = None,
+) -> Dict:
+    """
+    Evaluate a single criterion (coverage, gap, or obs count) for scoring.
+
+    This is a generic evaluator that handles the repeated pattern of:
+    - Checking if current ratios meet targets
+    - Determining if T2 (downsampling) or T3 (simulation) is needed
+    - Computing manipulation counts
+
+    Args:
+        low_count: Number of satellites/objects in "low" category
+        std_count: Number of satellites/objects in "standard" category
+        target_type: Target type character ('A' = All low, 'S' = Split, 'N' = None low)
+        target_num_obj: Target number of objects
+        thresholds: (high_percentage, std_percentage, low_percentage)
+        enough_obj: Whether there are enough objects available
+        high_count: Optional count for "high" category (for obs count analysis)
+
+    Returns:
+        Dict with keys:
+            - is_good: bool - Whether criterion is already satisfied
+            - T2: bool - Whether T2 (downsampling) is needed
+            - T3: bool - Whether T3 (simulation) is needed
+            - dwn_count: Optional manipulation count for downsampling
+            - sim_count: Optional manipulation count for simulation
+    """
+    high_pct, std_pct, low_pct = thresholds
+
+    low_ratio = low_count / target_num_obj if target_num_obj > 0 else 0
+    std_ratio = std_count / target_num_obj if target_num_obj > 0 else 0
+
+    result = {
+        "is_good": False,
+        "T2": False,
+        "T3": False,
+        "dwn_count": None,
+        "sim_count": None,
+    }
+
+    if target_type == "A":  # "All" in the low/desirable category
+        result["is_good"] = (low_ratio > high_pct) and (std_ratio > (1 - low_ratio))
+        if not result["is_good"]:
+            result["T2"] = (low_ratio > high_pct) and enough_obj
+            if result["T2"]:
+                result["dwn_count"] = target_num_obj * high_pct - low_count
+
+    elif target_type == "S":  # Split between low and standard
+        result["is_good"] = (low_ratio > std_pct) and (std_ratio > std_pct)
+        if not result["is_good"]:
+            result["T2"] = (low_ratio < std_pct) and enough_obj
+            if result["T2"]:
+                result["dwn_count"] = target_num_obj * std_pct - low_count
+            result["T3"] = (std_ratio < std_pct) and enough_obj
+            if result["T3"]:
+                result["sim_count"] = target_num_obj * std_pct - std_count
+
+    elif target_type == "N":  # "None" in the low category (all standard)
+        result["is_good"] = (low_ratio < (1 - std_ratio)) and (std_ratio > (1 - low_pct))
+        if not result["is_good"]:
+            result["T3"] = (std_ratio < (1 - low_pct)) and enough_obj
+            if result["T3"]:
+                result["sim_count"] = target_num_obj * high_pct - std_count
+
+    return result
 
 
 def basicScoring(datasetCode, allObs, satData):
@@ -219,7 +294,7 @@ def basicScoring(datasetCode, allObs, satData):
         targetNumObj = 1
 
     # Initialize scoring flags
-    T1 = T2covg = T2Gap = T2Obs = T3covg = T3Gap = T3Obs = T4 = False
+    T4 = False
     # Initialize data manipulation Counts
     dwnGap = simGap = dwnCovg = simCovg = dwnObsLow = dwnObsStd = simObs = None
 
@@ -228,65 +303,28 @@ def basicScoring(datasetCode, allObs, satData):
     if not enoughObj:
         T4 = True
 
-    # === Orbital Coverage Analysis ===
-    lowRatio = numLowCovg / targetNumObj
-    stdRatio = numStdCovg / targetNumObj
+    # Threshold tuple for evaluator
+    thresholds = (highPercentage, stdPercentage, lowPercentage)
 
-    if targetOrbitCoverage == "A":  # "All" low coverage
-        covgGood = (lowRatio > highPercentage) and (stdRatio > (1 - lowRatio))
-        if not covgGood:
-            T2covg = (lowRatio > highPercentage) and enoughObj
-            if T2covg:
-                dwnCovg = targetNumObj * highPercentage - numLowCovg
+    # === Orbital Coverage Analysis (using generic evaluator) ===
+    covg_eval = _evaluate_criterion(
+        numLowCovg, numStdCovg, targetOrbitCoverage, targetNumObj, thresholds, enoughObj
+    )
+    covgGood = covg_eval["is_good"]
+    T2covg = covg_eval["T2"]
+    T3covg = covg_eval["T3"]
+    dwnCovg = covg_eval["dwn_count"]
+    simCovg = covg_eval["sim_count"]
 
-    elif targetOrbitCoverage == "S":  # Split coverage
-        covgGood = (lowRatio > stdPercentage) and (stdRatio > stdPercentage)
-        if not covgGood:
-            T2covg = (lowRatio < stdPercentage) and enoughObj
-            if T2covg:
-                dwnCovg = targetNumObj * stdPercentage - numLowCovg
-            T3covg = (stdRatio < stdPercentage) and enoughObj
-            if T3covg:
-                simCovg = targetNumObj * stdPercentage - numStdCovg
-
-    elif targetOrbitCoverage == "N":  # "None" low coverage
-        covgGood = (lowRatio < (1 - stdRatio)) and (stdRatio > (1 - lowPercentage))
-        if not covgGood:
-            T3covg = (stdRatio < (1 - lowPercentage)) and enoughObj
-            if T3covg:
-                simCovg = targetNumObj * highPercentage - numStdCovg
-    else:
-        print("Target Coverage Character is not valid")
-
-    # === Track Gap Analysis ===
-    longRatio = numLongGap / targetNumObj
-    stdRatio = numStdGap / targetNumObj
-
-    if targetTrackGap == "A":
-        gapGood = (longRatio > highPercentage) and (stdRatio < (1 - longRatio))
-        if not gapGood:
-            T2Gap = (longRatio < highPercentage) and enoughObj
-            if T2Gap:
-                dwnGap = targetNumObj * highPercentage - numLongGap
-
-    elif targetTrackGap == "S":
-        gapGood = (longRatio > stdPercentage) and (stdRatio > stdPercentage)
-        if not gapGood:
-            T2Gap = (longRatio < stdPercentage) and enoughObj
-            if T2Gap:
-                dwnGap = targetNumObj * stdPercentage - numLongGap
-            T3Gap = (stdRatio < stdPercentage) and enoughObj
-            if T3Gap:
-                simGap = targetNumObj * stdPercentage - numStdGap
-
-    elif targetTrackGap == "N":
-        gapGood = (stdRatio > (1 - lowPercentage)) and (longRatio > (1 - stdRatio))
-        if not gapGood:
-            T3Gap = (stdRatio < (1 - lowPercentage)) and enoughObj
-            if T3Gap:
-                simGap = targetNumObj * highPercentage - numStdGap
-    else:
-        print("Target track gap Character is not valid")
+    # === Track Gap Analysis (using generic evaluator) ===
+    gap_eval = _evaluate_criterion(
+        numLongGap, numStdGap, targetTrackGap, targetNumObj, thresholds, enoughObj
+    )
+    gapGood = gap_eval["is_good"]
+    T2Gap = gap_eval["T2"]
+    T3Gap = gap_eval["T3"]
+    dwnGap = gap_eval["dwn_count"]
+    simGap = gap_eval["sim_count"]
 
     # === Observation Count Analysis === #
     lowRatio = numLowObs / targetNumObj
@@ -329,6 +367,8 @@ def basicScoring(datasetCode, allObs, satData):
         print("Target Obs count Character is not valid")
 
     # === Determine Which Flag to Return ===
+    # T1 is true when all criteria are good (no manipulation needed)
+    T1 = covgGood and gapGood and countGood
     flags = {"T1": T1, "T2": T2covg or T2Gap or T2Obs, "T3": T3covg or T3Gap or T3Obs, "T4": T4}
 
     true_flag = next((k for k, v in flags.items() if v), "T1")

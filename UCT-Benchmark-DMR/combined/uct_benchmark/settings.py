@@ -82,6 +82,95 @@ semiMajorAxis_GEO = 42164  # GEO is greater than or equal to this
 # Define highly eccentric orbit (HEO) threshold
 eccentricity_HEO = 0.7  # a HEO object has eccentricity greater than or equal to this value
 
+# =============================================================================
+# OBJECT TYPE FILTERING THRESHOLDS (per Louis's Documentation)
+# =============================================================================
+
+# High Area-to-Mass Ratio (HAMR) threshold
+# Objects with A/M ratio above this are considered HAMR
+# Per Louis's documentation: HAMR objects have A/M > 0.1 m²/kg
+HAMR_THRESHOLD = 0.1  # m^2/kg - objects above this are HAMR (per Louis's spec)
+
+# =============================================================================
+# ORBITAL COVERAGE THRESHOLDS (per Louis's Benchmarking Documentation)
+# =============================================================================
+# These thresholds define what is considered "LOW" orbital coverage for each regime
+# Calculated using convex polygon on circumscribed circle approach
+# Values represent fraction of orbit covered (not percentage)
+
+COVERAGE_THRESHOLDS = {
+    "LEO": 0.000213,   # < 0.0213% orbital arc is LOW coverage (as fraction)
+    "MEO": 0.000449,   # < 0.0449% orbital arc is LOW coverage (as fraction)
+    "GEO": 0.41656,    # < 41.656% orbital arc is LOW coverage (as fraction)
+}
+
+# =============================================================================
+# TRACK GAP THRESHOLDS (per Louis's Documentation)
+# =============================================================================
+# "Long" track gap = gap > 2 orbital periods between tracks
+
+TRACK_GAP_LONG_MULTIPLIER = 2.0  # "Long" = > 2 orbital periods
+
+# =============================================================================
+# OBSERVATION COUNT THRESHOLDS (per Louis's Documentation)
+# =============================================================================
+# Thresholds for observation count per 3-day span
+
+OBS_COUNT_LOW_THRESHOLD = 50     # < 50 observations per 3 days = "Low"
+OBS_COUNT_STANDARD_MIN = 50      # 50-150 observations per 3 days = "Standard"
+OBS_COUNT_STANDARD_MAX = 150
+
+# =============================================================================
+# A/S/N QUALITY RANGES (per Louis's Specification)
+# =============================================================================
+# A/S/N refers to percentage of objects that have LOW quality metrics
+# A (All/sparse): >90% of objects have LOW quality (sparse/hard dataset)
+# S (Standard): 40-60% of objects have LOW quality (mixed dataset)
+# N (None/dense): <10% of objects have LOW quality (dense/easy dataset)
+
+QUALITY_RANGES = {
+    'A': {'min_pct': 0.90, 'max_pct': 1.0},   # >90% have LOW quality (sparse)
+    'S': {'min_pct': 0.40, 'max_pct': 0.60},  # 40-60% have LOW quality (mixed)
+    'N': {'min_pct': 0.0, 'max_pct': 0.10},   # <10% have LOW quality (dense)
+}
+
+# =============================================================================
+# TRUE NEGATIVES CONFIGURATION (per Louis's Documentation)
+# =============================================================================
+# Non-reference observations should have exactly 2 observations per satellite
+# This makes IOD impossible (need minimum 3) so algorithm should NOT match them
+
+NON_REF_OBS_PER_SATELLITE = 2  # Exactly 2 (impossible for IOD)
+
+# =============================================================================
+# ESA DISCOSWEB CONFIGURATION
+# =============================================================================
+import os
+ESA_DISCOS_API_TOKEN = os.getenv("ESA_DISCOS_API_TOKEN", "")
+ESA_DISCOS_API_URL = "https://discosweb.esoc.esa.int/api"
+
+# Close Proximity threshold
+# Angular separation below which objects are considered "close apparent position"
+PROXIMITY_ANGULAR_THRESHOLD_DEG = 0.5  # degrees - ~30 arcminutes
+# Physical proximity threshold for actual close approach
+PROXIMITY_DISTANCE_THRESHOLD_KM = 100.0  # km - objects within this distance
+# Velocity difference threshold for Close (C) object type per Louis's spec
+PROXIMITY_VELOCITY_THRESHOLD_M_S = 100.0  # m/s - relative velocity difference
+
+# Calibration satellites (well-known objects with good observations)
+# These are satellites with well-determined orbits used for verification
+CALIBRATION_SATELLITES = satIDs  # Uses the existing satIDs list
+
+# Object type codes for dataset generation
+OBJECT_TYPE_CODES = {
+    "HAMR": "High Area-to-Mass Ratio objects",
+    "PROX": "Close proximity objects",
+    "CALIB": "Calibration satellites",
+    "NORM": "Normal satellites",
+    "DEBR": "Debris objects",
+    "ALL": "All object types",
+}
+
 # percentage thresholds for what is high (A), standard (S), and low (N) percentage for orbital coverage, observation count, and track gap
 # lower, target, and upper bounds in ascending order
 # (set arbitrarily) #
@@ -94,7 +183,7 @@ lowPercentage = (0.0, 0.05, 0.1)
 # Determined from taking bottom 25 percentile of orbit coverage from real observation data over a 10 day window
 lowCoverage_LEO = 0.0213
 lowCoverage_MEO = 0.0449
-lowCoverage_GEO = 41.656
+lowCoverage_GEO = 0.41656  # 41.656% as fraction (to match LEO/MEO scale)
 # orbital coverage below which is too small to include in datasets
 # (set arbitrarily, arbitrarily assumed to be the same for all regimes) #
 tooLowtoInclude = 0.001
@@ -123,7 +212,8 @@ batchSizeDecayRate = 0.01
 slide_resolution = 0.1
 
 # Create target thresholds list of arbitrary length for dataset checking of a specific iteration
-thresholds = ["T1", "T2", "T2", "T3", "T3", "T3", "T4", "T4", "T4", "T4"]
+# Per Louis's spec: T5 = "Impossible" (criteria cannot be met)
+thresholds = ["T1", "T2", "T2", "T3", "T3", "T3", "T4", "T4", "T4", "T4", "T5"]
 
 ## --- Propagator Model --- ##
 #  Define default parameters for solar radiation pressure and atmospheric drag
@@ -554,6 +644,120 @@ class DatasetMetrics:
     tier_distribution: Dict[str, int] = field(default_factory=dict)
     coverage_stats: Dict[str, float] = field(default_factory=dict)
     gap_stats: Dict[str, float] = field(default_factory=dict)
+
+
+# =============================================================================
+# LEGACY 16-CHARACTER DATASET CODE MAPPINGS (Louis's Documentation)
+# =============================================================================
+
+# Legacy Object Type mapping (Position 1: 1 character)
+# H=HAMR, C=Close, A=Apparent, U=Unspecified, N=Calibration
+LEGACY_OBJECT_TYPE_MAP = {
+    "H": "HAMR",   # High Area-to-Mass Ratio
+    "C": "PROX",   # Close physical proximity
+    "A": "APRX",   # Apparent (angular) proximity
+    "U": "NORM",   # Unspecified/Normal
+    "N": "CALIB",  # Calibration satellites
+}
+LEGACY_OBJECT_TYPE_REVERSE = {v: k for k, v in LEGACY_OBJECT_TYPE_MAP.items()}
+
+# Legacy Target Percentage (Positions 2-3: 2 characters)
+# Percentage of target objects in the dataset
+LEGACY_TARGET_PERCENTAGE_VALUES = ["50", "10", "01", "UN"]
+
+# Legacy Orbital Regime (Positions 4-6: 3 characters)
+LEGACY_REGIME_VALUES = [
+    "LEO", "MEO", "GEO", "HEO", "ALL",
+    "LMO",  # LEO + MEO
+    "LMG",  # LEO + MEO + GEO
+    "MGH",  # MEO + GEO + HEO
+]
+
+# Legacy Event Type mapping (Positions 7-8: 2 characters)
+# MB=Maneuver Between, BU=Breakup, LL=Long Low-thrust, NE=No Events
+LEGACY_EVENT_MAP = {
+    "MB": "MAN",  # Maneuver between observations
+    "BU": "BRK",  # Breakup event
+    "LL": "LLT",  # Long-duration/Low-thrust maneuver
+    "NE": "NRM",  # No events (normal)
+}
+LEGACY_EVENT_REVERSE = {v: k for k, v in LEGACY_EVENT_MAP.items()}
+
+# Legacy Sensor Type mapping (Positions 9-10: 2 characters)
+# OP=Optical, RA=Radar, RF=RF, FU=Fusion, OR=Optical+Radar, RO=Radar+Optical, RR=Radar+RF
+LEGACY_SENSOR_MAP = {
+    "OP": "EO",     # Optical only
+    "RA": "RA",     # Radar only
+    "RF": "RF",     # RF only
+    "FU": "MX",     # Fusion (all sensors)
+    "OR": "EO_RA",  # Optical primary, radar secondary
+    "RO": "RA_EO",  # Radar primary, optical secondary
+    "RR": "RA_RF",  # Radar + RF
+}
+LEGACY_SENSOR_REVERSE = {v: k for k, v in LEGACY_SENSOR_MAP.items()}
+
+# Legacy Quality Level values (Positions 11-13: A/S/N each)
+# Per Louis's Benchmarking Documentation, A/S/N refer to percentage of objects with LOW quality:
+# A (Advanced): 0-33% of objects have LOW quality metrics (high-quality/easy dataset)
+# S (Standard): 34-66% of objects have LOW quality metrics (mixed/medium dataset)
+# N (Novice): 67-100% of objects have LOW quality metrics (challenging/hard dataset)
+LEGACY_QUALITY_LEVELS = ["A", "S", "N"]
+
+# Quality level thresholds for coverage, track gap, and observation count
+# Maps A/S/N to (min, max) percentage of OBJECTS that should have LOW quality
+# Per Louis's documentation - CORRECT semantics:
+# A = All/sparse = >90% of objects have LOW quality (harder dataset for algorithms)
+# S = Standard = 40-60% of objects have LOW quality (mixed dataset)
+# N = None/dense = <10% of objects have LOW quality (easier dataset for algorithms)
+QUALITY_LEVEL_THRESHOLDS = {
+    "coverage": {
+        "A": (0.90, 1.00),   # >90% of objects have LOW coverage (sparse dataset)
+        "S": (0.40, 0.60),   # 40-60% of objects have LOW coverage (mixed)
+        "N": (0.00, 0.10),   # <10% of objects have LOW coverage (dense dataset)
+    },
+    "track_gap": {
+        "A": (0.90, 1.00),   # >90% of objects have LONG track gaps (sparse)
+        "S": (0.40, 0.60),   # 40-60% of objects have LONG track gaps (mixed)
+        "N": (0.00, 0.10),   # <10% of objects have LONG track gaps (dense)
+    },
+    "observation_count": {
+        "A": (0.90, 1.00),   # >90% of objects have LOW obs count (sparse)
+        "S": (0.40, 0.60),   # 40-60% of objects have LOW obs count (mixed)
+        "N": (0.00, 0.10),   # <10% of objects have LOW obs count (dense)
+    },
+}
+
+# Legacy Object Count mapping (Position 14: 1 character)
+# H=High (80), S=Standard (40), L=Low (10)
+OBJECT_COUNT_MAP = {
+    "H": highObjectCount,      # 80 objects
+    "S": standardObjectCount,  # 40 objects
+    "L": lowObjectCount,       # 10 objects
+}
+OBJECT_COUNT_REVERSE = {v: k for k, v in OBJECT_COUNT_MAP.items()}
+
+# Fitspan range (Positions 15-16: 2 digits, 01-14 days)
+LEGACY_FITSPAN_MIN = 1
+LEGACY_FITSPAN_MAX = 14
+
+# Downsampling configuration based on coverage level (A/S/N)
+# Per Louis's documentation:
+# A = want most objects to have LOW coverage → aggressive downsampling (remove more data)
+# N = want few objects to have LOW coverage → minimal downsampling (keep more data)
+LEGACY_COVERAGE_DOWNSAMPLE = {
+    "A": {  # Most objects should have LOW coverage → aggressive downsampling
+        "target_coverage": 0.02,
+        "coverage_tolerance": 0.01,
+    },
+    "S": {  # Mixed coverage → moderate downsampling
+        "target_coverage": 0.05,
+        "coverage_tolerance": 0.02,
+    },
+    "N": {  # Few objects should have LOW coverage → minimal downsampling (keep more data)
+        "target_coverage": 0.15,
+        "coverage_tolerance": 0.05,
+    },
+}
 
 
 # Default configuration instances

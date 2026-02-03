@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -170,7 +170,21 @@ DATASETS_TABLE = """
 CREATE TABLE IF NOT EXISTS datasets (
     id INTEGER PRIMARY KEY DEFAULT nextval('datasets_id_seq'),
     name VARCHAR(100) NOT NULL UNIQUE,
-    code VARCHAR(20),                     -- e.g., "LEO_A_H_H_H"
+    code VARCHAR(20),                     -- Enhanced format: "HAMR_LEO_MAN_EO_T2S_07D_001"
+
+    -- Legacy 16-character code format (Louis's specification)
+    legacy_code VARCHAR(16),              -- e.g., "H50LEONEOPSSSS07"
+
+    -- Legacy code component fields (for querying/filtering)
+    object_type_code CHAR(1),             -- H, C, A, U, N (HAMR, Close, Apparent, Unspecified, Calibration)
+    target_percentage VARCHAR(2),         -- 50, 10, 01, UN
+    event_code VARCHAR(2),                -- MB, BU, LL, NE (Maneuver, Breakup, LongThrust, NoEvents)
+    sensor_code VARCHAR(2),               -- OP, RA, RF, FU, OR, RO, RR
+    coverage_level CHAR(1),               -- A, S, N (All/High, Standard, None/Low)
+    track_gap_level CHAR(1),              -- A, S, N
+    obs_count_level CHAR(1),              -- A, S, N
+    object_count_level CHAR(1),           -- H, S, L (High=80, Standard=40, Low=10)
+    fitspan_days INTEGER,                 -- 01-14 days
 
     -- Version tracking
     version INTEGER DEFAULT 1,
@@ -198,6 +212,13 @@ CREATE TABLE IF NOT EXISTS datasets (
     downsampling_config JSON,              -- Stores downsampling parameters used
     simulation_config JSON,                -- Stores simulation parameters used
 
+    -- Non-reference observation tracking (for True Negative calculation)
+    non_ref_observation_count INTEGER DEFAULT 0,
+    include_non_ref_obs BOOLEAN DEFAULT FALSE,
+
+    -- Answer key for evaluation (maps observation IDs to satellite NORAD IDs)
+    answer_key JSON,                        -- Per Louis's decorrelation spec
+
     -- Parameters used (JSON blob)
     generation_params JSON,
 
@@ -212,6 +233,17 @@ CREATE TABLE IF NOT EXISTS datasets (
     json_path VARCHAR(500),
     parquet_path VARCHAR(500)
 );
+"""
+
+DATASETS_LEGACY_INDEXES = """
+-- Index on legacy code for fast lookups
+CREATE INDEX IF NOT EXISTS idx_datasets_legacy_code ON datasets(legacy_code);
+
+-- Index on legacy code components for filtering
+CREATE INDEX IF NOT EXISTS idx_datasets_object_type ON datasets(object_type_code);
+CREATE INDEX IF NOT EXISTS idx_datasets_regime ON datasets(orbital_regime);
+CREATE INDEX IF NOT EXISTS idx_datasets_event ON datasets(event_code);
+CREATE INDEX IF NOT EXISTS idx_datasets_sensor ON datasets(sensor_code);
 """
 
 DATASET_OBSERVATIONS_TABLE = """
@@ -286,11 +318,14 @@ CREATE TABLE IF NOT EXISTS submission_results (
 
     -- Binary metrics
     true_positives INTEGER DEFAULT 0,
+    true_negatives INTEGER DEFAULT 0,     -- Non-ref obs correctly NOT matched
     false_positives INTEGER DEFAULT 0,
     false_negatives INTEGER DEFAULT 0,
     precision DECIMAL(10,6) DEFAULT 0,
     recall DECIMAL(10,6) DEFAULT 0,
     f1_score DECIMAL(10,6) DEFAULT 0,
+    specificity DECIMAL(10,6) DEFAULT 0,  -- TN/(TN+FP)
+    accuracy DECIMAL(10,6) DEFAULT 0,     -- (TP+TN)/(TP+TN+FP+FN)
 
     -- State metrics
     position_rms_km DECIMAL(12,6),
@@ -394,6 +429,62 @@ CREATE TABLE IF NOT EXISTS event_observations (
 """
 
 # ============================================================
+# NON-REFERENCE OBSERVATIONS (For True Negative Calculation)
+# ============================================================
+
+NON_REF_OBSERVATIONS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS non_ref_observations_id_seq;
+"""
+
+NON_REF_OBSERVATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS non_reference_observations (
+    id INTEGER PRIMARY KEY DEFAULT nextval('non_ref_observations_id_seq'),
+    dataset_id INTEGER,                   -- References datasets(id)
+    observation_id VARCHAR(64) NOT NULL,
+    sensor_id VARCHAR(32),
+    obs_time TIMESTAMP NOT NULL,
+    ra_deg DECIMAL(12,8),
+    dec_deg DECIMAL(12,8),
+    source_norad_id INTEGER NOT NULL,     -- The actual satellite (for ground truth)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+NON_REF_OBSERVATIONS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_non_ref_obs_dataset ON non_reference_observations(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_non_ref_obs_norad ON non_reference_observations(source_norad_id);
+"""
+
+# ============================================================
+# BREAKUP EVENTS CACHE (For BU Event Detection)
+# ============================================================
+
+BREAKUP_EVENTS_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS breakup_events_id_seq;
+"""
+
+BREAKUP_EVENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS breakup_events (
+    id INTEGER PRIMARY KEY DEFAULT nextval('breakup_events_id_seq'),
+    parent_norad_id INTEGER NOT NULL,
+    parent_name VARCHAR(100),
+    event_date TIMESTAMP NOT NULL,
+    debris_count INTEGER DEFAULT 0,
+    debris_norad_ids JSON,                -- Array of NORAD IDs
+    event_type VARCHAR(50),               -- FRAGMENTATION, COLLISION, ANOMALY
+    source VARCHAR(20) NOT NULL,          -- SPACETRACK, CELESTRAK
+    cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(parent_norad_id, event_date, source)
+);
+"""
+
+BREAKUP_EVENTS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_breakup_events_date ON breakup_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_breakup_events_parent ON breakup_events(parent_norad_id);
+"""
+
+# ============================================================
 # SCHEMA VERSION TRACKING
 # ============================================================
 
@@ -462,6 +553,8 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(EVENTS_SEQUENCE)
     db.execute(SUBMISSIONS_SEQUENCE)
     db.execute(SUBMISSION_RESULTS_SEQUENCE)
+    db.execute(NON_REF_OBSERVATIONS_SEQUENCE)
+    db.execute(BREAKUP_EVENTS_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
@@ -473,6 +566,7 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(ELEMENT_SETS_TABLE)
     db.execute(ELEMENT_SETS_INDEXES)
     db.execute(DATASETS_TABLE)
+    db.execute(DATASETS_LEGACY_INDEXES)
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(DATASET_REFERENCES_TABLE)
@@ -491,6 +585,14 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(EVENT_TYPES_TABLE)
     db.execute(EVENTS_TABLE)
     db.execute(EVENT_OBSERVATIONS_TABLE)
+
+    # Non-reference observations table (for True Negatives)
+    db.execute(NON_REF_OBSERVATIONS_TABLE)
+    db.execute(NON_REF_OBSERVATIONS_INDEXES)
+
+    # Breakup events cache table
+    db.execute(BREAKUP_EVENTS_TABLE)
+    db.execute(BREAKUP_EVENTS_INDEXES)
 
     # Seed default event types
     _seed_event_types(db)
@@ -531,6 +633,8 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(EVENTS_SEQUENCE)
     db.execute(SUBMISSIONS_SEQUENCE)
     db.execute(SUBMISSION_RESULTS_SEQUENCE)
+    db.execute(NON_REF_OBSERVATIONS_SEQUENCE)
+    db.execute(BREAKUP_EVENTS_SEQUENCE)
 
     # Create tables (JSON -> JSONB for PostgreSQL)
     def convert_json_to_jsonb(sql: str) -> str:
@@ -545,6 +649,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(ELEMENT_SETS_TABLE)
     db.execute(ELEMENT_SETS_INDEXES)
     db.execute(convert_json_to_jsonb(DATASETS_TABLE))
+    db.execute(DATASETS_LEGACY_INDEXES)
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(convert_json_to_jsonb(DATASET_REFERENCES_TABLE))
@@ -564,6 +669,14 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(EVENTS_TABLE)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
+    # Non-reference observations table (for True Negatives)
+    db.execute(NON_REF_OBSERVATIONS_TABLE)
+    db.execute(NON_REF_OBSERVATIONS_INDEXES)
+
+    # Breakup events cache table
+    db.execute(convert_json_to_jsonb(BREAKUP_EVENTS_TABLE))
+    db.execute(BREAKUP_EVENTS_INDEXES)
+
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
 
@@ -581,6 +694,8 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
+        "breakup_events",
+        "non_reference_observations",
         "event_observations",
         "events",
         "event_types",
@@ -607,6 +722,8 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "events_id_seq",
         "submissions_id_seq",
         "submission_results_id_seq",
+        "non_ref_observations_id_seq",
+        "breakup_events_id_seq",
     ]
     for seq in sequences:
         db.execute(f"DROP SEQUENCE IF EXISTS {seq}")
@@ -666,6 +783,8 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "event_types",
         "events",
         "event_observations",
+        "non_reference_observations",
+        "breakup_events",
         "_schema_metadata",
     ]
 

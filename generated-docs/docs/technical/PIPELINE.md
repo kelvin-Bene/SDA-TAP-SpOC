@@ -84,13 +84,34 @@ Intelligent window selection algorithm:
 5. **Exponential Decay**: If threshold not met, expand search with decaying batch sizes
 
 ```python
-# Threshold Tiers
-T1 = 4  # May require downsampling (best)
-T2 = 3  # Requires downsampling
-T3 = 2  # Requires observation simulation
-T4 = 1  # Requires object simulation
-T5 = 0  # Impossible (worst)
+# Window Quality Tiers (per Lewis's specification)
+T1 = 4  # Optimal: All criteria met, no manipulation needed
+T2 = 3  # Excess: Too much data, requires downsampling
+T3 = 2  # Insufficient: Not enough data, requires simulation
+T4 = 1  # Poor: Criteria partially met, may need simulation
+T5 = 0  # Impossible: Criteria can never be met
 ```
+
+### TIER_5 Detection Conditions
+
+TIER_5 ("Impossible") is assigned by the `_is_criteria_impossible()` function when:
+
+1. **No objects exist** in the entire search space (`object_count == 0`)
+2. **Requested more objects than exist** in catalog (`min_objects > max_available_objects`)
+3. **Data window far below required fit span** (`duration_days < 10% of fit_span_days`)
+4. **All satellites have zero orbital coverage** (`avg_coverage == 0`)
+
+When TIER_5 is detected:
+- `result.tier = WindowTier.TIER_5`
+- `result.needs_simulation = False` (can't simulate impossible criteria)
+- `result.recommended_action = "criteria_impossible"`
+
+**User Action for TIER_5**: Adjust dataset parameters:
+- Increase time window (fitspan)
+- Select different orbital regime
+- Lower object count requirement
+- Use "UN" for target percentage
+- Switch to "NE" (No Events)
 
 ### Step 5: Scoring
 **File**: `uct_benchmark/data/basicScoringFunction.py` → `basicScoring()`
