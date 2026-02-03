@@ -84,16 +84,28 @@ class PostgresAdapter(DatabaseAdapter):
         # Parse query params for SSL mode
         query_params = parse_qs(parsed.query)
         self._ssl_context = None
-        if "sslmode" in query_params:
-            sslmode = query_params["sslmode"][0]
-            if sslmode in ("require", "verify-ca", "verify-full"):
-                import ssl
-                self._ssl_context = ssl.create_default_context()
-                self._ssl_context.check_hostname = False
-                self._ssl_context.verify_mode = ssl.CERT_NONE
+
+        # Determine if SSL should be used
+        # For remote hosts (especially Supabase), default to SSL
+        is_remote = self._host not in ("localhost", "127.0.0.1", "::1")
+        sslmode = query_params.get("sslmode", ["require" if is_remote else "disable"])[0]
+
+        if sslmode in ("require", "verify-ca", "verify-full", "prefer"):
+            import ssl
+            self._ssl_context = ssl.create_default_context()
+            # Supabase pooler uses a certificate that may not validate normally
+            # Disable hostname check and cert verification for compatibility
+            self._ssl_context.check_hostname = False
+            self._ssl_context.verify_mode = ssl.CERT_NONE
 
     def _create_connection(self) -> pg8000.Connection:
         """Create a new database connection."""
+        import socket as sock_module
+
+        # Set a global socket timeout for read/write operations
+        # This prevents timeouts during long-running queries with Supabase
+        sock_module.setdefaulttimeout(60)  # 60 second timeout for all socket operations
+
         kwargs = {
             "host": self._host,
             "port": self._port,

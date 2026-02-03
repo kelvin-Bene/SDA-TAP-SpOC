@@ -1,0 +1,1653 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Unified Data Library Services API",
+    "version": "1.37.0 Alexander",
+    "description": "Unified Data Library Services OpenAPI v3 documentation.",
+    "termsOfService": "storefront/storefront/appConfig/useragreement.html",
+    "contact": {
+      "name": "Cameron M. Kopec, 1st Lt, USSF, UDL Program Manager",
+      "email": "unifieddatalibrary@bluestaq.com"
+    }
+  },
+  "tags": [
+    {
+      "name": "AIS",
+      "description": "These services provide for posting and querying of self-reported information obtained from the Automatic Identification System (AIS) equipment. This contains information such as unique identification, status, position, course, and speed. The AIS is an automatic tracking system that uses transceivers on ships and is used by vessel traffic services. Although technically and operationally distinct, the AIS system is analogous to ADS-B which performs a similar function for aircraft. AIS is intended to assist a vessel's watchstanding officers and allow maritime authorities to track and monitor vessel movements. AIS integrates a standardized VHF transceiver with a positioning system, such as Global Positioning System receiver, with other electronic navigation sensors, such as gyrocompass or rate of turn indicator. Vessels fitted with AIS transceivers can be tracked by AIS base stations located along coastlines or, when out of range of terrestrial networks, through a growing number of satellites that are fitted with special AIS receivers that are capable of deconflicting a large number of signatures."
+    }
+  ],
+  "externalDocs": {
+    "url": "udl/openapi.json"
+  },
+  "servers": [
+    {
+      "url": "https://unifieddatalibrary.com"
+    }
+  ],
+  "paths": {
+    "/filedrop/udl-ais": {
+      "post": {
+        "tags": [
+          "AIS"
+        ],
+        "description": "Service operation to take multiple AIS objects as a POST body and ingest into the database. This operation is intended to be used for automated feeds into UDL. A specific role is required to perform this service operation. Please contact the UDL team for assistance.\n",
+        "operationId": "filedrop_udl_ais_post_id",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AIS_Ingest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "429": {
+            "description": "Rate Limit Exceeded"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/udl/ais": {
+      "get": {
+        "description": "Service operation to dynamically query data by a variety of query parameters not specified in this API documentation. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid/required query parameter information.",
+        "tags": [
+          "AIS"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AIS_Abridged"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "ts",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format. (YYYY-MM-DDTHH:MM:SS.ssssssZ)",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ]
+      }
+    },
+    "/udl/ais/count": {
+      "get": {
+        "description": "Service operation to return the count of records satisfying the specified query parameters. This operation is useful to determine how many records pass a particular query criteria without retrieving large amounts of data. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid/required query parameter information.",
+        "tags": [
+          "AIS"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "ts",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format. (YYYY-MM-DDTHH:MM:SS.ssssssZ)",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ]
+      }
+    },
+    "/udl/ais/createBulk": {
+      "post": {
+        "description": "Service operation intended for initial integration only, to take a list of AIS records as a POST body and ingest into the database. This operation is not intended to be used for automated feeds into UDL. Data providers should contact the UDL team for specific role assignments and for instructions on setting up a permanent feed through an alternate mechanism.",
+        "tags": [
+          "AIS"
+        ],
+        "requestBody": {
+          "description": "JSON representation of multiple UDL AIS.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AIS_Ingest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "415": {
+            "description": "MediaType Unsupported"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/udl/ais/history": {
+      "get": {
+        "description": "Service operation to dynamically query historical data by a variety of query parameters not specified in this API documentation. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid/required query parameter information.",
+        "tags": [
+          "AIS"
+        ],
+        "parameters": [
+          {
+            "description": "optional, fields for retrieval. When omitted, ALL fields are assumed. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid query fields that can be selected.",
+            "name": "columns",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ts",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format. (YYYY-MM-DDTHH:MM:SS.ssssssZ)",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AIS_Full"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/udl/ais/history/aodr": {
+      "get": {
+        "description": "Service operation to dynamically query historical data by a variety of query parameters not specified in this API documentation, then write that data to the Secure Content Store. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid/required query parameter information.",
+        "tags": [
+          "AIS"
+        ],
+        "parameters": [
+          {
+            "description": "optional, fields for retrieval. When omitted, ALL fields are assumed. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid query fields that can be selected.",
+            "name": "columns",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "optional, notification method for the created file link. When omitted, EMAIL is assumed. Current valid values are: EMAIL, SMS.",
+            "name": "notification",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "optional, field delimiter when the created file is not JSON. Must be a single character chosen from this set: (',', ';', ':', '|'). When omitted, \",\" is used. It is strongly encouraged that your field delimiter be a character unlikely to occur within the data.",
+            "name": "outputDelimiter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "optional, output format for the file. When omitted, JSON is assumed. Current valid values are: JSON and CSV.",
+            "name": "outputFormat",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ts",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format. (YYYY-MM-DDTHH:MM:SS.ssssssZ)",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/udl/ais/history/count": {
+      "get": {
+        "description": "Service operation to return the count of records satisfying the specified query parameters. This operation is useful to determine how many records pass a particular query criteria without retrieving large amounts of data. See the queryhelp operation (/udl/&lt;datatype&gt;/queryhelp) for more details on valid/required query parameter information.",
+        "tags": [
+          "AIS"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "ts",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format. (YYYY-MM-DDTHH:MM:SS.ssssssZ)",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ]
+      }
+    },
+    "/udl/ais/queryhelp": {
+      "get": {
+        "description": "Service operation to provide detailed information on available dynamic query parameters for a particular data type.",
+        "tags": [
+          "AIS"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDescriptor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "User Unauthorized"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/udl/ais/tuple": {
+      "get": {
+        "description": "Service operation to dynamically query data and only return specified columns/fields. Requested columns are specified by the 'columns' query parameter and should be a comma separated list of valid fields for the specified data type. classificationMarking is always returned. See the queryhelp operation (/udl/<datatype>/queryhelp) for more details on valid/required query parameter information. An example URI: /udl/elset/tuple?columns=satNo,period&epoch=>now-5 hours would return the satNo and period of elsets with an epoch greater than 5 hours ago.",
+        "tags": [
+          "AIS"
+        ],
+        "parameters": [
+          {
+            "description": "Comma-separated list of valid field names for this data type to be returned in the response. Only the fields specified will be returned as well as the classification marking of the data, if applicable. See the ‘queryhelp’ operation for a complete list of possible fields.",
+            "required": true,
+            "name": "columns",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ts",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format. (YYYY-MM-DDTHH:MM:SS.ssssssZ)",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AIS_Full"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Invalid/Missing User Credentials"
+          },
+          "403": {
+            "description": "User Is Not Authorized"
+          },
+          "405": {
+            "description": "Method Not Allowed"
+          },
+          "406": {
+            "description": "MediaType Not Accepted by Request Headers"
+          },
+          "429": {
+            "description": "Rate of Requests Exceeds Allowed Limit"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AIS_Abridged": {
+        "description": "Self-reported information obtained from Automatic Identification System (AIS) equipment. This contains information such as unique identification, status, position, course, and speed. The AIS is an automatic tracking system that uses transceivers on ships and is used by vessel traffic services. Although technically and operationally distinct, the AIS system is analogous to ADS-B that performs a similar function for aircraft. AIS is intended to assist a vessel's watchstanding officers and allow maritime authorities to track and monitor vessel movements. AIS integrates a standardized VHF transceiver with a positioning system such as Global Positioning System receiver, with other electronic navigation sensors, such as gyrocompass or rate of turn indicator. Vessels fitted with AIS transceivers can be tracked by AIS base stations located along coast lines or, when out of range of terrestrial networks, through a growing number of satellites that are fitted with special AIS receivers which are capable of deconflicting a large number of signatures.",
+        "required": [
+          "classificationMarking",
+          "ts",
+          "source",
+          "dataMode"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Unique identifier of the record, auto-generated by the system.",
+            "maxLength": 36,
+            "minLength": 1,
+            "type": "string",
+            "example": "AIS-ID"
+          },
+          "classificationMarking": {
+            "description": "Classification marking of the data in IC/CAPCO Portion-marked format.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string",
+            "example": "U"
+          },
+          "idTrack": {
+            "description": "Unique identifier of the Track.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "TRACK-ID"
+          },
+          "idVessel": {
+            "description": "Unique identifier of the vessel.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "VESSEL-ID"
+          },
+          "mmsi": {
+            "format": "int64",
+            "description": "The Maritime Mobile Service Identity of the vessel.  MMSI is a nine-digit number that identifies the transmitter station of the vessel.",
+            "type": "integer",
+            "example": 304010417
+          },
+          "imon": {
+            "format": "int64",
+            "description": "The International Maritime Organization Number of the vessel.  IMON is a seven-digit number that uniquely identifies the vessel.",
+            "type": "integer",
+            "example": 9015462
+          },
+          "ts": {
+            "format": "date-time",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "shipName": {
+            "description": "The name of the vessel.  Vessel names that exceed the AIS 20 character are shortened (not truncated) to 15 character-spaces, followed by an underscore and the last 4 characters-spaces of the vessel full name.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "DORNUM"
+          },
+          "shipType": {
+            "description": "The reported ship type (e.g. Passenger, Tanker, Cargo, Other, etc.).  See the engagedIn and specialCraft entries for additional information on certain types of vessels.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Passenger"
+          },
+          "engagedIn": {
+            "description": "The activity that the vessel is engaged in.  This entry applies only when the shipType = Other.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Cargo"
+          },
+          "specialCraft": {
+            "description": "The type of special craft designation of the vessel.  This entry applies only when the shipType = Special Craft.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Tug"
+          },
+          "cargoType": {
+            "description": "The reported cargo type. Intended as, but not constrained to, the USCG NAVCEN AIS cargo definitions. Users should refer to USCG Navigation Center documentation for specific definitions associated with ship and cargo types. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Freight"
+          },
+          "callSign": {
+            "description": "A uniquely designated identifier for the vessel's transmitter station.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "V2OZ"
+          },
+          "vesselFlag": {
+            "description": "The flag of the subject vessel according to AIS transmission.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "United States"
+          },
+          "lat": {
+            "format": "double",
+            "description": "WGS-84 latitude of the vessel position, in degrees.  -90 to 90 degrees (negative values south of equator).",
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number",
+            "example": 47.758499
+          },
+          "lon": {
+            "format": "double",
+            "description": "WGS-84 longitude of the vessel position, in degrees.  -180 to 180 degrees (negative values west of Prime Meridian).",
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number",
+            "example": -5.154223
+          },
+          "posHiAccuracy": {
+            "description": "Flag indicating high reported position accuracy (less than or equal to 10 meters).  A value of 0/false indicates low accuracy (greater than 10 meters).",
+            "type": "boolean",
+            "example": true
+          },
+          "posHiLatency": {
+            "description": "Flag indicating high reported position latency (greater than 5 seconds).  A value of 0/false indicates low latency (less than 5 seconds).",
+            "type": "boolean",
+            "example": true
+          },
+          "speed": {
+            "format": "double",
+            "description": "The speed-over-ground reported by the vessel, in kilometers/hour.",
+            "type": "number",
+            "example": 10.5
+          },
+          "trueHeading": {
+            "format": "double",
+            "description": "The true heading reported by the vessel, in degrees.",
+            "type": "number",
+            "example": 329.1
+          },
+          "course": {
+            "format": "double",
+            "description": "The course-over-ground reported by the vessel, in degrees.",
+            "type": "number",
+            "example": 157.1
+          },
+          "rateOfTurn": {
+            "format": "double",
+            "description": "The Rate-of-Turn for the vessel, in degrees/minute.  Positive value indicates that the vessel is turning right.",
+            "type": "number",
+            "example": 22.1
+          },
+          "specialManeuver": {
+            "description": "Flag indicating that the vessel is engaged in a special maneuver (e.g. Waterway Navigation).",
+            "type": "boolean",
+            "example": false
+          },
+          "navStatus": {
+            "description": "The AIS Navigational Status of the vessel (e.g. Underway Using Engine, Moored, Aground, etc.). Intended as, but not constrained to, the USCG NAVCEN navigation status definitions. Users should refer to USCG Navigation Center documentation for specific definitions associated with navigation status. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 64,
+            "type": "string",
+            "example": "Underway Using Engine"
+          },
+          "posDeviceType": {
+            "description": "The type of electronic position fixing device (e.g. GPS, GLONASS, etc.). Intended as, but not constrained to, the USCG NAVCEN electronic position fixing device definitions. Users should refer to USCG Navigation Center documentation for specific device type information. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "GPS"
+          },
+          "antennaRefDimensions": {
+            "description": "The reference dimensions of the vessel, reported as [A, B, C, D], in meters.  Where the array values represent the distance fore (A), aft (B), to port (C), and to starboard (D) of the navigation antenna.  Array with values A = C = 0 and B, D > 0 indicate the length (B) and width (D) of the vessel without antenna position reference.",
+            "type": "array",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "example": [
+              50.1,
+              50.1,
+              20.1,
+              20.1
+            ]
+          },
+          "length": {
+            "format": "double",
+            "description": "The overall length of the vessel, in meters.  A value of 511 indicates a vessel length of 511 meters or greater.",
+            "type": "number",
+            "example": 511.1
+          },
+          "width": {
+            "format": "double",
+            "description": "The breadth of the vessel, in meters.  A value of 63 indicates a vessel breadth of 63 meters or greater.",
+            "type": "number",
+            "example": 24.1
+          },
+          "draught": {
+            "format": "double",
+            "description": "The maximum static draught, in meters, of the vessel according to the AIS transmission.",
+            "type": "number",
+            "example": 21.1
+          },
+          "shipDescription": {
+            "description": "Further description or explanation of the vessel or type.",
+            "maxLength": 100,
+            "type": "string",
+            "example": "Search and rescue vessels"
+          },
+          "destination": {
+            "description": "The destination of the vessel according to the AIS transmission.",
+            "maxLength": 20,
+            "type": "string",
+            "example": "USCLE"
+          },
+          "destinationETA": {
+            "format": "date-time",
+            "description": "The Estimated Time of Arrival of the vessel at the destination, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "currentPortGUID": {
+            "description": "The US Geographic Unique Identifier of the current port hosting the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0ABC"
+          },
+          "currentPortLOCODE": {
+            "description": "The UN Location Code of the current port hosting the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "XF013"
+          },
+          "lastPortGUID": {
+            "description": "The US Geographic Unique Identifier of the last port visited by the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0VAX"
+          },
+          "lastPortLOCODE": {
+            "description": "The UN Location Code of the last port visited by the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "USSKY"
+          },
+          "nextPortGUID": {
+            "description": "The US Geographic Unique Identifier of the next destination port of the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0Z8Q"
+          },
+          "nextPortLOCODE": {
+            "description": "The UN  Location Code of the next destination port of the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "USCLE"
+          },
+          "etaCalculated": {
+            "format": "date-time",
+            "description": "The Estimated Time of Arrival of the vessel at the destination port, according to MarineTraffic calculations, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "etaUpdated": {
+            "format": "date-time",
+            "description": "The date and time that the ETA was calculated by MarineTraffic, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "distanceToGo": {
+            "format": "double",
+            "description": "The remaining distance, in kilometers, for the vessel to reach the reported destination.",
+            "type": "number",
+            "example": 150.5
+          },
+          "distanceTravelled": {
+            "format": "double",
+            "description": "The distance, in kilometers, that the vessel has travelled since departing the last port.",
+            "type": "number",
+            "example": 200.3
+          },
+          "avgSpeed": {
+            "format": "double",
+            "description": "The average speed, in kilometers/hour, calculated for the subject vessel during the latest voyage (port to port).",
+            "type": "number",
+            "example": 12.1
+          },
+          "maxSpeed": {
+            "format": "double",
+            "description": "The maximum speed, in kilometers/hour, reported by the subject vessel during the latest voyage (port to port).",
+            "type": "number",
+            "example": 13.3
+          },
+          "createdAt": {
+            "format": "date-time",
+            "description": "Time the row was created in the database, auto-populated by the system.",
+            "type": "string",
+            "readOnly": true,
+            "example": "2018-01-01T16:00:00.123Z"
+          },
+          "createdBy": {
+            "description": "Application user who created the row in the database, auto-populated by the system.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string",
+            "readOnly": true,
+            "example": "some.user"
+          },
+          "source": {
+            "description": "Source of the data.",
+            "maxLength": 36,
+            "minLength": 1,
+            "type": "string",
+            "example": "Bluestaq"
+          },
+          "sourceDL": {
+            "description": "The source data library from which this record was received. This could be a remote or tactical UDL or another data library. If null, the record should be assumed to have originated from the primary Enterprise UDL.",
+            "maxLength": 64,
+            "type": "string",
+            "readOnly": true,
+            "example": "AXE"
+          },
+          "origin": {
+            "description": "Originating system or organization which produced the data, if different from the source. The origin may be different than the source if the source was a mediating system which forwarded the data on behalf of the origin system. If null, the source may be assumed to be the origin.",
+            "maxLength": 64,
+            "type": "string",
+            "example": "THIRD_PARTY_DATASOURCE"
+          },
+          "dataMode": {
+            "description": "Indicator of whether the data is REAL, TEST, EXERCISE, or SIMULATED data:\n\nREAL:&nbsp;Data collected or produced that pertains to real-world objects, events, and analysis.\n\nTEST:&nbsp;Specific datasets used to evaluate compliance with specifications and requirements, and for validating technical, functional, and performance characteristics.\n\nEXERCISE:&nbsp;Data pertaining to a government or military exercise. The data may include both real and simulated data.\n\nSIMULATED:&nbsp;Synthetic data generated by a model to mimic real-world datasets.\n",
+            "maxLength": 32,
+            "minLength": 1,
+            "enum": [
+              "REAL",
+              "TEST",
+              "SIMULATED",
+              "EXERCISE"
+            ],
+            "type": "string",
+            "example": "TEST"
+          },
+          "origNetwork": {
+            "description": "The originating source network on which this record was created, auto-populated by the system.",
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string",
+            "readOnly": true,
+            "example": "OPS1"
+          }
+        }
+      },
+      "AIS_Full": {
+        "description": "Self-reported information obtained from Automatic Identification System (AIS) equipment. This contains information such as unique identification, status, position, course, and speed. The AIS is an automatic tracking system that uses transceivers on ships and is used by vessel traffic services. Although technically and operationally distinct, the AIS system is analogous to ADS-B that performs a similar function for aircraft. AIS is intended to assist a vessel's watchstanding officers and allow maritime authorities to track and monitor vessel movements. AIS integrates a standardized VHF transceiver with a positioning system such as Global Positioning System receiver, with other electronic navigation sensors, such as gyrocompass or rate of turn indicator. Vessels fitted with AIS transceivers can be tracked by AIS base stations located along coast lines or, when out of range of terrestrial networks, through a growing number of satellites that are fitted with special AIS receivers which are capable of deconflicting a large number of signatures.",
+        "required": [
+          "classificationMarking",
+          "ts",
+          "source",
+          "dataMode"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Unique identifier of the record, auto-generated by the system.",
+            "maxLength": 36,
+            "minLength": 1,
+            "type": "string",
+            "example": "AIS-ID"
+          },
+          "classificationMarking": {
+            "description": "Classification marking of the data in IC/CAPCO Portion-marked format.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string",
+            "example": "U"
+          },
+          "idTrack": {
+            "description": "Unique identifier of the Track.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "TRACK-ID"
+          },
+          "idVessel": {
+            "description": "Unique identifier of the vessel.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "VESSEL-ID"
+          },
+          "mmsi": {
+            "format": "int64",
+            "description": "The Maritime Mobile Service Identity of the vessel.  MMSI is a nine-digit number that identifies the transmitter station of the vessel.",
+            "type": "integer",
+            "example": 304010417
+          },
+          "imon": {
+            "format": "int64",
+            "description": "The International Maritime Organization Number of the vessel.  IMON is a seven-digit number that uniquely identifies the vessel.",
+            "type": "integer",
+            "example": 9015462
+          },
+          "ts": {
+            "format": "date-time",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "shipName": {
+            "description": "The name of the vessel.  Vessel names that exceed the AIS 20 character are shortened (not truncated) to 15 character-spaces, followed by an underscore and the last 4 characters-spaces of the vessel full name.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "DORNUM"
+          },
+          "shipType": {
+            "description": "The reported ship type (e.g. Passenger, Tanker, Cargo, Other, etc.).  See the engagedIn and specialCraft entries for additional information on certain types of vessels.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Passenger"
+          },
+          "engagedIn": {
+            "description": "The activity that the vessel is engaged in.  This entry applies only when the shipType = Other.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Cargo"
+          },
+          "specialCraft": {
+            "description": "The type of special craft designation of the vessel.  This entry applies only when the shipType = Special Craft.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Tug"
+          },
+          "cargoType": {
+            "description": "The reported cargo type. Intended as, but not constrained to, the USCG NAVCEN AIS cargo definitions. Users should refer to USCG Navigation Center documentation for specific definitions associated with ship and cargo types. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Freight"
+          },
+          "callSign": {
+            "description": "A uniquely designated identifier for the vessel's transmitter station.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "V2OZ"
+          },
+          "vesselFlag": {
+            "description": "The flag of the subject vessel according to AIS transmission.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "United States"
+          },
+          "lat": {
+            "format": "double",
+            "description": "WGS-84 latitude of the vessel position, in degrees.  -90 to 90 degrees (negative values south of equator).",
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number",
+            "example": 47.758499
+          },
+          "lon": {
+            "format": "double",
+            "description": "WGS-84 longitude of the vessel position, in degrees.  -180 to 180 degrees (negative values west of Prime Meridian).",
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number",
+            "example": -5.154223
+          },
+          "posHiAccuracy": {
+            "description": "Flag indicating high reported position accuracy (less than or equal to 10 meters).  A value of 0/false indicates low accuracy (greater than 10 meters).",
+            "type": "boolean",
+            "example": true
+          },
+          "posHiLatency": {
+            "description": "Flag indicating high reported position latency (greater than 5 seconds).  A value of 0/false indicates low latency (less than 5 seconds).",
+            "type": "boolean",
+            "example": true
+          },
+          "speed": {
+            "format": "double",
+            "description": "The speed-over-ground reported by the vessel, in kilometers/hour.",
+            "type": "number",
+            "example": 10.5
+          },
+          "trueHeading": {
+            "format": "double",
+            "description": "The true heading reported by the vessel, in degrees.",
+            "type": "number",
+            "example": 329.1
+          },
+          "course": {
+            "format": "double",
+            "description": "The course-over-ground reported by the vessel, in degrees.",
+            "type": "number",
+            "example": 157.1
+          },
+          "rateOfTurn": {
+            "format": "double",
+            "description": "The Rate-of-Turn for the vessel, in degrees/minute.  Positive value indicates that the vessel is turning right.",
+            "type": "number",
+            "example": 22.1
+          },
+          "specialManeuver": {
+            "description": "Flag indicating that the vessel is engaged in a special maneuver (e.g. Waterway Navigation).",
+            "type": "boolean",
+            "example": false
+          },
+          "navStatus": {
+            "description": "The AIS Navigational Status of the vessel (e.g. Underway Using Engine, Moored, Aground, etc.). Intended as, but not constrained to, the USCG NAVCEN navigation status definitions. Users should refer to USCG Navigation Center documentation for specific definitions associated with navigation status. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 64,
+            "type": "string",
+            "example": "Underway Using Engine"
+          },
+          "posDeviceType": {
+            "description": "The type of electronic position fixing device (e.g. GPS, GLONASS, etc.). Intended as, but not constrained to, the USCG NAVCEN electronic position fixing device definitions. Users should refer to USCG Navigation Center documentation for specific device type information. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "GPS"
+          },
+          "antennaRefDimensions": {
+            "description": "The reference dimensions of the vessel, reported as [A, B, C, D], in meters.  Where the array values represent the distance fore (A), aft (B), to port (C), and to starboard (D) of the navigation antenna.  Array with values A = C = 0 and B, D > 0 indicate the length (B) and width (D) of the vessel without antenna position reference.",
+            "type": "array",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "example": [
+              50.1,
+              50.1,
+              20.1,
+              20.1
+            ]
+          },
+          "length": {
+            "format": "double",
+            "description": "The overall length of the vessel, in meters.  A value of 511 indicates a vessel length of 511 meters or greater.",
+            "type": "number",
+            "example": 511.1
+          },
+          "width": {
+            "format": "double",
+            "description": "The breadth of the vessel, in meters.  A value of 63 indicates a vessel breadth of 63 meters or greater.",
+            "type": "number",
+            "example": 24.1
+          },
+          "draught": {
+            "format": "double",
+            "description": "The maximum static draught, in meters, of the vessel according to the AIS transmission.",
+            "type": "number",
+            "example": 21.1
+          },
+          "shipDescription": {
+            "description": "Further description or explanation of the vessel or type.",
+            "maxLength": 100,
+            "type": "string",
+            "example": "Search and rescue vessels"
+          },
+          "destination": {
+            "description": "The destination of the vessel according to the AIS transmission.",
+            "maxLength": 20,
+            "type": "string",
+            "example": "USCLE"
+          },
+          "destinationETA": {
+            "format": "date-time",
+            "description": "The Estimated Time of Arrival of the vessel at the destination, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "currentPortGUID": {
+            "description": "The US Geographic Unique Identifier of the current port hosting the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0ABC"
+          },
+          "currentPortLOCODE": {
+            "description": "The UN Location Code of the current port hosting the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "XF013"
+          },
+          "lastPortGUID": {
+            "description": "The US Geographic Unique Identifier of the last port visited by the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0VAX"
+          },
+          "lastPortLOCODE": {
+            "description": "The UN Location Code of the last port visited by the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "USSKY"
+          },
+          "nextPortGUID": {
+            "description": "The US Geographic Unique Identifier of the next destination port of the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0Z8Q"
+          },
+          "nextPortLOCODE": {
+            "description": "The UN  Location Code of the next destination port of the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "USCLE"
+          },
+          "etaCalculated": {
+            "format": "date-time",
+            "description": "The Estimated Time of Arrival of the vessel at the destination port, according to MarineTraffic calculations, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "etaUpdated": {
+            "format": "date-time",
+            "description": "The date and time that the ETA was calculated by MarineTraffic, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "distanceToGo": {
+            "format": "double",
+            "description": "The remaining distance, in kilometers, for the vessel to reach the reported destination.",
+            "type": "number",
+            "example": 150.5
+          },
+          "distanceTravelled": {
+            "format": "double",
+            "description": "The distance, in kilometers, that the vessel has travelled since departing the last port.",
+            "type": "number",
+            "example": 200.3
+          },
+          "avgSpeed": {
+            "format": "double",
+            "description": "The average speed, in kilometers/hour, calculated for the subject vessel during the latest voyage (port to port).",
+            "type": "number",
+            "example": 12.1
+          },
+          "maxSpeed": {
+            "format": "double",
+            "description": "The maximum speed, in kilometers/hour, reported by the subject vessel during the latest voyage (port to port).",
+            "type": "number",
+            "example": 13.3
+          },
+          "createdAt": {
+            "format": "date-time",
+            "description": "Time the row was created in the database, auto-populated by the system.",
+            "type": "string",
+            "readOnly": true,
+            "example": "2018-01-01T16:00:00.123Z"
+          },
+          "createdBy": {
+            "description": "Application user who created the row in the database, auto-populated by the system.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string",
+            "readOnly": true,
+            "example": "some.user"
+          },
+          "source": {
+            "description": "Source of the data.",
+            "maxLength": 36,
+            "minLength": 1,
+            "type": "string",
+            "example": "Bluestaq"
+          },
+          "sourceDL": {
+            "description": "The source data library from which this record was received. This could be a remote or tactical UDL or another data library. If null, the record should be assumed to have originated from the primary Enterprise UDL.",
+            "maxLength": 64,
+            "type": "string",
+            "readOnly": true,
+            "example": "AXE"
+          },
+          "origin": {
+            "description": "Originating system or organization which produced the data, if different from the source. The origin may be different than the source if the source was a mediating system which forwarded the data on behalf of the origin system. If null, the source may be assumed to be the origin.",
+            "maxLength": 64,
+            "type": "string",
+            "example": "THIRD_PARTY_DATASOURCE"
+          },
+          "dataMode": {
+            "description": "Indicator of whether the data is REAL, TEST, EXERCISE, or SIMULATED data:\n\nREAL:&nbsp;Data collected or produced that pertains to real-world objects, events, and analysis.\n\nTEST:&nbsp;Specific datasets used to evaluate compliance with specifications and requirements, and for validating technical, functional, and performance characteristics.\n\nEXERCISE:&nbsp;Data pertaining to a government or military exercise. The data may include both real and simulated data.\n\nSIMULATED:&nbsp;Synthetic data generated by a model to mimic real-world datasets.\n",
+            "maxLength": 32,
+            "minLength": 1,
+            "enum": [
+              "REAL",
+              "TEST",
+              "SIMULATED",
+              "EXERCISE"
+            ],
+            "type": "string",
+            "example": "TEST"
+          },
+          "origNetwork": {
+            "description": "The originating source network on which this record was created, auto-populated by the system.",
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string",
+            "readOnly": true,
+            "example": "OPS1"
+          }
+        }
+      },
+      "AIS_Ingest": {
+        "description": "Self-reported information obtained from Automatic Identification System (AIS) equipment. This contains information such as unique identification, status, position, course, and speed. The AIS is an automatic tracking system that uses transceivers on ships and is used by vessel traffic services. Although technically and operationally distinct, the AIS system is analogous to ADS-B that performs a similar function for aircraft. AIS is intended to assist a vessel's watchstanding officers and allow maritime authorities to track and monitor vessel movements. AIS integrates a standardized VHF transceiver with a positioning system such as Global Positioning System receiver, with other electronic navigation sensors, such as gyrocompass or rate of turn indicator. Vessels fitted with AIS transceivers can be tracked by AIS base stations located along coast lines or, when out of range of terrestrial networks, through a growing number of satellites that are fitted with special AIS receivers which are capable of deconflicting a large number of signatures.",
+        "required": [
+          "classificationMarking",
+          "ts",
+          "source",
+          "dataMode"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Unique identifier of the record, auto-generated by the system.",
+            "maxLength": 36,
+            "minLength": 1,
+            "type": "string",
+            "example": "AIS-ID"
+          },
+          "classificationMarking": {
+            "description": "Classification marking of the data in IC/CAPCO Portion-marked format.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string",
+            "example": "U"
+          },
+          "idTrack": {
+            "description": "Unique identifier of the Track.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "TRACK-ID"
+          },
+          "idVessel": {
+            "description": "Unique identifier of the vessel.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "VESSEL-ID"
+          },
+          "mmsi": {
+            "format": "int64",
+            "description": "The Maritime Mobile Service Identity of the vessel.  MMSI is a nine-digit number that identifies the transmitter station of the vessel.",
+            "type": "integer",
+            "example": 304010417
+          },
+          "imon": {
+            "format": "int64",
+            "description": "The International Maritime Organization Number of the vessel.  IMON is a seven-digit number that uniquely identifies the vessel.",
+            "type": "integer",
+            "example": 9015462
+          },
+          "ts": {
+            "format": "date-time",
+            "description": "The timestamp that the vessel position was recorded, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "shipName": {
+            "description": "The name of the vessel.  Vessel names that exceed the AIS 20 character are shortened (not truncated) to 15 character-spaces, followed by an underscore and the last 4 characters-spaces of the vessel full name.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "DORNUM"
+          },
+          "shipType": {
+            "description": "The reported ship type (e.g. Passenger, Tanker, Cargo, Other, etc.).  See the engagedIn and specialCraft entries for additional information on certain types of vessels.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Passenger"
+          },
+          "engagedIn": {
+            "description": "The activity that the vessel is engaged in.  This entry applies only when the shipType = Other.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Cargo"
+          },
+          "specialCraft": {
+            "description": "The type of special craft designation of the vessel.  This entry applies only when the shipType = Special Craft.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Tug"
+          },
+          "cargoType": {
+            "description": "The reported cargo type. Intended as, but not constrained to, the USCG NAVCEN AIS cargo definitions. Users should refer to USCG Navigation Center documentation for specific definitions associated with ship and cargo types. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 48,
+            "type": "string",
+            "example": "Freight"
+          },
+          "callSign": {
+            "description": "A uniquely designated identifier for the vessel's transmitter station.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "V2OZ"
+          },
+          "vesselFlag": {
+            "description": "The flag of the subject vessel according to AIS transmission.",
+            "maxLength": 36,
+            "type": "string",
+            "example": "United States"
+          },
+          "lat": {
+            "format": "double",
+            "description": "WGS-84 latitude of the vessel position, in degrees.  -90 to 90 degrees (negative values south of equator).",
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number",
+            "example": 47.758499
+          },
+          "lon": {
+            "format": "double",
+            "description": "WGS-84 longitude of the vessel position, in degrees.  -180 to 180 degrees (negative values west of Prime Meridian).",
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number",
+            "example": -5.154223
+          },
+          "posHiAccuracy": {
+            "description": "Flag indicating high reported position accuracy (less than or equal to 10 meters).  A value of 0/false indicates low accuracy (greater than 10 meters).",
+            "type": "boolean",
+            "example": true
+          },
+          "posHiLatency": {
+            "description": "Flag indicating high reported position latency (greater than 5 seconds).  A value of 0/false indicates low latency (less than 5 seconds).",
+            "type": "boolean",
+            "example": true
+          },
+          "speed": {
+            "format": "double",
+            "description": "The speed-over-ground reported by the vessel, in kilometers/hour.",
+            "type": "number",
+            "example": 10.5
+          },
+          "trueHeading": {
+            "format": "double",
+            "description": "The true heading reported by the vessel, in degrees.",
+            "type": "number",
+            "example": 329.1
+          },
+          "course": {
+            "format": "double",
+            "description": "The course-over-ground reported by the vessel, in degrees.",
+            "type": "number",
+            "example": 157.1
+          },
+          "rateOfTurn": {
+            "format": "double",
+            "description": "The Rate-of-Turn for the vessel, in degrees/minute.  Positive value indicates that the vessel is turning right.",
+            "type": "number",
+            "example": 22.1
+          },
+          "specialManeuver": {
+            "description": "Flag indicating that the vessel is engaged in a special maneuver (e.g. Waterway Navigation).",
+            "type": "boolean",
+            "example": false
+          },
+          "navStatus": {
+            "description": "The AIS Navigational Status of the vessel (e.g. Underway Using Engine, Moored, Aground, etc.). Intended as, but not constrained to, the USCG NAVCEN navigation status definitions. Users should refer to USCG Navigation Center documentation for specific definitions associated with navigation status. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 64,
+            "type": "string",
+            "example": "Underway Using Engine"
+          },
+          "posDeviceType": {
+            "description": "The type of electronic position fixing device (e.g. GPS, GLONASS, etc.). Intended as, but not constrained to, the USCG NAVCEN electronic position fixing device definitions. Users should refer to USCG Navigation Center documentation for specific device type information. USCG NAVCEN documentation may be found at https://www.navcen.uscg.gov.",
+            "maxLength": 24,
+            "type": "string",
+            "example": "GPS"
+          },
+          "antennaRefDimensions": {
+            "description": "The reference dimensions of the vessel, reported as [A, B, C, D], in meters.  Where the array values represent the distance fore (A), aft (B), to port (C), and to starboard (D) of the navigation antenna.  Array with values A = C = 0 and B, D > 0 indicate the length (B) and width (D) of the vessel without antenna position reference.",
+            "type": "array",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "example": [
+              50.1,
+              50.1,
+              20.1,
+              20.1
+            ]
+          },
+          "length": {
+            "format": "double",
+            "description": "The overall length of the vessel, in meters.  A value of 511 indicates a vessel length of 511 meters or greater.",
+            "type": "number",
+            "example": 511.1
+          },
+          "width": {
+            "format": "double",
+            "description": "The breadth of the vessel, in meters.  A value of 63 indicates a vessel breadth of 63 meters or greater.",
+            "type": "number",
+            "example": 24.1
+          },
+          "draught": {
+            "format": "double",
+            "description": "The maximum static draught, in meters, of the vessel according to the AIS transmission.",
+            "type": "number",
+            "example": 21.1
+          },
+          "shipDescription": {
+            "description": "Further description or explanation of the vessel or type.",
+            "maxLength": 100,
+            "type": "string",
+            "example": "Search and rescue vessels"
+          },
+          "destination": {
+            "description": "The destination of the vessel according to the AIS transmission.",
+            "maxLength": 20,
+            "type": "string",
+            "example": "USCLE"
+          },
+          "destinationETA": {
+            "format": "date-time",
+            "description": "The Estimated Time of Arrival of the vessel at the destination, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "currentPortGUID": {
+            "description": "The US Geographic Unique Identifier of the current port hosting the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0ABC"
+          },
+          "currentPortLOCODE": {
+            "description": "The UN Location Code of the current port hosting the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "XF013"
+          },
+          "lastPortGUID": {
+            "description": "The US Geographic Unique Identifier of the last port visited by the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0VAX"
+          },
+          "lastPortLOCODE": {
+            "description": "The UN Location Code of the last port visited by the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "USSKY"
+          },
+          "nextPortGUID": {
+            "description": "The US Geographic Unique Identifier of the next destination port of the vessel.",
+            "maxLength": 4,
+            "type": "string",
+            "example": "0Z8Q"
+          },
+          "nextPortLOCODE": {
+            "description": "The UN  Location Code of the next destination port of the vessel.",
+            "maxLength": 5,
+            "type": "string",
+            "example": "USCLE"
+          },
+          "etaCalculated": {
+            "format": "date-time",
+            "description": "The Estimated Time of Arrival of the vessel at the destination port, according to MarineTraffic calculations, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "etaUpdated": {
+            "format": "date-time",
+            "description": "The date and time that the ETA was calculated by MarineTraffic, in ISO 8601 UTC format.",
+            "type": "string",
+            "example": "2021-02-25T12:00:00.123456Z"
+          },
+          "distanceToGo": {
+            "format": "double",
+            "description": "The remaining distance, in kilometers, for the vessel to reach the reported destination.",
+            "type": "number",
+            "example": 150.5
+          },
+          "distanceTravelled": {
+            "format": "double",
+            "description": "The distance, in kilometers, that the vessel has travelled since departing the last port.",
+            "type": "number",
+            "example": 200.3
+          },
+          "avgSpeed": {
+            "format": "double",
+            "description": "The average speed, in kilometers/hour, calculated for the subject vessel during the latest voyage (port to port).",
+            "type": "number",
+            "example": 12.1
+          },
+          "maxSpeed": {
+            "format": "double",
+            "description": "The maximum speed, in kilometers/hour, reported by the subject vessel during the latest voyage (port to port).",
+            "type": "number",
+            "example": 13.3
+          },
+          "createdAt": {
+            "format": "date-time",
+            "description": "Time the row was created in the database, auto-populated by the system.",
+            "type": "string",
+            "readOnly": true,
+            "example": "2018-01-01T16:00:00.123Z"
+          },
+          "createdBy": {
+            "description": "Application user who created the row in the database, auto-populated by the system.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string",
+            "readOnly": true,
+            "example": "some.user"
+          },
+          "source": {
+            "description": "Source of the data.",
+            "maxLength": 36,
+            "minLength": 1,
+            "type": "string",
+            "example": "Bluestaq"
+          },
+          "sourceDL": {
+            "description": "The source data library from which this record was received. This could be a remote or tactical UDL or another data library. If null, the record should be assumed to have originated from the primary Enterprise UDL.",
+            "maxLength": 64,
+            "type": "string",
+            "readOnly": true,
+            "example": "AXE"
+          },
+          "origin": {
+            "description": "Originating system or organization which produced the data, if different from the source. The origin may be different than the source if the source was a mediating system which forwarded the data on behalf of the origin system. If null, the source may be assumed to be the origin.",
+            "maxLength": 64,
+            "type": "string",
+            "example": "THIRD_PARTY_DATASOURCE"
+          },
+          "dataMode": {
+            "description": "Indicator of whether the data is REAL, TEST, EXERCISE, or SIMULATED data:\n\nREAL:&nbsp;Data collected or produced that pertains to real-world objects, events, and analysis.\n\nTEST:&nbsp;Specific datasets used to evaluate compliance with specifications and requirements, and for validating technical, functional, and performance characteristics.\n\nEXERCISE:&nbsp;Data pertaining to a government or military exercise. The data may include both real and simulated data.\n\nSIMULATED:&nbsp;Synthetic data generated by a model to mimic real-world datasets.\n",
+            "maxLength": 32,
+            "minLength": 1,
+            "enum": [
+              "REAL",
+              "TEST",
+              "SIMULATED",
+              "EXERCISE"
+            ],
+            "type": "string",
+            "example": "TEST"
+          },
+          "origNetwork": {
+            "description": "The originating source network on which this record was created, auto-populated by the system.",
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string",
+            "readOnly": true,
+            "example": "OPS1"
+          }
+        }
+      },
+      "ParamDescriptor": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "classificationMarking": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "unitOfMeasure": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "derived": {
+            "type": "boolean"
+          },
+          "elemMatch": {
+            "type": "boolean"
+          },
+          "utcDate": {
+            "type": "boolean"
+          },
+          "restTupleSupported": {
+            "type": "boolean"
+          },
+          "histTupleSupported": {
+            "type": "boolean"
+          },
+          "restQuerySupported": {
+            "type": "boolean"
+          },
+          "histQuerySupported": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ServiceDescriptor": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "historySupported": {
+            "type": "boolean"
+          },
+          "aodrSupported": {
+            "type": "boolean"
+          },
+          "restSupported": {
+            "type": "boolean"
+          },
+          "sortSupported": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "classificationMarking": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamDescriptor"
+            }
+          },
+          "requiredRoles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "typeName": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

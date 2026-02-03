@@ -189,6 +189,34 @@ class TestBinaryMetrics:
         assert result["Sensitivity"].iloc[0] >= 0
         assert result["Sensitivity"].iloc[0] <= 1
 
+    def test_specificity_column_name_spelling(self):
+        """Test that Specificity column is spelled correctly (not 'Specifcity')."""
+        from uct_benchmark.evaluation.binaryMetrics import binaryMetrics
+
+        ref_obs = pd.DataFrame(
+            {
+                "id": ["obs1", "obs2", "obs3"],
+                "satNo": [1001, 1001, 1002],
+            }
+        )
+
+        associated_orbits = pd.DataFrame(
+            {
+                "satNo": [1001, 1002],
+                "sourcedData": [["obs1", "obs2"], ["obs3"]],
+            }
+        )
+
+        result = binaryMetrics(ref_obs, associated_orbits)
+
+        # Verify correct spelling: "Specificity" not "Specifcity"
+        assert "Specificity" in result.columns, (
+            "Expected 'Specificity' column but got columns: " + str(result.columns.tolist())
+        )
+        assert "Specifcity" not in result.columns, (
+            "Found misspelled 'Specifcity' column - bug not fixed!"
+        )
+
 
 # =============================================================================
 # ORBIT ASSOCIATION TESTS
@@ -209,7 +237,10 @@ class TestOrbitAssociation:
         """Test that orbitAssociation returns expected structure."""
         # This test verifies the function signature and return types
         # without requiring actual propagation
-        from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
+        try:
+            from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
+        except (ImportError, ModuleNotFoundError) as e:
+            pytest.skip(f"orekit_jpype/jpype not available: {e}")
 
         # We need to mock the propagator since it requires Orekit
         def mock_propagator(state, epoch, target_epochs, params):
@@ -273,7 +304,10 @@ class TestOrbitAssociation:
 
     def test_empty_candidates(self):
         """Test association with no candidate orbits."""
-        from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
+        try:
+            from uct_benchmark.evaluation.orbitAssociation import orbitAssociation
+        except (ImportError, ModuleNotFoundError) as e:
+            pytest.skip(f"orekit_jpype/jpype not available: {e}")
 
         def mock_propagator(state, epoch, target_epochs, params):
             return [state] * len(target_epochs)

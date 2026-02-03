@@ -1,6 +1,3 @@
-> **Note:** This documentation has moved to `generated-docs/docs/`.
-> Please see [generated-docs/docs/reports/CHANGELOG.md](../../../generated-docs/docs/reports/CHANGELOG.md) for the latest version.
-
 # Changelog
 
 All notable changes to the UCT Benchmark project.
@@ -83,6 +80,38 @@ Full migration from DuckDB-only to dual-backend (DuckDB + PostgreSQL/Supabase) w
 - **Backend interface pattern**: All database access goes through `DatabaseBackendInterface`, enabling runtime backend switching
 - **Placeholder conversion**: `?` to `%s` at runtime in PostgreSQL backend; safe because no SQL uses `?` inside string literals
 - **Audit never breaks requests**: All logging functions swallow exceptions
+
+---
+
+## [1.2.0] - 2026-01-28
+
+### Fixed
+
+- **Critical bug in `readData.py:28`**: Dataset `obTime` was incorrectly set from `ref_obs["obTime"]` instead of `dataset["obTime"]`, causing data corruption
+- **Critical bug in `readData.py:31`**: The `uctp_output_path` parameter was ignored; function always read from hardcoded `./data/uctp_output.json`
+- **Typo in `binaryMetrics.py:112`**: Column name "Specifcity" corrected to "Specificity"
+- **Silent exceptions** in `dataManipulation.py` and `workers.py` now log warnings with context
+
+### Added
+
+- **New utility module `uct_benchmark/utils/orbital.py`**: Consolidated `determine_orbital_regime()` function (was duplicated in `apiIntegration.py` and `dataManipulation.py`)
+- **New utility module `uct_benchmark/utils/datetime_utils.py`**: Consolidated datetime parsing with `parse_datetime()` and `ensure_datetime_column()` functions
+- **Shared API response handler `_check_api_response()`** in `apiIntegration.py` for consistent error handling
+- **Column constants** (`STATE_COLUMNS`, `POSITION_COLUMNS`, `VELOCITY_COLUMNS`) in `stateMetrics.py`
+- **New tests**: `test_read_data.py`, `test_orbital_utils.py`, `test_datetime_utils.py`
+- **Test for Specificity spelling** in `test_evaluation.py`
+
+### Changed
+
+- **`generateCov.py`**: Replaced `print()` with `logger.warning()` for error logging
+- **Error handling improved**: Silent `except: continue` blocks now log warnings with satellite/row context
+- **Function naming**: `_supressWarn()` renamed to `_suppress_warnings()` (backward-compatible alias retained)
+
+### Removed
+
+- **Unused import**: `urllib3` removed from `binaryMetrics.py`
+- **Dead code**: Commented imports and code removed from `Evaluation.py`
+- **Duplicate encoding declaration** in `generateCov.py` (was `# -*- coding: utf-8 -*-# -*- coding: utf-8 -*-`)
 
 ---
 

@@ -605,6 +605,7 @@ class TestExportImport:
 
     def test_export_observations_to_parquet(self, populated_db):
         """Test exporting observations to Parquet."""
+        pytest.importorskip("pyarrow", reason="pyarrow required for parquet export")
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "observations.parquet"
             result_path = export_observations_to_parquet(populated_db, output_path)
