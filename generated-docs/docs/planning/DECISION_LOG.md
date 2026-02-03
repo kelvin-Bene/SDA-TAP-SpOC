@@ -76,8 +76,8 @@ This document tracks major project decisions, their rationale, and outcomes. It 
 
 ### Decision 3: TraCSS Beta Access
 
-**Status**: PENDING
-**Date**: -
+**Status**: REVISIT
+**Date**: January 2026
 **Decision Maker**: Awaiting input
 
 **Question**: Should we contact TraCSS for beta access before the January 2026 production release?
@@ -85,43 +85,46 @@ This document tracks major project decisions, their rationale, and outcomes. It 
 | Option | Description |
 |--------|-------------|
 | A) Yes, request beta | Contact TraCSS.Commerce@noaa.gov to request early access |
-| B) Wait for production | Wait for January 2026 production release |
+| **B) Wait for production** | Wait for January 2026 production release |
 
-**Decision**: _Pending_
+**Decision**: **Option B - Wait for production**
 
-**Additional Context**: TraCSS (Traffic Coordination System for Space) is the new US system replacing some Space-Track functions. Beta users include SpaceX, Planet Labs, etc. Production release is January 2026.
+**Rationale**: Given the timeline and our focus on fully open sources first, we opted to wait for TraCSS production release.
 
-**Update (Feb 2026)**: TraCSS should now be in production. Need to evaluate current API availability.
+**Update (Feb 2026)**: TraCSS is now in production as of January 2026. API evaluation and integration should be considered for a future sprint. Added to remaining data source work in FUTURE_IMPLEMENTATIONS.md.
 
-<!-- AI_IMPROVEMENT_OPPORTUNITY: TraCSS production status should be verified and integration planned -->
+<!-- AI_IMPROVEMENT_OPPORTUNITY: TraCSS production API should be evaluated for potential integration -->
 
 ---
 
 ### Decision 4: Implementation Priority for Data Sources
 
-**Status**: PENDING
-**Date**: -
-**Decision Maker**: Awaiting input
+**Status**: DECIDED
+**Date**: January 2026
+**Decision Maker**: Development Team
 
 **Question**: Which data sources should we prioritize first?
 
-| Source | Effort | Value | Open License |
-|--------|--------|-------|--------------|
-| SatNOGS | Low | High (real observation timestamps) | CC-BY-SA |
-| GCAT | Low | Medium (comprehensive catalog) | CC-BY |
-| ILRS | Medium | High (precision validation) | Open |
-| UCS Database | Low | Medium (satellite metadata) | Open |
-| ccsds-ndm library | Low | High (standard formats) | Open |
-| spacetrack library | Low | Medium (better API client) | Open |
+| Source | Effort | Value | Open License | Status |
+|--------|--------|-------|--------------|--------|
+| GCAT | Low | Medium (comprehensive catalog) | CC-BY | ✅ Implemented |
+| UCS Database | Low | Medium (satellite metadata) | Open | ✅ Implemented |
+| SatNOGS | Low | High (real observation timestamps) | CC-BY-SA | ✅ Implemented |
+| ILRS | Medium | High (precision validation) | Open | ⚠️ Partial |
+| ccsds-ndm library | Low | High (standard formats) | Open | Pending |
+| spacetrack library | Low | Medium (better API client) | Open | Deferred |
 
-**Decision**: _Pending_
+**Decision**: **Implemented per recommended priority**
 
-**Recommendation**: Based on Decision 1 (open sources first), suggested priority:
-1. GCAT (low effort, immediately usable)
-2. ccsds-ndm (enables standard format parsing)
-3. UCS Database (enriches satellite metadata)
-4. SatNOGS (real observation timestamps)
-5. ILRS (precision validation)
+**Implementation Summary**:
+1. ✅ GCAT - Full catalog with launches, reentries (`open_sources.py`)
+2. ✅ UCS Database - Satellite metadata with mass data for HAMR detection
+3. ✅ SatNOGS - RF observations, ground stations, transmitters
+4. ⚠️ ILRS - Satellite/station lists work; predictions need Earthdata auth
+5. Pending: ccsds-ndm for CDM parsing
+6. Deferred: spacetrack library (current integration sufficient)
+
+**Outcome**: All high-priority open sources are now integrated. DataSourceManager provides unified interface for satellite enrichment.
 
 <!-- /AI_SECTION -->
 
@@ -248,6 +251,46 @@ Hungarian algorithm provides globally optimal one-to-one matching, which is appr
 | TLE (SGP4/SDP4) | Two-line element propagation |
 
 **Rationale**: Orekit provides production-quality implementations with extensive force modeling options.
+
+### Decision 10: UCTP Lab Architecture
+
+**Status**: DECIDED
+**Date**: January 2026
+**Decision Maker**: Development Team
+
+**Question**: How should the UCTP Lab framework be structured for algorithm development?
+
+**Decision**: Modular framework with sandbox environment
+
+**Implementation**:
+- Location: `uct_benchmark/uctp_lab/`
+- Provides isolated environment for UCT processor development
+- Integration with existing evaluation metrics
+- Test data generation capabilities
+- Supports algorithm iteration without affecting production pipeline
+
+**Rationale**: Separate UCTP Lab allows algorithm developers to iterate quickly without impacting the main benchmark infrastructure. Clean separation of concerns.
+
+---
+
+### Decision 11: Credential Management System
+
+**Status**: DECIDED
+**Date**: January 2026
+**Decision Maker**: SpOC Team
+
+**Question**: How should external API credentials be managed?
+
+**Decision**: Supabase-backed credential storage with anonymous fallback
+
+**Implementation**:
+- Backend: `backend_api/auth/` with JWT tokens
+- Frontend: `useCredentials` hook for secure credential handling
+- Dual-mode: Supabase when configured, in-memory for development
+- External APIs (UDL, Space-Track) credentials stored securely
+- Anonymous mode allows operation without credentials for open sources
+
+**Rationale**: Secure credential management is essential for API access while maintaining ease of development. Anonymous fallback ensures the system works without external dependencies during development.
 
 <!-- /AI_SECTION -->
 

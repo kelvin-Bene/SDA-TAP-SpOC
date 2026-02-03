@@ -101,6 +101,35 @@ Determine if satellite is High Area-to-Mass Ratio (AMR > 0.1 m²/kg).
 
 Get NORAD IDs of all ILRS-tracked satellites.
 
+#### `is_ilrs_satellite(sat_no: int) -> bool`
+
+Check if a satellite is tracked by ILRS.
+
+```python
+if dsm.is_ilrs_satellite(8820):  # LAGEOS-1
+    print("This satellite can be used for ILRS validation")
+```
+
+#### `get_enrichment_status(sat_no: int) -> Dict`
+
+Get the current enrichment status for a satellite.
+
+```python
+status = dsm.get_enrichment_status(25544)
+print(f"UCS synced: {status.get('ucs_synced_at')}")
+print(f"GCAT synced: {status.get('gcat_synced_at')}")
+```
+
+#### `sync_data_source_stats() -> Dict`
+
+Synchronize and return statistics about all data sources.
+
+```python
+stats = dsm.sync_data_source_stats()
+print(f"GCAT records: {stats['gcat']['record_count']}")
+print(f"UCS records: {stats['ucs']['record_count']}")
+```
+
 ---
 
 ## Open Source API Wrappers
@@ -135,9 +164,11 @@ stations = satnogsGetStations(status="Online")
 
 ```python
 from uct_benchmark.api import (
+    gcatQuery,
     gcatGetSatelliteCatalog,
     gcatLookupByNorad,
     gcatGetLaunches,
+    gcatGetReentries,
 )
 
 # Get full satellite catalog (57,000+ objects)
@@ -148,6 +179,22 @@ sat = gcatLookupByNorad(25544)
 
 # Get launch catalog
 launches = gcatGetLaunches()
+
+# Get reentry catalog
+reentries = gcatGetReentries()
+```
+
+#### `gcatGetReentries() -> pd.DataFrame`
+
+Returns the GCAT reentry catalog containing historical atmospheric reentry events.
+
+**Returns:**
+- DataFrame with columns: `norad_id`, `name`, `reentry_date`, `decay_epoch`, etc.
+
+**Example:**
+```python
+reentries = gcatGetReentries()
+print(f"Total reentries: {len(reentries)}")
 ```
 
 ### UCS Functions
@@ -175,10 +222,13 @@ comms = ucsGetByPurpose("Communications")
 
 ### ILRS Functions
 
+> **Note**: ILRS integration is partially complete. The satellite and station lists are available without authentication. Full prediction/range measurement queries require NASA Earthdata credentials (free registration).
+
 ```python
 from uct_benchmark.api import (
     ilrsGetSatellites,
     ilrsGetStations,
+    ilrsQueryPredictions,
 )
 
 # Get ILRS-tracked satellites
@@ -186,7 +236,84 @@ ilrs = ilrsGetSatellites()  # ~100 satellites
 
 # Get laser ranging stations
 stations = ilrsGetStations()  # ~40 stations
+
+# Query predictions (requires Earthdata auth)
+predictions = ilrsQueryPredictions(
+    satellite_id=8820,  # LAGEOS-1
+    station_code="7090"  # Yarragadee
+)
 ```
+
+#### `ilrsGetSatellites() -> List[int]`
+
+Returns a list of NORAD IDs for all ILRS-tracked satellites.
+
+**Implementation Note**: The satellite list is currently hardcoded based on known ILRS-tracked objects. This includes geodetic satellites (LAGEOS, LARES, Starlette), GNSS satellites, and select LEO satellites.
+
+#### `ilrsGetStations() -> pd.DataFrame`
+
+Returns information about ILRS laser ranging stations.
+
+#### `ilrsQueryPredictions(satellite_id, station_code, ...) -> pd.DataFrame`
+
+Query ILRS prediction data for a specific satellite and station.
+
+**Requires**: NASA Earthdata credentials configured
+
+**Note**: This function is partially implemented. Full implementation requires Earthdata authentication setup.
+
+---
+
+## Utility Functions
+
+### Cache Management
+
+```python
+from uct_benchmark.api import (
+    getOpenSourceCatalogStats,
+    clearOpenSourceCache,
+)
+
+# Get statistics about cached catalogs
+stats = getOpenSourceCatalogStats()
+print(f"GCAT cached: {stats['gcat']['cached']}")
+print(f"UCS cached: {stats['ucs']['cached']}")
+print(f"Cache age: {stats['gcat']['cache_age_hours']} hours")
+
+# Clear all cached catalog data
+clearOpenSourceCache()
+```
+
+#### `getOpenSourceCatalogStats() -> Dict[str, Any]`
+
+Returns statistics about the current state of cached catalog data.
+
+**Returns:**
+```python
+{
+    "gcat": {
+        "cached": True,
+        "record_count": 57234,
+        "cache_age_hours": 12.5,
+        "last_updated": "2026-02-03T10:30:00Z"
+    },
+    "ucs": {
+        "cached": True,
+        "record_count": 7523,
+        "cache_age_hours": 12.5,
+        "last_updated": "2026-02-03T10:30:00Z"
+    }
+}
+```
+
+#### `clearOpenSourceCache() -> None`
+
+Clears all cached catalog data (GCAT, UCS). The next query will fetch fresh data from the source.
+
+**Use Cases:**
+- Force refresh after known catalog updates
+- Free memory in long-running processes
+- Debugging/testing
 
 ---
 
@@ -329,6 +456,54 @@ Stores ILRS laser ranging measurements.
 #### `observations` (new columns)
 - `source_id` - References data_sources(id)
 - `observation_type` - EO, RF, RADAR
+
+---
+
+## HAMR Detection
+
+The system uses satellite mass data from UCS to accurately detect High Area-to-Mass Ratio (HAMR) objects.
+
+### Detection Logic
+
+```python
+# HAMR threshold: objects with AMR > 0.1 m²/kg
+HAMR_AMR_THRESHOLD = 0.1  # m²/kg
+
+def is_hamr_object(sat_no: int) -> bool:
+    amr = calculate_accurate_amr(sat_no)
+    return amr is not None and amr > HAMR_AMR_THRESHOLD
+```
+
+### Fallback Heuristics
+
+When mass data is unavailable, the system uses fallback heuristics:
+
+1. **Known HAMR Types**: MLI debris, rocket body fragments
+2. **Object Classification**: Debris vs active satellite
+3. **Default Cross-Section**: 1.0 m² for unknown objects
+
+```python
+# Default cross-section for satellites without known dimensions
+DEFAULT_CROSS_SECTION_M2 = 1.0
+
+# Fallback when mass unavailable
+if mass_kg is None:
+    # Check if object type suggests HAMR
+    if object_type in ["DEB", "R/B"]:
+        # Conservative estimate for debris
+        return True  # Assume potential HAMR
+    return False  # Cannot determine
+```
+
+### Usage in Dataset Generation
+
+```python
+# Check HAMR status during dataset generation
+for sat_no in dataset_satellites:
+    if dsm.is_hamr_object(sat_no):
+        print(f"Warning: {sat_no} is a HAMR object")
+        # May require special handling in UCT processing
+```
 
 ---
 

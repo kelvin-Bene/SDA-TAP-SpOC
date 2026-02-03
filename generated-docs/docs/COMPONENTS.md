@@ -428,6 +428,94 @@ import { OrbitViewer } from '@/components/cesium/OrbitViewer';
 | showGroundTracks | boolean | Show orbit paths |
 | className | string | Additional CSS classes |
 
+### Data Source Components
+
+#### DataSourceStatusIndicator
+```tsx
+import { DataSourceStatusIndicator } from '@/components/generator/DataSourceStatusIndicator';
+
+<DataSourceStatusIndicator
+  preset="leo_debris"
+  onStatusChange={(status) => handleStatusChange(status)}
+/>
+```
+
+Displays the availability status of open source data required for dataset generation.
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| preset | string | Dataset preset name (e.g., "leo_debris", "geo_comms") |
+| onStatusChange | (status) => void | Callback when data source status changes |
+| className | string | Additional CSS classes |
+
+**Status Display:**
+- Shows availability of GCAT, UCS, SatNOGS, ILRS data
+- Indicates which sources are required for the selected preset
+- Provides pre-generation validation
+
+---
+
+### Hooks
+
+#### useDataSourceStatus
+```tsx
+import { useDataSourceStatus } from '@/hooks/useDataSourceStatus';
+
+function MyComponent() {
+  const {
+    status,
+    isLoading,
+    error,
+    refresh
+  } = useDataSourceStatus();
+
+  if (isLoading) return <Skeleton />;
+
+  return (
+    <div>
+      <p>GCAT: {status.gcat.available ? '✓' : '✗'}</p>
+      <p>UCS: {status.ucs.available ? '✓' : '✗'}</p>
+      <p>SatNOGS: {status.satnogs.available ? '✓' : '✗'}</p>
+      <p>ILRS: {status.ilrs.available ? '✓' : '✗'}</p>
+      <Button onClick={refresh}>Refresh Status</Button>
+    </div>
+  );
+}
+```
+
+**Returns:**
+| Property | Type | Description |
+|----------|------|-------------|
+| status | DataSourceStatus | Current status of all data sources |
+| isLoading | boolean | Whether status is being fetched |
+| error | Error \| null | Any error from fetching status |
+| refresh | () => void | Function to refresh status |
+
+**DataSourceStatus Type:**
+```typescript
+interface DataSourceStatus {
+  gcat: { available: boolean; lastSync: Date | null; recordCount: number };
+  ucs: { available: boolean; lastSync: Date | null; recordCount: number };
+  satnogs: { available: boolean; lastSync: Date | null };
+  ilrs: { available: boolean; partialOnly: boolean };
+}
+```
+
+---
+
+### Preset Requirements Mapping
+
+The system maps dataset presets to required data sources:
+
+| Preset | Required Sources | Optional Sources |
+|--------|------------------|------------------|
+| `leo_debris` | GCAT | UCS, SatNOGS |
+| `geo_comms` | UCS | GCAT |
+| `validation` | ILRS | GCAT, UCS |
+| `mx_dataset` | SatNOGS | GCAT, UCS |
+| `custom` | None | All |
+
 ---
 
 ## Icon Usage
