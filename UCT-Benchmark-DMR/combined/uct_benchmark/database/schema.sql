@@ -152,7 +152,25 @@ CREATE INDEX IF NOT EXISTS idx_elset_sat_epoch ON element_sets(sat_no, epoch);
 CREATE TABLE IF NOT EXISTS datasets (
     id INTEGER PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
-    code VARCHAR(20),                     -- e.g., "LEO_A_H_H_H"
+    code VARCHAR(20),                     -- Enhanced format: "HAMR_LEO_MAN_EO_T2S_07D_001"
+
+    -- Legacy 16-character code format (Louis's specification)
+    legacy_code VARCHAR(16),              -- e.g., "H50LEONEOPSSSS07"
+
+    -- Legacy code component fields (for querying/filtering)
+    object_type_code CHAR(1),             -- H, C, A, U, N (HAMR, Close, Apparent, Unspecified, Calibration)
+    target_percentage VARCHAR(2),         -- 50, 10, 01, UN
+    event_code VARCHAR(2),                -- MB, BU, LL, NE (Maneuver, Breakup, LongThrust, NoEvents)
+    sensor_code VARCHAR(2),               -- OP, RA, RF, FU, OR, RO, RR
+    -- Per Louis's documentation: A/S/N refer to % of objects with LOW quality:
+    -- A = >90% objects have LOW quality (sparse dataset)
+    -- S = 40-60% objects have LOW quality (mixed)
+    -- N = <10% objects have LOW quality (dense dataset)
+    coverage_level CHAR(1),               -- A (Sparse), S (Mixed), N (Dense)
+    track_gap_level CHAR(1),              -- A (Sparse), S (Mixed), N (Dense)
+    obs_count_level CHAR(1),              -- A (Sparse), S (Mixed), N (Dense)
+    object_count_level CHAR(1),           -- H, S, L (High=80, Standard=40, Low=10)
+    fitspan_days INTEGER,                 -- 01-14 days
 
     -- Version tracking
     version INTEGER DEFAULT 1,
@@ -173,6 +191,17 @@ CREATE TABLE IF NOT EXISTS datasets (
     avg_obs_count DECIMAL(8,2),
     max_track_gap DECIMAL(8,4),
 
+    -- Downsampling and Simulation tracking
+    downsampling_applied BOOLEAN DEFAULT FALSE,
+    simulation_applied BOOLEAN DEFAULT FALSE,
+    simulated_obs_count INTEGER DEFAULT 0,
+    downsampling_config JSON,              -- Stores downsampling parameters used
+    simulation_config JSON,                -- Stores simulation parameters used
+
+    -- Non-reference observation tracking (for True Negative calculation)
+    non_ref_observation_count INTEGER DEFAULT 0,
+    include_non_ref_obs BOOLEAN DEFAULT FALSE
+
     -- Parameters used (JSON blob)
     generation_params JSON,
 
@@ -187,6 +216,15 @@ CREATE TABLE IF NOT EXISTS datasets (
     json_path VARCHAR(500),
     parquet_path VARCHAR(500)
 );
+
+-- Index on legacy code for fast lookups
+CREATE INDEX IF NOT EXISTS idx_datasets_legacy_code ON datasets(legacy_code);
+
+-- Index on legacy code components for filtering
+CREATE INDEX IF NOT EXISTS idx_datasets_object_type ON datasets(object_type_code);
+CREATE INDEX IF NOT EXISTS idx_datasets_regime ON datasets(orbital_regime);
+CREATE INDEX IF NOT EXISTS idx_datasets_event ON datasets(event_code);
+CREATE INDEX IF NOT EXISTS idx_datasets_sensor ON datasets(sensor_code);
 
 -- ============================================================
 -- DATASET MEMBERSHIP (Many-to-Many)
@@ -285,7 +323,57 @@ CREATE TABLE IF NOT EXISTS event_observations (
 );
 
 -- ============================================================
+-- NON-REFERENCE OBSERVATIONS (For True Negative Calculation)
+-- ============================================================
+
+-- Add columns to datasets table for non-ref observation tracking
+-- (Note: These columns are added via ALTER TABLE in migration scripts
+--  for existing databases. For new databases, they're part of datasets table.)
+
+-- Table for storing non-reference observations
+-- These are observations from satellites NOT in the reference set,
+-- used to calculate True Negatives during evaluation
+CREATE TABLE IF NOT EXISTS non_reference_observations (
+    id INTEGER PRIMARY KEY,
+    dataset_id INTEGER,                   -- References datasets(id)
+    observation_id VARCHAR(64) NOT NULL,
+    sensor_id VARCHAR(32),
+    obs_time TIMESTAMP NOT NULL,
+    ra_deg DECIMAL(12,8),
+    dec_deg DECIMAL(12,8),
+    source_norad_id INTEGER NOT NULL,     -- The actual satellite (for ground truth)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_non_ref_obs_dataset ON non_reference_observations(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_non_ref_obs_norad ON non_reference_observations(source_norad_id);
+
+-- ============================================================
+-- BREAKUP EVENTS CACHE (For BU Event Detection)
+-- ============================================================
+
+-- Cache table for breakup events fetched from Space-Track/CelesTrak
+CREATE TABLE IF NOT EXISTS breakup_events (
+    id INTEGER PRIMARY KEY,
+    parent_norad_id INTEGER NOT NULL,
+    parent_name VARCHAR(100),
+    event_date TIMESTAMP NOT NULL,
+    debris_count INTEGER DEFAULT 0,
+    debris_norad_ids JSON,                -- Array of NORAD IDs
+    event_type VARCHAR(50),               -- FRAGMENTATION, COLLISION, ANOMALY
+    source VARCHAR(20) NOT NULL,          -- SPACETRACK, CELESTRAK
+    cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(parent_norad_id, event_date, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_breakup_events_date ON breakup_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_breakup_events_parent ON breakup_events(parent_norad_id);
+
+-- ============================================================
 -- STORE SCHEMA VERSION
 -- ============================================================
 INSERT OR REPLACE INTO _schema_metadata (key, value, updated_at)
-VALUES ('version', '1.0.0', CURRENT_TIMESTAMP);
+VALUES ('version', '1.1.0', CURRENT_TIMESTAMP);

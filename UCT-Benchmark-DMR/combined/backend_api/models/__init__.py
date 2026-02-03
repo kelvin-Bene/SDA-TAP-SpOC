@@ -80,6 +80,73 @@ class SearchStrategy(str, Enum):
 
 
 # ============================================================
+# LEGACY 16-CHARACTER CODE ENUMS (Louis's Documentation)
+# ============================================================
+
+
+class LegacyObjectType(str, Enum):
+    """Object type in legacy 16-char dataset code (Position 1)."""
+
+    HAMR = "H"          # High Area-to-Mass Ratio objects
+    CLOSE = "C"         # Close physical proximity
+    APPARENT = "A"      # Apparent angular proximity
+    UNSPECIFIED = "U"   # Unspecified/Normal
+    CALIBRATION = "N"   # Calibration satellites
+
+
+class TargetPercentage(str, Enum):
+    """Target percentage in legacy code (Positions 2-3)."""
+
+    FIFTY = "50"        # 50% target objects
+    TEN = "10"          # 10% target objects
+    ONE = "01"          # 1% target objects
+    UNSPECIFIED = "UN"  # Unspecified
+
+
+class LegacyEventType(str, Enum):
+    """Event type in legacy code (Positions 7-8)."""
+
+    MANEUVER_BETWEEN = "MB"  # Maneuver between observations
+    BREAKUP = "BU"           # Breakup event
+    LONG_LOW_THRUST = "LL"   # Long-duration/Low-thrust maneuver
+    NO_EVENTS = "NE"         # No events (normal)
+
+
+class LegacySensorType(str, Enum):
+    """Sensor type in legacy code (Positions 9-10)."""
+
+    OPTICAL = "OP"           # Optical only
+    RADAR = "RA"             # Radar only
+    RF = "RF"                # RF only
+    FUSION = "FU"            # Fusion (all sensors)
+    OPTICAL_RADAR = "OR"     # Optical + Radar
+    RADAR_OPTICAL = "RO"     # Radar + Optical
+    RADAR_RF = "RR"          # Radar + RF
+
+
+class QualityLevel(str, Enum):
+    """Quality level for coverage, track gap, obs count (Positions 11-13).
+
+    Per Louis's documentation, A/S/N refer to % of objects with LOW quality:
+    A = >90% objects have LOW quality (sparse dataset)
+    S = 40-60% objects have LOW quality (mixed)
+    N = <10% objects have LOW quality (dense/high-quality dataset)
+    """
+
+    ALL = "A"       # >90% of objects have LOW quality (sparse dataset)
+    STANDARD = "S"  # 40-60% of objects have LOW quality (mixed)
+    NONE = "N"      # <10% of objects have LOW quality (dense dataset)
+
+
+class ObjectCountLevel(str, Enum):
+    """Object count level in legacy code (Position 14)."""
+
+    HIGH = "H"      # 80 objects
+    STANDARD = "S"  # 40 objects
+    LOW = "L"       # 10 objects
+
+
+# ============================================================
 # DOWNSAMPLING & SIMULATION OPTIONS
 # ============================================================
 
@@ -165,6 +232,139 @@ class DatasetCreate(BaseModel):
     window_size_minutes: Optional[int] = Field(
         default=10, ge=1, le=60, description="Window size for windowed strategy (default 10 min)"
     )
+    # Non-reference observations for True Negative calculation (per Louis's spec)
+    include_non_ref_obs: bool = Field(
+        default=False,
+        description="Include observations from non-reference satellites for True Negative calculation",
+    )
+    non_ref_ratio: float = Field(
+        default=0.1,
+        ge=0.01,
+        le=0.5,
+        description="Ratio of non-reference observations to add (e.g., 0.1 = 10% of reference obs count)",
+    )
+    # Object type and event codes (per Louis's 16-character code spec)
+    object_type_code: str = Field(
+        default="U",
+        description="Object type code: H=HAMR, C=Close, A=Apparent, U=Unspecified, N=Calibration",
+    )
+    event_code: str = Field(
+        default="NE",
+        description="Event code: MB=Maneuver, BU=Breakup, LL=LongThrust, NE=NoEvents",
+    )
+    # Window selection algorithm (per Louis's bisecting search spec)
+    use_window_selection: bool = Field(
+        default=True,
+        description="Use bisecting window selection algorithm to find optimal time window and tier (Louis's spec)",
+    )
+    # Target percentage enforcement (positions 2-3 of 16-char code)
+    target_percentage: str = Field(
+        default="UN",
+        description="Target percentage from 16-char code: 50=50%, 10=10%, 01=1%, UN=Unspecified",
+    )
+    # TrackTLE output generation (per Louis's spec for UCTPs requiring trackTLE input)
+    output_tracktle: bool = Field(
+        default=False,
+        description="Generate TrackTLE (TLEs from single-pass observations) for UCTP compatibility",
+    )
+
+
+class LegacyDatasetCreate(BaseModel):
+    """
+    Request schema for creating a dataset using legacy 16-character code format.
+
+    Format: OTTRRREWSSCSNS##
+    Example: H50LEONEOPSSSS07 = HAMR, 50% target, LEO, No Events, Optical, Standard metrics, Standard count, 7 days
+    """
+
+    # Option 1: Provide the complete 16-char code
+    legacy_code: Optional[str] = Field(
+        default=None,
+        min_length=16,
+        max_length=16,
+        description="Complete 16-character dataset code (e.g., 'H50LEONEOPSSSS07')",
+    )
+
+    # Option 2: Provide individual components
+    name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Optional custom name (auto-generated if not provided)",
+    )
+    object_type: LegacyObjectType = Field(
+        default=LegacyObjectType.UNSPECIFIED,
+        description="Object type: H=HAMR, C=Close, A=Apparent, U=Unspecified, N=Calibration",
+    )
+    target_percentage: TargetPercentage = Field(
+        default=TargetPercentage.FIFTY,
+        description="Target percentage: 50, 10, 01, or UN",
+    )
+    orbital_regime: OrbitalRegime = Field(
+        default=OrbitalRegime.LEO,
+        description="Orbital regime: LEO, MEO, GEO, HEO",
+    )
+    event: LegacyEventType = Field(
+        default=LegacyEventType.NO_EVENTS,
+        description="Event type: MB=Maneuver, BU=Breakup, LL=LongThrust, NE=NoEvents",
+    )
+    sensor_type: LegacySensorType = Field(
+        default=LegacySensorType.OPTICAL,
+        description="Sensor type: OP, RA, RF, FU, OR, RO, RR",
+    )
+    orbit_coverage: QualityLevel = Field(
+        default=QualityLevel.STANDARD,
+        description="Orbit coverage: A=Sparse (>90% low), S=Mixed, N=Dense (<10% low)",
+    )
+    track_gap: QualityLevel = Field(
+        default=QualityLevel.STANDARD,
+        description="Track gap: A=Sparse (>90% long gaps), S=Mixed, N=Dense (<10% long gaps)",
+    )
+    observation_count: QualityLevel = Field(
+        default=QualityLevel.STANDARD,
+        description="Obs count: A=Sparse (>90% few obs), S=Mixed, N=Dense (<10% few obs)",
+    )
+    object_count_level: ObjectCountLevel = Field(
+        default=ObjectCountLevel.STANDARD,
+        description="Object count: H=80, S=40, L=10",
+    )
+    fitspan_days: int = Field(
+        default=7,
+        ge=1,
+        le=14,
+        description="Fitspan in days (01-14)",
+    )
+
+    # Additional options
+    start_date: Optional[datetime] = None
+    description: Optional[str] = None
+
+    def to_legacy_code(self) -> str:
+        """Generate the 16-character legacy code from components."""
+        if self.legacy_code:
+            return self.legacy_code
+        return (
+            f"{self.object_type.value}"
+            f"{self.target_percentage.value}"
+            f"{self.orbital_regime.value}"
+            f"{self.event.value}"
+            f"{self.sensor_type.value}"
+            f"{self.orbit_coverage.value}"
+            f"{self.track_gap.value}"
+            f"{self.observation_count.value}"
+            f"{self.object_count_level.value}"
+            f"{self.fitspan_days:02d}"
+        )
+
+
+class LegacyCodeValidation(BaseModel):
+    """Response for legacy code validation."""
+
+    code: str
+    is_valid: bool
+    format_type: str  # "legacy" or "enhanced"
+    error_message: Optional[str] = None
+    components: Optional[Dict[str, Any]] = None
 
 
 class DatasetSummary(BaseModel):
@@ -183,6 +383,12 @@ class DatasetSummary(BaseModel):
     size_bytes: int = 0
     sensor_types: List[SensorType] = []
     job_id: Optional[str] = None
+    # Legacy code fields
+    legacy_code: Optional[str] = None
+    code: Optional[str] = None  # Enhanced format code
+    # Non-reference observations (for True Negative calculation)
+    non_ref_observation_count: int = 0
+    include_non_ref_obs: bool = False
 
     class Config:
         from_attributes = True
@@ -198,6 +404,16 @@ class DatasetDetail(DatasetSummary):
     avg_obs_count: float = 0.0
     max_track_gap: float = 0.0
     json_path: Optional[str] = None
+    # Legacy code component fields
+    object_type_code: Optional[str] = None
+    target_percentage: Optional[str] = None
+    event_code: Optional[str] = None
+    sensor_code: Optional[str] = None
+    coverage_level: Optional[str] = None
+    track_gap_level: Optional[str] = None
+    obs_count_level: Optional[str] = None
+    object_count_level: Optional[str] = None
+    fitspan_days: Optional[int] = None
 
 
 class DatasetObservation(BaseModel):
@@ -257,14 +473,24 @@ class SubmissionDetail(SubmissionSummary):
 
 
 class BinaryMetrics(BaseModel):
-    """Binary classification metrics."""
+    """Binary classification metrics.
+
+    Per Louis's documentation:
+    - TP: Observation correctly matched to reference satellite
+    - TN: Non-reference observation correctly NOT matched
+    - FP: Observation incorrectly matched to wrong satellite
+    - FN: Reference observation not matched
+    """
 
     true_positives: int
+    true_negatives: int = 0  # Requires non-reference observations in dataset
     false_positives: int
     false_negatives: int
     precision: float
     recall: float
     f1_score: float
+    accuracy: float = 0.0  # (TP+TN)/(TP+TN+FP+FN)
+    specificity: float = 0.0  # TN/(TN+FP)
 
 
 class StateMetrics(BaseModel):
@@ -305,11 +531,14 @@ class SubmissionResults(BaseModel):
 
     # Binary metrics
     true_positives: int = 0
+    true_negatives: int = 0  # Requires non-reference observations in dataset
     false_positives: int = 0
     false_negatives: int = 0
     precision: float = 0.0
     recall: float = 0.0
     f1_score: float = 0.0
+    accuracy: float = 0.0  # (TP+TN)/(TP+TN+FP+FN)
+    specificity: float = 0.0  # TN/(TN+FP)
 
     # State metrics
     position_rms_km: float = 0.0

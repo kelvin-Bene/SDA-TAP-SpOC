@@ -154,6 +154,34 @@ pytest tests/test_pipeline_e2e.py
 | Simulation | 3 tests | Pass |
 | Pipeline E2E | 8 tests | Pass |
 
+### Lewis Alignment Test Suite (Added 2026-01-31)
+
+These tests verify alignment with Lewis's original UCT Benchmark specifications:
+
+| Test File | Tests | Purpose |
+|-----------|-------|---------|
+| `test_16char_code_comprehensive.py` | 38 | Validates all 16 positions of legacy dataset codes |
+| `test_tier5_impossible.py` | 10 | TIER_5 detection when criteria cannot be met |
+| `test_tracktle_batch_ls.py` | 11 | TrackTLE pipeline with BatchLSEstimator |
+| `test_target_percentage_enforcement.py` | 13 | Target percentage from dataset codes |
+| `test_close_velocity_filter.py` | 12 | Close (C) object filter with velocity threshold |
+| `test_ml_fallback.py` | 8 | ML model fallback for event detection |
+
+**Run alignment tests:**
+```bash
+pytest tests/test_16char_code_comprehensive.py -v
+pytest tests/test_tier5_impossible.py -v
+pytest tests/test_tracktle_batch_ls.py -v
+pytest tests/test_target_percentage_enforcement.py -v
+pytest tests/test_close_velocity_filter.py -v
+pytest tests/test_ml_fallback.py -v
+
+# Run all alignment tests
+pytest tests/test_16char*.py tests/test_tier5*.py tests/test_tracktle*.py tests/test_target*.py tests/test_close*.py tests/test_ml*.py -v
+```
+
+**Note**: Some TrackTLE and target percentage tests require `jpype` (Orekit dependency). These will skip gracefully if Orekit is not installed.
+
 ## Continuous Integration
 
 The validation suite can be integrated into CI/CD pipelines:

@@ -1,7 +1,7 @@
 """Submission handling endpoints."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -34,7 +34,7 @@ def _row_to_submission_summary(row: tuple, columns: list) -> SubmissionSummary:
         algorithm_name=row_dict["algorithm_name"],
         version=row_dict.get("version", "1.0"),
         status=SubmissionStatus(row_dict.get("status", "queued")),
-        created_at=row_dict["created_at"] or datetime.utcnow(),
+        created_at=row_dict["created_at"] or datetime.now(timezone.utc),
         completed_at=row_dict.get("completed_at"),
         score=row_dict.get("f1_score"),
         job_id=row_dict.get("job_id"),
@@ -135,7 +135,7 @@ async def get_submission(
         algorithm_name=row_dict["algorithm_name"],
         version=row_dict.get("version", "1.0"),
         status=SubmissionStatus(row_dict.get("status", "queued")),
-        created_at=row_dict["created_at"] or datetime.utcnow(),
+        created_at=row_dict["created_at"] or datetime.now(timezone.utc),
         completed_at=row_dict.get("completed_at"),
         score=row_dict.get("f1_score"),
         job_id=row_dict.get("job_id"),
@@ -230,7 +230,7 @@ async def create_submission(
         algorithm_name=algorithm_name,
         version=version,
         status=SubmissionStatus.QUEUED,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         completed_at=None,
         score=None,
         job_id=job.id,

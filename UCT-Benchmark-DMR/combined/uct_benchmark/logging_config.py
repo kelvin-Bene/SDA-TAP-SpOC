@@ -14,7 +14,7 @@ Created for UCT Benchmarking Enhancement.
 import json
 import sys
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -106,8 +106,8 @@ class MetricsCollector:
     """Collects and aggregates metrics during dataset generation."""
 
     def __init__(self, run_id: str = None):
-        self.run_id = run_id or datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        self.start_time = datetime.utcnow()
+        self.run_id = run_id or datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        self.start_time = datetime.now(timezone.utc)
         self.metrics = DatasetMetrics(
             run_id=self.run_id,
             start_time=self.start_time.isoformat() + "Z",
@@ -126,7 +126,7 @@ class MetricsCollector:
     ) -> None:
         """Log an API call."""
         call_record = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": service,
             "params": {k: str(v)[:100] for k, v in params.items()},
             "records": records,
@@ -173,7 +173,7 @@ class MetricsCollector:
 
     def finalize(self, config_hash: str = None) -> DatasetMetrics:
         """Finalize metrics collection."""
-        self.metrics.end_time = datetime.utcnow().isoformat() + "Z"
+        self.metrics.end_time = datetime.now(timezone.utc).isoformat() + "Z"
 
         if config_hash:
             self.metrics.config_hash = config_hash
@@ -209,7 +209,7 @@ class MetricsCollector:
         """Get a summary of collected metrics."""
         return {
             "run_id": self.run_id,
-            "duration_seconds": (datetime.utcnow() - self.start_time).total_seconds(),
+            "duration_seconds": (datetime.now(timezone.utc) - self.start_time).total_seconds(),
             "api_calls": self.metrics.total_api_calls,
             "api_errors": self.metrics.api_errors,
             "satellites": self.metrics.satellites_processed,
@@ -237,12 +237,12 @@ class PerformanceTimer:
         self.end_time = None
 
     def __enter__(self):
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(timezone.utc)
         self.logger.debug(f"Starting: {self.operation_name}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.end_time = datetime.utcnow()
+        self.end_time = datetime.now(timezone.utc)
         elapsed = (self.end_time - self.start_time).total_seconds()
 
         if exc_type is None:

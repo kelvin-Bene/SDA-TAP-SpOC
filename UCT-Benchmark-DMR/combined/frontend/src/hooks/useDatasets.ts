@@ -87,17 +87,9 @@ export function useGenerateDataset() {
 
   return useMutation({
     mutationFn: async (config: DatasetGenerationConfig) => {
-      console.log('=== useGenerateDataset mutationFn called ===');
-      console.log('Input config:', config);
-      console.log('config.startDate:', config.startDate, 'type:', typeof config.startDate);
-      console.log('config.endDate:', config.endDate, 'type:', typeof config.endDate);
-
       // Transform frontend config to backend format
       const startDate = new Date(config.startDate);
       const endDate = new Date(config.endDate);
-
-      console.log('Parsed startDate:', startDate, 'ISO:', startDate.toISOString());
-      console.log('Parsed endDate:', endDate, 'ISO:', endDate.toISOString());
 
       // Validate dates
       if (isNaN(startDate.getTime())) {
@@ -181,20 +173,27 @@ export function useGenerateDataset() {
         };
       }
 
-      console.log('Frontend config:', config);
-      console.log('Sending to backend:', JSON.stringify(backendConfig, null, 2));
-      console.log('Raw JSON:', JSON.stringify(backendConfig));
-
-      try {
-        const response = await api.generateDataset(backendConfig);
-        console.log('Success! Response:', response);
-        return response.data;
-      } catch (err: any) {
-        console.error('API Error:', err);
-        console.error('Error response data:', JSON.stringify(err?.response?.data, null, 2));
-        console.error('Error response status:', err?.response?.status);
-        throw err;
+      // Add non-reference observation options (for True Negative calculation per Louis's spec)
+      if (config.includeNonRefObs) {
+        backendConfig.include_non_ref_obs = true;
+        backendConfig.non_ref_ratio = config.nonRefRatio || 0.1;
       }
+
+      // Add object type and event codes (per Louis's 16-character code spec)
+      if (config.objectTypeCode && config.objectTypeCode !== 'U') {
+        backendConfig.object_type_code = config.objectTypeCode;
+      }
+      if (config.eventCode && config.eventCode !== 'NE') {
+        backendConfig.event_code = config.eventCode;
+      }
+
+      // Add window selection option (per Louis's bisecting search spec)
+      if (config.useWindowSelection) {
+        backendConfig.use_window_selection = true;
+      }
+
+      const response = await api.generateDataset(backendConfig);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] });

@@ -42,7 +42,15 @@ setup_orekit_curdir(from_pip_library=True)
 
 from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
 
-from uct_benchmark.data.dataManipulation import binTracks
+from uct_benchmark.data.dataManipulation import binTracks, add_non_reference_observations
+from uct_benchmark.data.objectTypeFiltering import filter_by_object_type_code, ObjectFilterConfig
+from uct_benchmark.data.eventDetection import filter_satellites_by_event_code, EventDetectionConfig
+from uct_benchmark.data.windowSelection import (
+    find_optimal_window,
+    WindowCriteria,
+    WindowTier,
+    create_criteria_from_user_input,
+)
 from uct_benchmark.settings import (
     INTERIM_DATA_DIR,
     api_config,
@@ -69,6 +77,99 @@ def _suppress_warnings():
 
 # Backward-compatible alias (deprecated)
 _supressWarn = _suppress_warnings
+
+
+# =============================================================================
+# TARGET PERCENTAGE ENFORCEMENT (per Louis's 16-char code positions 2-3)
+# =============================================================================
+
+
+def enforce_target_percentage(
+    obs_df: pd.DataFrame,
+    object_type_sats: List[int],
+    all_sats: List[int],
+    target_percentage: str,
+    target_count: int = None,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Enforce target percentage from 16-char code positions 2-3.
+
+    Per Louis's Benchmarking Documentation:
+    "Target Object % specifies what percentage of dataset should be target objects
+    (e.g., 50% HAMR, 50% normal)"
+
+    Args:
+        obs_df: Observations DataFrame with 'satNo' column
+        object_type_sats: Satellites matching object type filter (e.g., HAMR satellites)
+        all_sats: All available satellites
+        target_percentage: "50", "10", "01", or "UN" (unspecified)
+        target_count: Optional override for number of target objects
+
+    Returns:
+        Tuple of (filtered_observations_df, enforcement_metadata)
+    """
+    if target_percentage == "UN":
+        return obs_df, {"target_percentage": "UN", "enforced": False}
+
+    pct_map = {"50": 0.50, "10": 0.10, "01": 0.01}
+    pct = pct_map.get(target_percentage, 0.50)
+
+    # Get unique satellites currently in observations
+    current_sats = list(obs_df["satNo"].unique())
+
+    # Calculate desired split
+    total_desired = len(current_sats)
+
+    if target_count is not None:
+        target_sat_count = min(target_count, total_desired)
+    else:
+        target_sat_count = int(total_desired * pct)
+
+    normal_sat_count = total_desired - target_sat_count
+
+    # Ensure we have enough target objects
+    available_target_sats = [s for s in object_type_sats if s in current_sats]
+    available_normal_sats = [s for s in current_sats if s not in object_type_sats]
+
+    # Select target type satellites (up to target_sat_count)
+    selected_target = available_target_sats[:target_sat_count]
+
+    # Select normal satellites (not in object_type_sats)
+    selected_normal = available_normal_sats[:normal_sat_count]
+
+    # If we don't have enough target sats, fill remainder with normal
+    remaining_slots = total_desired - len(selected_target) - len(selected_normal)
+    if remaining_slots > 0 and len(available_normal_sats) > len(selected_normal):
+        additional_normal = available_normal_sats[len(selected_normal) : len(selected_normal) + remaining_slots]
+        selected_normal.extend(additional_normal)
+
+    # Combine and filter
+    final_sats = set(selected_target + selected_normal)
+    filtered_df = obs_df[obs_df["satNo"].isin(final_sats)].copy()
+
+    # Calculate actual percentage achieved
+    actual_target_pct = len(selected_target) / len(final_sats) if final_sats else 0
+
+    metadata = {
+        "target_percentage": target_percentage,
+        "enforced": True,
+        "requested_pct": pct,
+        "achieved_pct": actual_target_pct,
+        "target_count": len(selected_target),
+        "normal_count": len(selected_normal),
+        "total_satellites": len(final_sats),
+        "target_satellites": list(selected_target),
+        "available_target_count": len(available_target_sats),
+        "available_normal_count": len(available_normal_sats),
+    }
+
+    logger.info(
+        f"Target percentage enforcement: {target_percentage}% -> "
+        f"{len(selected_target)} target + {len(selected_normal)} normal = {len(final_sats)} total "
+        f"(achieved {actual_target_pct:.1%})"
+    )
+
+    return filtered_df, metadata
 
 
 def _check_api_response(response: "requests.Response", service_name: str) -> None:
@@ -125,7 +226,7 @@ def _log_api_call(
 ) -> None:
     """Log each UDL API call with metrics."""
     call_record = {
-        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "service": service,
         "params": {k: str(v)[:100] for k, v in params.items()},  # Truncate long values
         "response_records": response_size,
@@ -718,7 +819,7 @@ def generateAdaptiveBatchParams(
         List of (sat_ids_batch, time_range_str) tuples
     """
     if end_time is None:
-        end_time = datetime.datetime.utcnow()
+        end_time = datetime.datetime.now(datetime.timezone.utc)
 
     total_duration = pd.Timedelta(**{timeunit: timeframe})
     start_time = end_time - total_duration
@@ -1623,6 +1724,14 @@ def generateDataset(
     search_strategy="hybrid",
     window_size_minutes=10,
     regime="LEO",
+    include_non_ref_obs=False,
+    non_ref_ratio=0.1,
+    object_type_code="U",
+    event_code="NE",
+    use_window_selection=True,
+    window_criteria=None,
+    target_percentage="UN",
+    output_tracktle=False,
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1644,6 +1753,18 @@ def generateDataset(
         simulation_config (dict or SimulationConfig): Configuration for gap-filling simulation. If dict with 'enabled': True,
             simulation will be applied. Pass None or {'enabled': False} to skip.
         tier (string): Dataset quality tier (T1, T2, T3, T4). Affects downsampling intensity. Defaults to "T2".
+        include_non_ref_obs (bool): If True, include observations from non-reference satellites
+            for True Negative calculation per Louis's specification. Defaults to False.
+        non_ref_ratio (float): Ratio of non-reference observations to add relative to reference
+            observation count. E.g., 0.1 = 10% of reference obs count as non-reference. Defaults to 0.1.
+        object_type_code (string): Legacy object type code per Louis's documentation:
+            H=HAMR, C=Close, A=Apparent, U=Unspecified, N=Calibration. Defaults to "U".
+        event_code (string): Legacy event code: MB=Maneuver, BU=Breakup, LL=LongThrust, NE=NoEvents.
+            Defaults to "NE".
+        use_window_selection (bool): If True, use the bisecting window selection algorithm per
+            Louis's documentation to find the optimal time window. Defaults to False.
+        window_criteria (WindowCriteria): Optional criteria for window selection. Uses defaults
+            if None.
 
     Returns:
         Pandas DataFrame: A dataset of "uct" observations.
@@ -1682,7 +1803,7 @@ def generateDataset(
         actual_start_time = end_time - pd.Timedelta(**{timeunit: timeframe})
         sweep_time = datetimeToUDL(actual_start_time) + ".." + datetimeToUDL(actual_end_time)
     else:
-        actual_end_time = datetime.datetime.utcnow()
+        actual_end_time = datetime.datetime.now(datetime.timezone.utc)
         actual_start_time = actual_end_time - pd.Timedelta(**{timeunit: timeframe})
         sweep_time = ">now-" + str(timeframe) + " " + timeunit
 
@@ -1880,6 +2001,248 @@ def generateDataset(
         report_progress(DatasetStage.COLLECTING_TLES, 1.0)
 
     # =========================================================================
+    # OPTIONAL: Apply window selection algorithm (per Louis's bisecting search spec)
+    # =========================================================================
+    window_selection_metadata = None
+    determined_tier = tier  # Default to user-specified tier
+
+    if use_window_selection:
+        logger.info("Applying window selection algorithm (bisecting search)...")
+
+        try:
+            # Build sat_params from elset data
+            sat_params_for_window = {}
+            for _, row in elset_truth_data.iterrows():
+                sat_no = int(row["satNo"])
+                orb_elems = row.get("elset", {})
+                sat_params_for_window[sat_no] = orb_elems
+
+            # Get batch time range
+            batch_start = obs_truth_data["obTime"].min()
+            batch_end = obs_truth_data["obTime"].max()
+
+            # Use provided criteria or create from defaults
+            if window_criteria is None:
+                window_criteria = WindowCriteria(fit_span_days=float(timeframe))
+
+            # Run bisecting search
+            window_result = find_optimal_window(
+                obs_df=obs_truth_data,
+                sat_params=sat_params_for_window,
+                batch_start=batch_start,
+                batch_end=batch_end,
+                criteria=window_criteria,
+                use_sliding_after_bisect=True,
+            )
+
+            if window_result and window_result.best_window:
+                best = window_result.best_window
+
+                window_selection_metadata = {
+                    "tier": best.tier.value,
+                    "tier_name": best.tier.name,
+                    "start_time": str(best.start_time),
+                    "end_time": str(best.end_time),
+                    "overall_score": best.overall_score,
+                    "object_count": best.object_count,
+                    "avg_obs_count": best.avg_obs_per_object,
+                    "avg_coverage": best.avg_orbital_coverage,
+                    "avg_track_gap": best.avg_track_gap,
+                    "recommended_action": window_result.recommended_action,
+                    "windows_evaluated": window_result.windows_evaluated,
+                    "search_duration_seconds": window_result.search_duration_seconds,
+                }
+
+                # Filter observations to optimal window
+                if best.start_time and best.end_time:
+                    obs_truth_data = obs_truth_data[
+                        (obs_truth_data["obTime"] >= best.start_time) &
+                        (obs_truth_data["obTime"] <= best.end_time)
+                    ].copy()
+
+                    # Update satIDs to reflect filtered observations
+                    satIDs = obs_truth_data["satNo"].unique()
+                    state_truth_data = state_truth_data[state_truth_data["satNo"].isin(satIDs)]
+                    elset_truth_data = elset_truth_data[elset_truth_data["satNo"].isin(satIDs)]
+
+                    logger.info(
+                        f"Window selection complete: Tier {best.tier.value} "
+                        f"({window_result.recommended_action}), "
+                        f"{len(satIDs)} satellites, "
+                        f"score {best.overall_score:.2f}"
+                    )
+
+                # Map window tier to data tier for automatic adjustment
+                if best.tier == WindowTier.TIER_2:
+                    determined_tier = "T2"  # Needs downsampling
+                elif best.tier == WindowTier.TIER_3:
+                    determined_tier = "T3"  # Needs simulation
+                else:
+                    determined_tier = tier  # Use user-specified
+
+        except Exception as e:
+            logger.warning(f"Window selection failed: {e}. Continuing with full time range.")
+            window_selection_metadata = {"status": "failed", "error": str(e)}
+
+    # =========================================================================
+    # OPTIONAL: Apply object type filtering (per Louis's 16-character code spec)
+    # =========================================================================
+    object_type_metadata = None
+    if object_type_code and object_type_code != "U":
+        logger.info(f"Applying object type filtering: code={object_type_code}")
+
+        # Build physical_data dict from state_truth_data (mass, crossSection)
+        physical_data = {}
+        for _, row in state_truth_data.iterrows():
+            sat_no = int(row["satNo"])
+            physical_data[sat_no] = {
+                "mass": row.get("mass", 0),
+                "cross_section": row.get("crossSection", 0),
+            }
+
+        # Build sat_params dict from elset_truth_data for filtering
+        sat_params = {}
+        for _, row in elset_truth_data.iterrows():
+            sat_no = int(row["satNo"])
+            orb_elems = row.get("elset", {})
+            sat_params[sat_no] = orb_elems
+
+        # Build state_data dict for physical proximity filtering (C code)
+        state_data = {}
+        for _, row in state_truth_data.iterrows():
+            sat_no = int(row["satNo"])
+            state_data[sat_no] = {
+                "x": row.get("xpos", row.get("x", 0)),
+                "y": row.get("ypos", row.get("y", 0)),
+                "z": row.get("zpos", row.get("z", 0)),
+                "vx": row.get("xvel", row.get("vx", 0)),
+                "vy": row.get("yvel", row.get("vy", 0)),
+                "vz": row.get("zvel", row.get("vz", 0)),
+                "epoch": row.get("epoch"),
+            }
+
+        try:
+            obs_truth_data, object_type_metadata = filter_by_object_type_code(
+                obs_df=obs_truth_data,
+                object_type_code=object_type_code,
+                sat_params=sat_params,
+                physical_data=physical_data,
+                state_data=state_data,
+            )
+
+            if object_type_metadata:
+                logger.info(
+                    f"Object type filtering complete: "
+                    f"{object_type_metadata.get('final_satellite_count', 0)} satellites selected"
+                )
+
+            # Update satIDs to only include filtered satellites
+            satIDs = obs_truth_data["satNo"].unique()
+
+            # Filter state and elset data to match filtered satellites
+            state_truth_data = state_truth_data[state_truth_data["satNo"].isin(satIDs)]
+            elset_truth_data = elset_truth_data[elset_truth_data["satNo"].isin(satIDs)]
+
+        except Exception as e:
+            logger.warning(f"Object type filtering failed: {e}. Continuing with unfiltered data.")
+            object_type_metadata = {"status": "failed", "error": str(e)}
+
+    # =========================================================================
+    # OPTIONAL: Apply target percentage enforcement (positions 2-3 of 16-char code)
+    # =========================================================================
+    target_pct_metadata = None
+    if target_percentage and target_percentage != "UN" and object_type_code != "U":
+        logger.info(f"Applying target percentage enforcement: {target_percentage}%")
+
+        try:
+            # Get matching satellites from object type filtering
+            # Note: filter_by_object_type_code returns "selected_satellites" in metadata
+            object_type_sats = []
+            if object_type_metadata and object_type_metadata.get("status") != "failed":
+                object_type_sats = list(object_type_metadata.get("selected_satellites", []))
+
+            # Get all current satellites
+            all_current_sats = list(obs_truth_data["satNo"].unique())
+
+            # Apply target percentage enforcement
+            obs_truth_data, target_pct_metadata = enforce_target_percentage(
+                obs_df=obs_truth_data,
+                object_type_sats=object_type_sats,
+                all_sats=all_current_sats,
+                target_percentage=target_percentage,
+            )
+
+            # Update satIDs
+            satIDs = obs_truth_data["satNo"].unique()
+
+            # Filter state and elset data
+            state_truth_data = state_truth_data[state_truth_data["satNo"].isin(satIDs)]
+            elset_truth_data = elset_truth_data[elset_truth_data["satNo"].isin(satIDs)]
+
+            logger.info(
+                f"Target percentage enforcement complete: "
+                f"{target_pct_metadata.get('total_satellites', 0)} satellites "
+                f"({target_pct_metadata.get('achieved_pct', 0):.1%} target objects)"
+            )
+
+        except Exception as e:
+            logger.warning(f"Target percentage enforcement failed: {e}. Continuing without enforcement.")
+            target_pct_metadata = {"status": "failed", "error": str(e)}
+
+    # =========================================================================
+    # OPTIONAL: Apply event filtering (per Louis's 16-character code spec)
+    # =========================================================================
+    event_metadata = None
+    if event_code and event_code != "NE":
+        logger.info(f"Applying event filtering: code={event_code}")
+
+        try:
+            # Get list of satellite IDs
+            current_sat_ids = list(obs_truth_data["satNo"].unique())
+
+            # Filter satellites by event code
+            matching_sats, detected_events = filter_satellites_by_event_code(
+                tle_df=elset_truth_data,
+                satellite_ids=current_sat_ids,
+                event_code=event_code,
+            )
+
+            event_metadata = {
+                "event_code": event_code,
+                "matching_satellites": matching_sats,
+                "detected_events": len(detected_events),
+                "original_count": len(current_sat_ids),
+            }
+
+            if matching_sats:
+                # Filter observations to only matching satellites
+                obs_truth_data = obs_truth_data[
+                    obs_truth_data["satNo"].isin(matching_sats)
+                ].copy()
+
+                # Update satIDs
+                satIDs = obs_truth_data["satNo"].unique()
+
+                # Filter state and elset data
+                state_truth_data = state_truth_data[state_truth_data["satNo"].isin(satIDs)]
+                elset_truth_data = elset_truth_data[elset_truth_data["satNo"].isin(satIDs)]
+
+                logger.info(
+                    f"Event filtering complete: {len(matching_sats)} satellites match "
+                    f"event code '{event_code}' ({len(detected_events)} events detected)"
+                )
+            else:
+                logger.warning(
+                    f"No satellites found matching event code '{event_code}'. "
+                    f"Continuing with all satellites."
+                )
+                event_metadata["status"] = "no_matches"
+
+        except Exception as e:
+            logger.warning(f"Event filtering failed: {e}. Continuing with unfiltered data.")
+            event_metadata = {"status": "failed", "error": str(e)}
+
+    # =========================================================================
     # OPTIONAL: Apply downsampling to reduce observation quality
     # =========================================================================
     downsampling_metadata = None
@@ -2049,11 +2412,163 @@ def generateDataset(
             # Update satIDs
             satIDs = obs_truth_data["satNo"].unique()
 
+    # =========================================================================
+    # OPTIONAL: Add Non-Reference Observations (for True Negative Calculation)
+    # =========================================================================
+    non_ref_obs_df = None
+    non_ref_truth_df = None
+    if include_non_ref_obs:
+        logger.info("Adding non-reference observations for True Negative calculation...")
+
+        # We need additional observations from satellites NOT in our reference set
+        # These should be observations that the algorithm should NOT match
+        # Per Louis's spec: exactly 2 obs per non-ref satellite (makes IOD impossible)
+
+        # For this to work, we need observations from other satellites in the same time window
+        # We'll query for additional observations from the regime
+        try:
+            # Get reference satellite set
+            reference_norad_ids = list(satIDs)
+
+            # Query for observations from other satellites in the same regime/time window
+            # Use a broader query to get candidate non-reference observations
+            if end_time != "now":
+                actual_end_time = end_time
+                actual_start_time = end_time - pd.Timedelta(**{timeunit: timeframe})
+            else:
+                actual_end_time = datetime.datetime.now(datetime.timezone.utc)
+                actual_start_time = actual_end_time - pd.Timedelta(**{timeunit: timeframe})
+
+            sweep_time_range = f"{datetimeToUDL(actual_start_time)}..{datetimeToUDL(actual_end_time)}"
+
+            # Query observations without satellite filter to get candidates
+            non_ref_params = {
+                "obTime": sweep_time_range,
+                "dataMode": "REAL",
+                "sort": "obTime,DESC",
+                "maxResults": 5000,  # Limit to avoid huge queries
+            }
+
+            all_obs_candidates = UDLQuery(UDL_token, "observation", non_ref_params)
+
+            if not all_obs_candidates.empty:
+                # Convert times
+                if "obTime" in all_obs_candidates.columns:
+                    all_obs_candidates["obTime"] = [
+                        UDLToDatetime(t) for t in all_obs_candidates["obTime"]
+                    ]
+
+                # Add non-reference observations
+                obs_truth_data, non_ref_truth_df = add_non_reference_observations(
+                    ref_obs_df=obs_truth_data,
+                    reference_norad_ids=reference_norad_ids,
+                    all_observations_df=all_obs_candidates,
+                    non_ref_ratio=non_ref_ratio,
+                    regime=regime,
+                    seed=42,  # Use fixed seed for reproducibility
+                )
+
+                if non_ref_truth_df is not None and not non_ref_truth_df.empty:
+                    non_ref_obs_df = non_ref_truth_df
+                    logger.info(
+                        f"Added {len(non_ref_truth_df)} non-reference observations "
+                        f"from {non_ref_truth_df['source_norad_id'].nunique()} non-ref satellites"
+                    )
+            else:
+                logger.warning("No candidate observations found for non-reference selection")
+
+        except Exception as e:
+            logger.warning(f"Failed to add non-reference observations: {e}")
+            # Continue without non-reference observations
+
     # Generate final dataset from observation data
     dataset = obs_truth_data.copy()
     dataset["uct"] = True  # Mark these as UCT/"unknown" points
 
+    # =========================================================================
+    # GENERATE ANSWER KEY (per Louis's decorrelation spec)
+    # =========================================================================
+    # The answer key maps observation IDs to their true satellite (NORAD ID)
+    # This is used during evaluation to verify correct associations
+    answer_key = {}
+    grouped_obs_ids = {}  # Group observations by satellite
+
+    for sat_no in obs_truth_data["satNo"].unique():
+        sat_obs = obs_truth_data[obs_truth_data["satNo"] == sat_no]
+        obs_ids = sat_obs["id"].tolist()
+        grouped_obs_ids[int(sat_no)] = obs_ids
+        for obs_id in obs_ids:
+            answer_key[obs_id] = int(sat_no)
+
+    logger.info(
+        f"Generated answer key: {len(answer_key)} observations "
+        f"from {len(grouped_obs_ids)} satellites"
+    )
+
+    # =========================================================================
+    # OPTIONAL: Generate TrackTLE output (per Louis's spec for UCTP compatibility)
+    # =========================================================================
+    tracktle_results = None
+    if output_tracktle:
+        logger.info("Generating TrackTLE from observation tracks...")
+
+        try:
+            from uct_benchmark.simulation.tracktle import generate_tracktle, Observation
+
+            tracktle_results = {}
+            tracktle_start = time.perf_counter()
+
+            for sat_no in obs_truth_data["satNo"].unique():
+                sat_obs = obs_truth_data[obs_truth_data["satNo"] == sat_no].sort_values("obTime")
+
+                # Need at least 3 observations for IOD
+                if len(sat_obs) >= 3:
+                    try:
+                        # Convert observations to tracktle format
+                        observations = []
+                        for _, row in sat_obs.iterrows():
+                            obs = Observation(
+                                epoch=row["obTime"],
+                                ra_deg=float(row.get("ra", 0)),
+                                dec_deg=float(row.get("declination", 0)),
+                                site_code=str(row.get("idSensor", row.get("sensorName", "UNK"))),
+                                site_lat=float(row.get("senlat", 0)),
+                                site_lon=float(row.get("senlon", 0)),
+                                site_alt_km=float(row.get("senalt", 0)) / 1000 if row.get("senalt") else 0,
+                            )
+                            observations.append(obs)
+
+                        # Generate TrackTLE
+                        result = generate_tracktle(observations, norad_id=int(sat_no))
+
+                        if result.tle_line1 and result.tle_line2:
+                            tracktle_results[int(sat_no)] = {
+                                "tle_line1": result.tle_line1,
+                                "tle_line2": result.tle_line2,
+                                "epoch": result.epoch.isoformat() if result.epoch else None,
+                                "convergence_status": result.convergence_status,
+                                "rms_residual_arcsec": result.rms_residual_arcsec,
+                                "iterations": result.iterations,
+                            }
+                    except Exception as e:
+                        logger.warning(f"TrackTLE generation failed for sat {sat_no}: {e}")
+                        tracktle_results[int(sat_no)] = {"error": str(e)}
+
+            tracktle_elapsed = time.perf_counter() - tracktle_start
+            logger.info(
+                f"TrackTLE generation complete: {len([r for r in tracktle_results.values() if 'tle_line1' in r])} "
+                f"TLEs generated from {len(tracktle_results)} satellites in {tracktle_elapsed:.2f}s"
+            )
+
+        except ImportError as e:
+            logger.warning(f"TrackTLE module not available: {e}")
+            tracktle_results = {"error": "tracktle module not available"}
+        except Exception as e:
+            logger.error(f"TrackTLE generation failed: {e}")
+            tracktle_results = {"error": str(e)}
+
     # Remove metadata columns that might identify data (silently ignore if any are missing)
+    # Per Louis's spec: satNo must be removed for decorrelation
     dataset = dataset.drop(
         columns=[
             "satNo",
@@ -2063,6 +2578,7 @@ def generateDataset(
             "createdAt",
             "trackId",
             "has_cov",
+            "is_non_reference",  # Don't expose this in decorrelated output
         ],
         errors="ignore",
     )
@@ -2096,8 +2612,43 @@ def generateDataset(
         "Satellites with Observations": obs_sats,
         "Observed Satellites with SV Information": orbit_sats,
         "Observed Satellites with SV and TLE Information": elset_sats,
-        "Tier": tier,
+        "Tier": determined_tier,  # Use tier determined by window selection if applicable
     }
+
+    # Add window selection metadata if applied
+    if window_selection_metadata is not None:
+        performance_data["Window Selection Applied"] = True
+        performance_data["Window Selection Metadata"] = window_selection_metadata
+        performance_data["Determined Tier"] = determined_tier
+    else:
+        performance_data["Window Selection Applied"] = False
+
+    # Add object type filtering metadata if applied
+    if object_type_metadata is not None:
+        performance_data["Object Type Filtering Applied"] = True
+        performance_data["Object Type Code"] = object_type_code
+        performance_data["Object Type Metadata"] = object_type_metadata
+    else:
+        performance_data["Object Type Filtering Applied"] = False
+        performance_data["Object Type Code"] = object_type_code
+
+    # Add target percentage enforcement metadata if applied
+    if target_pct_metadata is not None:
+        performance_data["Target Percentage Enforced"] = target_pct_metadata.get("enforced", False)
+        performance_data["Target Percentage"] = target_percentage
+        performance_data["Target Percentage Metadata"] = target_pct_metadata
+    else:
+        performance_data["Target Percentage Enforced"] = False
+        performance_data["Target Percentage"] = target_percentage
+
+    # Add event filtering metadata if applied
+    if event_metadata is not None:
+        performance_data["Event Filtering Applied"] = True
+        performance_data["Event Code"] = event_code
+        performance_data["Event Metadata"] = event_metadata
+    else:
+        performance_data["Event Filtering Applied"] = False
+        performance_data["Event Code"] = event_code
 
     # Add downsampling metadata if applied
     if downsampling_metadata is not None:
@@ -2116,6 +2667,32 @@ def generateDataset(
     else:
         performance_data["Simulation Applied"] = False
         performance_data["Simulated Observation Count"] = 0
+
+    # Add non-reference observation metadata if included
+    if non_ref_obs_df is not None and not non_ref_obs_df.empty:
+        performance_data["Non-Reference Observations Included"] = True
+        performance_data["Non-Reference Observation Count"] = len(non_ref_obs_df)
+        performance_data["Non-Reference Satellite Count"] = non_ref_obs_df["source_norad_id"].nunique()
+    else:
+        performance_data["Non-Reference Observations Included"] = False
+        performance_data["Non-Reference Observation Count"] = 0
+        performance_data["Non-Reference Satellite Count"] = 0
+
+    # Add decorrelation/answer key metadata
+    performance_data["Decorrelated"] = True  # satNo removed
+    performance_data["Answer Key Size"] = len(answer_key)
+    performance_data["Grouped Observations"] = len(grouped_obs_ids)
+    # Note: Full answer_key is not stored in performance_data as it can be large
+    # It should be stored separately in the database for evaluation
+
+    # Add TrackTLE metadata if generated
+    if tracktle_results is not None:
+        performance_data["TrackTLE Generated"] = True
+        successful_tles = len([r for r in tracktle_results.values() if isinstance(r, dict) and "tle_line1" in r])
+        performance_data["TrackTLE Success Count"] = successful_tles
+        performance_data["TrackTLE Results"] = tracktle_results
+    else:
+        performance_data["TrackTLE Generated"] = False
 
     # Optional: Persist to database if requested
     if use_database:
@@ -2247,6 +2824,68 @@ def generateDataset(
                             track_id = None
                     track_assignments[row["id"]] = track_id
                 db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+
+            # Persist non-reference observations if included
+            if non_ref_obs_df is not None and not non_ref_obs_df.empty:
+                logger.info(f"Persisting {len(non_ref_obs_df)} non-reference observations...")
+
+                # Get observations with non-ref flag from obs_truth_data
+                non_ref_rows = obs_truth_data[
+                    obs_truth_data.get("is_non_reference", False) == True
+                ] if "is_non_reference" in obs_truth_data.columns else pd.DataFrame()
+
+                if not non_ref_rows.empty:
+                    for _, row in non_ref_rows.iterrows():
+                        try:
+                            # Insert into non_reference_observations table
+                            db.execute(
+                                """
+                                INSERT INTO non_reference_observations
+                                (dataset_id, observation_id, sensor_id, obs_time, ra_deg, dec_deg, source_norad_id)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                (
+                                    dataset_id,
+                                    row.get("id", ""),
+                                    row.get("idSensor", row.get("sensorName", "")),
+                                    row.get("obTime"),
+                                    row.get("ra"),
+                                    row.get("declination"),
+                                    int(row.get("satNo", 0)),
+                                ),
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to insert non-ref observation: {e}")
+
+                    # Update dataset record with non-ref obs count
+                    db.execute(
+                        """
+                        UPDATE datasets
+                        SET non_ref_observation_count = ?,
+                            include_non_ref_obs = TRUE
+                        WHERE id = ?
+                        """,
+                        (len(non_ref_rows), dataset_id),
+                    )
+                    logger.info(f"Persisted {len(non_ref_rows)} non-reference observations")
+
+            # Store answer key (per Louis's decorrelation spec)
+            if answer_key and dataset_id:
+                import json as json_mod
+                try:
+                    # Store grouped_obs_ids (more compact than full answer_key)
+                    # Format: {norad_id: [obs_id1, obs_id2, ...], ...}
+                    db.execute(
+                        """
+                        UPDATE datasets
+                        SET answer_key = ?
+                        WHERE id = ?
+                        """,
+                        (json_mod.dumps(grouped_obs_ids), dataset_id),
+                    )
+                    logger.info(f"Stored answer key for {len(grouped_obs_ids)} satellites")
+                except Exception as e:
+                    logger.warning(f"Failed to store answer key: {e}")
 
             db_elapsed_time = time.perf_counter() - db_start_time
             performance_data["Database Persistence Time"] = db_elapsed_time

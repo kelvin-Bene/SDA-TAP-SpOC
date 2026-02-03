@@ -78,8 +78,11 @@ UCT-Benchmark-DMR/combined/
 │   │   ├── __init__.py
 │   │   ├── basicScoringFunction.py  # Data quality scoring
 │   │   ├── dataManipulation.py      # Data transformation utilities
+│   │   ├── eventDetection.py        # Orbital event detection (ML + fallback)
+│   │   ├── objectTypeFiltering.py   # Object type filters (HAMR, Close, Apparent)
 │   │   ├── readData.py              # Data loading utilities
-│   │   └── windowCheck.py           # Window selection algorithm
+│   │   ├── windowCheck.py           # Window selection algorithm (legacy)
+│   │   └── windowSelection.py       # Window selection with TIER_5 support
 │   │
 │   ├── database/               # Database layer
 │   │   ├── __init__.py
@@ -106,6 +109,7 @@ UCT-Benchmark-DMR/combined/
 │   │   ├── simulateObservations.py  # Observation simulation
 │   │   ├── atmospheric.py      # Atmospheric refraction
 │   │   ├── noise_models.py     # Sensor noise models
+│   │   ├── tracktle.py         # TrackTLE generation (Modified Gauss + BatchLS)
 │   │   └── TLEGeneration.py    # TLE generation utilities
 │   │
 │   ├── uctp/                   # UCTP algorithm implementations
@@ -252,7 +256,117 @@ def TLEpropagator(input1, input2, finalEpoch) -> tuple:
 
 ---
 
-### 4. Orbit Association (`evaluation/orbitAssociation.py`)
+### 4. TrackTLE Generation (`simulation/tracktle.py`)
+
+Per Lewis's specification, TrackTLE generates TLEs from single-pass observations using Modified Gauss IOD and Orekit BatchLSEstimator refinement.
+
+#### Data Structures
+
+```python
+@dataclass
+class Observation:
+    """Single angular observation for IOD."""
+    epoch: datetime
+    ra_deg: float       # Right Ascension in degrees
+    dec_deg: float      # Declination in degrees
+    site_code: str
+    site_lat: float     # Ground station latitude
+    site_lon: float     # Ground station longitude
+    site_alt_km: float  # Ground station altitude
+
+@dataclass
+class TrackTLEResult:
+    """Result from TrackTLE generation."""
+    tle_line1: str
+    tle_line2: str
+    epoch: datetime
+    position_km: np.ndarray
+    velocity_km_s: np.ndarray
+    covariance: Optional[np.ndarray]  # 6x6 covariance matrix
+    residuals_arcsec: List[float]
+    rms_residual_arcsec: float
+    convergence_status: str
+    iterations: int
+
+@dataclass
+class PropagatorConfig:
+    """Configuration for numerical propagator."""
+    integrator_type: str = "DormandPrince853"  # 8th order adaptive
+    gravity_model: str = "HolmesFeatherstone"
+    gravity_degree: int = 120
+    gravity_order: int = 120
+    atmosphere_model: str = "NRLMSISE00"
+    srp_enabled: bool = True
+    shadow_model: str = "umbra_penumbra"
+    include_sun: bool = True
+    include_moon: bool = True
+```
+
+#### Pipeline Functions
+
+```python
+def modified_gauss_iod(observations: List[Observation]) -> Tuple[np.ndarray, datetime]:
+    """
+    Initial Orbit Determination using Modified Gauss method.
+
+    Requires minimum 3 observations.
+    Returns: (initial_state_vector, epoch) or (None, None) if insufficient data.
+    """
+
+def batch_ls_refinement_orekit(
+    initial_state: np.ndarray,
+    epoch: datetime,
+    observations: List[Observation],
+    config: Optional[PropagatorConfig]
+) -> Tuple[np.ndarray, np.ndarray, List[float], int]:
+    """
+    Refine orbit using Orekit BatchLSEstimator.
+
+    Per Lewis's specification:
+    "The batch filter uses the rest of the states as pseudo-observations
+    and an SGP4 propagator to converge on a solution"
+
+    Force Models:
+    - Holmes-Featherstone gravity (degree/order 120)
+    - NRLMSISE-00 atmospheric drag
+    - Solar radiation pressure with umbra/penumbra
+    - Sun and Moon third-body perturbations
+
+    Returns: (refined_state, covariance, residuals, iterations)
+    """
+
+def state_to_tle(
+    state: np.ndarray,
+    epoch: datetime,
+    norad_id: int = 99999
+) -> Tuple[str, str]:
+    """
+    Convert state vector to TLE format.
+
+    Returns: (line1, line2) - valid 69-character TLE lines
+    """
+
+def generate_tracktle(observations: List[Observation]) -> TrackTLEResult:
+    """
+    Main pipeline: Observations -> Modified Gauss IOD -> BatchLS Refinement -> TLE
+
+    Requires minimum 3 observations for IOD.
+    """
+```
+
+#### Helper Functions
+
+```python
+def _add_force_models_to_builder(builder, config: PropagatorConfig):
+    """Add force models to Orekit propagator builder."""
+
+def _create_topocentric_frame(lat: float, lon: float, alt_km: float):
+    """Create topocentric frame for ground station."""
+```
+
+---
+
+### 5. Orbit Association (`evaluation/orbitAssociation.py`)
 
 Associates UCTP output with reference orbits.
 

@@ -1,0 +1,33 @@
+# Docker Compose configuration for PostgreSQL testing
+# Usage: docker-compose -f docker-compose.test.yml up -d
+#        TEST_DATABASE_BACKEND=postgres pytest tests/ -v
+#        docker-compose -f docker-compose.test.yml down
+
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: uct-benchmark-postgres-test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: uct_benchmark_test
+    ports:
+      - "5433:5432"  # Use non-standard port to avoid conflicts
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d uct_benchmark_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_test_data:
+    driver: local
+
+# Environment variables for testing:
+# TEST_DATABASE_BACKEND=postgres
+# TEST_DATABASE_URL=postgresql://postgres:testpassword@localhost:5433/uct_benchmark_test

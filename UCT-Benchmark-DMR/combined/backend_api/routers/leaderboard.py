@@ -1,6 +1,6 @@
 """Leaderboard endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -97,7 +97,7 @@ async def get_leaderboard(
                 recall=float(row_dict.get("recall") or 0),
                 position_rms_km=float(row_dict.get("position_rms_km") or 0),
                 submission_id=str(row_dict["submission_id"]),
-                submitted_at=row_dict.get("completed_at") or datetime.utcnow(),
+                submitted_at=row_dict.get("completed_at") or datetime.now(timezone.utc),
                 is_current_user=False,  # Would need auth context
             )
         )
@@ -116,7 +116,7 @@ async def get_leaderboard(
     return LeaderboardResponse(
         dataset_id=dataset_id,
         dataset_name=dataset_name,
-        last_updated=datetime.utcnow(),
+        last_updated=datetime.now(timezone.utc),
         total_entries=len(entries),
         entries=entries,
     )

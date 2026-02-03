@@ -332,6 +332,91 @@ simulation_min_existing_obs = 3
 
 ---
 
+## Object Type Filtering Thresholds
+
+Configuration for object type filters (H, C, A, U, N) used in 16-character dataset codes.
+
+```python
+## --- Object Type Thresholds --- ##
+
+# HAMR (High Area-to-Mass Ratio) threshold
+HAMR_THRESHOLD = 1.0  # m²/kg - objects with A/M ratio above this are HAMR
+
+# Close (C) Object Proximity Thresholds
+# Per Lewis's specification: "distance < X km, velocity < X m/s"
+# BOTH thresholds must be met for an object pair to be considered "close"
+PROXIMITY_DISTANCE_THRESHOLD_KM = 100.0  # km - objects within this distance
+PROXIMITY_VELOCITY_THRESHOLD_M_S = 100.0  # m/s - relative velocity difference
+
+# Apparent (A) Angular Proximity Threshold
+PROXIMITY_ANGULAR_THRESHOLD_DEG = 0.5  # degrees - angular separation in sky
+```
+
+### Close Object Filter Logic
+
+Objects are considered "Close" only when BOTH conditions are satisfied:
+```python
+is_close = (distance_km < PROXIMITY_DISTANCE_THRESHOLD_KM and
+            relative_velocity_m_s < PROXIMITY_VELOCITY_THRESHOLD_M_S)
+```
+
+This prevents high-velocity flyby objects from being classified as "close" even if they momentarily pass near each other.
+
+---
+
+## Event Detection Configuration
+
+Configuration for event detection and ML model fallback behavior.
+
+```python
+@dataclass
+class EventDetectionConfig:
+    """Configuration for event detection."""
+
+    # TLE discontinuity thresholds
+    sma_threshold_km: float = 10.0           # Semi-major axis change threshold
+    ecc_threshold: float = 0.001             # Eccentricity change threshold
+    inc_threshold_deg: float = 0.1           # Inclination change threshold
+    raan_threshold_deg: float = 1.0          # RAAN change threshold
+    mean_motion_threshold: float = 0.001     # Mean motion change (rev/day)
+
+    # Time windows
+    min_gap_hours: float = 1.0               # Minimum gap between TLEs
+    max_gap_days: float = 7.0                # Maximum gap to consider continuous
+
+    # Confidence thresholds
+    maneuver_confidence_threshold: float = 0.7
+    breakup_confidence_threshold: float = 0.8
+
+    # Long-thrust detection
+    long_thrust_duration_days: float = 7.0   # Min duration for long-thrust
+    long_thrust_rate_threshold: float = 0.5  # m/s per day max rate
+
+    # ML Model availability (per Lewis's note about ML Labelling Team)
+    ml_model_available: bool = False         # Set True when ML model is operational
+    use_tle_fallback: bool = True            # Use TLE-based detection when ML unavailable
+    warn_on_ml_unavailable: bool = True      # Log warning when ML model not available
+```
+
+### ML Model Integration
+
+Per Lewis's specification:
+> "Since the UDL does not contain these events directly, we are relying on the ML Labelling Team to feed us the NORAD IDs and Observation times corresponding to these events."
+
+When ML model is available, set environment variables:
+```bash
+export UCT_ML_EVENT_ENDPOINT="https://your-ml-endpoint.example.com"
+export UCT_ML_EVENT_API_KEY="your-api-key"
+```
+
+When ML model is unavailable (`ml_model_available=False`):
+- `NE` (No Events): Always works - filters out satellites with detected anomalies
+- `MB` (Maneuver Between): Falls back to TLE discontinuity detection
+- `BU` (Breakup): Uses Space-Track/CelesTrak breakup database
+- `LL` (Long Low-Thrust): Uses TLE trend analysis (less reliable)
+
+---
+
 ## Calibration Satellites
 
 List of satellites with known high-quality tracking data.

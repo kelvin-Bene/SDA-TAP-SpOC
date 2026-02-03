@@ -92,11 +92,18 @@ def refraction_correction_for_ra_dec(
     observer_alt_km: float,
     obs_time,
     wavelength_nm: float = 550.0,
+    temperature_c: float = 15.0,
+    pressure_mbar: float = 1013.25,
+    humidity_pct: float = 50.0,
 ) -> Tuple[float, float]:
     """
-    Apply refraction correction to RA/Dec coordinates.
+    Apply atmospheric refraction correction to RA/Dec coordinates.
 
-    Converts RA/Dec to Az/El, applies refraction, converts back.
+    Converts RA/Dec to Az/El, applies refraction using Bennett's formula,
+    then converts back to RA/Dec.
+
+    Per Louis's Benchmarking Documentation, proper refraction correction
+    is needed for accurate observation simulation.
 
     Args:
         ra_deg: Right Ascension in degrees
@@ -106,17 +113,300 @@ def refraction_correction_for_ra_dec(
         observer_alt_km: Observer altitude in km
         obs_time: Observation datetime
         wavelength_nm: Observation wavelength in nm
+        temperature_c: Surface temperature in Celsius
+        pressure_mbar: Surface pressure in millibars
+        humidity_pct: Relative humidity percentage
 
     Returns:
         Tuple of (corrected_ra, corrected_dec) in degrees
     """
-    # For now, return uncorrected values
-    # Full implementation requires sidereal time calculation
-    # and proper coordinate transformations
+    from datetime import datetime
 
-    # Simplified: apply small correction based on declination
-    # (placeholder for full implementation)
+    # Convert inputs to radians
+    ra_rad = np.radians(ra_deg)
+    dec_rad = np.radians(dec_deg)
+    lat_rad = np.radians(observer_lat)
+
+    # Calculate Local Sidereal Time
+    lst_deg = _local_sidereal_time(observer_lon, obs_time)
+    lst_rad = np.radians(lst_deg)
+
+    # Calculate hour angle
+    ha_rad = lst_rad - ra_rad
+
+    # Calculate altitude (elevation) from RA/Dec
+    sin_alt = (
+        np.sin(lat_rad) * np.sin(dec_rad) +
+        np.cos(lat_rad) * np.cos(dec_rad) * np.cos(ha_rad)
+    )
+    # Clamp to [-1, 1] to handle numerical precision issues
+    sin_alt = np.clip(sin_alt, -1.0, 1.0)
+    altitude_rad = np.arcsin(sin_alt)
+    altitude_deg = np.degrees(altitude_rad)
+
+    # Apply refraction only if above horizon and observability threshold
+    if altitude_deg < 6:
+        # Below reliable refraction zone, return uncorrected
+        return ra_deg, dec_deg
+
+    # Apply Bennett's refraction formula with atmospheric corrections
+    corrected_altitude_deg = apply_atmospheric_refraction(
+        altitude_deg,
+        wavelength_nm=wavelength_nm,
+        temperature_c=temperature_c,
+        pressure_mbar=pressure_mbar,
+        humidity_pct=humidity_pct,
+    )
+
+    if corrected_altitude_deg is None:
+        return ra_deg, dec_deg
+
+    # Calculate refraction amount
+    refraction_deg = corrected_altitude_deg - altitude_deg
+
+    # Calculate azimuth for back-transformation
+    cos_az = (
+        (np.sin(dec_rad) - np.sin(lat_rad) * sin_alt) /
+        (np.cos(lat_rad) * np.cos(altitude_rad) + 1e-10)
+    )
+    cos_az = np.clip(cos_az, -1.0, 1.0)
+    azimuth_deg = np.degrees(np.arccos(cos_az))
+
+    # Determine azimuth quadrant
+    if np.sin(ha_rad) > 0:
+        azimuth_deg = 360.0 - azimuth_deg
+
+    # Convert corrected altitude back to RA/Dec
+    corrected_ra_deg, corrected_dec_deg = _altaz_to_radec(
+        corrected_altitude_deg,
+        azimuth_deg,
+        observer_lat,
+        lst_deg,
+    )
+
+    return corrected_ra_deg, corrected_dec_deg
+
+
+def _local_sidereal_time(longitude_deg: float, obs_time) -> float:
+    """
+    Calculate Local Sidereal Time.
+
+    Args:
+        longitude_deg: Observer longitude in degrees (East positive)
+        obs_time: Observation datetime
+
+    Returns:
+        Local Sidereal Time in degrees [0, 360)
+    """
+    from datetime import datetime
+
+    # Handle pandas Timestamp or datetime
+    if hasattr(obs_time, 'to_pydatetime'):
+        obs_time = obs_time.to_pydatetime()
+
+    # Calculate Julian Date
+    jd = _datetime_to_jd(obs_time)
+
+    # Julian centuries since J2000.0
+    T = (jd - 2451545.0) / 36525.0
+
+    # Greenwich Mean Sidereal Time (degrees)
+    # IAU 2006 expression
+    gmst = (
+        280.46061837 +
+        360.98564736629 * (jd - 2451545.0) +
+        T * T * (0.000387933 - T / 38710000.0)
+    )
+
+    # Normalize to [0, 360)
+    gmst = gmst % 360.0
+
+    # Local Sidereal Time = GMST + longitude
+    lst = (gmst + longitude_deg) % 360.0
+
+    return lst
+
+
+def _datetime_to_jd(dt) -> float:
+    """
+    Convert datetime to Julian Date.
+
+    Args:
+        dt: datetime object
+
+    Returns:
+        Julian Date as float
+    """
+    year = dt.year
+    month = dt.month
+    day = dt.day + dt.hour / 24.0 + dt.minute / 1440.0 + dt.second / 86400.0
+
+    if hasattr(dt, 'microsecond'):
+        day += dt.microsecond / 86400000000.0
+
+    # Handle January and February
+    if month <= 2:
+        year -= 1
+        month += 12
+
+    A = int(year / 100)
+    B = 2 - A + int(A / 4)
+
+    jd = int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + B - 1524.5
+
+    return jd
+
+
+def _altaz_to_radec(
+    altitude_deg: float,
+    azimuth_deg: float,
+    latitude_deg: float,
+    lst_deg: float,
+) -> Tuple[float, float]:
+    """
+    Convert altitude/azimuth to RA/Dec.
+
+    Args:
+        altitude_deg: Altitude (elevation) in degrees
+        azimuth_deg: Azimuth in degrees (North=0, East=90)
+        latitude_deg: Observer latitude in degrees
+        lst_deg: Local Sidereal Time in degrees
+
+    Returns:
+        Tuple of (ra_deg, dec_deg)
+    """
+    alt_rad = np.radians(altitude_deg)
+    az_rad = np.radians(azimuth_deg)
+    lat_rad = np.radians(latitude_deg)
+
+    # Calculate declination
+    sin_dec = (
+        np.sin(alt_rad) * np.sin(lat_rad) +
+        np.cos(alt_rad) * np.cos(lat_rad) * np.cos(az_rad)
+    )
+    sin_dec = np.clip(sin_dec, -1.0, 1.0)
+    dec_rad = np.arcsin(sin_dec)
+    dec_deg = np.degrees(dec_rad)
+
+    # Calculate hour angle
+    cos_ha = (
+        (np.sin(alt_rad) - np.sin(lat_rad) * sin_dec) /
+        (np.cos(lat_rad) * np.cos(dec_rad) + 1e-10)
+    )
+    cos_ha = np.clip(cos_ha, -1.0, 1.0)
+    ha_deg = np.degrees(np.arccos(cos_ha))
+
+    # Determine hour angle quadrant
+    if np.sin(az_rad) > 0:
+        ha_deg = 360.0 - ha_deg
+
+    # Calculate RA from LST and hour angle
+    ra_deg = (lst_deg - ha_deg) % 360.0
+
     return ra_deg, dec_deg
+
+
+def remove_atmospheric_refraction(
+    ra_apparent_deg: float,
+    dec_apparent_deg: float,
+    observer_lat: float,
+    observer_lon: float,
+    observer_alt_km: float,
+    obs_time,
+    wavelength_nm: float = 550.0,
+    temperature_c: float = 15.0,
+    pressure_mbar: float = 1013.25,
+    humidity_pct: float = 50.0,
+) -> Tuple[float, float]:
+    """
+    Remove atmospheric refraction to get true (geometric) coordinates.
+
+    This is the inverse operation of refraction_correction_for_ra_dec.
+    Used when processing actual observations to get true object positions.
+
+    Args:
+        ra_apparent_deg: Apparent Right Ascension in degrees
+        dec_apparent_deg: Apparent Declination in degrees
+        observer_lat: Observer latitude in degrees
+        observer_lon: Observer longitude in degrees
+        observer_alt_km: Observer altitude in km
+        obs_time: Observation datetime
+        wavelength_nm: Observation wavelength in nm
+        temperature_c: Surface temperature in Celsius
+        pressure_mbar: Surface pressure in millibars
+        humidity_pct: Relative humidity percentage
+
+    Returns:
+        Tuple of (true_ra, true_dec) in degrees
+    """
+    # Convert inputs to radians
+    ra_rad = np.radians(ra_apparent_deg)
+    dec_rad = np.radians(dec_apparent_deg)
+    lat_rad = np.radians(observer_lat)
+
+    # Calculate Local Sidereal Time
+    lst_deg = _local_sidereal_time(observer_lon, obs_time)
+    lst_rad = np.radians(lst_deg)
+
+    # Calculate hour angle
+    ha_rad = lst_rad - ra_rad
+
+    # Calculate apparent altitude from RA/Dec
+    sin_alt = (
+        np.sin(lat_rad) * np.sin(dec_rad) +
+        np.cos(lat_rad) * np.cos(dec_rad) * np.cos(ha_rad)
+    )
+    sin_alt = np.clip(sin_alt, -1.0, 1.0)
+    altitude_apparent_rad = np.arcsin(sin_alt)
+    altitude_apparent_deg = np.degrees(altitude_apparent_rad)
+
+    # Below reliable refraction zone, return uncorrected
+    if altitude_apparent_deg < 6:
+        return ra_apparent_deg, dec_apparent_deg
+
+    # Calculate refraction to remove
+    # Use Bennett's formula to estimate refraction at apparent altitude
+    # Then iterate once to refine
+    R_arcmin = 1.0 / np.tan(np.radians(altitude_apparent_deg + 7.31 / (altitude_apparent_deg + 4.4)))
+    R_arcsec = R_arcmin * 60.0
+
+    # Apply atmospheric corrections
+    P_correction = pressure_mbar / 1013.25
+    T_correction = 283.15 / (273.15 + temperature_c)
+    R_arcsec *= P_correction * T_correction
+
+    # Chromatic correction
+    lambda_ref = 550.0
+    chromatic_factor = 1.0 + 0.0048 * ((lambda_ref / wavelength_nm) ** 2 - 1)
+    R_arcsec *= chromatic_factor
+
+    # Humidity correction
+    humidity_factor = 1.0 - 0.0001 * (humidity_pct - 50)
+    R_arcsec *= humidity_factor
+
+    # True altitude = apparent - refraction
+    altitude_true_deg = altitude_apparent_deg - R_arcsec / 3600.0
+
+    # Calculate azimuth
+    cos_az = (
+        (np.sin(dec_rad) - np.sin(lat_rad) * sin_alt) /
+        (np.cos(lat_rad) * np.cos(altitude_apparent_rad) + 1e-10)
+    )
+    cos_az = np.clip(cos_az, -1.0, 1.0)
+    azimuth_deg = np.degrees(np.arccos(cos_az))
+
+    if np.sin(ha_rad) > 0:
+        azimuth_deg = 360.0 - azimuth_deg
+
+    # Convert true altitude back to RA/Dec
+    true_ra_deg, true_dec_deg = _altaz_to_radec(
+        altitude_true_deg,
+        azimuth_deg,
+        observer_lat,
+        lst_deg,
+    )
+
+    return true_ra_deg, true_dec_deg
 
 
 def get_refraction_at_elevation(elevation_deg: float) -> float:

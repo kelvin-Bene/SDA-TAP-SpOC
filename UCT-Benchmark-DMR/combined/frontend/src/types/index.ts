@@ -10,6 +10,166 @@ export type SensorType = 'optical' | 'radar' | 'rf';
 // Search Strategy for data fetching
 export type SearchStrategy = 'fast' | 'windowed' | 'hybrid';
 
+// ============================================================
+// Legacy 16-Character Dataset Code Types (Louis's Documentation)
+// ============================================================
+
+// Legacy Object Type (Position 1)
+export type LegacyObjectType = 'H' | 'C' | 'A' | 'U' | 'N';
+export const LEGACY_OBJECT_TYPES: Record<LegacyObjectType, string> = {
+  H: 'HAMR (High Area-to-Mass Ratio)',
+  C: 'Close physical proximity',
+  A: 'Apparent angular proximity',
+  U: 'Unspecified/Normal',
+  N: 'Calibration satellites',
+};
+
+// Target Percentage (Positions 2-3)
+export type TargetPercentage = '50' | '10' | '01' | 'UN';
+export const TARGET_PERCENTAGES: Record<TargetPercentage, string> = {
+  '50': '50% target objects',
+  '10': '10% target objects',
+  '01': '1% target objects',
+  'UN': 'Unspecified',
+};
+
+// Legacy Event Type (Positions 7-8)
+export type LegacyEventType = 'MB' | 'BU' | 'LL' | 'NE';
+export const LEGACY_EVENT_TYPES: Record<LegacyEventType, string> = {
+  MB: 'Maneuver between observations',
+  BU: 'Breakup event',
+  LL: 'Long-duration/Low-thrust',
+  NE: 'No events (normal)',
+};
+
+// Legacy Sensor Type (Positions 9-10)
+export type LegacySensorType = 'OP' | 'RA' | 'RF' | 'FU' | 'OR' | 'RO' | 'RR';
+export const LEGACY_SENSOR_TYPES: Record<LegacySensorType, string> = {
+  OP: 'Optical only',
+  RA: 'Radar only',
+  RF: 'RF only',
+  FU: 'Fusion (all sensors)',
+  OR: 'Optical + Radar',
+  RO: 'Radar + Optical',
+  RR: 'Radar + RF',
+};
+
+// Quality Level (Positions 11-13 for coverage, track gap, obs count)
+// Per Louis's documentation, A/S/N refer to % of objects with LOW quality:
+// A = >90% objects have LOW quality (sparse dataset)
+// S = 40-60% objects have LOW quality (mixed)
+// N = <10% objects have LOW quality (dense/high-quality dataset)
+export type QualityLevel = 'A' | 'S' | 'N';
+export const QUALITY_LEVELS: Record<QualityLevel, string> = {
+  A: 'Sparse (>90% low quality)',
+  S: 'Mixed (40-60% low quality)',
+  N: 'Dense (<10% low quality)',
+};
+
+// Object Count Level (Position 14)
+export type ObjectCountLevel = 'H' | 'S' | 'L';
+export const OBJECT_COUNT_LEVELS: Record<ObjectCountLevel, { label: string; count: number }> = {
+  H: { label: 'High', count: 80 },
+  S: { label: 'Standard', count: 40 },
+  L: { label: 'Low', count: 10 },
+};
+
+// Legacy Dataset Code Configuration
+export interface LegacyDatasetCodeConfig {
+  objectType: LegacyObjectType;
+  targetPercentage: TargetPercentage;
+  orbitalRegime: OrbitalRegime;
+  event: LegacyEventType;
+  sensorType: LegacySensorType;
+  orbitCoverage: QualityLevel;
+  trackGap: QualityLevel;
+  observationCount: QualityLevel;
+  objectCount: ObjectCountLevel;
+  fitspanDays: number;
+}
+
+// Generate legacy code from config
+export function generateLegacyCode(config: LegacyDatasetCodeConfig): string {
+  return (
+    config.objectType +
+    config.targetPercentage +
+    config.orbitalRegime +
+    config.event +
+    config.sensorType +
+    config.orbitCoverage +
+    config.trackGap +
+    config.observationCount +
+    config.objectCount +
+    config.fitspanDays.toString().padStart(2, '0')
+  );
+}
+
+// Parse legacy code into config
+export function parseLegacyCode(code: string): LegacyDatasetCodeConfig | null {
+  if (code.length !== 16) return null;
+  try {
+    return {
+      objectType: code[0] as LegacyObjectType,
+      targetPercentage: code.slice(1, 3) as TargetPercentage,
+      orbitalRegime: code.slice(3, 6) as OrbitalRegime,
+      event: code.slice(6, 8) as LegacyEventType,
+      sensorType: code.slice(8, 10) as LegacySensorType,
+      orbitCoverage: code[10] as QualityLevel,
+      trackGap: code[11] as QualityLevel,
+      observationCount: code[12] as QualityLevel,
+      objectCount: code[13] as ObjectCountLevel,
+      fitspanDays: parseInt(code.slice(14, 16), 10),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Validate legacy code format
+export function validateLegacyCode(code: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (code.length !== 16) {
+    errors.push(`Code must be 16 characters (got ${code.length})`);
+    return { valid: false, errors };
+  }
+
+  if (!['H', 'C', 'A', 'U', 'N'].includes(code[0])) {
+    errors.push(`Invalid object type '${code[0]}' at position 1. Valid: H, C, A, U, N`);
+  }
+  if (!['50', '10', '01', 'UN'].includes(code.slice(1, 3))) {
+    errors.push(`Invalid target percentage '${code.slice(1, 3)}' at positions 2-3. Valid: 50, 10, 01, UN`);
+  }
+  if (!['LEO', 'MEO', 'GEO', 'HEO', 'ALL', 'LMO', 'LMG', 'MGH'].includes(code.slice(3, 6))) {
+    errors.push(`Invalid regime '${code.slice(3, 6)}' at positions 4-6`);
+  }
+  if (!['MB', 'BU', 'LL', 'NE'].includes(code.slice(6, 8))) {
+    errors.push(`Invalid event '${code.slice(6, 8)}' at positions 7-8. Valid: MB, BU, LL, NE`);
+  }
+  if (!['OP', 'RA', 'RF', 'FU', 'OR', 'RO', 'RR'].includes(code.slice(8, 10))) {
+    errors.push(`Invalid sensor '${code.slice(8, 10)}' at positions 9-10`);
+  }
+  if (!['A', 'S', 'N'].includes(code[10])) {
+    errors.push(`Invalid coverage level '${code[10]}' at position 11. Valid: A, S, N`);
+  }
+  if (!['A', 'S', 'N'].includes(code[11])) {
+    errors.push(`Invalid track gap '${code[11]}' at position 12. Valid: A, S, N`);
+  }
+  if (!['A', 'S', 'N'].includes(code[12])) {
+    errors.push(`Invalid obs count '${code[12]}' at position 13. Valid: A, S, N`);
+  }
+  if (!['H', 'S', 'L'].includes(code[13])) {
+    errors.push(`Invalid object count '${code[13]}' at position 14. Valid: H, S, L`);
+  }
+
+  const fitspan = parseInt(code.slice(14, 16), 10);
+  if (isNaN(fitspan) || fitspan < 1 || fitspan > 14) {
+    errors.push(`Invalid fitspan '${code.slice(14, 16)}' at positions 15-16. Valid: 01-14`);
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // Dataset Types
 export interface Dataset {
   id: string;
@@ -77,6 +237,14 @@ export interface DatasetGenerationConfig {
   // Search strategy options
   searchStrategy: SearchStrategy;
   windowSizeMinutes?: number;
+  // Non-reference observations for True Negative calculation (per Louis's spec)
+  includeNonRefObs?: boolean;
+  nonRefRatio?: number;          // 0.01 - 0.5
+  // Object type and event codes (per Louis's 16-character code spec)
+  objectTypeCode?: 'H' | 'C' | 'A' | 'U' | 'N';
+  eventCode?: 'MB' | 'BU' | 'LL' | 'NE';
+  // Window selection algorithm (per Louis's bisecting search spec)
+  useWindowSelection?: boolean;
 }
 
 // Submission Types
@@ -99,11 +267,14 @@ export interface Submission {
 export interface SubmissionResults {
   // Binary Metrics
   truePositives: number;
+  trueNegatives: number;  // Requires non-reference observations in dataset
   falsePositives: number;
   falseNegatives: number;
   precision: number;
   recall: number;
   f1Score: number;
+  accuracy: number;     // (TP+TN)/(TP+TN+FP+FN)
+  specificity: number;  // TN/(TN+FP)
 
   // State Metrics
   positionRmsKm: number;
