@@ -138,8 +138,13 @@ async def get_leaderboard_history(
     Returns:
         Historical ranking data for trend visualization
     """
+    # Validate days parameter to prevent SQL injection
+    if not isinstance(days, int) or days < 1 or days > 365:
+        days = 30  # Default to 30 days if invalid
+
     # Get completed submissions over time
-    query = f"""
+    # Use parameterized interval calculation for safety
+    query = """
         SELECT
             DATE(s.completed_at) as date,
             s.algorithm_name,
@@ -147,9 +152,9 @@ async def get_leaderboard_history(
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.status = 'completed'
-          AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '{days} days'
+          AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '1 day' * ?
     """
-    params = []
+    params = [days]
 
     if dataset_id:
         query += " AND s.dataset_id = ?"

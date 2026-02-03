@@ -46,6 +46,9 @@ TABLE_ORDER = [
     "credentials",
 ]
 
+# Alias for backward compatibility with tests
+MIGRATION_ORDER = TABLE_ORDER
+
 # Tables with JSON columns that need conversion from string to proper JSON
 JSON_COLUMNS = {
     "datasets": ["generation_config"],

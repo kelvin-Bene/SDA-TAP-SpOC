@@ -1,8 +1,11 @@
 """FastAPI dependency functions for authentication."""
 
+import logging
 from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, Request, status
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_token(request: Request) -> Optional[str]:
@@ -51,9 +54,14 @@ async def require_auth(request: Request) -> Dict[str, Any]:
 
         config = get_config()
         if not config.auth_enabled:
+            logger.warning("Auth disabled - granting anonymous admin access")
             return {"sub": "anonymous", "role": "admin", "email": "anonymous@localhost"}
-    except Exception:
-        return {"sub": "anonymous", "role": "admin", "email": "anonymous@localhost"}
+    except Exception as e:
+        logger.error(f"Config load failed during auth check: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error.",
+        )
 
     token = _extract_token(request)
     if not token:

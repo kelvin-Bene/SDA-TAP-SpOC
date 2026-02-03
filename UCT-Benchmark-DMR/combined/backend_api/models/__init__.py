@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ============================================================
 # ENUMS
@@ -215,8 +215,7 @@ class DatasetSummary(BaseModel):
     sensor_types: List[SensorType] = []
     job_id: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DatasetDetail(DatasetSummary):
@@ -271,8 +270,7 @@ class SubmissionSummary(BaseModel):
     job_id: Optional[str] = None
     queue_position: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubmissionDetail(SubmissionSummary):
@@ -361,8 +359,7 @@ class SubmissionResults(BaseModel):
     # Processing info
     processing_time_seconds: Optional[float] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ResultSummary(BaseModel):
@@ -385,8 +382,7 @@ class ResultSummary(BaseModel):
     # Ranking
     rank: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================
