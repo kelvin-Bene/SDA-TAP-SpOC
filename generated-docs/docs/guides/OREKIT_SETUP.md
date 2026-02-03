@@ -91,7 +91,8 @@ python -m venv .venv
 pip install orekit-jpype
 
 # Install orekitdata (bundled ephemeris data files)
-pip install orekitdata
+# NOTE: orekitdata is NOT on PyPI - must install from GitLab
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 ```
 
 ### Install Full Project Dependencies

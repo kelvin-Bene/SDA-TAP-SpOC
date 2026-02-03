@@ -17,8 +17,8 @@ This suite validates all components of the UCT Benchmark:
 
 - Python 3.12
 - Java 17+ (JDK)
-- orekit-jpype
-- orekitdata
+- orekit-jpype (`pip install orekit-jpype`)
+- orekitdata (`pip install git+https://gitlab.orekit.org/orekit/orekit-data.git` - NOT on PyPI)
 - UDL API access token
 
 ## Usage

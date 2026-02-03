@@ -65,7 +65,8 @@ Solutions to common problems when using the UCT Benchmark system.
 4. **Clear conflicting packages**
    ```bash
    pip uninstall orekit  # Remove old package
-   pip install orekit-jpype orekitdata
+   pip install orekit-jpype
+   pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
    ```
 
 ---
@@ -81,9 +82,9 @@ Solutions to common problems when using the UCT Benchmark system.
    setup_orekit_curdir(from_pip_library=True)
    ```
 
-2. **Install orekitdata package**
+2. **Install orekitdata package** (NOT on PyPI - install from GitLab)
    ```bash
-   pip install orekitdata
+   pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
    ```
 
 3. **Set environment variable** (alternative)
