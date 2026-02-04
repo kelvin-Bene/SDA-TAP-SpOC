@@ -288,11 +288,11 @@ python -c "import os; print('Token set:', bool(os.getenv('UDL_TOKEN')))"
 
 **5. Package Version Conflicts**
 ```bash
-# Known compatibility: uvicorn must be <0.25.0 for Solara
-pip install "uvicorn==0.24.0.post1"
-
 # Check for conflicts
 pip check
+
+# If you encounter version conflicts, reinstall from pyproject.toml
+pip install -e ".[all]"
 ```
 
 ### Development Environment

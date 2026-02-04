@@ -93,9 +93,9 @@ The project implements a tiered pipeline system:
 
 ### Core Components
 
-1. **Create_Dataset.py**: Dataset creation from UDL data
-2. **MainMVP.py**: UCTP algorithm simulation
-3. **Evaluation.py**: Performance evaluation and metrics
+1. **Web UI / API**: Dataset creation via frontend or `uct_benchmark.api.apiIntegration.generateDataset()`
+2. **Evaluation.py**: Performance evaluation and metrics
+3. **Backend API**: FastAPI server connecting frontend to pipeline
 
 ## Current Status
 
