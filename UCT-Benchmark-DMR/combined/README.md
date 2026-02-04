@@ -61,7 +61,7 @@ npm install
 npm run dev
 ```
 
-Then navigate to http://localhost:5173
+Then navigate to http://localhost:3000
 
 ## Project Structure
 
