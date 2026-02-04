@@ -182,4 +182,4 @@ DATABASE_PATH=./data/database/uct_benchmark.duckdb
 ## Support
 
 - Supabase Documentation: https://supabase.com/docs
-- UCT Benchmark Issues: https://github.com/your-repo/issues
+- UCT Benchmark Issues: https://github.com/kelvin-Bene/SDA-TAP-SpOC/issues

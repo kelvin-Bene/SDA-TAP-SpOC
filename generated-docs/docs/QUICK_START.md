@@ -67,13 +67,13 @@ npm run dev
 
 ### Open in Browser
 
-Navigate to: **http://localhost:5173**
+Navigate to: **http://localhost:3000**
 
 ## 4. Generate Your First Dataset
 
 ### Option A: Web Interface
 
-1. Open http://localhost:5173
+1. Open http://localhost:3000
 2. Click "Datasets" in the navigation
 3. Click "Generate New Dataset"
 4. Select orbital regime (LEO recommended for quick tests)
@@ -97,7 +97,7 @@ db.initialize()
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Frontend | http://localhost:5173 | Web interface |
+| Frontend | http://localhost:3000 | Web interface |
 | Backend API | http://localhost:8000 | REST API |
 | API Docs | http://localhost:8000/docs | Swagger documentation |
 
