@@ -7,6 +7,7 @@ This guide provides step-by-step instructions for setting up Orekit on Windows f
 Before starting, ensure you have:
 - [ ] Windows 10 or later
 - [ ] Python 3.12 installed
+- [ ] Git installed (required for orekitdata installation)
 - [ ] Administrator access (for Java installation)
 - [ ] Internet connection
 

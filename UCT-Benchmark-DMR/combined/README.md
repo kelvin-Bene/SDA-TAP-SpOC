@@ -162,12 +162,12 @@ pytest tests/test_api_enhancements.py -v
 
 ### Full Documentation
 
-For comprehensive guides, see the `generated-docs/docs/` directory at the repository root:
+For comprehensive guides, see the `generated-docs/docs/` directory at the repository root (one level up from `combined/`):
 
-- **Getting Started**: `generated-docs/docs/QUICK_START.md`
-- **Orekit Setup**: `generated-docs/docs/guides/OREKIT_SETUP.md`
-- **Supabase Setup**: `generated-docs/docs/SUPABASE_SETUP.md`
-- **Troubleshooting**: `generated-docs/docs/guides/TROUBLESHOOTING.md`
+- **Getting Started**: `../generated-docs/docs/QUICK_START.md`
+- **Orekit Setup**: `../generated-docs/docs/guides/OREKIT_SETUP.md`
+- **Supabase Setup**: `../generated-docs/docs/SUPABASE_SETUP.md`
+- **Troubleshooting**: `../generated-docs/docs/guides/TROUBLESHOOTING.md`
 
 ## Contributing
 
@@ -178,4 +178,4 @@ For comprehensive guides, see the `generated-docs/docs/` directory at the reposi
 
 ## License
 
-[License details here]
+This project is developed as part of the SDA TAP SpOC collaboration. See repository for license details.
