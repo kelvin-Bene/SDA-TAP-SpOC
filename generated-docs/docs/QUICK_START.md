@@ -13,8 +13,8 @@ Get the UCT Benchmark system running in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/uct-benchmark.git
-cd uct-benchmark/UCT-Benchmark-DMR/combined
+git clone https://github.com/kelvin-Bene/SDA-TAP-SpOC.git
+cd SDA-TAP-SpOC/UCT-Benchmark-DMR/combined
 
 # Create virtual environment
 python -m venv .venv
@@ -30,13 +30,17 @@ pip install -e .
 
 # Install Orekit data (NOT on PyPI - must use GitLab)
 pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
+
+# Copy environment template and configure
+cp .env.example .env
+# Edit .env to add your UDL_TOKEN if you have API access
 ```
 
 ## 2. Verify Installation (30 seconds)
 
 ```bash
 # Test core imports
-python -c "from uct_benchmark import settings; print('Core OK')"
+python -c "from uct_benchmark.database import DatabaseManager; print('Core OK')"
 
 # Test Orekit (requires Java)
 python -c "
@@ -53,14 +57,15 @@ print('Orekit OK')
 ### Terminal 1: Backend API
 
 ```bash
-cd UCT-Benchmark-DMR/combined
+# From UCT-Benchmark-DMR/combined directory
 uvicorn backend_api.main:app --reload --port 8000
 ```
 
 ### Terminal 2: Frontend
 
 ```bash
-cd UCT-Benchmark-DMR/combined/frontend
+# From UCT-Benchmark-DMR/combined directory
+cd frontend
 npm install  # First time only
 npm run dev
 ```

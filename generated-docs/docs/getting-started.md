@@ -25,8 +25,8 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/uct-benchmark.git
-   cd uct-benchmark/UCT-Benchmark-DMR/combined
+   git clone https://github.com/kelvin-Bene/SDA-TAP-SpOC.git
+   cd SDA-TAP-SpOC/UCT-Benchmark-DMR/combined
    ```
 
 2. **Set up Python environment**
@@ -53,8 +53,6 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 4. **Install development dependencies** (optional)
    ```bash
-   make requirements  # Installs via uv
-   # OR
    pip install -e ".[dev]"
    ```
 
@@ -62,8 +60,8 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 1. **Clone and navigate**
    ```bash
-   git clone https://github.com/your-org/uct-benchmark.git
-   cd uct-benchmark/UCT-Benchmark-DMR/combined
+   git clone https://github.com/kelvin-Bene/SDA-TAP-SpOC.git
+   cd SDA-TAP-SpOC/UCT-Benchmark-DMR/combined
    ```
 
 2. **Create virtual environment**
@@ -76,8 +74,7 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
    ```bash
    pip install pandas numpy loguru requests
    pip install orekit-jpype  # Orbital mechanics
-   pip install solara ipywidgets  # GUI components
-   pip install customtkinter  # Legacy GUI support
+   pip install customtkinter  # Legacy GUI support (optional)
    ```
 
 4. **Install in development mode**
@@ -171,8 +168,8 @@ mkdir -p reports/figures
 ```bash
 # Test Python imports
 python -c "
-from uct_benchmark import settings
 from uct_benchmark.database import DatabaseManager
+from uct_benchmark.api.apiIntegration import generateDataset
 print('Core imports successful')
 "
 ```
@@ -204,11 +201,16 @@ print('CustomTkinter GUI available')
 "
 ```
 
-### 4. Run Demo Pipeline
+### 4. Test Database
 
 ```bash
-# Test full pipeline (demo mode - no network required)
-python -m uct_benchmark.MainMVP
+# Initialize and test the database
+python -c "
+from uct_benchmark.database import DatabaseManager
+db = DatabaseManager()
+db.initialize()
+print('Database initialized:', db.is_initialized())
+"
 ```
 
 ## Running the Web Application
@@ -292,15 +294,15 @@ python -c "import os; print('Token set:', bool(os.getenv('UDL_TOKEN')))"
 pip check
 
 # If you encounter version conflicts, reinstall from pyproject.toml
-pip install -e ".[all]"
+pip install -e ".[dev]"
 ```
 
 ### Development Environment
 
 **Code Formatting and Linting**
 ```bash
-make format  # Run ruff formatting
-make test    # Run pytest suite
+ruff format .   # Run ruff formatting
+pytest tests/   # Run pytest suite
 ```
 
 **Documentation**
@@ -315,16 +317,16 @@ mkdocs serve
 After successful installation:
 
 1. **Read the documentation**: Check the [Architecture](technical/ARCHITECTURE.md) overview
-2. **Run tutorials**: Explore notebooks in `notebooks/`
-3. **Configure parameters**: Edit dataset parameters in GUI or programmatically
-4. **Run evaluations**: Execute full pipeline with your data
-5. **Explore the UI**: Access the web interface for dataset generation
+2. **Explore the web UI**: Access the web interface at http://localhost:3000
+3. **Configure parameters**: Edit dataset parameters via the UI or API
+4. **Run evaluations**: Execute evaluation using `python Evaluation.py`
+5. **Generate datasets**: Use the Dataset Generation page in the web UI
 
 ## Support
 
-- **Issues**: Report problems via GitHub Issues
+- **Issues**: Report problems via [GitHub Issues](https://github.com/kelvin-Bene/SDA-TAP-SpOC/issues)
 - **Documentation**: Check the technical reference section
-- **Examples**: See `notebooks/` for usage examples
+- **Troubleshooting**: See [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
 - **Configuration**: Review `uct_benchmark/settings.py` for paths and settings
 
 ---

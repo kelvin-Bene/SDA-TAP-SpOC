@@ -137,10 +137,11 @@ print(f"Line 2 length: {len(line2)}")  # Should be 69
    tasklist | findstr python  # Windows
    ```
 
-3. **Force unlock** (use carefully)
+3. **Verify database integrity**
    ```bash
    python -m uct_benchmark.database verify
    ```
+   Note: If the database remains locked, try restarting your terminal or rebooting.
 
 ---
 
