@@ -16,8 +16,9 @@ The UCT (Uncorrelated Track) Benchmark is a comprehensive framework for evaluati
 ### Prerequisites
 
 - Python 3.12+
+- Java JDK 17+ (required for Orekit)
 - Node.js 18+ (for frontend)
-- Orekit data files (see [WINDOWS_OREKIT_SETUP.md](docs/WINDOWS_OREKIT_SETUP.md))
+- Orekit data files (install via: `pip install git+https://gitlab.orekit.org/orekit/orekit-data.git`)
 
 ### Installation
 
@@ -42,12 +43,11 @@ export OREKIT_DATA_PATH="/path/to/orekit-data"  # Or set in .env file
 # Run validation suite
 python validation/run_validation.py --target-obs 10000 --days 7
 
-# Create a dataset
-python Create_Dataset.py
-
-# Run evaluation
+# Run evaluation on existing dataset
 python Evaluation.py
 ```
+
+> **Note**: Dataset creation is done through the web UI or programmatically via `uct_benchmark.api.apiIntegration.generateDataset()`
 
 ### Running the Demo UI
 
@@ -61,7 +61,7 @@ npm install
 npm run dev
 ```
 
-Then navigate to http://localhost:5173 (or http://localhost:3000).
+Then navigate to http://localhost:5173
 
 ## Project Structure
 
@@ -79,9 +79,7 @@ combined/
 ├── backend_api/                # FastAPI server
 ├── validation/                 # Validation test suite
 ├── tests/                      # Unit and integration tests
-├── docs/                       # Documentation
-├── MainMVP.py                  # Main entry point
-├── Create_Dataset.py           # Dataset creation script
+├── docs/                       # Additional documentation
 ├── Evaluation.py               # Evaluation script
 └── pyproject.toml              # Project configuration
 ```
@@ -116,22 +114,29 @@ combined/
 
 ## Environment Variables
 
-Create a `.env` file:
+Copy `.env.example` to `.env` and fill in your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Key variables:
 
 ```env
-# UDL Credentials
-UDL_USERNAME=your_username
-UDL_PASSWORD=your_password
+# UDL API Token (base64 encoded)
+UDL_TOKEN=your_base64_encoded_udl_token
 
 # ESA Discosweb Token
-ESA_TOKEN=your_token
+ESA_TOKEN=your_esa_token
 
 # Orekit Data Path
-OREKIT_DATA_PATH=/path/to/orekit-data
+OREKIT_DATA_PATH=./orekit-data-main
 
-# Database (optional)
-DATABASE_PATH=./data/benchmark.duckdb
+# Database Backend: 'duckdb' (default) or 'postgres'
+DATABASE_BACKEND=duckdb
 ```
+
+See `.env.example` for all available options including PostgreSQL/Supabase configuration.
 
 ## Running Tests
 
@@ -148,15 +153,21 @@ pytest tests/test_api_enhancements.py -v
 
 ## Documentation
 
-See the `docs/` directory for detailed documentation:
+### Local Documentation (`docs/`)
 
-- [INSTALLATION.md](docs/INSTALLATION.md) - Detailed setup instructions
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
-- [API_INTEGRATION.md](docs/API_INTEGRATION.md) - API usage patterns
-- [DATABASE_ARCHITECTURE.md](docs/DATABASE_ARCHITECTURE.md) - Database design
-- [WINDOWS_OREKIT_SETUP.md](docs/WINDOWS_OREKIT_SETUP.md) - Orekit setup on Windows
-- [COMPONENTS.md](docs/COMPONENTS.md) - UI component reference
-- [CHANGELOG.md](docs/CHANGELOG.md) - Version history
+- [database_erd.md](docs/database_erd.md) - Database schema ERD
+- [DATASET_GENERATION.md](docs/DATASET_GENERATION.md) - Dataset generation details
+- [EVALUATION_METRICS.md](docs/EVALUATION_METRICS.md) - Evaluation metrics reference
+- [LIMITATIONS.md](docs/LIMITATIONS.md) - Known limitations
+
+### Full Documentation
+
+For comprehensive guides, see the `generated-docs/docs/` directory at the repository root:
+
+- **Getting Started**: `generated-docs/docs/QUICK_START.md`
+- **Orekit Setup**: `generated-docs/docs/guides/OREKIT_SETUP.md`
+- **Supabase Setup**: `generated-docs/docs/SUPABASE_SETUP.md`
+- **Troubleshooting**: `generated-docs/docs/guides/TROUBLESHOOTING.md`
 
 ## Contributing
 

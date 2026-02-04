@@ -12,7 +12,7 @@ UCT Benchmark supports two database backends:
 
 1. A Supabase account (https://supabase.com)
 2. Python 3.12+
-3. psycopg3 installed: `pip install "psycopg[binary,pool]>=3.1.0"`
+3. pg8000 driver installed: `pip install "pg8000>=1.30.0"` (included with `pip install ".[postgres]"`)
 
 ## Step 1: Create a Supabase Project
 
@@ -118,7 +118,7 @@ Supabase enables Row Level Security by default on new tables. The UCT Benchmark 
 
 ### SSL Connections
 
-Supabase requires SSL connections. The psycopg3 driver handles this automatically when using the provided connection string.
+Supabase requires SSL connections. The pg8000 driver handles SSL automatically when using the provided connection string.
 
 ## Troubleshooting
 

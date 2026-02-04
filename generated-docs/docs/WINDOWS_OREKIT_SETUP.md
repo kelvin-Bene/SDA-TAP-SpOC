@@ -109,40 +109,41 @@ pip install -e .
 
 ## Step 4: Verify Installation
 
-### Run the Test Script
+### Run Verification Commands
 
 ```powershell
-# Run the Orekit installation test
-python tests/test_orekit_installation.py
+# 1. Check Java version (must be 17+)
+java -version
+
+# 2. Test Orekit setup (run this Python code)
+python -c "
+import orekit_jpype as orekit
+orekit.initVM()
+from orekit_jpype.pyhelpers import setup_orekit_curdir
+setup_orekit_curdir(from_pip_library=True)
+print('Orekit initialized successfully!')
+"
 ```
 
 Expected output:
 ```
-============================================================
-    OREKIT INSTALLATION TEST SUITE
-============================================================
-============================================================
-Test 1: Checking Java installation...
-  [PASS] Java is installed
-============================================================
-Test 2: Testing orekit-jpype import...
-  [PASS] orekit_jpype imported successfully
-...
-============================================================
-    TEST SUMMARY
-============================================================
-  [PASS] Java Installation
-  [PASS] orekit-jpype Import
-  [PASS] JVM Initialization
-  [PASS] Orekit Data Loading
-  [PASS] Basic Functionality
-  [PASS] TLE Propagation
-  [PASS] Simulation Module Import
-  [PASS] Propagator Module
-------------------------------------------------------------
-  Results: 8/8 tests passed
+openjdk version "17.x.x" ...
 
-  SUCCESS! Orekit is properly installed and configured.
+Orekit initialized successfully!
+```
+
+### Additional Verification (Optional)
+
+```powershell
+# Test importing simulation module
+python -c "
+import orekit_jpype as orekit
+orekit.initVM()
+from orekit_jpype.pyhelpers import setup_orekit_curdir
+setup_orekit_curdir(from_pip_library=True)
+from uct_benchmark.simulation.simulateObservations import simulateObs
+print('All imports successful!')
+"
 ```
 
 ---
@@ -278,7 +279,7 @@ cd C:\path\to\UCT-Benchmark-DMR\combined
 .\.venv\Scripts\Activate.ps1
 
 # 3. Verify setup (run once)
-python tests/test_orekit_installation.py
+python -c "import orekit_jpype as orekit; orekit.initVM(); print('Orekit OK')"
 
 # 4. Ready to use!
 ```
@@ -292,9 +293,10 @@ python tests/test_orekit_installation.py
 
 ---
 
-## Contact
+## Getting Help
 
 If you encounter issues not covered here:
 1. Check the error message carefully
-2. Run `python tests/test_orekit_installation.py` to identify the failing component
+2. Run the verification command: `python -c "import orekit_jpype as orekit; orekit.initVM(); print('OK')"`
 3. Search the error in the Orekit forum: https://forum.orekit.org/
+4. Check the [Troubleshooting Guide](guides/TROUBLESHOOTING.md)

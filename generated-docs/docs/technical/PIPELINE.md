@@ -43,17 +43,17 @@ The pipeline operates in three main phases:
 
 ## Phase 1: Dataset Creation
 
-### Step 1: Configuration (GUI)
-**File**: `uct_benchmark/Create_Dataset.py` → `launch_gui()`
+### Step 1: Configuration (Web UI or API)
+**Files**: `frontend/` (React) + `backend_api/main.py` (FastAPI)
 
-Users configure dataset parameters through a CustomTKinter GUI:
+Users configure dataset parameters through the web interface or API:
 - **Orbital Regime**: LEO, MEO, GEO, or combinations
 - **Sensor Type**: Optical, Radar, or specific sensors
 - **Time Window**: Duration of observation window (days)
 - **Object Count**: Number of satellites in dataset
 
 ### Step 2: Dataset Code Generation
-**File**: `uct_benchmark/data/windowTools.py` → `codeGenerator()`
+**File**: `uct_benchmark/config/dataset_schema.py` → `LegacyDatasetCode`
 
 Converts user configuration into standardized "Dataset Codes" that encode:
 - Regime classification
@@ -62,7 +62,7 @@ Converts user configuration into standardized "Dataset Codes" that encode:
 - Object count targets
 
 ### Step 3: Batch Data Pull
-**File**: `uct_benchmark/data/windowCheck.py` → `batchPull()`
+**File**: `uct_benchmark/api/apiIntegration.py`
 
 Queries the Unified Data Library (UDL) for observation data:
 ```
@@ -73,7 +73,7 @@ Queries the Unified Data Library (UDL) for observation data:
 ```
 
 ### Step 4: Window Selection
-**File**: `uct_benchmark/data/windowCheck.py` → `windowMain()`, `windowCheck()`, `bisect()`, `slide()`
+**File**: `uct_benchmark/data/windowSelection.py`
 
 Intelligent window selection algorithm:
 
