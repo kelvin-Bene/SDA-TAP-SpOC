@@ -2,26 +2,45 @@
 
 import json
 import uuid
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, date
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+
+class _SafeEncoder(json.JSONEncoder):
+    """JSON encoder that handles datetime and Decimal objects from DuckDB."""
+
+    def default(self, o):
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        if isinstance(o, Decimal):
+            return float(o)
+        return super().default(o)
 from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.models import (
+    CheckExistingResponse,
     DatasetCreate,
     DatasetDetail,
+    DatasetEnrichmentEntry,
     DatasetObservation,
+    DatasetProvenance,
+    DatasetQuery,
+    DatasetSourceAttribution,
     DatasetStatus,
     DatasetSummary,
     DataTier,
+    FullObservation,
     OrbitalRegime,
     SearchStrategy,
     SensorType,
 )
 from uct_benchmark.database.connection import DatabaseManager
+from backend_api.jobs.workers import submit_dataset_generation
 
 router = APIRouter()
 
@@ -204,6 +223,81 @@ async def get_dataset(
     )
 
 
+def _build_generation_params(request: DatasetCreate) -> Dict[str, Any]:
+    """Build generation_params dict from a DatasetCreate request."""
+    generation_params = {
+        "regime": request.regime.value,
+        "tier": request.tier.value,
+        "object_count": request.object_count,
+        "timeframe": request.timeframe,
+        "timeunit": request.timeunit,
+        "sensors": [s.value for s in request.sensors],
+        "coverage": request.coverage,
+        "include_hamr": request.include_hamr,
+    }
+    if request.satellites:
+        generation_params["satellites"] = request.satellites
+    if request.start_date:
+        generation_params["start_date"] = request.start_date.isoformat()
+    if request.end_date:
+        generation_params["end_date"] = request.end_date.isoformat()
+    if request.downsampling:
+        generation_params["downsampling"] = {
+            "enabled": request.downsampling.enabled,
+            "target_coverage": request.downsampling.target_coverage,
+            "target_gap": request.downsampling.target_gap,
+            "max_obs_per_sat": request.downsampling.max_obs_per_sat,
+            "preserve_tracks": request.downsampling.preserve_tracks,
+            "seed": request.downsampling.seed,
+        }
+    if request.simulation:
+        generation_params["simulation"] = {
+            "enabled": request.simulation.enabled,
+            "fill_gaps": request.simulation.fill_gaps,
+            "sensor_model": request.simulation.sensor_model,
+            "apply_noise": request.simulation.apply_noise,
+            "max_synthetic_ratio": request.simulation.max_synthetic_ratio,
+            "seed": request.simulation.seed,
+        }
+    generation_params["search_strategy"] = request.search_strategy.value
+    if request.search_strategy == SearchStrategy.WINDOWED:
+        generation_params["window_size_minutes"] = request.window_size_minutes or 10
+    return generation_params
+
+
+@router.post("/check-existing", response_model=CheckExistingResponse)
+async def check_existing(
+    request: DatasetCreate,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Check if an existing dataset matches the given configuration.
+
+    Returns whether a matching dataset exists without creating anything.
+    """
+    try:
+        from uct_benchmark.api.apiIntegration import compute_config_hash
+    except ImportError:
+        return CheckExistingResponse(exists=False)
+
+    generation_params = _build_generation_params(request)
+    config_hash = compute_config_hash(generation_params)
+
+    existing = db.execute(
+        "SELECT id, name, observation_count FROM datasets WHERE config_hash = ? AND status = 'available' ORDER BY created_at DESC LIMIT 1",
+        (config_hash,),
+    ).fetchone()
+
+    if existing:
+        return CheckExistingResponse(
+            exists=True,
+            dataset_id=existing[0],
+            name=existing[1],
+            observation_count=existing[2],
+        )
+    return CheckExistingResponse(exists=False)
+
+
 @router.post("/debug")
 async def debug_request(request: Request):
     """Debug endpoint to log raw request body."""
@@ -237,56 +331,48 @@ async def create_dataset(
     logger.info(
         f"Creating dataset with: name={request.name}, regime={request.regime}, tier={request.tier}"
     )
-    # Prepare generation parameters (name will be set after uniqueness check)
-    generation_params = {
-        "regime": request.regime.value,
-        "tier": request.tier.value,
-        "object_count": request.object_count,
-        "timeframe": request.timeframe,
-        "timeunit": request.timeunit,
-        "sensors": [s.value for s in request.sensors],
-        "coverage": request.coverage,
-        "include_hamr": request.include_hamr,
-    }
-
-    if request.satellites:
-        generation_params["satellites"] = request.satellites
-
-    if request.start_date:
-        generation_params["start_date"] = request.start_date.isoformat()
-
-    if request.end_date:
-        generation_params["end_date"] = request.end_date.isoformat()
-
-    # Add downsampling options if specified
-    if request.downsampling:
-        generation_params["downsampling"] = {
-            "enabled": request.downsampling.enabled,
-            "target_coverage": request.downsampling.target_coverage,
-            "target_gap": request.downsampling.target_gap,
-            "max_obs_per_sat": request.downsampling.max_obs_per_sat,
-            "preserve_tracks": request.downsampling.preserve_tracks,
-            "seed": request.downsampling.seed,
-        }
-        logger.info(f"Downsampling enabled: {request.downsampling.enabled}")
-
-    # Add simulation options if specified
-    if request.simulation:
-        generation_params["simulation"] = {
-            "enabled": request.simulation.enabled,
-            "fill_gaps": request.simulation.fill_gaps,
-            "sensor_model": request.simulation.sensor_model,
-            "apply_noise": request.simulation.apply_noise,
-            "max_synthetic_ratio": request.simulation.max_synthetic_ratio,
-            "seed": request.simulation.seed,
-        }
-        logger.info(f"Simulation enabled: {request.simulation.enabled}")
-
-    # Add search strategy
-    generation_params["search_strategy"] = request.search_strategy.value
-    if request.search_strategy == SearchStrategy.WINDOWED:
-        generation_params["window_size_minutes"] = request.window_size_minutes or 10
+    # Prepare generation parameters
+    generation_params = _build_generation_params(request)
     logger.info(f"Search strategy: {request.search_strategy.value}")
+
+    # =====================================================================
+    # CONFIG HASH DEDUP: Check if an identical dataset already exists (v2.0.0)
+    # =====================================================================
+    config_hash = None
+    try:
+        from uct_benchmark.api.apiIntegration import compute_config_hash
+        config_hash = compute_config_hash(generation_params)
+
+        existing = db.execute(
+            "SELECT id, name, observation_count, satellite_count, avg_coverage, tier, orbital_regime, created_at "
+            "FROM datasets WHERE config_hash = ? AND status = 'available' ORDER BY created_at DESC LIMIT 1",
+            (config_hash,),
+        ).fetchone()
+
+        if existing and len(existing) >= 8:
+            logger.info(f"Reusing existing dataset {existing[0]} (config_hash match)")
+            reused_summary = DatasetSummary(
+                id=str(existing[0]),
+                name=existing[1],
+                description=None,
+                regime=OrbitalRegime(existing[6] or "LEO"),
+                tier=DataTier(existing[5] or "T1"),
+                status=DatasetStatus.AVAILABLE,
+                created_at=existing[7] or datetime.utcnow(),
+                observation_count=existing[2] or 0,
+                satellite_count=existing[3] or 0,
+                coverage=float(existing[4] or 0),
+                size_bytes=(existing[2] or 0) * 500,
+                sensor_types=request.sensors,
+                job_id=None,
+                reused=True,
+            )
+            return JSONResponse(
+                status_code=200,
+                content=json.loads(json.dumps(reused_summary.model_dump(), cls=_SafeEncoder)),
+            )
+    except Exception:
+        logger.debug("Config hash dedup check skipped (not available or query failed)")
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
@@ -327,14 +413,8 @@ async def create_dataset(
         )
         dataset_id = result.fetchone()[0]
 
-        # 2. Create job record (DB write only, no background thread yet)
-        from backend_api.jobs import get_job_manager, JobType
-
-        job_manager = get_job_manager()
-        job = job_manager.create_job(
-            JobType.DATASET_GENERATION,
-            metadata={"dataset_id": dataset_id, "config": generation_params},
-        )
+        # 2. Submit background generation job (creates job record + starts thread)
+        job = submit_dataset_generation(dataset_id, generation_params)
 
         # 3. Update dataset with job_id
         db.execute(
@@ -348,11 +428,6 @@ async def create_dataset(
                 dataset_id,
             ),
         )
-
-        # 4. Start background generation AFTER all DB writes are done
-        from backend_api.jobs.workers import get_executor, run_dataset_generation
-
-        get_executor().submit(run_dataset_generation, job.id, dataset_id, generation_params)
 
     except Exception as e:
         # Cancel the job if it was created
@@ -672,7 +747,7 @@ async def download_dataset(
             )
         observations.append(obs_dict)
 
-    # Build export data
+    # Build export data (v2.0.0: includes ALL observation fields)
     export_data = {
         "dataset": {
             "id": row_dict["id"],
@@ -681,13 +756,195 @@ async def download_dataset(
             "tier": row_dict.get("tier"),
             "observation_count": row_dict.get("observation_count"),
             "satellite_count": row_dict.get("satellite_count"),
+            "config_hash": row_dict.get("config_hash"),
+            "sensor_mode": row_dict.get("sensor_mode"),
+            "total_api_calls": row_dict.get("total_api_calls"),
+            "generation_duration_sec": float(row_dict["generation_duration_sec"]) if row_dict.get("generation_duration_sec") else None,
             "created_at": str(row_dict["created_at"]) if row_dict.get("created_at") else None,
         },
         "observations": observations,
     }
 
     return JSONResponse(
-        content=export_data,
+        content=json.loads(json.dumps(export_data, cls=_SafeEncoder)),
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{row_dict["name"]}.json"'},
+    )
+
+
+# ============================================================
+# PROVENANCE & TRACKING ENDPOINTS (v2.0.0)
+# ============================================================
+
+
+@router.get("/{dataset_id}/queries")
+async def get_dataset_queries(
+    dataset_id: str,
+    db: DatabaseManager = Depends(get_db),
+):
+    """Get all API query records for a dataset."""
+    id_int = validate_dataset_id(dataset_id)
+
+    # Verify dataset exists
+    ds_check = db.execute("SELECT id FROM datasets WHERE id = ?", (id_int,)).fetchone()
+    if ds_check is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    result = db.execute(
+        "SELECT * FROM dataset_queries WHERE dataset_id = ? ORDER BY executed_at",
+        (id_int,),
+    )
+    columns = [desc[0] for desc in result.description]
+    rows = result.fetchall()
+
+    queries = []
+    for row in rows:
+        row_dict = dict(zip(columns, row))
+        # Parse query_params JSON
+        qp = row_dict.get("query_params")
+        if isinstance(qp, str):
+            try:
+                qp = json.loads(qp)
+            except (json.JSONDecodeError, TypeError):
+                qp = {}
+        row_dict["query_params"] = qp or {}
+        queries.append(row_dict)
+
+    return JSONResponse(
+        content=json.loads(json.dumps(queries, cls=_SafeEncoder)),
+        media_type="application/json",
+    )
+
+
+@router.get("/{dataset_id}/sources")
+async def get_dataset_sources(
+    dataset_id: str,
+    db: DatabaseManager = Depends(get_db),
+):
+    """Get data source attribution for a dataset."""
+    id_int = validate_dataset_id(dataset_id)
+
+    # Verify dataset exists
+    ds_check = db.execute("SELECT id FROM datasets WHERE id = ?", (id_int,)).fetchone()
+    if ds_check is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    result = db.execute(
+        """
+        SELECT dds.*, ds.source_name
+        FROM dataset_data_sources dds
+        LEFT JOIN data_sources ds ON dds.source_id = ds.id
+        WHERE dds.dataset_id = ?
+        ORDER BY ds.source_name
+        """,
+        (id_int,),
+    )
+    columns = [desc[0] for desc in result.description]
+    rows = result.fetchall()
+
+    sources = [dict(zip(columns, row)) for row in rows]
+    return JSONResponse(
+        content=json.loads(json.dumps(sources, cls=_SafeEncoder)),
+        media_type="application/json",
+    )
+
+
+@router.get("/{dataset_id}/provenance")
+async def get_dataset_provenance(
+    dataset_id: str,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Get full provenance chain for a dataset.
+
+    Includes config hash, query history, source attribution,
+    enrichment log, and performance metrics.
+    """
+    id_int = validate_dataset_id(dataset_id)
+
+    # Get dataset metadata
+    ds_result = db.execute("SELECT * FROM datasets WHERE id = ?", (id_int,))
+    ds_columns = [desc[0] for desc in ds_result.description]
+    ds_row = ds_result.fetchone()
+
+    if ds_row is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    ds_dict = dict(zip(ds_columns, ds_row))
+
+    # Parse performance_metrics JSON
+    perf = ds_dict.get("performance_metrics")
+    if isinstance(perf, str):
+        try:
+            perf = json.loads(perf)
+        except (json.JSONDecodeError, TypeError):
+            perf = None
+
+    # Get queries
+    q_result = db.execute(
+        "SELECT * FROM dataset_queries WHERE dataset_id = ? ORDER BY executed_at",
+        (id_int,),
+    )
+    q_columns = [desc[0] for desc in q_result.description]
+    q_rows = q_result.fetchall()
+    queries = []
+    for row in q_rows:
+        rd = dict(zip(q_columns, row))
+        qp = rd.get("query_params")
+        if isinstance(qp, str):
+            try:
+                qp = json.loads(qp)
+            except (json.JSONDecodeError, TypeError):
+                qp = {}
+        rd["query_params"] = qp or {}
+        queries.append(rd)
+
+    # Get sources
+    s_result = db.execute(
+        """
+        SELECT dds.*, ds.source_name
+        FROM dataset_data_sources dds
+        LEFT JOIN data_sources ds ON dds.source_id = ds.id
+        WHERE dds.dataset_id = ?
+        """,
+        (id_int,),
+    )
+    s_columns = [desc[0] for desc in s_result.description]
+    s_rows = s_result.fetchall()
+    sources = [dict(zip(s_columns, row)) for row in s_rows]
+
+    # Get enrichment log
+    e_result = db.execute(
+        "SELECT * FROM dataset_enrichment_log WHERE dataset_id = ? ORDER BY enriched_at",
+        (id_int,),
+    )
+    e_columns = [desc[0] for desc in e_result.description]
+    e_rows = e_result.fetchall()
+    enrichment = []
+    for row in e_rows:
+        rd = dict(zip(e_columns, row))
+        fu = rd.get("fields_updated")
+        if isinstance(fu, str):
+            try:
+                fu = json.loads(fu)
+            except (json.JSONDecodeError, TypeError):
+                fu = None
+        rd["fields_updated"] = fu
+        enrichment.append(rd)
+
+    provenance = {
+        "dataset_id": id_int,
+        "dataset_name": ds_dict.get("name"),
+        "config_hash": ds_dict.get("config_hash"),
+        "total_api_calls": ds_dict.get("total_api_calls", 0),
+        "total_api_errors": ds_dict.get("total_api_errors", 0),
+        "generation_duration_sec": float(ds_dict["generation_duration_sec"]) if ds_dict.get("generation_duration_sec") else None,
+        "performance_metrics": perf,
+        "queries": queries,
+        "sources": sources,
+        "enrichment_log": enrichment,
+    }
+    return JSONResponse(
+        content=json.loads(json.dumps(provenance, cls=_SafeEncoder)),
+        media_type="application/json",
     )

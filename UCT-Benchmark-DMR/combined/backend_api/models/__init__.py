@@ -214,6 +214,7 @@ class DatasetSummary(BaseModel):
     size_bytes: int = 0
     sensor_types: List[SensorType] = []
     job_id: Optional[str] = None
+    reused: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -231,7 +232,7 @@ class DatasetDetail(DatasetSummary):
 
 
 class DatasetObservation(BaseModel):
-    """Single observation from a dataset."""
+    """Single observation from a dataset (minimal view)."""
 
     id: str
     ob_time: datetime
@@ -239,6 +240,140 @@ class DatasetObservation(BaseModel):
     declination: float
     sensor_name: Optional[str] = None
     track_id: Optional[str] = None
+
+
+class FullObservation(BaseModel):
+    """Full observation with all 46+ fields (v2.0.0)."""
+
+    id: str
+    sat_no: Optional[int] = None
+    ob_time: datetime
+    ra: Optional[float] = None
+    declination: Optional[float] = None
+    range_km: Optional[float] = None
+    range_rate_km_s: Optional[float] = None
+    azimuth: Optional[float] = None
+    elevation: Optional[float] = None
+    sensor_name: Optional[str] = None
+    data_mode: Optional[str] = None
+    track_id: Optional[str] = None
+    is_uct: Optional[bool] = None
+    is_simulated: Optional[bool] = None
+    source_id: Optional[int] = None
+    observation_type: Optional[str] = None
+    # Sensor position (geodetic)
+    senlat: Optional[float] = None
+    senlon: Optional[float] = None
+    senalt: Optional[float] = None
+    # Sensor position (ECI)
+    senx: Optional[float] = None
+    seny: Optional[float] = None
+    senz: Optional[float] = None
+    # Sensor velocity (ECI)
+    senvelx: Optional[float] = None
+    senvely: Optional[float] = None
+    senvelz: Optional[float] = None
+    # Signal / photometric
+    los_unc: Optional[float] = None
+    exp_duration: Optional[float] = None
+    zeroptd: Optional[float] = None
+    net_obj_sig: Optional[float] = None
+    net_obj_sig_unc: Optional[float] = None
+    mag: Optional[float] = None
+    mag_unc: Optional[float] = None
+    # Computed geo-position
+    geolat: Optional[float] = None
+    geolon: Optional[float] = None
+    geoalt: Optional[float] = None
+    georange: Optional[float] = None
+    # Solar angles
+    solar_phase_angle: Optional[float] = None
+    solar_eq_phase_angle: Optional[float] = None
+    solar_dec_angle: Optional[float] = None
+    # UDL administrative / publishing
+    classification_marking: Optional[str] = None
+    id_sensor: Optional[str] = None
+    id_on_orbit: Optional[str] = None
+    orig_object_id: Optional[str] = None
+    orig_sensor_id: Optional[str] = None
+    shutter_delay: Optional[float] = None
+    raw_file_uri: Optional[str] = None
+    source_name: Optional[str] = None
+    created_by: Optional[str] = None
+    orig_network: Optional[str] = None
+    observation_type_udl: Optional[str] = None
+    # Dataset-specific assignments
+    assigned_track_id: Optional[int] = None
+    assigned_object_id: Optional[int] = None
+
+
+class DatasetQuery(BaseModel):
+    """A tracked API query for a dataset."""
+
+    id: int
+    dataset_id: int
+    service: str
+    endpoint_url: Optional[str] = None
+    query_params: Dict[str, Any]
+    sat_no: Optional[int] = None
+    time_range_start: Optional[datetime] = None
+    time_range_end: Optional[datetime] = None
+    response_record_count: int = 0
+    response_status_code: Optional[int] = None
+    response_time_ms: Optional[float] = None
+    retry_count: int = 0
+    error_message: Optional[str] = None
+    success: bool = True
+    executed_at: Optional[datetime] = None
+
+
+class DatasetSourceAttribution(BaseModel):
+    """Per-source data attribution for a dataset."""
+
+    source_name: str
+    source_id: int
+    observation_count: int = 0
+    state_vector_count: int = 0
+    element_set_count: int = 0
+    earliest_data: Optional[datetime] = None
+    latest_data: Optional[datetime] = None
+
+
+class DatasetEnrichmentEntry(BaseModel):
+    """A single enrichment log entry."""
+
+    id: int
+    dataset_id: int
+    sat_no: int
+    enrichment_source: str
+    fields_updated: Optional[Dict[str, Any]] = None
+    enrichment_success: bool = True
+    error_message: Optional[str] = None
+    enriched_at: Optional[datetime] = None
+
+
+class DatasetProvenance(BaseModel):
+    """Full provenance chain for a dataset."""
+
+    dataset_id: int
+    dataset_name: str
+    config_hash: Optional[str] = None
+    total_api_calls: int = 0
+    total_api_errors: int = 0
+    generation_duration_sec: Optional[float] = None
+    performance_metrics: Optional[Dict[str, Any]] = None
+    queries: List[DatasetQuery] = []
+    sources: List[DatasetSourceAttribution] = []
+    enrichment_log: List[DatasetEnrichmentEntry] = []
+
+
+class CheckExistingResponse(BaseModel):
+    """Response for the check-existing endpoint."""
+
+    exists: bool
+    dataset_id: Optional[int] = None
+    name: Optional[str] = None
+    observation_count: Optional[int] = None
 
 
 # ============================================================

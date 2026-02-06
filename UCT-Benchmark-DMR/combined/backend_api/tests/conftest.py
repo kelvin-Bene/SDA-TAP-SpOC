@@ -155,6 +155,34 @@ def populated_db(db: DatabaseManager) -> DatabaseManager:
         """
     )
 
+    # v2.0.0: Add sample query log entries for dataset 1
+    db.execute(
+        """
+        INSERT INTO dataset_queries (dataset_id, service, query_params, response_record_count, success, executed_at)
+        VALUES
+            (1, 'udl:eoobservation', '{"satNo": "25544,43013", "obTime": ">now-7 days"}', 20, TRUE, CURRENT_TIMESTAMP),
+            (1, 'udl:statevector', '{"satNo": "25544", "epoch": ">2025-01-01"}', 5, TRUE, CURRENT_TIMESTAMP)
+        """
+    )
+
+    # v2.0.0: Add sample source attribution for dataset 1
+    db.execute(
+        """
+        INSERT INTO dataset_data_sources (dataset_id, source_id, observation_count, state_vector_count)
+        VALUES (1, 1, 20, 5)
+        """
+    )
+
+    # v2.0.0: Add sample enrichment log for dataset 1
+    db.execute(
+        """
+        INSERT INTO dataset_enrichment_log (dataset_id, sat_no, enrichment_source, enrichment_success)
+        VALUES
+            (1, 25544, 'UCS', TRUE),
+            (1, 43013, 'GCAT', TRUE)
+        """
+    )
+
     return db
 
 

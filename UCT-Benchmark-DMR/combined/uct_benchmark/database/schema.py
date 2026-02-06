@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.3.0"  # Added credentials table
+SCHEMA_VERSION = "2.0.0"  # Dataset completeness overhaul: expanded observations, new tracking tables
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -115,6 +115,54 @@ CREATE TABLE IF NOT EXISTS observations (
     source_id INTEGER,                    -- References data_sources(id)
     observation_type VARCHAR(10) DEFAULT 'EO',  -- EO (electro-optical), RF, RADAR
 
+    -- Sensor position (geodetic)
+    senlat DECIMAL(12,8),                 -- Sensor latitude (degrees)
+    senlon DECIMAL(12,8),                 -- Sensor longitude (degrees)
+    senalt DECIMAL(10,4),                 -- Sensor altitude (km)
+
+    -- Sensor position (ECI cartesian, km)
+    senx DECIMAL(16,6),
+    seny DECIMAL(16,6),
+    senz DECIMAL(16,6),
+
+    -- Sensor velocity (ECI, km/s)
+    senvelx DECIMAL(16,9),
+    senvely DECIMAL(16,9),
+    senvelz DECIMAL(16,9),
+
+    -- Signal / photometric
+    los_unc DECIMAL(12,6),                -- Line-of-sight uncertainty
+    exp_duration DECIMAL(10,4),           -- Exposure duration (seconds)
+    zeroptd DECIMAL(16,10),
+    net_obj_sig DECIMAL(16,6),
+    net_obj_sig_unc DECIMAL(16,6),
+    mag DECIMAL(8,4),                     -- Visual magnitude
+    mag_unc DECIMAL(8,4),
+
+    -- Computed geo-position of observed object
+    geolat DECIMAL(12,8),
+    geolon DECIMAL(12,8),
+    geoalt DECIMAL(12,4),
+    georange DECIMAL(12,4),
+
+    -- Solar angles
+    solar_phase_angle DECIMAL(12,8),
+    solar_eq_phase_angle DECIMAL(12,8),
+    solar_dec_angle DECIMAL(12,8),
+
+    -- UDL administrative / publishing fields
+    classification_marking VARCHAR(50),
+    id_sensor VARCHAR(50),                -- UDL sensor ID (distinct from sensor_name)
+    id_on_orbit VARCHAR(50),
+    orig_object_id VARCHAR(50),
+    orig_sensor_id VARCHAR(50),
+    shutter_delay DECIMAL(8,4) DEFAULT 0,
+    raw_file_uri VARCHAR(500),
+    source_name VARCHAR(50),              -- UDL "source" field (e.g., "EXO")
+    created_by VARCHAR(100),
+    orig_network VARCHAR(50),
+    observation_type_udl VARCHAR(20),     -- UDL "type" field
+
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -155,6 +203,18 @@ CREATE TABLE IF NOT EXISTS state_vectors (
     -- Source metadata
     source VARCHAR(50),                   -- UDL, SPACE_TRACK, PROPAGATED
     data_mode VARCHAR(20),
+
+    -- Physical parameters (per state vector from UDL/DiscoWeb)
+    mass_kg DECIMAL(10,2),
+    cross_section_m2 DECIMAL(10,4),
+    drag_coeff DECIMAL(6,4),
+    srp_coeff DECIMAL(6,4),
+
+    -- UDL administrative fields
+    classification_marking VARCHAR(50),
+    reference_frame VARCHAR(20) DEFAULT 'J2000',
+    cov_reference_frame VARCHAR(20),
+    id_state_vector VARCHAR(64),
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -248,6 +308,16 @@ CREATE TABLE IF NOT EXISTS datasets (
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
 
+    -- Deduplication / reuse
+    config_hash VARCHAR(64),              -- SHA-256 hash of canonical config for dedup
+    sensor_mode VARCHAR(5),               -- EO, RF, MX
+
+    -- Performance tracking
+    performance_metrics JSON,             -- Full performance data from generation
+    total_api_calls INTEGER DEFAULT 0,
+    total_api_errors INTEGER DEFAULT 0,
+    generation_duration_sec DECIMAL(12,3),
+
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -288,6 +358,95 @@ CREATE TABLE IF NOT EXISTS dataset_references (
 
     PRIMARY KEY (dataset_id, sat_no)
 );
+"""
+
+# ============================================================
+# DATASET QUERY TRACKING (reproducibility)
+# ============================================================
+
+DATASET_QUERIES_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS dataset_queries_id_seq;
+"""
+
+DATASET_QUERIES_TABLE = """
+CREATE TABLE IF NOT EXISTS dataset_queries (
+    id INTEGER PRIMARY KEY DEFAULT nextval('dataset_queries_id_seq'),
+    dataset_id INTEGER NOT NULL,
+    service VARCHAR(50) NOT NULL,
+    endpoint_url VARCHAR(500),
+    query_params JSON NOT NULL,
+    sat_no INTEGER,
+    time_range_start TIMESTAMP,
+    time_range_end TIMESTAMP,
+    response_record_count INTEGER DEFAULT 0,
+    response_status_code INTEGER,
+    response_time_ms DECIMAL(10,2),
+    rate_limit_delay_ms DECIMAL(10,2),
+    retry_count INTEGER DEFAULT 0,
+    error_message TEXT,
+    success BOOLEAN DEFAULT TRUE,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+DATASET_QUERIES_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_dq_dataset ON dataset_queries(dataset_id);
+"""
+
+# ============================================================
+# DATASET DATA SOURCE ATTRIBUTION
+# ============================================================
+
+DATASET_DATA_SOURCES_TABLE = """
+CREATE TABLE IF NOT EXISTS dataset_data_sources (
+    dataset_id INTEGER NOT NULL,
+    source_id INTEGER NOT NULL,
+    observation_count INTEGER DEFAULT 0,
+    state_vector_count INTEGER DEFAULT 0,
+    element_set_count INTEGER DEFAULT 0,
+    earliest_data TIMESTAMP,
+    latest_data TIMESTAMP,
+    PRIMARY KEY (dataset_id, source_id)
+);
+"""
+
+# ============================================================
+# DATASET VALIDATION MEASUREMENT LINKING
+# ============================================================
+
+DATASET_VALIDATION_MEASUREMENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS dataset_validation_measurements (
+    dataset_id INTEGER NOT NULL,
+    validation_measurement_id INTEGER NOT NULL,
+    is_in_time_window BOOLEAN DEFAULT TRUE,
+    distance_to_nearest_obs_sec DECIMAL(12,2),
+    PRIMARY KEY (dataset_id, validation_measurement_id)
+);
+"""
+
+# ============================================================
+# DATASET ENRICHMENT LOG
+# ============================================================
+
+DATASET_ENRICHMENT_LOG_SEQUENCE = """
+CREATE SEQUENCE IF NOT EXISTS dataset_enrichment_log_id_seq;
+"""
+
+DATASET_ENRICHMENT_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS dataset_enrichment_log (
+    id INTEGER PRIMARY KEY DEFAULT nextval('dataset_enrichment_log_id_seq'),
+    dataset_id INTEGER NOT NULL,
+    sat_no INTEGER NOT NULL,
+    enrichment_source VARCHAR(50) NOT NULL,
+    fields_updated JSON,
+    enrichment_success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    enriched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+DATASET_ENRICHMENT_LOG_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_del_dataset ON dataset_enrichment_log(dataset_id);
 """
 
 # ============================================================
@@ -667,6 +826,39 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
         _initialize_duckdb_schema(db)
 
 
+def _apply_v2_column_migrations(db: "DatabaseManager") -> None:
+    """Add v2.0.0 columns to existing tables if they don't exist.
+
+    DuckDB's CREATE TABLE IF NOT EXISTS won't add new columns to an
+    already-existing table.  This function uses ALTER TABLE ... ADD COLUMN
+    to ensure the v2.0.0 columns are present even when upgrading from v1.x.
+    Each statement is wrapped in try/except so it's safe to run repeatedly.
+    """
+    migrations = [
+        # datasets table - dedup / performance columns
+        "ALTER TABLE datasets ADD COLUMN config_hash VARCHAR(64)",
+        "ALTER TABLE datasets ADD COLUMN sensor_mode VARCHAR(5)",
+        "ALTER TABLE datasets ADD COLUMN performance_metrics JSON",
+        "ALTER TABLE datasets ADD COLUMN total_api_calls INTEGER DEFAULT 0",
+        "ALTER TABLE datasets ADD COLUMN total_api_errors INTEGER DEFAULT 0",
+        "ALTER TABLE datasets ADD COLUMN generation_duration_sec DECIMAL(12,3)",
+        # state_vectors table - physical params
+        "ALTER TABLE state_vectors ADD COLUMN mass_kg DECIMAL(10,2)",
+        "ALTER TABLE state_vectors ADD COLUMN cross_section_m2 DECIMAL(10,4)",
+        "ALTER TABLE state_vectors ADD COLUMN drag_coeff DECIMAL(6,4)",
+        "ALTER TABLE state_vectors ADD COLUMN srp_coeff DECIMAL(6,4)",
+        "ALTER TABLE state_vectors ADD COLUMN classification_marking VARCHAR(50)",
+        "ALTER TABLE state_vectors ADD COLUMN reference_frame VARCHAR(20) DEFAULT 'J2000'",
+        "ALTER TABLE state_vectors ADD COLUMN cov_reference_frame VARCHAR(20)",
+        "ALTER TABLE state_vectors ADD COLUMN id_state_vector VARCHAR(64)",
+    ]
+    for stmt in migrations:
+        try:
+            db.execute(stmt)
+        except Exception:
+            pass  # Column already exists
+
+
 def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     """Initialize schema using DuckDB-specific SQL."""
     # Create sequences first
@@ -681,6 +873,8 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(UCTP_MODELS_SEQUENCE)
     db.execute(UCTP_API_CONNECTIONS_SEQUENCE)
     db.execute(CREDENTIALS_SEQUENCE)
+    db.execute(DATASET_QUERIES_SEQUENCE)
+    db.execute(DATASET_ENRICHMENT_LOG_SEQUENCE)
 
     # Create tables in dependency order
     db.execute(SCHEMA_METADATA_TABLE)
@@ -693,9 +887,19 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(ELEMENT_SETS_TABLE)
     db.execute(ELEMENT_SETS_INDEXES)
     db.execute(DATASETS_TABLE)
+    _apply_v2_column_migrations(db)
+    db.execute("CREATE INDEX IF NOT EXISTS idx_datasets_config_hash ON datasets(config_hash)")
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(DATASET_REFERENCES_TABLE)
+
+    # Dataset tracking tables (v2.0.0)
+    db.execute(DATASET_QUERIES_TABLE)
+    db.execute(DATASET_QUERIES_INDEXES)
+    db.execute(DATASET_DATA_SOURCES_TABLE)
+    db.execute(DATASET_VALIDATION_MEASUREMENTS_TABLE)
+    db.execute(DATASET_ENRICHMENT_LOG_TABLE)
+    db.execute(DATASET_ENRICHMENT_LOG_INDEXES)
 
     # Validation measurements (ILRS ground truth)
     db.execute(VALIDATION_MEASUREMENTS_TABLE)
@@ -769,12 +973,20 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(EVENTS_SEQUENCE)
     db.execute(SUBMISSIONS_SEQUENCE)
     db.execute(SUBMISSION_RESULTS_SEQUENCE)
+    db.execute(VALIDATION_MEASUREMENTS_SEQUENCE)
+    db.execute(UCTP_RUNS_SEQUENCE)
+    db.execute(UCTP_MODELS_SEQUENCE)
+    db.execute(UCTP_API_CONNECTIONS_SEQUENCE)
+    db.execute(CREDENTIALS_SEQUENCE)
+    db.execute(DATASET_QUERIES_SEQUENCE)
+    db.execute(DATASET_ENRICHMENT_LOG_SEQUENCE)
 
     # Create tables (JSON -> JSONB for PostgreSQL)
     def convert_json_to_jsonb(sql: str) -> str:
         return sql.replace(" JSON", " JSONB")
 
     db.execute(SCHEMA_METADATA_TABLE)
+    db.execute(DATA_SOURCES_TABLE)
     db.execute(SATELLITES_TABLE)
     db.execute(OBSERVATIONS_TABLE)
     db.execute(OBSERVATIONS_INDEXES)
@@ -786,6 +998,18 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(DATASET_OBSERVATIONS_TABLE)
     db.execute(DATASET_OBSERVATIONS_INDEXES)
     db.execute(convert_json_to_jsonb(DATASET_REFERENCES_TABLE))
+
+    # Dataset tracking tables (v2.0.0)
+    db.execute(convert_json_to_jsonb(DATASET_QUERIES_TABLE))
+    db.execute(DATASET_QUERIES_INDEXES)
+    db.execute(DATASET_DATA_SOURCES_TABLE)
+    db.execute(DATASET_VALIDATION_MEASUREMENTS_TABLE)
+    db.execute(convert_json_to_jsonb(DATASET_ENRICHMENT_LOG_TABLE))
+    db.execute(DATASET_ENRICHMENT_LOG_INDEXES)
+
+    # Validation measurements (ILRS ground truth)
+    db.execute(VALIDATION_MEASUREMENTS_TABLE)
+    db.execute(VALIDATION_MEASUREMENTS_INDEXES)
 
     # Submissions and results tables
     db.execute(SUBMISSIONS_TABLE)
@@ -804,6 +1028,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
 
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
+    _seed_data_sources(db)
 
     # Store schema version (PostgreSQL syntax)
     db.execute(
@@ -829,6 +1054,10 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "jobs",
         "submission_results",
         "submissions",
+        "dataset_enrichment_log",
+        "dataset_validation_measurements",
+        "dataset_data_sources",
+        "dataset_queries",
         "dataset_references",
         "dataset_observations",
         "datasets",
@@ -856,6 +1085,8 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
         "submissions_id_seq",
         "submission_results_id_seq",
         "validation_measurements_id_seq",
+        "dataset_queries_id_seq",
+        "dataset_enrichment_log_id_seq",
     ]
     for seq in sequences:
         db.execute(f"DROP SEQUENCE IF EXISTS {seq}")
@@ -941,6 +1172,10 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "datasets",
         "dataset_observations",
         "dataset_references",
+        "dataset_queries",
+        "dataset_data_sources",
+        "dataset_validation_measurements",
+        "dataset_enrichment_log",
         "submissions",
         "submission_results",
         "jobs",

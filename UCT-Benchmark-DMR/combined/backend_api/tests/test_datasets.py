@@ -95,7 +95,7 @@ class TestGetDataset:
         assert dataset["regime"] == "LEO"
         assert dataset["tier"] == "T1"
         assert dataset["status"] == "available"
-        assert dataset["observation_count"] == 1000
+        assert dataset["observation_count"] == 20  # Matches actual seeded observations
         assert dataset["satellite_count"] == 5
 
     def test_get_dataset_includes_detail_fields(self, populated_test_client: TestClient):

@@ -30,20 +30,27 @@ export interface DatasetPreset {
   config: Partial<DatasetGenerationConfig>;
 }
 
+// Dataset Status
+export type DatasetStatus = 'created' | 'generating' | 'available' | 'complete' | 'failed';
+
 // Dataset Types
 export interface Dataset {
   id: string;
   name: string;
   regime: OrbitalRegime;
   tier: DataTier;
+  status: DatasetStatus;
   createdAt: string;
   objectCount: number;
   observationCount: number;
+  satelliteCount: number;
   coverage: number;
   sizeBytes: number;
   sensorTypes: SensorType[];
   description?: string;
   downloadUrl?: string;
+  jobId?: string;
+  reused: boolean;
 }
 
 export interface DatasetFilters {
@@ -242,4 +249,136 @@ export interface Notification {
   message: string;
   createdAt: string;
   read: boolean;
+}
+
+// ============================================================
+// v2.0.0 - Full Observation & Provenance Types
+// ============================================================
+
+// Full observation with all 46+ fields from UDL
+export interface FullObservation {
+  id: string;
+  satNo?: number;
+  obTime: string;
+  ra?: number;
+  declination?: number;
+  rangeKm?: number;
+  rangeRateKmS?: number;
+  azimuth?: number;
+  elevation?: number;
+  sensorName?: string;
+  dataMode?: string;
+  trackId?: string;
+  isUct?: boolean;
+  isSimulated?: boolean;
+  sourceId?: number;
+  observationType?: string;
+  // Sensor position (geodetic)
+  senlat?: number;
+  senlon?: number;
+  senalt?: number;
+  // Sensor position (ECI)
+  senx?: number;
+  seny?: number;
+  senz?: number;
+  // Sensor velocity (ECI)
+  senvelx?: number;
+  senvely?: number;
+  senvelz?: number;
+  // Signal / photometric
+  losUnc?: number;
+  expDuration?: number;
+  zeroptd?: number;
+  netObjSig?: number;
+  netObjSigUnc?: number;
+  mag?: number;
+  magUnc?: number;
+  // Computed geo-position
+  geolat?: number;
+  geolon?: number;
+  geoalt?: number;
+  georange?: number;
+  // Solar angles
+  solarPhaseAngle?: number;
+  solarEqPhaseAngle?: number;
+  solarDecAngle?: number;
+  // UDL administrative / publishing
+  classificationMarking?: string;
+  idSensor?: string;
+  idOnOrbit?: string;
+  origObjectId?: string;
+  origSensorId?: string;
+  shutterDelay?: number;
+  rawFileUri?: string;
+  sourceName?: string;
+  createdBy?: string;
+  origNetwork?: string;
+  observationTypeUdl?: string;
+  // Dataset-specific assignments
+  assignedTrackId?: number;
+  assignedObjectId?: number;
+}
+
+// Tracked API query for a dataset
+export interface DatasetQuery {
+  id: number;
+  datasetId: number;
+  service: string;
+  endpointUrl?: string;
+  queryParams: Record<string, unknown>;
+  satNo?: number;
+  timeRangeStart?: string;
+  timeRangeEnd?: string;
+  responseRecordCount: number;
+  responseStatusCode?: number;
+  responseTimeMs?: number;
+  retryCount: number;
+  errorMessage?: string;
+  success: boolean;
+  executedAt?: string;
+}
+
+// Per-source data attribution for a dataset
+export interface DatasetSourceAttribution {
+  sourceName: string;
+  sourceId: number;
+  observationCount: number;
+  stateVectorCount: number;
+  elementSetCount: number;
+  earliestData?: string;
+  latestData?: string;
+}
+
+// Enrichment log entry for a dataset
+export interface DatasetEnrichmentEntry {
+  id: number;
+  datasetId: number;
+  satNo: number;
+  enrichmentSource: string;
+  fieldsUpdated?: Record<string, unknown>;
+  enrichmentSuccess: boolean;
+  errorMessage?: string;
+  enrichedAt?: string;
+}
+
+// Full provenance chain for a dataset
+export interface DatasetProvenance {
+  datasetId: number;
+  datasetName: string;
+  configHash?: string;
+  totalApiCalls: number;
+  totalApiErrors: number;
+  generationDurationSec?: number;
+  performanceMetrics?: Record<string, unknown>;
+  queries: DatasetQuery[];
+  sources: DatasetSourceAttribution[];
+  enrichmentLog: DatasetEnrichmentEntry[];
+}
+
+// Check-existing response
+export interface CheckExistingResponse {
+  exists: boolean;
+  datasetId?: number;
+  name?: string;
+  observationCount?: number;
 }

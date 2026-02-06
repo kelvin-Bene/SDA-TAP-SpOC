@@ -1,6 +1,6 @@
 -- PostgreSQL Schema for UCT Benchmark
 -- Compatible with Supabase and standard PostgreSQL databases
--- Schema Version: 1.3.0 (matches DuckDB schema.py)
+-- Schema Version: 2.0.0 (matches DuckDB schema.py)
 --
 -- This file is read by _initialize_postgres_schema() as a fallback
 -- when the app initializes against a PostgreSQL database directly.
@@ -22,6 +22,8 @@ CREATE SEQUENCE IF NOT EXISTS uctp_runs_id_seq;
 CREATE SEQUENCE IF NOT EXISTS uctp_models_id_seq;
 CREATE SEQUENCE IF NOT EXISTS uctp_api_connections_id_seq;
 CREATE SEQUENCE IF NOT EXISTS credentials_id_seq;
+CREATE SEQUENCE IF NOT EXISTS dataset_queries_id_seq;
+CREATE SEQUENCE IF NOT EXISTS dataset_enrichment_log_id_seq;
 
 -- ============================================================
 -- CORE TABLES
@@ -71,7 +73,7 @@ CREATE TABLE IF NOT EXISTS satellites (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Observations table
+-- Observations table (expanded v2.0.0)
 CREATE TABLE IF NOT EXISTS observations (
     id VARCHAR(64) PRIMARY KEY,
     sat_no INTEGER,
@@ -89,6 +91,47 @@ CREATE TABLE IF NOT EXISTS observations (
     is_simulated BOOLEAN DEFAULT FALSE,
     source_id INTEGER,
     observation_type VARCHAR(10) DEFAULT 'EO',
+    -- Sensor position (geodetic)
+    senlat DECIMAL(12,8),
+    senlon DECIMAL(12,8),
+    senalt DECIMAL(10,4),
+    -- Sensor position (ECI cartesian, km)
+    senx DECIMAL(16,6),
+    seny DECIMAL(16,6),
+    senz DECIMAL(16,6),
+    -- Sensor velocity (ECI, km/s)
+    senvelx DECIMAL(16,9),
+    senvely DECIMAL(16,9),
+    senvelz DECIMAL(16,9),
+    -- Signal / photometric
+    los_unc DECIMAL(12,6),
+    exp_duration DECIMAL(10,4),
+    zeroptd DECIMAL(16,10),
+    net_obj_sig DECIMAL(16,6),
+    net_obj_sig_unc DECIMAL(16,6),
+    mag DECIMAL(8,4),
+    mag_unc DECIMAL(8,4),
+    -- Computed geo-position
+    geolat DECIMAL(12,8),
+    geolon DECIMAL(12,8),
+    geoalt DECIMAL(12,4),
+    georange DECIMAL(12,4),
+    -- Solar angles
+    solar_phase_angle DECIMAL(12,8),
+    solar_eq_phase_angle DECIMAL(12,8),
+    solar_dec_angle DECIMAL(12,8),
+    -- UDL administrative / publishing fields
+    classification_marking VARCHAR(50),
+    id_sensor VARCHAR(50),
+    id_on_orbit VARCHAR(50),
+    orig_object_id VARCHAR(50),
+    orig_sensor_id VARCHAR(50),
+    shutter_delay DECIMAL(8,4) DEFAULT 0,
+    raw_file_uri VARCHAR(500),
+    source_name VARCHAR(50),
+    created_by VARCHAR(100),
+    orig_network VARCHAR(50),
+    observation_type_udl VARCHAR(20),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -96,7 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_obs_time ON observations(ob_time);
 CREATE INDEX IF NOT EXISTS idx_obs_sat_time ON observations(sat_no, ob_time);
 CREATE INDEX IF NOT EXISTS idx_obs_track ON observations(track_id);
 
--- State vectors table
+-- State vectors table (expanded v2.0.0)
 CREATE TABLE IF NOT EXISTS state_vectors (
     id INTEGER PRIMARY KEY DEFAULT nextval('state_vectors_id_seq'),
     sat_no INTEGER,
@@ -110,6 +153,16 @@ CREATE TABLE IF NOT EXISTS state_vectors (
     covariance JSONB,
     source VARCHAR(50),
     data_mode VARCHAR(20),
+    -- Physical parameters (v2.0.0)
+    mass_kg DECIMAL(10,2),
+    cross_section_m2 DECIMAL(10,4),
+    drag_coeff DECIMAL(6,4),
+    srp_coeff DECIMAL(6,4),
+    -- UDL administrative fields (v2.0.0)
+    classification_marking VARCHAR(50),
+    reference_frame VARCHAR(20) DEFAULT 'J2000',
+    cov_reference_frame VARCHAR(20),
+    id_state_vector VARCHAR(64),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(sat_no, epoch, source)
 );
@@ -139,7 +192,7 @@ CREATE TABLE IF NOT EXISTS element_sets (
 
 CREATE INDEX IF NOT EXISTS idx_elset_sat_epoch ON element_sets(sat_no, epoch);
 
--- Datasets table
+-- Datasets table (expanded v2.0.0)
 CREATE TABLE IF NOT EXISTS datasets (
     id INTEGER PRIMARY KEY DEFAULT nextval('datasets_id_seq'),
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -162,11 +215,21 @@ CREATE TABLE IF NOT EXISTS datasets (
     simulation_config JSONB,
     generation_params JSONB,
     status VARCHAR(20) DEFAULT 'created',
+    -- Deduplication / reuse (v2.0.0)
+    config_hash VARCHAR(64),
+    sensor_mode VARCHAR(5),
+    -- Performance tracking (v2.0.0)
+    performance_metrics JSONB,
+    total_api_calls INTEGER DEFAULT 0,
+    total_api_errors INTEGER DEFAULT 0,
+    generation_duration_sec DECIMAL(12,3),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     json_path VARCHAR(500),
     parquet_path VARCHAR(500)
 );
+
+CREATE INDEX IF NOT EXISTS idx_datasets_config_hash ON datasets(config_hash);
 
 -- Dataset-Observation junction table
 CREATE TABLE IF NOT EXISTS dataset_observations (
@@ -189,6 +252,67 @@ CREATE TABLE IF NOT EXISTS dataset_references (
     grouped_obs_ids JSONB,
     PRIMARY KEY (dataset_id, sat_no)
 );
+
+-- ============================================================
+-- DATASET TRACKING TABLES (v2.0.0)
+-- ============================================================
+
+-- Query parameter tracking for dataset reproducibility
+CREATE TABLE IF NOT EXISTS dataset_queries (
+    id INTEGER PRIMARY KEY DEFAULT nextval('dataset_queries_id_seq'),
+    dataset_id INTEGER NOT NULL,
+    service VARCHAR(50) NOT NULL,
+    endpoint_url VARCHAR(500),
+    query_params JSONB NOT NULL,
+    sat_no INTEGER,
+    time_range_start TIMESTAMPTZ,
+    time_range_end TIMESTAMPTZ,
+    response_record_count INTEGER DEFAULT 0,
+    response_status_code INTEGER,
+    response_time_ms DECIMAL(10,2),
+    rate_limit_delay_ms DECIMAL(10,2),
+    retry_count INTEGER DEFAULT 0,
+    error_message TEXT,
+    success BOOLEAN DEFAULT TRUE,
+    executed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_dq_dataset ON dataset_queries(dataset_id);
+
+-- Per-dataset data source attribution
+CREATE TABLE IF NOT EXISTS dataset_data_sources (
+    dataset_id INTEGER NOT NULL,
+    source_id INTEGER NOT NULL,
+    observation_count INTEGER DEFAULT 0,
+    state_vector_count INTEGER DEFAULT 0,
+    element_set_count INTEGER DEFAULT 0,
+    earliest_data TIMESTAMPTZ,
+    latest_data TIMESTAMPTZ,
+    PRIMARY KEY (dataset_id, source_id)
+);
+
+-- Link ILRS validation measurements to datasets
+CREATE TABLE IF NOT EXISTS dataset_validation_measurements (
+    dataset_id INTEGER NOT NULL,
+    validation_measurement_id INTEGER NOT NULL,
+    is_in_time_window BOOLEAN DEFAULT TRUE,
+    distance_to_nearest_obs_sec DECIMAL(12,2),
+    PRIMARY KEY (dataset_id, validation_measurement_id)
+);
+
+-- Per-dataset enrichment tracking
+CREATE TABLE IF NOT EXISTS dataset_enrichment_log (
+    id INTEGER PRIMARY KEY DEFAULT nextval('dataset_enrichment_log_id_seq'),
+    dataset_id INTEGER NOT NULL,
+    sat_no INTEGER NOT NULL,
+    enrichment_source VARCHAR(50) NOT NULL,
+    fields_updated JSONB,
+    enrichment_success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    enriched_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_del_dataset ON dataset_enrichment_log(dataset_id);
 
 -- ============================================================
 -- SUBMISSIONS AND RESULTS TABLES
@@ -423,5 +547,5 @@ ON CONFLICT (service_name) DO NOTHING;
 
 -- Set schema version
 INSERT INTO _schema_metadata (key, value, updated_at)
-VALUES ('version', '1.3.0', NOW())
+VALUES ('version', '2.0.0', NOW())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

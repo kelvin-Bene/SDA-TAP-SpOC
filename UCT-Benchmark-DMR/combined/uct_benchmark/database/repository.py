@@ -414,7 +414,7 @@ class ObservationRepository(BaseRepository):
         if df.empty:
             return 0
 
-        # Valid columns for observations table
+        # Valid columns for observations table (v2.0.0 expanded)
         valid_columns = [
             "id",
             "sat_no",
@@ -430,6 +430,49 @@ class ObservationRepository(BaseRepository):
             "track_id",
             "is_uct",
             "is_simulated",
+            "source_id",
+            "observation_type",
+            # Sensor position (geodetic)
+            "senlat",
+            "senlon",
+            "senalt",
+            # Sensor position (ECI)
+            "senx",
+            "seny",
+            "senz",
+            # Sensor velocity (ECI)
+            "senvelx",
+            "senvely",
+            "senvelz",
+            # Signal / photometric
+            "los_unc",
+            "exp_duration",
+            "zeroptd",
+            "net_obj_sig",
+            "net_obj_sig_unc",
+            "mag",
+            "mag_unc",
+            # Computed geo-position
+            "geolat",
+            "geolon",
+            "geoalt",
+            "georange",
+            # Solar angles
+            "solar_phase_angle",
+            "solar_eq_phase_angle",
+            "solar_dec_angle",
+            # UDL administrative / publishing
+            "classification_marking",
+            "id_sensor",
+            "id_on_orbit",
+            "orig_object_id",
+            "orig_sensor_id",
+            "shutter_delay",
+            "raw_file_uri",
+            "source_name",
+            "created_by",
+            "orig_network",
+            "observation_type_udl",
             "created_at",
         ]
 
@@ -707,7 +750,12 @@ class StateVectorRepository(BaseRepository):
 
         columns = [
             "sat_no", "epoch", "x_pos", "y_pos", "z_pos",
-            "x_vel", "y_vel", "z_vel", "covariance", "source", "data_mode"
+            "x_vel", "y_vel", "z_vel", "covariance", "source", "data_mode",
+            # Physical parameters (v2.0.0)
+            "mass_kg", "cross_section_m2", "drag_coeff", "srp_coeff",
+            # UDL administrative fields (v2.0.0)
+            "classification_marking", "reference_frame", "cov_reference_frame",
+            "id_state_vector",
         ]
         available_columns = [c for c in columns if c in insert_df.columns]
 
@@ -1113,12 +1161,32 @@ class DatasetRepository(BaseRepository):
             True if deletion was successful
         """
         if cascade:
-            # Delete junction table records first
+            # Delete junction/tracking table records first
+            self.execute("DELETE FROM dataset_enrichment_log WHERE dataset_id = ?", (dataset_id,))
+            self.execute("DELETE FROM dataset_validation_measurements WHERE dataset_id = ?", (dataset_id,))
+            self.execute("DELETE FROM dataset_data_sources WHERE dataset_id = ?", (dataset_id,))
+            self.execute("DELETE FROM dataset_queries WHERE dataset_id = ?", (dataset_id,))
             self.execute("DELETE FROM dataset_observations WHERE dataset_id = ?", (dataset_id,))
             self.execute("DELETE FROM dataset_references WHERE dataset_id = ?", (dataset_id,))
 
         self.execute("DELETE FROM datasets WHERE id = ?", (dataset_id,))
         return True
+
+    def find_by_config_hash(self, config_hash: str) -> Optional[pd.Series]:
+        """
+        Find an available dataset with a matching config hash.
+
+        Args:
+            config_hash: SHA-256 hash of canonical config
+
+        Returns:
+            Dataset data as a Series, or None if not found
+        """
+        df = self.to_dataframe(
+            "SELECT * FROM datasets WHERE config_hash = ? AND status = 'available' ORDER BY created_at DESC LIMIT 1",
+            (config_hash,),
+        )
+        return df.iloc[0] if len(df) > 0 else None
 
     def create_version(
         self,
@@ -1630,3 +1698,164 @@ class EventRepository(BaseRepository):
         """Get total event count."""
         result = self.fetchone("SELECT COUNT(*) FROM events")
         return result[0] if result else 0
+
+
+class DatasetQueryRepository(BaseRepository):
+    """Repository for dataset query tracking (reproducibility)."""
+
+    def bulk_insert(self, records: List[Dict[str, Any]]) -> int:
+        """
+        Bulk insert query records for a dataset.
+
+        Args:
+            records: List of dicts with query record data
+
+        Returns:
+            Number of records inserted
+        """
+        if not records:
+            return 0
+
+        count = 0
+        for rec in records:
+            self.execute(
+                """
+                INSERT INTO dataset_queries (
+                    dataset_id, service, endpoint_url, query_params,
+                    sat_no, time_range_start, time_range_end,
+                    response_record_count, response_status_code,
+                    response_time_ms, rate_limit_delay_ms, retry_count,
+                    error_message, success, executed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    rec.get("dataset_id"),
+                    rec.get("service", "unknown"),
+                    rec.get("endpoint_url"),
+                    json.dumps(rec.get("query_params", {})),
+                    rec.get("sat_no"),
+                    rec.get("time_range_start"),
+                    rec.get("time_range_end"),
+                    rec.get("response_record_count", 0),
+                    rec.get("response_status_code"),
+                    rec.get("response_time_ms"),
+                    rec.get("rate_limit_delay_ms"),
+                    rec.get("retry_count", 0),
+                    rec.get("error_message"),
+                    rec.get("success", True),
+                    rec.get("executed_at"),
+                ),
+            )
+            count += 1
+        return count
+
+    def get_by_dataset(self, dataset_id: int) -> pd.DataFrame:
+        """Get all query records for a dataset."""
+        return self.to_dataframe(
+            "SELECT * FROM dataset_queries WHERE dataset_id = ? ORDER BY executed_at",
+            (dataset_id,),
+        )
+
+    def count_by_dataset(self, dataset_id: int) -> int:
+        """Count query records for a dataset."""
+        result = self.fetchone(
+            "SELECT COUNT(*) FROM dataset_queries WHERE dataset_id = ?", (dataset_id,)
+        )
+        return result[0] if result else 0
+
+
+class DatasetDataSourceRepository(BaseRepository):
+    """Repository for per-dataset source attribution."""
+
+    def upsert(
+        self,
+        dataset_id: int,
+        source_id: int,
+        observation_count: int = 0,
+        state_vector_count: int = 0,
+        element_set_count: int = 0,
+        earliest_data: Optional[datetime] = None,
+        latest_data: Optional[datetime] = None,
+    ) -> None:
+        """Insert or update source attribution for a dataset."""
+        self.execute(
+            """
+            INSERT INTO dataset_data_sources (
+                dataset_id, source_id, observation_count, state_vector_count,
+                element_set_count, earliest_data, latest_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (dataset_id, source_id) DO UPDATE SET
+                observation_count = EXCLUDED.observation_count,
+                state_vector_count = EXCLUDED.state_vector_count,
+                element_set_count = EXCLUDED.element_set_count,
+                earliest_data = EXCLUDED.earliest_data,
+                latest_data = EXCLUDED.latest_data
+            """,
+            (dataset_id, source_id, observation_count, state_vector_count,
+             element_set_count, earliest_data, latest_data),
+        )
+
+    def get_by_dataset(self, dataset_id: int) -> pd.DataFrame:
+        """Get source attribution for a dataset, joined with source names."""
+        return self.to_dataframe(
+            """
+            SELECT dds.*, ds.source_name
+            FROM dataset_data_sources dds
+            LEFT JOIN data_sources ds ON dds.source_id = ds.id
+            WHERE dds.dataset_id = ?
+            ORDER BY ds.source_name
+            """,
+            (dataset_id,),
+        )
+
+
+class DatasetEnrichmentLogRepository(BaseRepository):
+    """Repository for per-dataset enrichment tracking."""
+
+    def log_enrichment(
+        self,
+        dataset_id: int,
+        sat_no: int,
+        enrichment_source: str,
+        fields_updated: Optional[Dict[str, Any]] = None,
+        success: bool = True,
+        error_message: Optional[str] = None,
+    ) -> None:
+        """Log an enrichment action for a satellite in a dataset."""
+        self.execute(
+            """
+            INSERT INTO dataset_enrichment_log (
+                dataset_id, sat_no, enrichment_source,
+                fields_updated, enrichment_success, error_message
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                dataset_id, sat_no, enrichment_source,
+                json.dumps(fields_updated) if fields_updated else None,
+                success, error_message,
+            ),
+        )
+
+    def bulk_insert(self, records: List[Dict[str, Any]]) -> int:
+        """Bulk insert enrichment log records."""
+        if not records:
+            return 0
+        count = 0
+        for rec in records:
+            self.log_enrichment(
+                dataset_id=rec["dataset_id"],
+                sat_no=rec["sat_no"],
+                enrichment_source=rec["enrichment_source"],
+                fields_updated=rec.get("fields_updated"),
+                success=rec.get("enrichment_success", True),
+                error_message=rec.get("error_message"),
+            )
+            count += 1
+        return count
+
+    def get_by_dataset(self, dataset_id: int) -> pd.DataFrame:
+        """Get all enrichment log entries for a dataset."""
+        return self.to_dataframe(
+            "SELECT * FROM dataset_enrichment_log WHERE dataset_id = ? ORDER BY enriched_at",
+            (dataset_id,),
+        )

@@ -179,6 +179,21 @@ def run_dataset_generation(
                     config["generation_params"] = {}
                 config["generation_params"]["enrichment"] = enrich_report.to_dict()
 
+                # Log enrichment to dataset_enrichment_log (v2.0.0)
+                try:
+                    from uct_benchmark.database.repository import DatasetEnrichmentLogRepository
+                    del_repo = DatasetEnrichmentLogRepository(db)
+                    for sat in satellites:
+                        del_repo.log_enrichment(
+                            dataset_id=dataset_id,
+                            sat_no=sat,
+                            enrichment_source="UCS+GCAT",
+                            fields_updated={"source": "batch_enrich"},
+                            success=True,
+                        )
+                except Exception as log_err:
+                    logger.debug(f"Failed to log enrichment: {log_err}")
+
             except ImportError as e:
                 logger.warning(f"Open source integration not available: {e}")
             except Exception as e:
@@ -350,7 +365,41 @@ def run_dataset_generation(
         # Estimate size in bytes (approx 500 bytes per observation as JSON)
         estimated_size_bytes = observation_count * 500
 
-        # Update the dataset status with all metrics
+        # =====================================================================
+        # COMPUTE CONFIG HASH + PERFORMANCE METRICS (v2.0.0)
+        # =====================================================================
+        config_hash = None
+        try:
+            from uct_benchmark.api.apiIntegration import compute_config_hash, _get_query_log
+            config_hash = compute_config_hash(config)
+        except Exception as e:
+            logger.warning(f"Failed to compute config hash: {e}")
+
+        # Get query log from the generation pipeline
+        query_log = []
+        try:
+            from uct_benchmark.api.apiIntegration import _get_query_log
+            query_log = _get_query_log()
+        except Exception as e:
+            logger.debug(f"No query log available: {e}")
+
+        total_api_calls = len(query_log) if query_log else (
+            performance_data.get("total_calls", 0) if performance_data else 0
+        )
+        total_api_errors = sum(1 for q in query_log if not q.get("success", True)) if query_log else (
+            performance_data.get("total_errors", 0) if performance_data else 0
+        )
+        generation_duration = performance_data.get("elapsed_time", 0) if performance_data else None
+
+        # Serialize performance_metrics
+        perf_json = None
+        if performance_data:
+            try:
+                perf_json = json.dumps(_convert_numpy_to_native(performance_data))
+            except (TypeError, ValueError):
+                perf_json = None
+
+        # Update the dataset status with all metrics including v2.0.0 fields
         db.execute(
             """
             UPDATE datasets
@@ -358,11 +407,60 @@ def run_dataset_generation(
                 observation_count = ?,
                 satellite_count = ?,
                 avg_coverage = ?,
+                config_hash = ?,
+                sensor_mode = ?,
+                performance_metrics = ?,
+                total_api_calls = ?,
+                total_api_errors = ?,
+                generation_duration_sec = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (observation_count, satellite_count, avg_coverage, dataset_id),
+            (
+                observation_count,
+                satellite_count,
+                avg_coverage,
+                config_hash,
+                sensor_mode if 'sensor_mode' in dir() else "EO",
+                perf_json,
+                total_api_calls,
+                total_api_errors,
+                generation_duration,
+                dataset_id,
+            ),
         )
+
+        # =====================================================================
+        # PERSIST QUERY LOG TO dataset_queries TABLE (v2.0.0)
+        # =====================================================================
+        if query_log:
+            try:
+                from uct_benchmark.database.repository import DatasetQueryRepository
+                dq_repo = DatasetQueryRepository(db)
+                for rec in query_log:
+                    rec["dataset_id"] = dataset_id
+                dq_repo.bulk_insert(query_log)
+                logger.info(f"Persisted {len(query_log)} query log entries for dataset {dataset_id}")
+            except Exception as e:
+                logger.warning(f"Failed to persist query log: {e}")
+
+        # =====================================================================
+        # PERSIST SOURCE ATTRIBUTION TO dataset_data_sources TABLE (v2.0.0)
+        # =====================================================================
+        try:
+            from uct_benchmark.database.repository import DatasetDataSourceRepository
+            dds_repo = DatasetDataSourceRepository(db)
+            # UDL is source_id=1, always the primary source
+            dds_repo.upsert(
+                dataset_id=dataset_id,
+                source_id=1,  # UDL
+                observation_count=observation_count,
+                state_vector_count=len(state_truth) if state_truth is not None else 0,
+                element_set_count=len(elset_truth) if elset_truth is not None else 0,
+            )
+            logger.info(f"Persisted source attribution for dataset {dataset_id}")
+        except Exception as e:
+            logger.warning(f"Failed to persist source attribution: {e}")
 
         # Link observations to dataset if we have observation data
         # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable

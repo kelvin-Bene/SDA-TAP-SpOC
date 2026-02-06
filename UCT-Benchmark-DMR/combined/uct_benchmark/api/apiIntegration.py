@@ -169,6 +169,219 @@ def reset_api_metrics() -> None:
 
 
 # =============================================================================
+# CONFIG HASH FOR DATASET DEDUPLICATION
+# =============================================================================
+
+
+def compute_config_hash(config: dict) -> str:
+    """
+    Compute a deterministic SHA-256 hash of dataset generation config.
+
+    The hash is order-independent for lists (satellites, sensors) and
+    ignores None/disabled optional fields.
+
+    Args:
+        config: Dataset generation configuration dict
+
+    Returns:
+        64-character hex SHA-256 hash string
+    """
+    canonical = {
+        "regime": config.get("regime"),
+        "tier": config.get("tier"),
+        "satellites": sorted(config.get("satellites") or []),
+        "timeframe": config.get("timeframe"),
+        "timeunit": config.get("timeunit"),
+        "start_date": config.get("start_date"),
+        "end_date": config.get("end_date"),
+        "object_count": config.get("object_count"),
+        "search_strategy": config.get("search_strategy"),
+        "sensors": sorted(config.get("sensors") or []),
+        "coverage": config.get("coverage"),
+        "include_hamr": config.get("include_hamr"),
+    }
+    # Only include downsampling/simulation if enabled
+    ds = config.get("downsampling")
+    if ds and ds.get("enabled"):
+        canonical["downsampling"] = {
+            "target_coverage": ds.get("target_coverage"),
+            "target_gap": ds.get("target_gap"),
+            "max_obs_per_sat": ds.get("max_obs_per_sat"),
+        }
+    sim = config.get("simulation")
+    if sim and sim.get("enabled"):
+        canonical["simulation"] = {
+            "sensor_model": sim.get("sensor_model"),
+            "max_synthetic_ratio": sim.get("max_synthetic_ratio"),
+        }
+
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, default=str).encode()
+    ).hexdigest()
+
+
+# =============================================================================
+# QUERY LOG ACCUMULATOR (for dataset_queries table)
+# =============================================================================
+
+# Thread-local query log - accumulated during generateDataset() and
+# returned in performance_data["query_log"] for persistence by the worker.
+import threading
+
+_query_log_local = threading.local()
+
+
+def _init_query_log() -> None:
+    """Initialize a fresh query log for the current thread."""
+    _query_log_local.log = []
+
+
+def _append_query_log(
+    service: str,
+    query_params: Dict,
+    response_record_count: int = 0,
+    response_status_code: Optional[int] = None,
+    response_time_ms: float = 0.0,
+    sat_no: Optional[int] = None,
+    time_range_start=None,
+    time_range_end=None,
+    success: bool = True,
+    error_message: Optional[str] = None,
+    endpoint_url: Optional[str] = None,
+    retry_count: int = 0,
+) -> None:
+    """Append a query record to the thread-local log."""
+    if not hasattr(_query_log_local, "log"):
+        _query_log_local.log = []
+
+    # Redact sensitive params (tokens, passwords)
+    safe_params = {}
+    for k, v in query_params.items():
+        k_lower = k.lower()
+        if any(secret in k_lower for secret in ("token", "password", "key", "secret", "auth")):
+            safe_params[k] = "***REDACTED***"
+        else:
+            safe_params[k] = str(v)[:200] if v is not None else None
+
+    _query_log_local.log.append({
+        "service": service,
+        "endpoint_url": endpoint_url,
+        "query_params": safe_params,
+        "sat_no": sat_no,
+        "time_range_start": str(time_range_start) if time_range_start else None,
+        "time_range_end": str(time_range_end) if time_range_end else None,
+        "response_record_count": response_record_count,
+        "response_status_code": response_status_code,
+        "response_time_ms": response_time_ms,
+        "success": success,
+        "error_message": error_message,
+        "retry_count": retry_count,
+        "executed_at": datetime.datetime.utcnow().isoformat(),
+    })
+
+
+def _get_query_log() -> List[Dict]:
+    """Get the accumulated query log for the current thread."""
+    return getattr(_query_log_local, "log", [])
+
+
+# =============================================================================
+# UDL FIELD NAME MAPPING (camelCase -> snake_case)
+# =============================================================================
+
+# Complete mapping of UDL observation camelCase field names to database snake_case columns
+UDL_OBS_FIELD_MAP = {
+    "id": "id",
+    "satNo": "sat_no",
+    "obTime": "ob_time",
+    "ra": "ra",
+    "declination": "declination",
+    "range": "range_km",
+    "rangeRate": "range_rate_km_s",
+    "azimuth": "azimuth",
+    "elevation": "elevation",
+    "idSensor": "id_sensor",
+    "sensorName": "sensor_name",
+    "dataMode": "data_mode",
+    "trackId": "track_id",
+    "uct": "is_uct",
+    # Sensor position (geodetic)
+    "senlat": "senlat",
+    "senlon": "senlon",
+    "senalt": "senalt",
+    # Sensor position (ECI)
+    "senx": "senx",
+    "seny": "seny",
+    "senz": "senz",
+    # Sensor velocity (ECI)
+    "senvelx": "senvelx",
+    "senvely": "senvely",
+    "senvelz": "senvelz",
+    # Signal / photometric
+    "losUnc": "los_unc",
+    "expDuration": "exp_duration",
+    "zeroptd": "zeroptd",
+    "netObjSig": "net_obj_sig",
+    "netObjSigUnc": "net_obj_sig_unc",
+    "mag": "mag",
+    "magUnc": "mag_unc",
+    # Computed geo-position
+    "geolat": "geolat",
+    "geolon": "geolon",
+    "geoalt": "geoalt",
+    "georange": "georange",
+    # Solar angles
+    "solarPhaseAngle": "solar_phase_angle",
+    "solarEqPhaseAngle": "solar_eq_phase_angle",
+    "solarDecAngle": "solar_dec_angle",
+    # UDL administrative / publishing
+    "classificationMarking": "classification_marking",
+    "idOnOrbit": "id_on_orbit",
+    "origObjectId": "orig_object_id",
+    "origSensorId": "orig_sensor_id",
+    "shutterDelay": "shutter_delay",
+    "rawFileURI": "raw_file_uri",
+    "source": "source_name",
+    "createdBy": "created_by",
+    "origNetwork": "orig_network",
+    "type": "observation_type_udl",
+}
+
+# UDL state vector field mapping
+UDL_SV_FIELD_MAP = {
+    "satNo": "sat_no",
+    "epoch": "epoch",
+    "xpos": "x_pos",
+    "ypos": "y_pos",
+    "zpos": "z_pos",
+    "xvel": "x_vel",
+    "yvel": "y_vel",
+    "zvel": "z_vel",
+    "dataMode": "data_mode",
+    "mass": "mass_kg",
+    "crossSection": "cross_section_m2",
+    "dragCoeff": "drag_coeff",
+    "solarRadPressCoeff": "srp_coeff",
+    "classificationMarking": "classification_marking",
+    "referenceFrame": "reference_frame",
+    "covReferenceFrame": "cov_reference_frame",
+    "idStateVector": "id_state_vector",
+}
+
+
+def rename_udl_obs_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename UDL camelCase observation columns to database snake_case."""
+    rename_map = {k: v for k, v in UDL_OBS_FIELD_MAP.items() if k in df.columns}
+    return df.rename(columns=rename_map)
+
+
+def rename_udl_sv_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename UDL camelCase state vector columns to database snake_case."""
+    rename_map = {k: v for k, v in UDL_SV_FIELD_MAP.items() if k in df.columns}
+    return df.rename(columns=rename_map)
+
+
+# =============================================================================
 # RESPONSE CACHING
 # =============================================================================
 
