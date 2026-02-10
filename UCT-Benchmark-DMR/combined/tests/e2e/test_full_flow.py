@@ -6,8 +6,8 @@ through submission and results viewing.
 
 Run with: uv run pytest tests/e2e/test_full_flow.py -v
 
-Note: These tests require the backend server to be running, or can be
-modified to use TestClient for in-process testing.
+Note: These tests use create_test_app() to bypass lifespan database
+initialization, allowing test fixtures to control the database.
 """
 
 import json
@@ -21,16 +21,6 @@ from fastapi.testclient import TestClient
 from backend_api.jobs import JobStatus, get_job_manager, init_job_manager
 from uct_benchmark.database.connection import DatabaseManager
 
-# Skip all e2e tests - they require a properly configured test environment with
-# database initialization happening before the app lifespan starts. The app's
-# lifespan creates its own database, overriding the test fixture's database.
-# TODO: Refactor e2e tests to use a test-specific app configuration or
-# environment variables to control database initialization.
-pytestmark = pytest.mark.skip(
-    reason="E2E tests require test infrastructure refactoring - "
-    "app lifespan initializes separate database from test fixtures"
-)
-
 
 @pytest.fixture(scope="module")
 def e2e_db() -> Generator[DatabaseManager, None, None]:
@@ -43,10 +33,13 @@ def e2e_db() -> Generator[DatabaseManager, None, None]:
 
 @pytest.fixture(scope="module")
 def e2e_client(e2e_db: DatabaseManager) -> Generator[TestClient, None, None]:
-    """Create a test client for E2E tests."""
+    """Create a test client for E2E tests using the test app factory."""
     import backend_api.database as db_module
     from backend_api.database import get_db
-    from backend_api.main import app
+    from backend_api.main import create_test_app, reset_test_mode
+
+    # Use test app factory to bypass lifespan database initialization
+    app = create_test_app()
 
     # Override the global database manager directly to use our test database
     original_db_manager = db_module._db_manager
@@ -66,6 +59,8 @@ def e2e_client(e2e_db: DatabaseManager) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
     # Restore original (don't close e2e_db as it's managed by its own fixture)
     db_module._db_manager = original_db_manager
+    # Reset test mode flag
+    reset_test_mode()
 
 
 class TestFullDatasetFlow:
@@ -211,7 +206,7 @@ class TestFullSubmissionFlow:
                 files={"file": ("submission.json", f, "application/json")},
             )
 
-        assert submit_response.status_code == 200
+        assert submit_response.status_code == 201
         submission = submit_response.json()
         submission_id = submission["id"]
         eval_job_id = submission["job_id"]

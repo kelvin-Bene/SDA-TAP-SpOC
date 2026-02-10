@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ErrorBoundary, RouteErrorBoundary } from '@/components/ErrorBoundary';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { DatasetBrowserPage } from '@/pages/DatasetBrowserPage';
@@ -17,27 +18,29 @@ import { LoginPage } from '@/pages/LoginPage';
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="spoc-theme">
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="datasets">
-            <Route index element={<DatasetBrowserPage />} />
-            <Route path="generate" element={<DatasetGeneratorPage />} />
-            <Route path="my-datasets" element={<MyDatasetsPage />} />
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<RouteErrorBoundary><DashboardPage /></RouteErrorBoundary>} />
+            <Route path="datasets">
+              <Route index element={<RouteErrorBoundary><DatasetBrowserPage /></RouteErrorBoundary>} />
+              <Route path="generate" element={<RouteErrorBoundary><DatasetGeneratorPage /></RouteErrorBoundary>} />
+              <Route path="my-datasets" element={<RouteErrorBoundary><MyDatasetsPage /></RouteErrorBoundary>} />
+            </Route>
+            <Route path="submit">
+              <Route index element={<RouteErrorBoundary><SubmitPage /></RouteErrorBoundary>} />
+              <Route path="my-submissions" element={<RouteErrorBoundary><MySubmissionsPage /></RouteErrorBoundary>} />
+            </Route>
+            <Route path="results/:submissionId" element={<RouteErrorBoundary><ResultsPage /></RouteErrorBoundary>} />
+            <Route path="leaderboard" element={<RouteErrorBoundary><LeaderboardPage /></RouteErrorBoundary>} />
+            <Route path="docs" element={<RouteErrorBoundary><DocumentationPage /></RouteErrorBoundary>} />
+            <Route path="profile" element={<RouteErrorBoundary><ProfilePage /></RouteErrorBoundary>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
-          <Route path="submit">
-            <Route index element={<SubmitPage />} />
-            <Route path="my-submissions" element={<MySubmissionsPage />} />
-          </Route>
-          <Route path="results/:submissionId" element={<ResultsPage />} />
-          <Route path="leaderboard" element={<LeaderboardPage />} />
-          <Route path="docs" element={<DocumentationPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-      <Toaster />
+        </Routes>
+        <Toaster />
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

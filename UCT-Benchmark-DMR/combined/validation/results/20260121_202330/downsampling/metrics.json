@@ -1,0 +1,26 @@
+{
+  "original_count": 18930,
+  "configs": {
+    "T1_80pct": {
+      "target": 0.8,
+      "actual": 1.0,
+      "count": 18930,
+      "status": "PASS"
+    },
+    "T2_50pct": {
+      "target": 0.5,
+      "actual": 0.8660855784469097,
+      "count": 16395,
+      "status": "WARN"
+    },
+    "T2_30pct": {
+      "target": 0.3,
+      "actual": 0.9155837295298468,
+      "count": 17332,
+      "status": "WARN"
+    }
+  },
+  "passed": 1,
+  "failed": 0,
+  "duration": 43.453498
+}

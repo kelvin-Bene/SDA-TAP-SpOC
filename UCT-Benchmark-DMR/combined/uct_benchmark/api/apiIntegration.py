@@ -2613,6 +2613,8 @@ def generateDataset(
         "Observed Satellites with SV Information": orbit_sats,
         "Observed Satellites with SV and TLE Information": elset_sats,
         "Tier": determined_tier,  # Use tier determined by window selection if applicable
+        "Actual Start Time": actual_start_time.isoformat(),
+        "Actual End Time": actual_end_time.isoformat(),
     }
 
     # Add window selection metadata if applied

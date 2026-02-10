@@ -3,7 +3,7 @@
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -33,6 +33,18 @@ from uct_benchmark.config.dataset_schema import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
+
+
+def _safe_json_parse(value) -> Any:
+    """Safely parse a JSON value that may be a string, dict, or None."""
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 
 def validate_dataset_id(dataset_id: str) -> int:
@@ -190,6 +202,23 @@ async def get_dataset(
     obs_count = row_dict.get("observation_count") or 0
     estimated_size = obs_count * 500
 
+    # Parse new JSON columns
+    actual_satellite_ids = []
+    if row_dict.get("actual_satellite_ids"):
+        try:
+            raw = row_dict["actual_satellite_ids"]
+            actual_satellite_ids = json.loads(raw) if isinstance(raw, str) else (raw or [])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    performance_metadata = None
+    if row_dict.get("performance_metadata"):
+        try:
+            raw = row_dict["performance_metadata"]
+            performance_metadata = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     return DatasetDetail(
         id=str(row_dict["id"]),
         name=row_dict["name"],
@@ -210,6 +239,13 @@ async def get_dataset(
         avg_obs_count=float(row_dict.get("avg_obs_count") or 0),
         max_track_gap=float(row_dict.get("max_track_gap") or 0),
         json_path=row_dict.get("json_path"),
+        actual_satellite_ids=actual_satellite_ids,
+        performance_metadata=performance_metadata,
+        downsampling_applied=bool(row_dict.get("downsampling_applied", False)),
+        simulation_applied=bool(row_dict.get("simulation_applied", False)),
+        simulated_obs_count=int(row_dict.get("simulated_obs_count") or 0),
+        downsampling_config=_safe_json_parse(row_dict.get("downsampling_config")),
+        simulation_config=_safe_json_parse(row_dict.get("simulation_config")),
     )
 
 
@@ -311,6 +347,10 @@ async def create_dataset(
     generation_params["use_window_selection"] = getattr(request, "use_window_selection", False)
     if generation_params["use_window_selection"]:
         logger.info("Window selection algorithm enabled")
+
+    # Record target percentage and TrackTLE options for full provenance
+    generation_params["target_percentage"] = getattr(request, "target_percentage", "UN")
+    generation_params["output_tracktle"] = getattr(request, "output_tracktle", False)
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
@@ -883,16 +923,16 @@ async def create_dataset_from_legacy_code(
     except Exception as e:
         try:
             db.execute("ROLLBACK")
-        except Exception:
-            pass
+        except Exception as rollback_error:
+            logger.warning(f"Rollback failed during legacy dataset creation: {rollback_error}")
 
         if job is not None:
             try:
                 from backend_api.jobs import get_job_manager
                 job_manager = get_job_manager()
                 job_manager.fail_job(job.id, "Dataset creation failed")
-            except Exception:
-                pass
+            except Exception as cancel_error:
+                logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
 
         logger.error(f"Failed to create dataset from legacy code: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
@@ -962,11 +1002,28 @@ async def get_dataset_by_legacy_code(
             )
             satellites = params.get("satIDs", [])
             sensor_types = params.get("sensors", ["optical"])
-        except (json.JSONDecodeError, TypeError):
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Failed to parse generation_params for dataset {legacy_code}: {e}")
 
     obs_count = row_dict.get("observation_count") or 0
     estimated_size = obs_count * 500
+
+    # Parse new JSON columns
+    actual_satellite_ids = []
+    if row_dict.get("actual_satellite_ids"):
+        try:
+            raw = row_dict["actual_satellite_ids"]
+            actual_satellite_ids = json.loads(raw) if isinstance(raw, str) else (raw or [])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    performance_metadata = None
+    if row_dict.get("performance_metadata"):
+        try:
+            raw = row_dict["performance_metadata"]
+            performance_metadata = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     return DatasetDetail(
         id=str(row_dict["id"]),
@@ -1000,6 +1057,13 @@ async def get_dataset_by_legacy_code(
         obs_count_level=row_dict.get("obs_count_level"),
         object_count_level=row_dict.get("object_count_level"),
         fitspan_days=row_dict.get("fitspan_days"),
+        actual_satellite_ids=actual_satellite_ids,
+        performance_metadata=performance_metadata,
+        downsampling_applied=bool(row_dict.get("downsampling_applied", False)),
+        simulation_applied=bool(row_dict.get("simulation_applied", False)),
+        simulated_obs_count=int(row_dict.get("simulated_obs_count") or 0),
+        downsampling_config=_safe_json_parse(row_dict.get("downsampling_config")),
+        simulation_config=_safe_json_parse(row_dict.get("simulation_config")),
     )
 
 

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -221,6 +221,12 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Parameters used (JSON blob)
     generation_params JSON,
+
+    -- Full provenance metadata from generation (timing, window selection, filtering, etc.)
+    performance_metadata JSON,
+
+    -- Actual satellite NORAD IDs that ended up in the dataset
+    actual_satellite_ids JSON,
 
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
@@ -594,6 +600,9 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(BREAKUP_EVENTS_TABLE)
     db.execute(BREAKUP_EVENTS_INDEXES)
 
+    # Migrate existing DBs to 1.2.0 (adds new columns if missing)
+    _migrate_to_1_2_0(db)
+
     # Seed default event types
     _seed_event_types(db)
 
@@ -727,6 +736,15 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
     ]
     for seq in sequences:
         db.execute(f"DROP SEQUENCE IF EXISTS {seq}")
+
+
+def _migrate_to_1_2_0(db: "DatabaseManager") -> None:
+    """Add performance_metadata and actual_satellite_ids columns to datasets table."""
+    for col in ["performance_metadata JSON", "actual_satellite_ids JSON"]:
+        try:
+            db.execute(f"ALTER TABLE datasets ADD COLUMN IF NOT EXISTS {col}")
+        except Exception:
+            pass  # Column already exists
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:

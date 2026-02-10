@@ -161,16 +161,18 @@ async def db_lifespan(app: FastAPI):
     This ensures the database is initialized on startup and properly
     closed on shutdown.
     """
+    from loguru import logger
+
     # Startup
     db = init_database()
     backend = db.backend
     if backend == "duckdb":
-        print(f"Database initialized ({backend}): {db.db_path}")
+        logger.info(f"Database initialized ({backend}): {db.db_path}")
     else:
-        print(f"Database initialized ({backend}): PostgreSQL connection pool ready")
+        logger.info(f"Database initialized ({backend}): PostgreSQL connection pool ready")
 
     yield
 
     # Shutdown
     close_database()
-    print("Database connection closed.")
+    logger.info("Database connection closed.")

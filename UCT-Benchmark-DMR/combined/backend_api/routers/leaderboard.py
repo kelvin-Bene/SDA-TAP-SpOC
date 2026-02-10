@@ -102,16 +102,20 @@ async def get_leaderboard(
             )
         )
 
-    # Get dataset info for response
+    # Get dataset name from first result (already fetched via JOIN) or query if no entries
     dataset_name = None
-    if dataset_id and entries:
-        dataset_name = entries[0].algorithm_name  # Placeholder - would get from dataset
-
-        ds_result = db.execute(
-            "SELECT name FROM datasets WHERE id = ?", (int(dataset_id),)
-        ).fetchone()
-        if ds_result:
-            dataset_name = ds_result[0]
+    if dataset_id:
+        if rows:
+            # Use the dataset_name already fetched in the main query (avoids extra N+1)
+            first_row_dict = dict(zip(columns, rows[0]))
+            dataset_name = first_row_dict.get("dataset_name")
+        else:
+            # No entries, but dataset was requested - fetch name directly
+            ds_result = db.execute(
+                "SELECT name FROM datasets WHERE id = ?", (int(dataset_id),)
+            ).fetchone()
+            if ds_result:
+                dataset_name = ds_result[0]
 
     return LeaderboardResponse(
         dataset_id=dataset_id,
