@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
+from loguru import logger
 
 from backend_api.jobs import JobStatus, get_job_manager
 from backend_api.models import JobResponse, JobStatusEnum
@@ -62,7 +63,7 @@ async def list_jobs(
 
     job_manager = get_job_manager()
 
-    # Convert string filters to enums
+    # Convert string filters to enums with validation
     job_type_enum = None
     status_enum = None
 
@@ -70,13 +71,23 @@ async def list_jobs(
         try:
             job_type_enum = JobType(job_type)
         except ValueError:
-            pass
+            valid_types = [t.value for t in JobType]
+            logger.warning(f"Invalid job_type filter: {job_type}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid job_type: '{job_type}'. Valid values: {valid_types}",
+            )
 
     if status:
         try:
             status_enum = JobStatus(status)
         except ValueError:
-            pass
+            valid_statuses = [s.value for s in JobStatus]
+            logger.warning(f"Invalid status filter: {status}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status: '{status}'. Valid values: {valid_statuses}",
+            )
 
     jobs = job_manager.list_jobs(
         job_type=job_type_enum,

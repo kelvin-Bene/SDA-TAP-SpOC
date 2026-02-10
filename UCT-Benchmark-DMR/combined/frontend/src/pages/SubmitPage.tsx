@@ -26,6 +26,7 @@ import {
 import { cn, formatFileSize } from '@/lib/utils';
 import { useDatasets } from '@/hooks/useDatasets';
 import { useCreateSubmission } from '@/hooks/useSubmissions';
+import { useToast } from '@/hooks/use-toast';
 
 interface ValidationStep {
   id: string;
@@ -49,6 +50,8 @@ export function SubmitPage() {
     { id: 'state', label: 'State vector reasonableness', status: 'pending' },
     { id: 'covariance', label: 'Covariance positive-definiteness', status: 'pending' },
   ]);
+
+  const { toast } = useToast();
 
   // Use real API hooks
   const { data: datasets = [], isLoading: loadingDatasets } = useDatasets({ regime: 'all', tier: 'all' });
@@ -233,7 +236,11 @@ export function SubmitPage() {
       navigate('/submit/my-submissions');
     } catch (error) {
       console.error('Submission failed:', error);
-      alert('Failed to submit. Please try again.');
+      toast({
+        title: 'Submission failed',
+        description: 'Failed to submit your algorithm results. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 

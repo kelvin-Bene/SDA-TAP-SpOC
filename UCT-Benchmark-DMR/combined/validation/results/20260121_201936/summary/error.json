@@ -1,0 +1,4 @@
+{
+  "error": "No observations retrieved",
+  "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\kelvi\\Desktop\\DMR\\UCT-Benchmark-DMR\\combined\\validation\\run_validation.py\", line 604, in main\n    obs_df, tle_df, pull_meta = pull_observations(args.target_obs, args.days, args.sats_per_regime)\n                                ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kelvi\\Desktop\\DMR\\UCT-Benchmark-DMR\\combined\\validation\\run_validation.py\", line 172, in pull_observations\n    raise ValueError(\"No observations retrieved\")\nValueError: No observations retrieved\n"
+}

@@ -38,6 +38,20 @@ def _convert_numpy_to_native(obj: Any) -> Any:
     return obj
 
 
+def _parse_timestamp(value: Any) -> Any:
+    """Parse a timestamp value into a datetime object, or return None."""
+    from datetime import datetime
+
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
 # Global thread pool for background tasks
 _executor: Optional[ThreadPoolExecutor] = None
 
@@ -282,6 +296,33 @@ def run_dataset_generation(
         # Estimate size in bytes (approx 500 bytes per observation as JSON)
         estimated_size_bytes = observation_count * 500
 
+        # Extract time window boundaries from performance_data
+        time_window_start = _parse_timestamp(performance_data.get("Actual Start Time"))
+        time_window_end = _parse_timestamp(performance_data.get("Actual End Time"))
+
+        # Extract quality metrics from window selection (if used)
+        ws_meta = performance_data.get("Window Selection Metadata", {})
+        if not isinstance(ws_meta, dict):
+            ws_meta = {}
+        avg_obs_count = ws_meta.get("avg_obs_count")
+        max_track_gap = ws_meta.get("avg_track_gap")
+
+        # Downsampling/simulation flags and configs
+        downsampling_applied = performance_data.get("Downsampling Applied", False)
+        simulation_applied = performance_data.get("Simulation Applied", False)
+        simulated_obs_count = performance_data.get("Simulated Observation Count", 0)
+
+        downsampling_config_json = json.dumps(downsample_config) if downsample_config and downsample_config.get("enabled") else None
+        simulation_config_json = json.dumps(simulation_config) if simulation_config and simulation_config.get("enabled") else None
+
+        # Actual satellite NORAD IDs (full list, not just count)
+        actual_satellite_ids_json = json.dumps(
+            [int(s) for s in actual_sats] if actual_sats is not None else []
+        )
+
+        # Full performance metadata blob (captures everything computed during generation)
+        performance_metadata_json = json.dumps(_convert_numpy_to_native(performance_data))
+
         # Update the dataset status with all metrics
         db.execute(
             """
@@ -290,10 +331,29 @@ def run_dataset_generation(
                 observation_count = ?,
                 satellite_count = ?,
                 avg_coverage = ?,
+                time_window_start = ?,
+                time_window_end = ?,
+                avg_obs_count = ?,
+                max_track_gap = ?,
+                downsampling_applied = ?,
+                simulation_applied = ?,
+                simulated_obs_count = ?,
+                downsampling_config = ?,
+                simulation_config = ?,
+                actual_satellite_ids = ?,
+                performance_metadata = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (observation_count, satellite_count, avg_coverage, dataset_id),
+            (
+                observation_count, satellite_count, avg_coverage,
+                time_window_start, time_window_end,
+                avg_obs_count, max_track_gap,
+                downsampling_applied, simulation_applied, simulated_obs_count,
+                downsampling_config_json, simulation_config_json,
+                actual_satellite_ids_json, performance_metadata_json,
+                dataset_id,
+            ),
         )
 
         # Link observations to dataset if we have observation data

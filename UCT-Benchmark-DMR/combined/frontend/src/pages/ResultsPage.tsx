@@ -29,10 +29,12 @@ import {
 } from 'recharts';
 import { useState } from 'react';
 import { useResults, useSubmission, useExportResults } from '@/hooks/useSubmissions';
+import { useToast } from '@/hooks/use-toast';
 
 export function ResultsPage() {
   const { submissionId } = useParams<{ submissionId: string }>();
   const [expandedSatellites, setExpandedSatellites] = useState(false);
+  const { toast } = useToast();
 
   // Use real API hooks
   const { data: results, isLoading: loadingResults, error: resultsError } = useResults(submissionId || '');
@@ -59,6 +61,11 @@ export function ResultsPage() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Export failed:', err);
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export results. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 

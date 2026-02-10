@@ -1,11 +1,13 @@
 """Submission handling endpoints."""
 
+import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_evaluation
@@ -180,15 +182,35 @@ async def create_submission(
     if dataset[1] != "available":
         raise HTTPException(status_code=400, detail="Dataset is not available for submissions")
 
-    # Save uploaded file
+    # Validate content type
+    allowed_content_types = ["application/json", "text/json", "application/octet-stream"]
+    if file.content_type and file.content_type not in allowed_content_types:
+        logger.warning(f"Rejected upload with content_type: {file.content_type}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Expected JSON, got: {file.content_type}",
+        )
+
+    # Save uploaded file and validate JSON
     file_id = str(uuid.uuid4())
     file_extension = Path(file.filename).suffix if file.filename else ".json"
     file_path = UPLOADS_DIR / f"{file_id}{file_extension}"
 
     try:
         contents = await file.read()
+        # Validate that the content is valid JSON
+        try:
+            json.loads(contents)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Rejected upload with invalid JSON: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON file: {str(e)}",
+            )
         with open(file_path, "wb") as f:
             f.write(contents)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
@@ -267,15 +289,35 @@ async def upload_results(
             status_code=400, detail="Cannot upload results while submission is being processed"
         )
 
-    # Save uploaded file
+    # Validate content type
+    allowed_content_types = ["application/json", "text/json", "application/octet-stream"]
+    if file.content_type and file.content_type not in allowed_content_types:
+        logger.warning(f"Rejected upload with content_type: {file.content_type}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Expected JSON, got: {file.content_type}",
+        )
+
+    # Save uploaded file and validate JSON
     file_id = str(uuid.uuid4())
     file_extension = Path(file.filename).suffix if file.filename else ".json"
     file_path = UPLOADS_DIR / f"{file_id}{file_extension}"
 
     try:
         contents = await file.read()
+        # Validate that the content is valid JSON
+        try:
+            json.loads(contents)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Rejected re-upload with invalid JSON: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON file: {str(e)}",
+            )
         with open(file_path, "wb") as f:
             f.write(contents)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 

@@ -35,6 +35,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
+    "pytest-timeout",
     "ruff>=0.14.0",
     "httpx",
     "testcontainers[postgres]>=4.0.0",
@@ -67,3 +68,4 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+timeout = 60  # Default timeout of 60 seconds per test

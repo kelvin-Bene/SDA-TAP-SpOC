@@ -31,6 +31,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import type {
   OrbitalRegime,
   DatasetGenerationConfig,
@@ -181,6 +182,7 @@ const defaultConfig: DatasetGenerationConfig = {
 
 export function DatasetGeneratorPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [config, setConfig] = useState<DatasetGenerationConfig>(defaultConfig);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -321,7 +323,11 @@ export function DatasetGeneratorPage() {
         errorMessage = error.message;
       }
 
-      alert(`Failed to generate dataset:\n${errorMessage}`);
+      toast({
+        title: 'Dataset generation failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
       setIsGenerating(false);
     }
   };
@@ -332,7 +338,11 @@ export function DatasetGeneratorPage() {
     const validation = validateLegacyCode(code);
 
     if (!validation.valid) {
-      alert(`Invalid legacy code:\n${validation.errors.join('\n')}`);
+      toast({
+        title: 'Invalid legacy code',
+        description: validation.errors.join(', '),
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -375,7 +385,11 @@ export function DatasetGeneratorPage() {
       }
     } catch (error: any) {
       console.error('Failed to generate dataset from legacy code:', error);
-      alert(`Failed to generate dataset:\n${error.message}`);
+      toast({
+        title: 'Dataset generation failed',
+        description: error.message || 'An unexpected error occurred',
+        variant: 'destructive',
+      });
       setIsGenerating(false);
     }
   };

@@ -4,6 +4,7 @@ import json
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.models import (
@@ -157,8 +158,8 @@ async def get_results(
                             confidence=sat_data.get("confidence"),
                         )
                     )
-        except (json.JSONDecodeError, TypeError):
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Failed to parse raw_results JSON for submission {submission_id}: {e}")
 
     # Calculate rank (optional - based on F1 score for same dataset)
     rank = None
@@ -236,8 +237,8 @@ async def get_detailed_metrics(
             per_satellite_metrics = raw_results.get("per_satellite", [])
             per_track_metrics = raw_results.get("per_track", [])
             temporal_breakdown = raw_results.get("temporal_breakdown", [])
-        except (json.JSONDecodeError, TypeError):
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Failed to parse detailed metrics JSON for submission {submission_id}: {e}")
 
     return {
         "submission_id": submission_id,
@@ -286,8 +287,8 @@ async def get_visualization_data(
             orbit_plots = raw_results.get("orbit_plots", [])
             error_distribution = raw_results.get("error_distribution", [])
             temporal_analysis = raw_results.get("temporal_analysis", [])
-        except (json.JSONDecodeError, TypeError):
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Failed to parse visualization data JSON for submission {submission_id}: {e}")
 
     return {
         "submission_id": submission_id,

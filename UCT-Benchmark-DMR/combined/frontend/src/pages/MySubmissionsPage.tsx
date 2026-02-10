@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 import { useSubmissions, useExportResults } from '@/hooks/useSubmissions';
+import { useToast } from '@/hooks/use-toast';
 import type { Submission, SubmissionStatus } from '@/types';
 
 function getStatusBadge(status: SubmissionStatus) {
@@ -59,6 +60,7 @@ function getStatusBadge(status: SubmissionStatus) {
 }
 
 export function MySubmissionsPage() {
+  const { toast } = useToast();
   // Use real API hook
   const { data: submissions = [], isLoading, error, refetch } = useSubmissions();
   const exportMutation = useExportResults();
@@ -85,6 +87,11 @@ export function MySubmissionsPage() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Export failed:', err);
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export results. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 

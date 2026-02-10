@@ -12,6 +12,7 @@ Note: Auto-links observations when retrieving dataset observations.
 """
 
 import json
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -25,6 +26,35 @@ from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
 from .routers import datasets, jobs, leaderboard, results, submissions
 
+# Module-level flag to skip lifespan initialization during testing
+# Set to True when using create_test_app() to prevent double database initialization
+_skip_lifespan_init = False
+
+
+def get_cors_origins() -> list[str]:
+    """
+    Get CORS origins from environment or use defaults for development.
+
+    Environment Variables:
+        CORS_ORIGINS: Comma-separated list of allowed origins (e.g., "https://example.com,https://app.example.com")
+
+    Returns:
+        List of allowed origin URLs
+    """
+    env_origins = os.getenv("CORS_ORIGINS")
+    if env_origins:
+        return [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+
+    # Default development origins
+    return [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:5173",
+    ]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,32 +65,44 @@ async def lifespan(app: FastAPI):
     - Initialize database connection
     - Initialize job manager
     - Clean up on shutdown
+
+    Note: When _skip_lifespan_init is True (set by create_test_app),
+    database initialization is skipped to allow test fixtures to control the database.
     """
+    global _skip_lifespan_init
+
+    if _skip_lifespan_init:
+        # Skip initialization - test fixtures handle database setup
+        logger.info("Skipping lifespan init (test mode)")
+        yield
+        logger.info("Skipping lifespan cleanup (test mode)")
+        return
+
     # Startup
-    print("Starting UCT Benchmark API...")
+    logger.info("Starting UCT Benchmark API...")
 
     # Initialize database
     db = init_database()
     if db.backend == "duckdb":
-        print(f"Database initialized (DuckDB): {db.db_path}")
+        logger.info(f"Database initialized (DuckDB): {db.db_path}")
     else:
-        print(f"Database initialized (PostgreSQL): connection pool ready")
+        logger.info("Database initialized (PostgreSQL): connection pool ready")
 
     # Initialize job manager
     job_manager = init_job_manager()
-    print("Job manager initialized")
+    logger.info("Job manager initialized")
 
     yield
 
     # Shutdown
-    print("Shutting down UCT Benchmark API...")
+    logger.info("Shutting down UCT Benchmark API...")
 
     # Shutdown worker threads
     shutdown_executor()
 
     # Close database
     close_database()
-    print("Cleanup complete")
+    logger.info("Cleanup complete")
 
 
 app = FastAPI(
@@ -84,20 +126,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# Configure CORS for frontend development
+# Configure CORS - use environment variable in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
 # Include routers
@@ -125,9 +160,52 @@ async def health_check():
         db.execute("SELECT 1").fetchone()
         db_status = "connected"
     except Exception as e:
-        db_status = f"error: {str(e)}"
+        # Log the actual error for debugging, but don't expose details to clients
+        logger.warning(f"Health check database error: {e}")
+        db_status = "error"
 
     return {
         "status": "healthy" if db_status == "connected" else "degraded",
         "database": db_status,
     }
+
+
+def create_test_app() -> FastAPI:
+    """
+    Create a FastAPI app instance configured for testing.
+
+    This function sets a module-level flag that causes the lifespan
+    context manager to skip database initialization, allowing test
+    fixtures to inject their own database via dependency overrides.
+
+    Usage in tests:
+        from backend_api.main import create_test_app
+        from backend_api.database import get_db
+
+        app = create_test_app()
+
+        def override_get_db():
+            return test_db
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        with TestClient(app) as client:
+            # Run tests
+            pass
+
+    Returns:
+        The global FastAPI app instance with test mode enabled
+    """
+    global _skip_lifespan_init
+    _skip_lifespan_init = True
+    return app
+
+
+def reset_test_mode():
+    """
+    Reset test mode flag after tests complete.
+
+    Call this in test teardown to restore normal operation.
+    """
+    global _skip_lifespan_init
+    _skip_lifespan_init = False

@@ -7,6 +7,7 @@ import { DatasetPreviewDialog } from '@/components/datasets/DatasetPreviewDialog
 import { Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDatasets, useDownloadDataset } from '@/hooks/useDatasets';
+import { useToast } from '@/hooks/use-toast';
 import type { Dataset, DatasetFilters as FilterType } from '@/types';
 
 const defaultFilters: FilterType = {
@@ -20,6 +21,7 @@ export function DatasetBrowserPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [previewDataset, setPreviewDataset] = useState<Dataset | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const { toast } = useToast();
 
   // Use real API hook instead of mock data
   const { data: datasets = [], isLoading, error, refetch } = useDatasets(filters);
@@ -45,7 +47,11 @@ export function DatasetBrowserPage() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Download failed:', err);
-      alert('Failed to download dataset. Please try again.');
+      toast({
+        title: 'Download failed',
+        description: 'Failed to download dataset. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 

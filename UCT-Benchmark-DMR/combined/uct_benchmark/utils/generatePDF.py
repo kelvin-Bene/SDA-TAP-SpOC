@@ -35,7 +35,26 @@ with open('./data/raw_results.json', 'r') as file:
 path = "../data/report.pdf"
 
 
-def generatePDF(data, output_path=path, path_flag=False):
+def generatePDF(data, output_path=path, path_flag=False, dataset_code=None):
+    """
+    Generates a PDF report with the provided data.
+
+    Can either grab the json file directly or the dictionary as a function parameter.
+
+    Parameters:
+        data: The raw results data (dict or path string when path_flag=True)
+        output_path: Where to save the PDF report
+        path_flag: If True, data is treated as a file path to load
+        dataset_code: Optional dataset code/identifier for the subtitle
+                     (e.g., "LEO_T1_OPT" or "GEO_T2_RAD")
+
+    Data dictionary expected keys:
+        - association_results: Association results
+        - binary_results: Binary observation metrics (list)
+        - state_results: State results
+        - residual_ref_results: Reference orbit residuals
+        - residual_cand_results: Candidate orbit residuals
+    """
     if path_flag:
         with open(data, "r") as file:
             data_f = json.load(file)
@@ -45,19 +64,29 @@ def generatePDF(data, output_path=path, path_flag=False):
     states = data.get("state_results")
     residual_ref = data.get("residual_ref_results")
     residual_cand = data.get("residual_cand_results")
-    """
-    Generates a PDF report with the provided data.
-    Can either grab the json file driectly or the dictionary as a function parameter.
-    Parameters:
-    - data: The raw results data.
-    - assoc: Association results.
-    - binary: Binary observation metrics.
-    - states: State results.
-    - residual_ref: Reference orbit residuals.
-    - residual_cand: Candidate orbit residuals.
-    """
+
+    # Build subtitle from dataset code or infer from data
+    if dataset_code:
+        subtitle = dataset_code
+    else:
+        # Try to infer data type from available results
+        parts = []
+        if assoc:
+            orbit_count = sum(assoc.values()) if isinstance(assoc, dict) else 0
+            parts.append(f"{orbit_count} Orbits")
+        if states:
+            parts.append(f"{len(states)} States")
+        if binary:
+            total_obs = binary.get("TruePositives", 0) + binary.get("FalsePositives", 0) + \
+                        binary.get("TrueNegatives", 0) + binary.get("FalseNegatives", 0)
+            parts.append(f"{total_obs} Observations")
+        subtitle = " | ".join(parts) if parts else "Benchmark Analysis Report"
 
     class MyPDF(FPDF):
+        def __init__(self, report_subtitle):
+            super().__init__()
+            self.report_subtitle = report_subtitle
+
         def header(self):
             self.set_fill_color(0, 6, 65)
             self.rect(x=0, y=0, w=210, h=25, style="F")
@@ -68,8 +97,8 @@ def generatePDF(data, output_path=path, path_flag=False):
             self.set_text_color(255, 255, 255)
             self.ln(2)  # Add 2 units vertical space before/after cell
             self.cell(0, 8, "UCTP Benchmark Results", ln=True, align="C")
-            self.set_font("Times", "B", 16)
-            self.cell(0, 10, "INSERT DATASET CODE HERE", ln=True, align="C")
+            self.set_font("Times", "B", 12)
+            self.cell(0, 10, self.report_subtitle, ln=True, align="C")
 
             self.image("libraries/Reverse_IH-Horizontal_VT-ARC.png", x=5, y=5, w=50)
             self.image("libraries/SSC logo.png", x=170, y=3, w=12)
@@ -79,10 +108,9 @@ def generatePDF(data, output_path=path, path_flag=False):
 
             self.ln(15)  # Add space below header
             self.set_text_color(0, 0, 0)  # Reset to black
-            # TODO: ADD SUBTITLE THAT DEFINES EXACT TYPE OF DATA IN REPORT
 
     # Then use it like this:
-    pdf = MyPDF()
+    pdf = MyPDF(subtitle)
 
     # os.chdir(os.path.dirname(os.path.abspath(__file__)))
 

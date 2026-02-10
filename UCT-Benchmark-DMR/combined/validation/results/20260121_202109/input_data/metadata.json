@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-01-21T20:21:51.715061",
+  "target": 5000,
+  "actual": 18930,
+  "target_met": true,
+  "satellites": 15,
+  "by_regime": {
+    "LEO": 0,
+    "MEO": 2550,
+    "GEO": 16380
+  },
+  "duration": 39.801021
+}

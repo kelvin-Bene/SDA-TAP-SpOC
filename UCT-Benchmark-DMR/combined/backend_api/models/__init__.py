@@ -414,6 +414,14 @@ class DatasetDetail(DatasetSummary):
     obs_count_level: Optional[str] = None
     object_count_level: Optional[str] = None
     fitspan_days: Optional[int] = None
+    # Generation provenance
+    actual_satellite_ids: List[int] = []
+    performance_metadata: Optional[Dict[str, Any]] = None
+    downsampling_applied: bool = False
+    simulation_applied: bool = False
+    simulated_obs_count: int = 0
+    downsampling_config: Optional[Dict[str, Any]] = None
+    simulation_config: Optional[Dict[str, Any]] = None
 
 
 class DatasetObservation(BaseModel):
