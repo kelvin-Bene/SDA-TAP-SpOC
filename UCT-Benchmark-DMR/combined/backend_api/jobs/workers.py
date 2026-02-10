@@ -92,10 +92,15 @@ def run_dataset_generation(
         udl_token = os.getenv("UDL_TOKEN")
         esa_token = os.getenv("ESA_TOKEN")
 
-        if not udl_token or not esa_token:
+        if not udl_token:
             raise ValueError(
-                "Missing required environment variables: UDL_TOKEN and ESA_TOKEN. "
-                "Please set these in your .env file."
+                "Missing required environment variable: UDL_TOKEN. "
+                "Please set it in your .env file."
+            )
+        if not esa_token:
+            logger.warning(
+                "ESA_TOKEN not set - Discosweb data (mass/crossSection) will be unavailable. "
+                "HAMR object filtering will not work correctly."
             )
 
         # Check if downsampling/simulation are enabled for progress weights

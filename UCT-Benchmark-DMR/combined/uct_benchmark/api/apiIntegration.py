@@ -1921,19 +1921,24 @@ def generateDataset(
     obs_truth_data = obs_truth_data[obs_truth_data["satNo"].isin(satIDs)]
 
     # Obtain mass and cross-sectional area from Discosweb
-    params = "in(satno,(" + ",".join(map(str, satIDs)) + "))"
-    resp = discoswebQuery(ESA_token, params)
+    if ESA_token:
+        params = "in(satno,(" + ",".join(map(str, satIDs)) + "))"
+        resp = discoswebQuery(ESA_token, params)
 
-    # Only interested in mass and area
-    keys = ["satno", "mass", "xSectAvg"]
-    supp_data = pd.DataFrame([{k: d.get(k) for k in keys} for d in resp["attributes"]])
-    # Rename columns for consistency with state_truth_data
-    supp_data = supp_data.rename(columns={"satno": "satNo", "xSectAvg": "crossSection"})
-    # Fill any missing values with 0
-    supp_data = supp_data.fillna(0)
-    # Merge into main dataset, ensuring no info is lost
-    state_truth_data = pd.merge(state_truth_data, supp_data, on="satNo", how="left")
-    state_truth_data = state_truth_data.fillna({"mass": 0, "crossSection": 0})
+        # Only interested in mass and area
+        keys = ["satno", "mass", "xSectAvg"]
+        supp_data = pd.DataFrame([{k: d.get(k) for k in keys} for d in resp["attributes"]])
+        # Rename columns for consistency with state_truth_data
+        supp_data = supp_data.rename(columns={"satno": "satNo", "xSectAvg": "crossSection"})
+        # Fill any missing values with 0
+        supp_data = supp_data.fillna(0)
+        # Merge into main dataset, ensuring no info is lost
+        state_truth_data = pd.merge(state_truth_data, supp_data, on="satNo", how="left")
+        state_truth_data = state_truth_data.fillna({"mass": 0, "crossSection": 0})
+    else:
+        logger.warning("No ESA token provided - skipping Discosweb query. Mass and crossSection will default to 0.")
+        state_truth_data["mass"] = 0
+        state_truth_data["crossSection"] = 0
 
     # Compute elapsed time for state vector query step
     sv_elapsed_time = time.perf_counter() - obs_elapsed_time - start_time
