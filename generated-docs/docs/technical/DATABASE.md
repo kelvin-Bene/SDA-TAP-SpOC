@@ -71,41 +71,131 @@ This document describes the database and data storage architecture implemented f
 
 ### 3.1 Entity Relationship Diagram
 
-```
-┌──────────────┐       ┌──────────────────┐       ┌──────────────┐
-│  satellites  │       │   observations   │       │ state_vectors│
-├──────────────┤       ├──────────────────┤       ├──────────────┤
-│ sat_no (PK)  │◄──────│ sat_no (FK)      │       │ id (PK)      │
-│ name         │       │ id (PK)          │       │ sat_no (FK)  │
-│ orbital_     │       │ ob_time          │       │ epoch        │
-│   regime     │       │ ra, declination  │       │ x/y/z_pos    │
-│ object_type  │       │ sensor_name      │       │ x/y/z_vel    │
-│ ...          │       │ track_id         │       │ covariance   │
-└──────────────┘       │ is_uct           │       │ source       │
-       │               └──────────────────┘       └──────────────┘
-       │                        │                        │
-       │               ┌────────┴────────┐               │
-       │               ▼                 ▼               │
-       │    ┌──────────────────┐ ┌──────────────────┐   │
-       │    │dataset_           │ │ event_           │   │
-       │    │  observations     │ │   observations   │   │
-       │    ├──────────────────┤ ├──────────────────┤   │
-       │    │ dataset_id (FK)  │ │ event_id (FK)    │   │
-       │    │ observation_id   │ │ observation_id   │   │
-       │    │ assigned_track_id│ └──────────────────┘   │
-       │    └──────────────────┘          │             │
-       │               │                  │             │
-       │               ▼                  ▼             │
-       │    ┌──────────────────┐ ┌──────────────────┐   │
-       │    │    datasets      │ │     events       │   │
-       │    ├──────────────────┤ ├──────────────────┤   │
-       └────│ name             │ │ event_type_id    │───┘
-            │ code             │ │ primary_sat_no   │
-            │ tier             │ │ confidence       │
-            │ version          │ │ event_time_start │
-            │ parent_id        │ └──────────────────┘
-            │ generation_params│
-            └──────────────────┘
+> **Reading the diagram:** `||` = exactly one, `o|` = zero or one, `o{` = zero or more. Only PK, FK, and signature columns shown — see table specifications in section 3.2 for full details.
+
+```mermaid
+erDiagram
+    _schema_metadata {
+        VARCHAR key PK
+        VARCHAR value
+        TIMESTAMP updated_at
+    }
+
+    satellites {
+        INTEGER sat_no PK
+        VARCHAR name
+        VARCHAR object_type
+        VARCHAR orbital_regime
+    }
+
+    observations {
+        VARCHAR id PK
+        INTEGER sat_no FK
+        TIMESTAMP ob_time
+        VARCHAR track_id
+    }
+
+    state_vectors {
+        INTEGER id PK
+        INTEGER sat_no FK
+        TIMESTAMP epoch
+        VARCHAR source
+    }
+
+    element_sets {
+        INTEGER id PK
+        INTEGER sat_no FK
+        TIMESTAMP epoch
+        VARCHAR source
+    }
+
+    datasets {
+        INTEGER id PK
+        INTEGER parent_id FK
+        VARCHAR name
+        VARCHAR code
+        VARCHAR status
+    }
+
+    dataset_observations {
+        INTEGER dataset_id PK
+        VARCHAR observation_id PK
+        INTEGER assigned_track_id
+    }
+
+    dataset_references {
+        INTEGER dataset_id PK
+        INTEGER sat_no PK
+        INTEGER state_vector_id FK
+        INTEGER element_set_id FK
+    }
+
+    submissions {
+        INTEGER id PK
+        INTEGER dataset_id FK
+        VARCHAR job_id FK
+        VARCHAR algorithm_name
+        VARCHAR status
+    }
+
+    submission_results {
+        INTEGER id PK
+        INTEGER submission_id FK
+        DECIMAL f1_score
+        DECIMAL position_rms_km
+    }
+
+    jobs {
+        VARCHAR id PK
+        VARCHAR job_type
+        VARCHAR status
+        INTEGER progress
+    }
+
+    event_types {
+        INTEGER id PK
+        VARCHAR name
+        TEXT description
+    }
+
+    events {
+        INTEGER id PK
+        INTEGER event_type_id FK
+        INTEGER primary_sat_no FK
+        INTEGER secondary_sat_no FK
+        DECIMAL confidence
+    }
+
+    event_observations {
+        INTEGER event_id PK
+        VARCHAR observation_id PK
+    }
+
+    %% Core satellite references
+    satellites ||--o{ observations : "sat_no"
+    satellites ||--o{ state_vectors : "sat_no"
+    satellites ||--o{ element_sets : "sat_no"
+
+    %% Dataset cluster
+    datasets ||--o{ dataset_observations : "dataset_id"
+    observations ||--o{ dataset_observations : "observation_id"
+    datasets ||--o{ dataset_references : "dataset_id"
+    satellites ||--o{ dataset_references : "sat_no"
+    state_vectors ||--o{ dataset_references : "state_vector_id"
+    element_sets ||--o{ dataset_references : "element_set_id"
+    datasets o|--o{ datasets : "parent_id"
+
+    %% Submission and evaluation
+    datasets ||--o{ submissions : "dataset_id"
+    jobs ||--o{ submissions : "job_id"
+    submissions ||--o| submission_results : "submission_id"
+
+    %% Event labelling
+    event_types ||--o{ events : "event_type_id"
+    satellites ||--o{ events : "primary_sat_no"
+    satellites o|--o{ events : "secondary_sat_no"
+    events ||--o{ event_observations : "event_id"
+    observations ||--o{ event_observations : "observation_id"
 ```
 
 ### 3.2 Table Specifications
