@@ -1457,13 +1457,16 @@ def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history
 # SEARCH STRATEGY FUNCTIONS
 # ============================================================
 
-# Regime ranges for altitude-based filtering (matches reference batchPull.py)
-REGIME_RANGES = {
-    "LEO": "<2000",  # Low Earth Orbit: altitude < 2000 km
-    "MEO": "2000..35786",  # Medium Earth Orbit: 2000 km <= altitude < 35786 km
-    "GEO": ">35786",  # Geosynchronous/Geostationary: altitude >= 35786 km
-    "HEO": ">35786",  # High Earth Orbit (treated same as GEO for filtering)
-}
+# Regime ranges from reference batchPull.py — removed because 'range' is not a valid
+# field on the eoobservation endpoint. The reference code iterated over multiple sensor
+# types (eoobservation, radarobservation, rfobservation); 'range' may have been valid
+# for radar but silently returned zero results for EO observations.
+# REGIME_RANGES = {
+#     "LEO": "<2000",
+#     "MEO": "2000..35786",
+#     "GEO": ">35786",
+#     "HEO": ">35786",
+# }
 
 
 def _fetch_observations_fast(
@@ -1491,7 +1494,7 @@ def _fetch_observations_fast(
 
 def _fetch_observations_windowed(
     token,
-    regime,
+    sat_ids,
     start_time,
     end_time,
     window_size_minutes,
@@ -1500,14 +1503,15 @@ def _fetch_observations_windowed(
     DatasetStage=None,
 ):
     """
-    WINDOWED strategy: Fixed time windows, sequential (matches reference batchPull.py).
+    WINDOWED strategy: Fixed time windows with per-satellite queries.
 
-    Uses altitude-based filtering via 'range' parameter to match reference code behavior.
-    Guaranteed complete data but slower. Best for reference-compatible datasets.
+    Splits the time range into windows and queries all satellites in parallel
+    per window using asyncUDLBatchQuery. Provides fine-grained time coverage
+    at the cost of more API calls.
 
     Args:
         token: UDL auth token
-        regime: Orbital regime ('LEO', 'MEO', 'GEO', 'HEO') for altitude filtering
+        sat_ids: List of satellite NORAD IDs to query
         start_time: Start datetime
         end_time: End datetime
         window_size_minutes: Size of each query window in minutes
@@ -1515,13 +1519,17 @@ def _fetch_observations_windowed(
         progress_callback: Optional progress reporting callback
         DatasetStage: Optional stage enum for progress reporting
     """
+    if not sat_ids:
+        return pd.DataFrame()
+
     window_delta = datetime.timedelta(minutes=window_size_minutes)
     total_duration = end_time - start_time
     total_windows = max(1, int(total_duration / window_delta) + 1)
 
-    # Get altitude range for the regime (matches reference batchPull.py)
-    range_filter = REGIME_RANGES.get(regime.upper() if regime else "LEO", "<2000")
-    logger.info(f"Windowed strategy using range filter: {range_filter} for regime: {regime}")
+    logger.info(
+        f"Windowed strategy: {len(sat_ids)} satellites, "
+        f"{total_windows} windows of {window_size_minutes}min"
+    )
 
     data_list = []
     current_time = start_time
@@ -1529,17 +1537,20 @@ def _fetch_observations_windowed(
 
     while current_time < end_time:
         window_end = min(current_time + window_delta, end_time)
+        ob_time = f"{datetimeToUDL(current_time)}..{datetimeToUDL(window_end)}"
 
-        # Query using altitude range filter (matches reference batchPull.py)
-        params = {
-            "range": range_filter,
-            "obTime": f"{datetimeToUDL(current_time)}..{datetimeToUDL(window_end)}",
-            "uct": "false",
-            "dataMode": "REAL",
-        }
+        params_list = [
+            {
+                "satNo": str(sat_id),
+                "obTime": ob_time,
+                "uct": "false",
+                "dataMode": "REAL",
+            }
+            for sat_id in sat_ids
+        ]
 
         try:
-            window_data = UDLQuery(token, "eoobservation", params)
+            window_data = asyncUDLBatchQuery(token, "eoobservation", params_list, dt)
             if not window_data.empty:
                 data_list.append(window_data)
         except Exception as e:
@@ -1549,7 +1560,6 @@ def _fetch_observations_windowed(
         if progress_callback and DatasetStage:
             progress_callback(DatasetStage.COLLECTING_OBSERVATIONS, window_count / total_windows)
 
-        time.sleep(dt)
         current_time = window_end
 
     return pd.concat(data_list, ignore_index=True) if data_list else pd.DataFrame()
@@ -1690,7 +1700,7 @@ def generateDataset(
     elif search_strategy == "windowed":
         obs_truth_data = _fetch_observations_windowed(
             UDL_token,
-            regime,
+            satIDs,
             actual_start_time,
             actual_end_time,
             window_size_minutes,

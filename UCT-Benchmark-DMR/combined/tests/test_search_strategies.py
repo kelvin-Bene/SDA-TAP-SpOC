@@ -284,65 +284,63 @@ class TestFastStrategy:
 class TestWindowedStrategy:
     """Tests for the _fetch_observations_windowed function."""
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_creates_time_windows(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_creates_time_windows(self, mock_batch_query, mock_udl_response):
         """Test that WINDOWED strategy creates correct time windows."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        mock_query.return_value = mock_udl_response
+        mock_batch_query.return_value = mock_udl_response
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 30, 0)  # 30 minutes
 
         result = _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544, 28654],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
             dt=0.1,
         )
 
-        # Should make 3 queries (0-10, 10-20, 20-30 minutes)
-        assert mock_query.call_count == 3
+        # Should call asyncUDLBatchQuery once per window (3 windows: 0-10, 10-20, 20-30)
+        assert mock_batch_query.call_count == 3
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_uses_regime_range_filter(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
-        """Test that each window query uses range filter based on regime."""
-        from uct_benchmark.api.apiIntegration import REGIME_RANGES, _fetch_observations_windowed
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_uses_satno_filter(self, mock_batch_query, mock_udl_response):
+        """Test that each window query uses satNo filter (not range)."""
+        from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        mock_query.return_value = mock_udl_response
+        mock_batch_query.return_value = mock_udl_response
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 10, 0)
 
         _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544, 28654],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
             dt=0.1,
         )
 
-        # Get the params from the call
-        call_args = mock_query.call_args
-        params = call_args[0][2]  # Third positional arg
+        # Get the params_list from the call
+        call_args = mock_batch_query.call_args
+        params_list = call_args[0][2]  # Third positional arg
 
-        # Should use range filter for LEO
-        assert "range" in params
-        assert params["range"] == REGIME_RANGES["LEO"]
-        assert "satNo" not in params  # Should NOT use satNo
+        # Should have one params dict per satellite
+        assert len(params_list) == 2
+        assert params_list[0]["satNo"] == "25544"
+        assert params_list[1]["satNo"] == "28654"
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_concatenates_results(self, mock_sleep, mock_query):
+        # Should NOT use range filter
+        for params in params_list:
+            assert "range" not in params
+            assert "satNo" in params
+
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_concatenates_results(self, mock_batch_query):
         """Test that WINDOWED strategy concatenates results from all windows."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
@@ -362,14 +360,14 @@ class TestWindowedStrategy:
             }
         )
 
-        mock_query.side_effect = [window1_data, window2_data]
+        mock_batch_query.side_effect = [window1_data, window2_data]
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 20, 0)
 
         result = _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544, 28654],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
@@ -381,23 +379,20 @@ class TestWindowedStrategy:
         assert "obs-1" in result["id"].values
         assert "obs-4" in result["id"].values
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_handles_empty_windows(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_handles_empty_windows(self, mock_batch_query, mock_udl_response):
         """Test that WINDOWED strategy handles windows with no data."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
         # First window has data, second is empty
-        mock_query.side_effect = [mock_udl_response, pd.DataFrame()]
+        mock_batch_query.side_effect = [mock_udl_response, pd.DataFrame()]
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 20, 0)
 
         result = _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544, 28654],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
@@ -407,39 +402,36 @@ class TestWindowedStrategy:
         # Should only have data from first window
         assert len(result) == 5
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_respects_rate_limiting(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
-        """Test that WINDOWED strategy calls time.sleep for rate limiting."""
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_respects_rate_limiting(self, mock_batch_query, mock_udl_response):
+        """Test that WINDOWED strategy passes dt to asyncUDLBatchQuery."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        mock_query.return_value = mock_udl_response
+        mock_batch_query.return_value = mock_udl_response
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 30, 0)
 
         _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
             dt=0.5,
         )
 
-        # Should sleep between queries
-        assert mock_sleep.call_count == 3
-        mock_sleep.assert_called_with(0.5)
+        # dt should be passed to each asyncUDLBatchQuery call
+        assert mock_batch_query.call_count == 3
+        for call in mock_batch_query.call_args_list:
+            assert call[0][3] == 0.5  # dt is 4th positional arg
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_progress_callback(self, mock_sleep, mock_query, mock_udl_response):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_progress_callback(self, mock_batch_query, mock_udl_response):
         """Test that WINDOWED strategy reports progress via callback."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        mock_query.return_value = mock_udl_response
+        mock_batch_query.return_value = mock_udl_response
         progress_callback = MagicMock()
 
         # Create a mock DatasetStage
@@ -451,7 +443,7 @@ class TestWindowedStrategy:
 
         _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544, 28654],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
@@ -463,15 +455,12 @@ class TestWindowedStrategy:
         # Should report progress for each window (3 times)
         assert progress_callback.call_count == 3
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_different_window_sizes(
-        self, mock_sleep, mock_query, mock_udl_response
-    ):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_different_window_sizes(self, mock_batch_query, mock_udl_response):
         """Test WINDOWED strategy with different window sizes."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        mock_query.return_value = mock_udl_response
+        mock_batch_query.return_value = mock_udl_response
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 1, 0, 0)  # 60 minutes
@@ -479,41 +468,34 @@ class TestWindowedStrategy:
         # 15 minute windows should make 4 queries
         _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=15,
             dt=0.1,
         )
 
-        assert mock_query.call_count == 4
+        assert mock_batch_query.call_count == 4
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_strategy_different_regimes(self, mock_sleep, mock_query, mock_udl_response):
-        """Test WINDOWED strategy uses correct range for different regimes."""
-        from uct_benchmark.api.apiIntegration import REGIME_RANGES, _fetch_observations_windowed
-
-        mock_query.return_value = mock_udl_response
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_strategy_empty_sat_ids(self, mock_batch_query):
+        """Test WINDOWED strategy returns empty DataFrame when sat_ids is empty."""
+        from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
-        end_time = datetime.datetime(2025, 1, 1, 0, 10, 0)
+        end_time = datetime.datetime(2025, 1, 1, 0, 30, 0)
 
-        # Test each regime
-        for regime in ["LEO", "MEO", "GEO", "HEO"]:
-            mock_query.reset_mock()
-            _fetch_observations_windowed(
-                token="test_token",
-                regime=regime,
-                start_time=start_time,
-                end_time=end_time,
-                window_size_minutes=10,
-                dt=0.1,
-            )
+        result = _fetch_observations_windowed(
+            token="test_token",
+            sat_ids=[],
+            start_time=start_time,
+            end_time=end_time,
+            window_size_minutes=10,
+            dt=0.1,
+        )
 
-            call_args = mock_query.call_args
-            params = call_args[0][2]
-            assert params["range"] == REGIME_RANGES[regime]
+        assert result.empty
+        mock_batch_query.assert_not_called()
 
 
 # ============================================================
@@ -797,9 +779,11 @@ class TestGenerateDatasetStrategyIntegration:
             pass
 
         mock_windowed.assert_called_once()
-        # Check that window_size_minutes was passed
-        call_kwargs = mock_windowed.call_args
-        assert call_kwargs[0][4] == 15  # window_size_minutes is 5th arg
+        call_args = mock_windowed.call_args
+        # 2nd positional arg should be satIDs (not regime string)
+        assert call_args[0][1] == [25544]
+        # window_size_minutes is 5th positional arg
+        assert call_args[0][4] == 15
 
     @patch("uct_benchmark.api.apiIntegration._fetch_observations_hybrid")
     @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
@@ -916,14 +900,13 @@ class TestGenerateDatasetStrategyIntegration:
 class TestSearchStrategyEdgeCases:
     """Tests for edge cases and error handling in search strategies."""
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_handles_query_exception(self, mock_sleep, mock_query):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_handles_query_exception(self, mock_batch_query):
         """Test that WINDOWED strategy handles query exceptions gracefully."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        # First query fails, second succeeds
-        mock_query.side_effect = [
+        # First window fails, second succeeds
+        mock_batch_query.side_effect = [
             Exception("Network error"),
             pd.DataFrame(
                 {
@@ -939,7 +922,7 @@ class TestSearchStrategyEdgeCases:
 
         result = _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
@@ -949,20 +932,19 @@ class TestSearchStrategyEdgeCases:
         # Should still have data from successful window
         assert len(result) == 1
 
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
-    @patch("uct_benchmark.api.apiIntegration.time.sleep")
-    def test_windowed_all_windows_fail(self, mock_sleep, mock_query):
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_windowed_all_windows_fail(self, mock_batch_query):
         """Test WINDOWED strategy returns empty DataFrame if all windows fail."""
         from uct_benchmark.api.apiIntegration import _fetch_observations_windowed
 
-        mock_query.side_effect = Exception("All queries fail")
+        mock_batch_query.side_effect = Exception("All queries fail")
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end_time = datetime.datetime(2025, 1, 1, 0, 20, 0)
 
         result = _fetch_observations_windowed(
             token="test_token",
-            regime="LEO",
+            sat_ids=[25544],
             start_time=start_time,
             end_time=end_time,
             window_size_minutes=10,
@@ -1026,14 +1008,12 @@ class TestEndToEndStrategyComparison:
     """
 
     @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
     @patch("uct_benchmark.api.apiIntegration.smart_query")
     @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_all_strategies_produce_same_columns(
         self,
         mock_sleep,
         mock_smart_query,
-        mock_udl_query,
         mock_batch_query,
         mock_udl_response,
     ):
@@ -1045,7 +1025,6 @@ class TestEndToEndStrategyComparison:
         )
 
         mock_batch_query.return_value = mock_udl_response
-        mock_udl_query.return_value = mock_udl_response
         mock_smart_query.return_value = mock_udl_response
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
@@ -1053,7 +1032,7 @@ class TestEndToEndStrategyComparison:
 
         fast_result = _fetch_observations_fast("token", [25544], ">now-7 days", 0, 0.1)
         windowed_result = _fetch_observations_windowed(
-            "token", "LEO", start_time, end_time, 10, 0.1
+            "token", [25544], start_time, end_time, 10, 0.1
         )
         hybrid_result = _fetch_observations_hybrid(
             "token", [25544], ">now-7 days", start_time, end_time, 0, 0.1
@@ -1064,14 +1043,12 @@ class TestEndToEndStrategyComparison:
         assert set(fast_result.columns) == set(hybrid_result.columns)
 
     @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
-    @patch("uct_benchmark.api.apiIntegration.UDLQuery")
     @patch("uct_benchmark.api.apiIntegration.smart_query")
     @patch("uct_benchmark.api.apiIntegration.time.sleep")
     def test_all_strategies_return_dataframes(
         self,
         mock_sleep,
         mock_smart_query,
-        mock_udl_query,
         mock_batch_query,
         mock_udl_response,
     ):
@@ -1083,7 +1060,6 @@ class TestEndToEndStrategyComparison:
         )
 
         mock_batch_query.return_value = mock_udl_response
-        mock_udl_query.return_value = mock_udl_response
         mock_smart_query.return_value = mock_udl_response
 
         start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
@@ -1091,7 +1067,7 @@ class TestEndToEndStrategyComparison:
 
         fast_result = _fetch_observations_fast("token", [25544], ">now-7 days", 0, 0.1)
         windowed_result = _fetch_observations_windowed(
-            "token", "LEO", start_time, end_time, 10, 0.1
+            "token", [25544], start_time, end_time, 10, 0.1
         )
         hybrid_result = _fetch_observations_hybrid(
             "token", [25544], ">now-7 days", start_time, end_time, 0, 0.1
