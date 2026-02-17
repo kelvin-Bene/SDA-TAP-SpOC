@@ -1,0 +1,203 @@
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, KeyRound, Monitor } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import {
+  useCredentials,
+  useSaveCredential,
+  useDeleteCredential,
+  useTestCredential,
+} from '@/hooks/useCredentials';
+import { ServiceCredentialCard } from '@/components/settings/ServiceCredentialCard';
+import { CredentialFormDialog } from '@/components/settings/CredentialFormDialog';
+import type { CredentialServiceInfo } from '@/types/credentials';
+
+export function SettingsPage() {
+  const { toast } = useToast();
+  const { data: services, isLoading } = useCredentials();
+  const saveMutation = useSaveCredential();
+  const deleteMutation = useDeleteCredential();
+  const testMutation = useTestCredential();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CredentialServiceInfo | null>(null);
+  const [testingService, setTestingService] = useState<string | null>(null);
+  const [deletingService, setDeletingService] = useState<string | null>(null);
+
+  const handleConfigure = (serviceName: string) => {
+    const svc = services?.find((s) => s.service_name === serviceName) ?? null;
+    setSelectedService(svc);
+    setDialogOpen(true);
+  };
+
+  const handleSave = (serviceName: string, primary: string, secondary?: string) => {
+    saveMutation.mutate(
+      { serviceName, primary, secondary },
+      {
+        onSuccess: (data) => {
+          toast({ title: 'Credentials Saved', description: data.message });
+          setDialogOpen(false);
+        },
+        onError: (err: Error) => {
+          toast({ title: 'Save Failed', description: err.message, variant: 'destructive' });
+        },
+      }
+    );
+  };
+
+  const handleTest = (serviceName: string) => {
+    setTestingService(serviceName);
+    testMutation.mutate(serviceName, {
+      onSuccess: (data) => {
+        const isOk = data.status === 'connected' || data.status === 'configured';
+        toast({
+          title: isOk ? 'Connection Successful' : 'Connection Issue',
+          description: data.message,
+          variant: isOk ? 'default' : 'destructive',
+        });
+        setTestingService(null);
+      },
+      onError: (err: Error) => {
+        toast({ title: 'Test Failed', description: err.message, variant: 'destructive' });
+        setTestingService(null);
+      },
+    });
+  };
+
+  const handleDelete = (serviceName: string) => {
+    setDeletingService(serviceName);
+    deleteMutation.mutate(serviceName, {
+      onSuccess: (data) => {
+        toast({ title: 'Credentials Cleared', description: data.message });
+        setDeletingService(null);
+      },
+      onError: (err: Error) => {
+        toast({ title: 'Delete Failed', description: err.message, variant: 'destructive' });
+        setDeletingService(null);
+      },
+    });
+  };
+
+  // Summary stats
+  const configuredCount = services?.filter(
+    (s) => s.source === 'database' || s.source === 'environment'
+  ).length ?? 0;
+  const totalCount = services?.length ?? 0;
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground mt-1">
+          Manage credentials, connections, and application settings
+        </p>
+      </div>
+
+      <Tabs defaultValue="credentials" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="credentials" className="gap-2">
+            <KeyRound className="h-4 w-4" />
+            Credentials
+          </TabsTrigger>
+          <TabsTrigger value="application" className="gap-2">
+            <Monitor className="h-4 w-4" />
+            Application
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Credentials Tab */}
+        <TabsContent value="credentials">
+          <div className="space-y-4">
+            {/* Summary */}
+            <Card className="bg-card/50 border-white/10">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">External Service Credentials</CardTitle>
+                    <CardDescription>
+                      Configure API keys and tokens for data sources.
+                      Credentials are encrypted at rest.
+                    </CardDescription>
+                  </div>
+                  <Badge
+                    variant={configuredCount === totalCount ? 'success' : 'outline'}
+                    className="text-sm"
+                  >
+                    {configuredCount}/{totalCount} configured
+                  </Badge>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Service list */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {services?.map((service) => (
+                  <ServiceCredentialCard
+                    key={service.service_name}
+                    service={service}
+                    onConfigure={handleConfigure}
+                    onTest={handleTest}
+                    onDelete={handleDelete}
+                    isTesting={testingService === service.service_name}
+                    isDeleting={deletingService === service.service_name}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Application Tab */}
+        <TabsContent value="application">
+          <Card className="bg-card/50 border-white/10">
+            <CardHeader>
+              <CardTitle>Application Configuration</CardTitle>
+              <CardDescription>
+                System settings and runtime configuration (read-only)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border border-white/10 p-4">
+                  <p className="text-sm text-muted-foreground">Database</p>
+                  <p className="font-medium mt-1">DuckDB (local)</p>
+                </div>
+                <div className="rounded-lg border border-white/10 p-4">
+                  <p className="text-sm text-muted-foreground">Log Level</p>
+                  <p className="font-medium mt-1">INFO</p>
+                </div>
+                <div className="rounded-lg border border-white/10 p-4">
+                  <p className="text-sm text-muted-foreground">API Rate Limits</p>
+                  <p className="font-medium mt-1">Unlimited (local)</p>
+                </div>
+                <div className="rounded-lg border border-white/10 p-4">
+                  <p className="text-sm text-muted-foreground">Schema Version</p>
+                  <p className="font-medium mt-1">1.3.0</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Credential form dialog */}
+      <CredentialFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        service={selectedService}
+        onSave={handleSave}
+        onTest={handleTest}
+        isSaving={saveMutation.isPending}
+        isTesting={testMutation.isPending}
+      />
+    </div>
+  );
+}

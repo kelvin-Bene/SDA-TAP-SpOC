@@ -1,0 +1,29 @@
+[     190ms] [ERROR] Warning: validateDOMNesting(...): %s cannot appear as a descendant of <%s>.%s <div> p 
+    at div
+    at InfoPopover (http://localhost:3000/src/components/ui/info-popover.tsx:65:3)
+    at p
+    at div
+    at div
+    at div
+    at div
+    at DatasetBrowserPage (http://localhost:3000/src/pages/DatasetBrowserPage.tsx:45:33)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4131:5)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4131:5)
+    at Outlet (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4537:26)
+    at div
+    at main
+    at div
+    at div
+    at div
+    at MainLayout (http://localhost:3000/src/components/layout/MainLayout.tsx:25:41)
+    at ProtectedRoute (http://localhost:3000/src/components/auth/ProtectedRoute.tsx:21:34)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4131:5)
+    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4601:5)
+    at ThemeProvider (http://localhost:3000/src/components/theme-provider.tsx:24:33)
+    at AuthProvider (http://localhost:3000/src/components/auth/AuthProvider.tsx:21:32)
+    at App
+    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4544:15)
+    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:5290:5)
+    at QueryClientProvider (http://localhost:3000/node_modules/.vite/deps/@tanstack_react-query.js?v=e85a061b:3167:3) @ http://localhost:3000/node_modules/.vite/deps/chunk-WERSD76P.js?v=e85a061b:520
+[     201ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4435
+[     201ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=e85a061b:4435

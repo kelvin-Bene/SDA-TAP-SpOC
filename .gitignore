@@ -1,0 +1,74 @@
+tmpclaude-*
+
+# Claude Code local settings
+.claude/
+
+# Large files that exceed GitHub's 100MB limit
+*.zip
+
+# Large JSON files from UDL queries
+provided-materials/SDA x SpOC UCT Processing/UDL Queries/*.json
+
+# Large video files
+provided-materials/SDA x SpOC UCT Processing/video*.mp4
+*.mp4
+
+# Large PowerPoint files (over 50MB)
+provided-materials/Purdue-branded-powerpoint-template-reduced*.pptx
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+dist/
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+*.local
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+nul
+
+# ===== Project Specific =====
+# Exclude data directory but include sample database for students without UDL access
+UCT-Benchmark-DMR/combined/data/*
+!UCT-Benchmark-DMR/combined/data/database/
+UCT-Benchmark-DMR/combined/data/database/*
+!UCT-Benchmark-DMR/combined/data/database/uct_benchmark_sample.duckdb
+UCT-Benchmark-DMR/combined/orekit-data-main/
+validation/results/
+*.lock
