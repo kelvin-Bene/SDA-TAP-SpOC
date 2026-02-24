@@ -91,6 +91,16 @@ def run_dataset_generation(
         # Get tokens from environment
         udl_token = os.getenv("UDL_TOKEN")
         esa_token = os.getenv("ESA_TOKEN")
+        if esa_token and esa_token.strip().lower() in {
+            "your_esa_api_token_here",
+            "changeme",
+            "none",
+            "null",
+        }:
+            logger.warning(
+                "ESA_TOKEN appears to be a placeholder value; disabling Discosweb enrichment for this run."
+            )
+            esa_token = None
 
         if not udl_token:
             raise ValueError(
@@ -209,6 +219,8 @@ def run_dataset_generation(
         # Get search strategy from config
         search_strategy = config.get("search_strategy", "hybrid")
         window_size_minutes = config.get("window_size_minutes", 10)
+        disable_range_filter = config.get("disable_range_filter", True)
+        allow_satno_fallback = config.get("allow_satno_fallback", True)
 
         # Get regime from config (used for windowed strategy)
         regime = config.get("regime", "LEO")
@@ -241,6 +253,8 @@ def run_dataset_generation(
             search_strategy=search_strategy,
             window_size_minutes=window_size_minutes,
             regime=regime,
+            disable_range_filter=disable_range_filter,
+            allow_satno_fallback=allow_satno_fallback,
         )
 
         # Update progress - persisting to database

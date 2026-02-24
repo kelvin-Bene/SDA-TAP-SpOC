@@ -165,6 +165,14 @@ class DatasetCreate(BaseModel):
     window_size_minutes: Optional[int] = Field(
         default=10, ge=1, le=60, description="Window size for windowed strategy (default 10 min)"
     )
+    disable_range_filter: bool = Field(
+        default=True,
+        description="If true, windowed queries skip UDL 'range' filter and rely on obTime only.",
+    )
+    allow_satno_fallback: bool = Field(
+        default=True,
+        description="If true, fast/hybrid fall back to obTime-only queries when satNo queries fail.",
+    )
 
 
 class DatasetSummary(BaseModel):

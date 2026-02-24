@@ -163,6 +163,15 @@ class TestDatasetCreateModel:
             )
             assert dataset.search_strategy.value == strategy
 
+    def test_new_fallback_flags_default_enabled(self):
+        """Test default fallback compatibility flags."""
+        dataset = DatasetCreate(
+            name="Test Dataset",
+            regime="LEO",
+        )
+        assert dataset.disable_range_filter is True
+        assert dataset.allow_satno_fallback is True
+
 
 # ============================================================
 # TEST CLASS: Fast Strategy Function
@@ -218,6 +227,64 @@ class TestFastStrategy:
         assert len(result) == 5
         assert "satNo" in result.columns
         assert "obTime" in result.columns
+
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_by_time_only")
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_fast_strategy_falls_back_when_satno_path_fails(
+        self, mock_batch_query, mock_time_fallback, mock_udl_response
+    ):
+        """Test FAST strategy fallback to time-only query after satNo failure."""
+        from uct_benchmark.api.apiIntegration import _fetch_observations_fast
+
+        mock_batch_query.side_effect = RuntimeError("All batch queries failed")
+        mock_time_fallback.return_value = mock_udl_response
+
+        start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
+        end_time = datetime.datetime(2025, 1, 2, 0, 0, 0)
+
+        result = _fetch_observations_fast(
+            token="test_token",
+            sat_ids=[25544],
+            sweep_time="2025-01-01T00:00:00.000Z..2025-01-02T00:00:00.000Z",
+            max_datapoints=0,
+            dt=0.1,
+            start_time=start_time,
+            end_time=end_time,
+            allow_satno_fallback=True,
+            fallback_window_size_minutes=15,
+        )
+
+        assert not result.empty
+        mock_time_fallback.assert_called_once()
+
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_by_time_only")
+    @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
+    def test_fast_strategy_falls_back_when_satno_path_empty(
+        self, mock_batch_query, mock_time_fallback, mock_udl_response
+    ):
+        """Test FAST strategy fallback to time-only query when satNo query returns empty."""
+        from uct_benchmark.api.apiIntegration import _fetch_observations_fast
+
+        mock_batch_query.return_value = pd.DataFrame()
+        mock_time_fallback.return_value = mock_udl_response
+
+        start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
+        end_time = datetime.datetime(2025, 1, 2, 0, 0, 0)
+
+        result = _fetch_observations_fast(
+            token="test_token",
+            sat_ids=[25544],
+            sweep_time="2025-01-01T00:00:00.000Z..2025-01-02T00:00:00.000Z",
+            max_datapoints=0,
+            dt=0.1,
+            start_time=start_time,
+            end_time=end_time,
+            allow_satno_fallback=True,
+            fallback_window_size_minutes=15,
+        )
+
+        assert not result.empty
+        mock_time_fallback.assert_called_once()
 
     @patch("uct_benchmark.api.apiIntegration.asyncUDLBatchQuery")
     def test_fast_strategy_with_max_datapoints(self, mock_batch_query, mock_udl_response):
@@ -680,6 +747,36 @@ class TestHybridStrategy:
         call_args = mock_smart_query.call_args
         params = call_args[0][2]  # Third positional arg
         assert params.get("maxResults") == 500
+
+    @patch("uct_benchmark.api.apiIntegration._fetch_observations_by_time_only")
+    @patch("uct_benchmark.api.apiIntegration.time.sleep")
+    @patch("uct_benchmark.api.apiIntegration.smart_query")
+    def test_hybrid_strategy_falls_back_when_all_sat_queries_fail(
+        self, mock_smart_query, mock_sleep, mock_time_fallback, mock_udl_response
+    ):
+        """Test HYBRID strategy fallback to time-only query when satNo path fails."""
+        from uct_benchmark.api.apiIntegration import _fetch_observations_hybrid
+
+        mock_smart_query.side_effect = Exception("satNo path failure")
+        mock_time_fallback.return_value = mock_udl_response
+
+        start_time = datetime.datetime(2025, 1, 1, 0, 0, 0)
+        end_time = datetime.datetime(2025, 1, 2, 0, 0, 0)
+
+        result = _fetch_observations_hybrid(
+            token="test_token",
+            sat_ids=[25544, 28654],
+            sweep_time="2025-01-01T00:00:00.000Z..2025-01-02T00:00:00.000Z",
+            start_time=start_time,
+            end_time=end_time,
+            max_datapoints=0,
+            dt=0.1,
+            allow_satno_fallback=True,
+            fallback_window_size_minutes=10,
+        )
+
+        assert not result.empty
+        mock_time_fallback.assert_called_once()
 
 
 # ============================================================

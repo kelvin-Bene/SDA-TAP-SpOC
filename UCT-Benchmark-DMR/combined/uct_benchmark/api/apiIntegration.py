@@ -18,7 +18,7 @@ import os
 import re
 import time
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import aiohttp
 import numpy as np
@@ -1467,7 +1467,17 @@ REGIME_RANGES = {
 
 
 def _fetch_observations_fast(
-    token, sat_ids, sweep_time, max_datapoints, dt, progress_callback=None, DatasetStage=None
+    token,
+    sat_ids,
+    sweep_time,
+    max_datapoints,
+    dt,
+    progress_callback=None,
+    DatasetStage=None,
+    start_time=None,
+    end_time=None,
+    allow_satno_fallback=True,
+    fallback_window_size_minutes=60,
 ):
     """
     FAST strategy: Single query per satellite, full time range.
@@ -1486,7 +1496,50 @@ def _fetch_observations_fast(
     ]
     if max_datapoints <= 0:
         params_list = [{k: v for k, v in d.items() if k != "maxResults"} for d in params_list]
-    return asyncUDLBatchQuery(token, "eoobservation", params_list, dt)
+
+    try:
+        data = asyncUDLBatchQuery(token, "eoobservation", params_list, dt)
+    except Exception as e:
+        # Some UDL tenants reject eoobservation+satNo queries even with valid Basic auth.
+        if not (allow_satno_fallback and start_time is not None and end_time is not None):
+            raise
+        logger.warning(
+            f"FAST satNo query path failed ({e}); falling back to obTime-only windowed query."
+        )
+        data = _fetch_observations_by_time_only(
+            token=token,
+            start_time=start_time,
+            end_time=end_time,
+            dt=dt,
+            window_size_minutes=fallback_window_size_minutes,
+            sat_ids=sat_ids,
+            max_datapoints=max_datapoints,
+            progress_callback=progress_callback,
+            DatasetStage=DatasetStage,
+        )
+
+    if (
+        allow_satno_fallback
+        and (data is None or data.empty)
+        and start_time is not None
+        and end_time is not None
+    ):
+        logger.warning(
+            "FAST satNo query path returned no data; falling back to obTime-only windowed query."
+        )
+        data = _fetch_observations_by_time_only(
+            token=token,
+            start_time=start_time,
+            end_time=end_time,
+            dt=dt,
+            window_size_minutes=fallback_window_size_minutes,
+            sat_ids=sat_ids,
+            max_datapoints=max_datapoints,
+            progress_callback=progress_callback,
+            DatasetStage=DatasetStage,
+        )
+
+    return data
 
 
 def _fetch_observations_windowed(
@@ -1498,6 +1551,9 @@ def _fetch_observations_windowed(
     dt,
     progress_callback=None,
     DatasetStage=None,
+    sat_ids=None,
+    disable_range_filter=False,
+    max_datapoints=0,
 ):
     """
     WINDOWED strategy: Fixed time windows, sequential (matches reference batchPull.py).
@@ -1519,40 +1575,25 @@ def _fetch_observations_windowed(
     total_duration = end_time - start_time
     total_windows = max(1, int(total_duration / window_delta) + 1)
 
-    # Get altitude range for the regime (matches reference batchPull.py)
-    range_filter = REGIME_RANGES.get(regime.upper() if regime else "LEO", "<2000")
-    logger.info(f"Windowed strategy using range filter: {range_filter} for regime: {regime}")
+    if disable_range_filter:
+        logger.info("Windowed strategy using obTime-only queries (range filter disabled).")
+    else:
+        range_filter = REGIME_RANGES.get(regime.upper() if regime else "LEO", "<2000")
+        logger.info(f"Windowed strategy using range filter: {range_filter} for regime: {regime}")
 
-    data_list = []
-    current_time = start_time
-    window_count = 0
-
-    while current_time < end_time:
-        window_end = min(current_time + window_delta, end_time)
-
-        # Query using altitude range filter (matches reference batchPull.py)
-        params = {
-            "range": range_filter,
-            "obTime": f"{datetimeToUDL(current_time)}..{datetimeToUDL(window_end)}",
-            "uct": "false",
-            "dataMode": "REAL",
-        }
-
-        try:
-            window_data = UDLQuery(token, "eoobservation", params)
-            if not window_data.empty:
-                data_list.append(window_data)
-        except Exception as e:
-            logger.warning(f"Window query failed: {e}")
-
-        window_count += 1
-        if progress_callback and DatasetStage:
-            progress_callback(DatasetStage.COLLECTING_OBSERVATIONS, window_count / total_windows)
-
-        time.sleep(dt)
-        current_time = window_end
-
-    return pd.concat(data_list, ignore_index=True) if data_list else pd.DataFrame()
+    return _fetch_observations_by_time_only(
+        token=token,
+        start_time=start_time,
+        end_time=end_time,
+        dt=dt,
+        window_size_minutes=window_size_minutes,
+        sat_ids=sat_ids,
+        max_datapoints=max_datapoints,
+        progress_callback=progress_callback,
+        DatasetStage=DatasetStage,
+        range_filter=None if disable_range_filter else range_filter,
+        total_windows=total_windows,
+    )
 
 
 def _fetch_observations_hybrid(
@@ -1565,6 +1606,8 @@ def _fetch_observations_hybrid(
     dt,
     progress_callback=None,
     DatasetStage=None,
+    allow_satno_fallback=True,
+    fallback_window_size_minutes=60,
 ):
     """
     HYBRID strategy: Count-first check with dynamic chunking via smart_query().
@@ -1590,7 +1633,90 @@ def _fetch_observations_hybrid(
             progress_callback(DatasetStage.COLLECTING_OBSERVATIONS, (idx + 1) / total_sats)
         time.sleep(dt)
 
-    return pd.concat(all_results, ignore_index=True) if all_results else pd.DataFrame()
+    if all_results:
+        return pd.concat(all_results, ignore_index=True)
+
+    if allow_satno_fallback:
+        logger.warning(
+            "HYBRID satNo query path returned no data; falling back to obTime-only windowed query."
+        )
+        return _fetch_observations_by_time_only(
+            token=token,
+            start_time=start_time,
+            end_time=end_time,
+            dt=dt,
+            window_size_minutes=fallback_window_size_minutes,
+            sat_ids=sat_ids,
+            max_datapoints=max_datapoints,
+            progress_callback=progress_callback,
+            DatasetStage=DatasetStage,
+        )
+
+    return pd.DataFrame()
+
+
+def _fetch_observations_by_time_only(
+    token,
+    start_time,
+    end_time,
+    dt,
+    window_size_minutes,
+    sat_ids=None,
+    max_datapoints=0,
+    progress_callback=None,
+    DatasetStage=None,
+    range_filter=None,
+    total_windows=None,
+):
+    """
+    Fetch EO observations in time windows without satNo server-side filtering.
+
+    This is used both by the windowed strategy and as fallback when satNo-based
+    calls fail in specific UDL deployments.
+    """
+    window_delta = datetime.timedelta(minutes=window_size_minutes)
+    data_list = []
+    current_time = start_time
+    window_count = 0
+
+    if total_windows is None:
+        total_duration = end_time - start_time
+        total_windows = max(1, int(total_duration / window_delta) + 1)
+
+    sat_filter: Optional[Set[int]] = {int(s) for s in sat_ids} if sat_ids else None
+
+    while current_time < end_time:
+        window_end = min(current_time + window_delta, end_time)
+        params = {
+            "obTime": f"{datetimeToUDL(current_time)}..{datetimeToUDL(window_end)}",
+            "uct": "false",
+            "dataMode": "REAL",
+        }
+        if range_filter:
+            params["range"] = range_filter
+        if max_datapoints > 0:
+            params["maxResults"] = max_datapoints
+
+        try:
+            window_data = UDLQuery(token, "eoobservation", params)
+            if sat_filter is not None and not window_data.empty and "satNo" in window_data.columns:
+                # Keep only requested satellites when fallback pulls broad time windows.
+                sat_series = pd.to_numeric(window_data["satNo"], errors="coerce")
+                window_data = window_data[sat_series.isin(sat_filter)]
+
+            if not window_data.empty:
+                data_list.append(window_data)
+        except Exception as e:
+            logger.warning(f"Time-window query failed: {e}")
+
+        window_count += 1
+        if progress_callback and DatasetStage:
+            progress_callback(DatasetStage.COLLECTING_OBSERVATIONS, window_count / total_windows)
+
+        time.sleep(dt)
+        current_time = window_end
+
+    return pd.concat(data_list, ignore_index=True) if data_list else pd.DataFrame()
 
 
 def generateDataset(
@@ -1613,6 +1739,8 @@ def generateDataset(
     search_strategy="hybrid",
     window_size_minutes=10,
     regime="LEO",
+    disable_range_filter=True,
+    allow_satno_fallback=True,
 ):
     """
     Generates a benchmark  dataset given satellites and various parameters.
@@ -1685,7 +1813,17 @@ def generateDataset(
 
     if search_strategy == "fast":
         obs_truth_data = _fetch_observations_fast(
-            UDL_token, satIDs, sweep_time, max_datapoints, dt, report_progress, DatasetStage
+            UDL_token,
+            satIDs,
+            sweep_time,
+            max_datapoints,
+            dt,
+            report_progress,
+            DatasetStage,
+            start_time=actual_start_time,
+            end_time=actual_end_time,
+            allow_satno_fallback=allow_satno_fallback,
+            fallback_window_size_minutes=window_size_minutes,
         )
     elif search_strategy == "windowed":
         obs_truth_data = _fetch_observations_windowed(
@@ -1697,6 +1835,9 @@ def generateDataset(
             dt,
             report_progress,
             DatasetStage,
+            sat_ids=satIDs,
+            disable_range_filter=disable_range_filter,
+            max_datapoints=max_datapoints,
         )
     else:  # hybrid (default)
         obs_truth_data = _fetch_observations_hybrid(
@@ -1709,6 +1850,8 @@ def generateDataset(
             dt,
             report_progress,
             DatasetStage,
+            allow_satno_fallback=allow_satno_fallback,
+            fallback_window_size_minutes=window_size_minutes,
         )
 
     # Check for empty observation data
@@ -1802,18 +1945,29 @@ def generateDataset(
     # Obtain mass and cross-sectional area from Discosweb
     if ESA_token:
         params = "in(satno,(" + ",".join(map(str, satIDs)) + "))"
-        resp = discoswebQuery(ESA_token, params)
+        try:
+            resp = discoswebQuery(ESA_token, params)
 
-        # Only interested in mass and area
-        keys = ["satno", "mass", "xSectAvg"]
-        supp_data = pd.DataFrame([{k: d.get(k) for k in keys} for d in resp["attributes"]])
-        # Rename columns for consistency with state_truth_data
-        supp_data = supp_data.rename(columns={"satno": "satNo", "xSectAvg": "crossSection"})
-        # Fill any missing values with 0
-        supp_data = supp_data.fillna(0)
-        # Merge into main dataset, ensuring no info is lost
-        state_truth_data = pd.merge(state_truth_data, supp_data, on="satNo", how="left")
-        state_truth_data = state_truth_data.fillna({"mass": 0, "crossSection": 0})
+            # Only interested in mass and area
+            keys = ["satno", "mass", "xSectAvg"]
+            supp_data = pd.DataFrame([{k: d.get(k) for k in keys} for d in resp["attributes"]])
+            # Rename columns for consistency with state_truth_data
+            supp_data = supp_data.rename(columns={"satno": "satNo", "xSectAvg": "crossSection"})
+            # Fill any missing values with 0
+            supp_data = supp_data.fillna(0)
+            # Merge into main dataset, ensuring no info is lost
+            state_truth_data = pd.merge(state_truth_data, supp_data, on="satNo", how="left")
+            state_truth_data = state_truth_data.fillna({"mass": 0, "crossSection": 0})
+        except requests.exceptions.HTTPError as e:
+            # Discosweb enrichment is optional; don't fail full dataset generation on ESA auth issues.
+            status_code = None
+            if e.args and hasattr(e.args[0], "status_code"):
+                status_code = e.args[0].status_code
+            logger.warning(
+                f"Discosweb query failed (status={status_code}); continuing without mass/crossSection enrichment."
+            )
+            state_truth_data["mass"] = 0
+            state_truth_data["crossSection"] = 0
     else:
         logger.warning("No ESA token provided - skipping Discosweb query. Mass and crossSection will default to 0.")
         state_truth_data["mass"] = 0

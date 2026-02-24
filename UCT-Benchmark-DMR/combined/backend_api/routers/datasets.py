@@ -287,6 +287,9 @@ async def create_dataset(
     generation_params["search_strategy"] = request.search_strategy.value
     if request.search_strategy == SearchStrategy.WINDOWED:
         generation_params["window_size_minutes"] = request.window_size_minutes or 10
+    # API compatibility toggles for UDL query behavior across tenants.
+    generation_params["disable_range_filter"] = request.disable_range_filter
+    generation_params["allow_satno_fallback"] = request.allow_satno_fallback
     logger.info(f"Search strategy: {request.search_strategy.value}")
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions

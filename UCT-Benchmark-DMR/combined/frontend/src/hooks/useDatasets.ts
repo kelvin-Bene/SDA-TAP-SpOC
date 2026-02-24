@@ -150,6 +150,9 @@ export function useGenerateDataset() {
         end_date: endDate.toISOString(),
         // Search strategy
         search_strategy: config.searchStrategy || 'hybrid',
+        // Default to resilient query behavior across UDL tenant differences.
+        disable_range_filter: true,
+        allow_satno_fallback: true,
       };
 
       // Add window size if using windowed strategy
