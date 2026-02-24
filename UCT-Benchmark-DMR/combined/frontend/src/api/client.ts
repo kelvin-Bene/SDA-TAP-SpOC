@@ -39,6 +39,9 @@ apiClient.interceptors.response.use(
 // Note: Using trailing slashes to match FastAPI's redirect behavior and avoid CORS issues
 export const api = {
   // Datasets
+  getDatasetConfig: () =>
+    apiClient.get('/datasets/config'),
+
   getDatasets: (params?: Record<string, string>) =>
     apiClient.get('/datasets/', { params }),
 
@@ -57,6 +60,9 @@ export const api = {
 
   deleteDataset: (id: string) =>
     apiClient.delete(`/datasets/${id}`),
+
+  getDatasetVersions: (id: string) =>
+    apiClient.get(`/datasets/${id}/versions/`),
 
   // Submissions
   getSubmissions: (params?: Record<string, string>) =>
@@ -87,6 +93,12 @@ export const api = {
 
   exportResults: (submissionId: string, format: 'pdf' | 'csv' | 'json') =>
     apiClient.get(`/results/${submissionId}/export/`, {
+      params: { format },
+      responseType: 'blob',
+    }),
+
+  downloadReport: (submissionId: string, format: 'pdf' | 'html' | 'json' = 'pdf') =>
+    apiClient.get(`/results/${submissionId}/report`, {
       params: { format },
       responseType: 'blob',
     }),

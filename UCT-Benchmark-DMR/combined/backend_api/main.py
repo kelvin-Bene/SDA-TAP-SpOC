@@ -88,9 +88,9 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Database initialized (PostgreSQL): connection pool ready")
 
-    # Initialize job manager
-    job_manager = init_job_manager()
-    logger.info("Job manager initialized")
+    # Initialize job manager with DB persistence for crash recovery
+    job_manager = init_job_manager(db=db)
+    logger.info("Job manager initialized (with DB persistence)")
 
     yield
 

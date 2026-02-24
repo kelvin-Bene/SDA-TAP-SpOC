@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+.venv-wsl
+*.egg-info
+
+# Node
+node_modules
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data (mounted as volumes in production)
+data/database
+data/uploads
+orekit-data-main
+
+# Tests and docs
+tests/e2e/test-results
+provided-materials
+docs
+validation
+*.md
+!README.md
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+frontend/dist
+frontend/node_modules
+*.timestamp-*

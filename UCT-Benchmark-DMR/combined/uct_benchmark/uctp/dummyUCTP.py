@@ -9,7 +9,7 @@ import urllib3
 urllib3.disable_warnings()
 
 
-def dummy(truth_data_filename, blind_data_filename):
+def dummy(truth_data_filename, blind_data_filename, output_path="./data/uctp_output.json"):
     # parse dataset and truthobs csv
     truth_obs = pd.read_csv(truth_data_filename)
     # blindObs = pd.read_csv(blind_data_filename) # don't need this unless we improve the dummy
@@ -50,8 +50,8 @@ def dummy(truth_data_filename, blind_data_filename):
 
     grouped_obs = prunedCorrs.groupby("pred")["id"].apply(list)
 
-    # write to dummy_output.json
-    with open("./data/uctp_output.json", "w") as json_out:
+    # write to output file
+    with open(output_path, "w") as json_out:
         to_json = []
         for i in range(len(grouped_obs)):
             # Constants
@@ -87,8 +87,9 @@ def dummy(truth_data_filename, blind_data_filename):
             to_json.append(
                 {
                     "idStateVector": i,
-                    "sourcedData": grouped_obs.iloc[i],
-                    "sourcedDataTypes:": ["EO"] * len(grouped_obs.iloc[i]),
+                    "grouped_ops": grouped_obs.iloc[i],
+                    # EO = Electro-Optical (telescope observations), NOT Earth Observation
+                    "source_data_types": ["EO"] * len(grouped_obs.iloc[i]),
                     "classificationMarking": "?? U//PR-LSAS-SV",
                     "epoch": datetime.now().isoformat(),
                     "uct": True,

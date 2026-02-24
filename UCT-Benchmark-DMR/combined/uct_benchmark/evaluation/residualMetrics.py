@@ -51,7 +51,8 @@ def retrieveResiduals(args):
         m, A, CD, CS = 1000.0, 10.0, 0, 0
 
         # Pull observation ids for the given state from UCTP output
-        uctp_ids = row["sourcedData"]
+        # Accept both 'grouped_ops' (canonical) and 'sourcedData' (legacy)
+        uctp_ids = row.get("grouped_ops", row.get("sourcedData", []))
 
         # Filter ref observations based on uctp ids
         ref_obs_filtered = ref_obs[ref_obs["id"].isin(uctp_ids)]
@@ -208,7 +209,8 @@ def retrieveResidualsTLE(args):
         m, A, CD, CS = 1000.0, 10.0, 0, 0
 
         # Pull observation ids for the given state from UCTP output
-        uctp_ids = row["sourcedData"]
+        # Accept both 'grouped_ops' (canonical) and 'sourcedData' (legacy)
+        uctp_ids = row.get("grouped_ops", row.get("sourcedData", []))
 
         # Filter ref observations based on uctp ids
         ref_obs_filtered = ref_obs[ref_obs["idElset"].isin(uctp_ids)]

@@ -26,20 +26,30 @@ class OrbitalRegime(str, Enum):
 
 
 class DataTier(str, Enum):
-    """Dataset complexity tier."""
+    """Dataset complexity tier.
+
+    T1-T4: Increasingly complex requirements.
+    T5: Impossible criteria detected (e.g., GEO track gap requirements
+        that cannot be met per Aug 2025 transcript).
+    """
 
     T1 = "T1"
     T2 = "T2"
     T3 = "T3"
     T4 = "T4"
+    T5 = "T5"
 
 
 class SensorType(str, Enum):
-    """Observation sensor type."""
+    """Observation sensor type.
+
+    Per Jan 22 transcript: Louis lists "data fusion, a combination of all of the above".
+    """
 
     OPTICAL = "optical"
     RADAR = "radar"
     RF = "rf"
+    FUSION = "fusion"
 
 
 class DatasetStatus(str, Enum):
@@ -389,6 +399,9 @@ class DatasetSummary(BaseModel):
     # Non-reference observations (for True Negative calculation)
     non_ref_observation_count: int = 0
     include_non_ref_obs: bool = False
+    # Version tracking (per Louis's transcript.md requirement)
+    version: int = 1
+    parent_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -425,14 +438,33 @@ class DatasetDetail(DatasetSummary):
 
 
 class DatasetObservation(BaseModel):
-    """Single observation from a dataset."""
+    """Single observation from a dataset.
+
+    Per Feb 19, 2026 transcript: all UDL fields must be available to UCTP consumers.
+    "Cannot arbitrarily remove fields as unknown processors may need them."
+    """
 
     id: str
     ob_time: datetime
-    ra: float
-    declination: float
+    ra: Optional[float] = None
+    declination: Optional[float] = None
+    # Radar fields
+    azimuth: Optional[float] = None
+    elevation: Optional[float] = None
+    range_km: Optional[float] = None
+    # Sensor metadata
+    sensor_id: Optional[str] = None
     sensor_name: Optional[str] = None
+    data_mode: Optional[str] = None
+    type_optical: Optional[str] = None
+    # Sensor location
+    send_lat: Optional[float] = None
+    send_long: Optional[float] = None
+    send_alt: Optional[float] = None
+    # Track association
     track_id: Optional[str] = None
+    # Flags
+    is_simulated: Optional[bool] = None
 
 
 # ============================================================
@@ -447,6 +479,11 @@ class SubmissionCreate(BaseModel):
     algorithm_name: str = Field(..., min_length=1, max_length=100)
     version: str = Field(default="1.0", max_length=50)
     description: Optional[str] = None
+    # Per Feb 19 transcript: "classification marking = just a label (organization that created output)"
+    classification_marking: Optional[str] = Field(
+        default=None,
+        description="Classification marking label identifying the organization that created this output",
+    )
 
 
 class SubmissionSummary(BaseModel):
@@ -559,6 +596,11 @@ class SubmissionResults(BaseModel):
 
     # Per-satellite breakdown
     satellite_results: List[SatelliteResult] = []
+
+    # Histogram data for visualization (from raw_results)
+    ra_residual_histogram: Optional[Dict[str, Any]] = None
+    dec_residual_histogram: Optional[Dict[str, Any]] = None
+    position_error_histogram: Optional[Dict[str, Any]] = None
 
     # Rank info
     rank: Optional[int] = None

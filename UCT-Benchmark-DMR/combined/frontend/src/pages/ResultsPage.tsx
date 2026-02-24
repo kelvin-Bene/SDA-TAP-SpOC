@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   ArrowLeft,
   Download,
+  FileText,
   Target,
   TrendingUp,
   TrendingDown,
@@ -28,7 +29,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useState } from 'react';
-import { useResults, useSubmission, useExportResults } from '@/hooks/useSubmissions';
+import { useResults, useSubmission, useExportResults, useDownloadReport } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
 
 export function ResultsPage() {
@@ -40,8 +41,35 @@ export function ResultsPage() {
   const { data: results, isLoading: loadingResults, error: resultsError } = useResults(submissionId || '');
   const { data: submission, isLoading: loadingSubmission } = useSubmission(submissionId || '');
   const exportMutation = useExportResults();
+  const reportMutation = useDownloadReport();
 
   const isLoading = loadingResults || loadingSubmission;
+
+  const handleDownloadReport = async () => {
+    if (!submissionId) return;
+    try {
+      const blob = await reportMutation.mutateAsync({
+        submissionId,
+        format: 'pdf',
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `report_${submissionId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Report download failed:', err);
+      toast({
+        title: 'Report generation failed',
+        description: 'Failed to generate evaluation report. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleExport = async () => {
     if (!submissionId) return;
@@ -106,13 +134,12 @@ export function ResultsPage() {
   const hasPreviousRank = results.previousRank !== undefined && results.previousRank !== null;
   const rankChange = hasPreviousRank ? (results.previousRank as number) - (results.rank || 0) : 0;
 
-  // Generate distribution data based on actual metrics
-  // These are estimated distributions - actual histogram data would come from raw_results
+  // Use real histogram data from evaluation pipeline when available,
+  // fall back to synthetic Gaussian approximation otherwise
   const totalSamples = results.truePositives + results.falsePositives;
   const raRms = results.raResidualRmsArcsec || 1;
   const decRms = results.decResidualRmsArcsec || 1;
 
-  // Generate Gaussian-like distribution based on RMS values
   const generateGaussianBins = (rms: number, samples: number) => {
     const sigma = rms;
     const bins = [-3, -2, -1, 0, 1, 2, 3];
@@ -122,40 +149,54 @@ export function ResultsPage() {
     });
   };
 
-  const raBins = generateGaussianBins(raRms, totalSamples);
-  const decBins = generateGaussianBins(decRms, totalSamples);
+  const hasRealResiduals = results.raResidualHistogram && results.decResidualHistogram;
+  const residualLabels = hasRealResiduals
+    ? results.raResidualHistogram!.labels
+    : ['-3', '-2', '-1', '0', '1', '2', '3'];
 
-  const residualData = [
-    { range: '-3', ra: raBins[0], dec: decBins[0] },
-    { range: '-2', ra: raBins[1], dec: decBins[1] },
-    { range: '-1', ra: raBins[2], dec: decBins[2] },
-    { range: '0', ra: raBins[3], dec: decBins[3] },
-    { range: '1', ra: raBins[4], dec: decBins[4] },
-    { range: '2', ra: raBins[5], dec: decBins[5] },
-    { range: '3', ra: raBins[6], dec: decBins[6] },
-  ];
+  const raBins = hasRealResiduals
+    ? results.raResidualHistogram!.counts
+    : generateGaussianBins(raRms, totalSamples);
+  const decBins = hasRealResiduals
+    ? results.decResidualHistogram!.counts
+    : generateGaussianBins(decRms, totalSamples);
 
-  // Generate position error distribution based on actual position RMS
+  const residualData = residualLabels.map((label, i) => ({
+    range: label,
+    ra: raBins[i] ?? 0,
+    dec: decBins[i] ?? 0,
+  }));
+
+  // Position error distribution: use real data or synthetic Chi approximation
   const posRms = results.positionRmsKm || 1;
-  const generateErrorDistribution = (rms: number, samples: number) => {
-    // Chi distribution approximation for 3D position errors
-    const ranges = [0.5, 1.5, 2.5, 3.5, 4.5, 6];
-    return ranges.map((r) => {
-      const x = r / rms;
-      const density = x * x * Math.exp(-0.5 * x * x);
-      return Math.max(1, Math.round(samples * density * 0.3));
-    });
-  };
+  const hasRealPosErrors = !!results.positionErrorHistogram;
 
-  const errorBins = generateErrorDistribution(posRms, results.truePositives);
-  const positionErrorData = [
-    { range: '0-1', count: errorBins[0] },
-    { range: '1-2', count: errorBins[1] },
-    { range: '2-3', count: errorBins[2] },
-    { range: '3-4', count: errorBins[3] },
-    { range: '4-5', count: errorBins[4] },
-    { range: '5+', count: errorBins[5] },
-  ];
+  let positionErrorData: { range: string; count: number }[];
+  if (hasRealPosErrors) {
+    const hist = results.positionErrorHistogram!;
+    positionErrorData = hist.labels.map((label, i) => ({
+      range: label,
+      count: hist.counts[i] ?? 0,
+    }));
+  } else {
+    const generateErrorDistribution = (rms: number, samples: number) => {
+      const ranges = [0.5, 1.5, 2.5, 3.5, 4.5, 6];
+      return ranges.map((r) => {
+        const x = r / rms;
+        const density = x * x * Math.exp(-0.5 * x * x);
+        return Math.max(1, Math.round(samples * density * 0.3));
+      });
+    };
+    const errorBins = generateErrorDistribution(posRms, results.truePositives);
+    positionErrorData = [
+      { range: '0-1', count: errorBins[0] },
+      { range: '1-2', count: errorBins[1] },
+      { range: '2-3', count: errorBins[2] },
+      { range: '3-4', count: errorBins[3] },
+      { range: '4-5', count: errorBins[4] },
+      { range: '5+', count: errorBins[5] },
+    ];
+  }
 
   return (
     <div className="space-y-6">
@@ -176,14 +217,24 @@ export function ResultsPage() {
             Results for {submission?.datasetName || `Dataset ${submission?.datasetId}`}
           </p>
         </div>
-        <Button className="gap-2" onClick={handleExport} disabled={exportMutation.isPending}>
-          {exportMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          Export Results
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleDownloadReport} disabled={reportMutation.isPending}>
+            {reportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+            Download Report
+          </Button>
+          <Button className="gap-2" onClick={handleExport} disabled={exportMutation.isPending}>
+            {exportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Export Results
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

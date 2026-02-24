@@ -361,7 +361,15 @@ def toObsSchema(results, satNo, noiseCharacteristics):
     return df
 
 
-def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=None):
+def epochsToSim(
+    satNo,
+    satObs,
+    orbElems,
+    target_obs_count=None,
+    max_sim_ratio=None,
+    epoch_strategy="bin_uniform",
+    preserve_longest_gap=False,
+):
     """
     Determine epochs at which to simulate observations for a satellite.
 
@@ -369,12 +377,34 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
     based on orbital period, identifies bins with insufficient observations,
     and returns epochs at the center of each gap bin.
 
+    Supports two epoch placement strategies:
+        - "bin_uniform": Default. Sorts empty bins by observation count
+          (ascending) so the emptiest bins are filled first uniformly.
+        - "coverage_optimal": Prioritises filling the largest gaps in
+          orbital coverage. For each empty bin the orbital phase (mean
+          anomaly) at its centre is estimated, and bins are weighted by
+          angular separation from the nearest non-empty bin so that the
+          biggest orbital-coverage holes are filled first (matching the
+          reference intent of "maximum impact" epoch placement).
+
+    The optional *preserve_longest_gap* flag identifies the single
+    longest observation-time gap and excludes bins that fall inside it.
+    This mirrors the reference implementation's behaviour of protecting
+    the longest gap because it represents a real physical constraint
+    (satellite not visible from any sensor).
+
     Args:
         satNo: NORAD ID of satellite
         satObs: DataFrame of existing observations (must have 'obTime' column)
         orbElems: Dict with orbital elements including 'Period' (seconds)
         target_obs_count: Target total observation count (default: current + 50%)
         max_sim_ratio: Maximum ratio of simulated to total (default: from config)
+        epoch_strategy: Epoch placement strategy. One of "bin_uniform"
+            (default, current behaviour) or "coverage_optimal" (orbital-
+            coverage-gap-aware prioritisation).
+        preserve_longest_gap: If True, the longest observation time gap
+            is identified and bins falling inside it are excluded from
+            filling.  Default False (no gap protection).
 
     Returns:
         epochs: List of datetime objects for simulation
@@ -384,6 +414,13 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
 
     import numpy as np
     import pandas as pd
+
+    # Validate epoch_strategy parameter
+    valid_strategies = ("bin_uniform", "coverage_optimal")
+    if epoch_strategy not in valid_strategies:
+        raise ValueError(
+            f"epoch_strategy must be one of {valid_strategies}, got '{epoch_strategy}'"
+        )
 
     # Use config defaults if not specified
     if max_sim_ratio is None:
@@ -454,6 +491,44 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
     if len(empty_bins) == 0:
         return [], {"status": "all_bins_covered", "total_bins": total_bins}
 
+    # ------------------------------------------------------------------
+    # Gap preservation: identify the longest observation time gap and
+    # mark bins inside it as "protected" so they will not be filled.
+    # ------------------------------------------------------------------
+    preserved_gap_hours = 0.0
+    protected_bin_set = set()
+
+    if preserve_longest_gap:
+        obs_times_sorted = satObs["obTime"].sort_values().reset_index(drop=True)
+        if len(obs_times_sorted) >= 2:
+            gaps = [
+                (obs_times_sorted.iloc[i + 1] - obs_times_sorted.iloc[i]).total_seconds()
+                for i in range(len(obs_times_sorted) - 1)
+            ]
+            longest_gap_idx = int(np.argmax(gaps))
+            gap_start_time = obs_times_sorted.iloc[longest_gap_idx]
+            gap_end_time = obs_times_sorted.iloc[longest_gap_idx + 1]
+            preserved_gap_hours = gaps[longest_gap_idx] / 3600.0
+
+            # Determine which bins fall entirely within this gap
+            for b in range(total_bins):
+                b_start_sec = b * bin_size_sec
+                b_end_sec = (b + 1) * bin_size_sec
+                b_start_dt = start_time + timedelta(seconds=b_start_sec)
+                b_end_dt = start_time + timedelta(seconds=b_end_sec)
+                if b_start_dt >= gap_start_time and b_end_dt <= gap_end_time:
+                    protected_bin_set.add(b)
+
+        # Remove protected bins from the candidate set
+        empty_bins = np.array([b for b in empty_bins if b not in protected_bin_set])
+        if len(empty_bins) == 0:
+            return [], {
+                "status": "all_gaps_protected",
+                "total_bins": total_bins,
+                "preserved_gap_hours": preserved_gap_hours,
+                "epoch_strategy": epoch_strategy,
+            }
+
     # Calculate target observation count
     current_count = len(satObs)
     if target_obs_count is None:
@@ -473,10 +548,58 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
     # Number of tracks to simulate (each track has track_size observations)
     tracks_to_add = int(np.ceil(obs_to_add / track_size))
 
-    # Prioritize bins by how empty they are (least observations first)
-    # Sort empty bins by their observation count (ascending)
-    bin_priorities = [(bin_idx, bin_counts[bin_idx]) for bin_idx in empty_bins]
-    bin_priorities.sort(key=lambda x: x[1])
+    # ------------------------------------------------------------------
+    # Prioritise bins according to selected strategy
+    # ------------------------------------------------------------------
+    coverage_gap_filled = None  # only populated for coverage_optimal
+
+    if epoch_strategy == "bin_uniform":
+        # Default: sort empty bins by observation count (ascending)
+        bin_priorities = [(bin_idx, bin_counts[bin_idx]) for bin_idx in empty_bins]
+        bin_priorities.sort(key=lambda x: x[1])
+
+    elif epoch_strategy == "coverage_optimal":
+        # Coverage-aware prioritisation: weight each empty bin by the
+        # angular separation (in orbital phase / mean anomaly) from the
+        # nearest non-empty bin.  Larger gaps in coverage get higher
+        # priority so that observations are placed for "maximum impact."
+
+        # Compute orbital phase (mean anomaly in radians) at bin centre.
+        # phase = 2*pi * ((t_centre mod T) / T)
+        non_empty_bins = np.where(bin_counts >= min_obs_per_bin)[0]
+
+        # Pre-compute phase for every bin centre
+        def _bin_centre_phase(b_idx):
+            """Return orbital phase in [0, 2*pi) for the centre of bin b_idx."""
+            t_centre_sec = (b_idx + 0.5) * bin_size_sec
+            return (t_centre_sec % period_sec) / period_sec * 2 * np.pi
+
+        non_empty_phases = np.array([_bin_centre_phase(b) for b in non_empty_bins])
+
+        bin_weights = []
+        for b_idx in empty_bins:
+            phase = _bin_centre_phase(b_idx)
+
+            if len(non_empty_phases) == 0:
+                # No non-empty bins at all -- every bin equally important
+                angular_sep = 2 * np.pi
+            else:
+                # Angular distance on a circle: min over all non-empty phases
+                diffs = np.abs(non_empty_phases - phase)
+                # Wrap to [0, pi] for circular distance
+                diffs = np.minimum(diffs, 2 * np.pi - diffs)
+                angular_sep = float(np.min(diffs))
+
+            bin_weights.append((b_idx, bin_counts[b_idx], angular_sep))
+
+        # Sort by angular separation descending (largest gap first),
+        # break ties by observation count ascending (emptier first)
+        bin_weights.sort(key=lambda x: (-x[2], x[1]))
+        bin_priorities = [(bw[0], bw[1]) for bw in bin_weights]
+
+        # Record the largest angular coverage gap that will be filled
+        if bin_weights:
+            coverage_gap_filled = float(np.degrees(bin_weights[0][2]))
 
     # Generate epochs for simulation
     epochs = []
@@ -507,11 +630,14 @@ def epochsToSim(satNo, satObs, orbElems, target_obs_count=None, max_sim_ratio=No
         "satNo": satNo,
         "period_sec": period_sec,
         "total_bins": total_bins,
-        "empty_bins": len(empty_bins),
+        "empty_bins": int(len(empty_bins)),
         "tracks_added": bins_used,
         "epochs_count": len(epochs),
         "existing_obs": current_count,
         "target_obs": target_obs_count,
+        "epoch_strategy": epoch_strategy,
+        "coverage_gap_filled": coverage_gap_filled,
+        "preserved_gap_hours": preserved_gap_hours if preserve_longest_gap else None,
     }
 
     return epochs, bins_info

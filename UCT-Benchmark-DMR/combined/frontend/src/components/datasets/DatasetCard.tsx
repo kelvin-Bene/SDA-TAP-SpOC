@@ -101,7 +101,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
         </div>
 
         {/* Badges */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge
             variant="outline"
             className={cn(
@@ -124,6 +124,14 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
           >
             {dataset.tier} - {tier.label}
           </Badge>
+          {dataset.version && dataset.version > 1 && (
+            <Badge
+              variant="outline"
+              className="font-medium border text-muted-foreground bg-muted/10 border-muted-foreground/30"
+            >
+              v{dataset.version}
+            </Badge>
+          )}
         </div>
       </div>
 

@@ -1,9 +1,12 @@
 """Results retrieval endpoints."""
 
 import json
+import tempfile
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
 from backend_api.database import get_db
@@ -139,14 +142,20 @@ async def get_results(
 
     row_dict = dict(zip(columns, row))
 
-    # Parse raw results for satellite breakdown
+    # Parse raw results for satellite breakdown and histogram data
     satellite_results = []
+    ra_residual_histogram = None
+    dec_residual_histogram = None
+    position_error_histogram = None
     raw_results = row_dict.get("raw_results")
     if raw_results:
         try:
             parsed = json.loads(raw_results) if isinstance(raw_results, str) else raw_results
             if "per_satellite" in parsed:
-                for sat_data in parsed["per_satellite"]:
+                per_sat = parsed["per_satellite"]
+                # per_satellite may be a dict (keyed by sat_id) or a list
+                sat_list = per_sat if isinstance(per_sat, list) else []
+                for sat_data in sat_list:
                     satellite_results.append(
                         SatelliteResult(
                             satellite_id=str(sat_data.get("satellite_id", "")),
@@ -158,6 +167,10 @@ async def get_results(
                             confidence=sat_data.get("confidence"),
                         )
                     )
+            # Extract histogram data if present
+            ra_residual_histogram = parsed.get("ra_residual_histogram")
+            dec_residual_histogram = parsed.get("dec_residual_histogram")
+            position_error_histogram = parsed.get("position_error_histogram")
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"Failed to parse raw_results JSON for submission {submission_id}: {e}")
 
@@ -194,6 +207,9 @@ async def get_results(
         ra_residual_rms_arcsec=row_dict.get("ra_residual_rms_arcsec"),
         dec_residual_rms_arcsec=row_dict.get("dec_residual_rms_arcsec"),
         satellite_results=satellite_results,
+        ra_residual_histogram=ra_residual_histogram,
+        dec_residual_histogram=dec_residual_histogram,
+        position_error_histogram=position_error_histogram,
         rank=rank,
         processing_time_seconds=row_dict.get("processing_time_seconds"),
     )
@@ -369,3 +385,168 @@ async def export_results(
         )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+
+
+@router.get("/{submission_id}/report")
+async def generate_report(
+    submission_id: str,
+    format: str = "pdf",
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Generate a comprehensive evaluation report for a submission.
+
+    Per Louis's specification: "Taking all of those metrics... we compile a
+    comprehensive report. It's got, you know, graphs, it's got numbers, and it
+    essentially gives an overall picture of how well the UCT processor performs."
+
+    Args:
+        submission_id: The submission ID
+        format: Report format - 'pdf', 'html', or 'json'
+
+    Returns:
+        Report file in the requested format
+    """
+    # Get submission and results data
+    result = db.execute(
+        """
+        SELECT
+            s.id, s.dataset_id, s.algorithm_name, s.version, s.status, s.completed_at,
+            sr.true_positives, sr.true_negatives, sr.false_positives, sr.false_negatives,
+            sr.precision, sr.recall, sr.f1_score, sr.accuracy, sr.specificity,
+            sr.position_rms_km, sr.velocity_rms_km_s, sr.mahalanobis_distance,
+            sr.ra_residual_rms_arcsec, sr.dec_residual_rms_arcsec,
+            sr.raw_results, sr.processing_time_seconds,
+            d.name as dataset_name, d.orbital_regime, d.tier, d.legacy_code
+        FROM submissions s
+        LEFT JOIN submission_results sr ON s.id = sr.submission_id
+        LEFT JOIN datasets d ON s.dataset_id = d.id
+        WHERE s.id = ?
+        """,
+        (int(submission_id),),
+    )
+    columns = [desc[0] for desc in result.description]
+    row = result.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    row_dict = dict(zip(columns, row))
+
+    if row_dict.get("status") != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Results not yet available. Submission status: " + str(row_dict.get("status")),
+        )
+
+    # Parse raw results for detailed data
+    raw_results = {}
+    if row_dict.get("raw_results"):
+        try:
+            raw_results = (
+                json.loads(row_dict["raw_results"])
+                if isinstance(row_dict["raw_results"], str)
+                else row_dict["raw_results"]
+            )
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Build report data structure
+    report_data = {
+        "submission_id": str(row_dict["id"]),
+        "dataset_id": str(row_dict["dataset_id"]),
+        "dataset_name": row_dict.get("dataset_name", "Unknown"),
+        "algorithm_name": row_dict["algorithm_name"],
+        "algorithm_version": row_dict.get("version", "1.0"),
+        "orbital_regime": row_dict.get("orbital_regime", "Unknown"),
+        "tier": row_dict.get("tier", "Unknown"),
+        "legacy_code": row_dict.get("legacy_code"),
+        "completed_at": str(row_dict.get("completed_at", "")),
+        "processing_time_seconds": row_dict.get("processing_time_seconds"),
+        "binary_metrics": {
+            "true_positives": row_dict.get("true_positives") or 0,
+            "true_negatives": row_dict.get("true_negatives") or 0,
+            "false_positives": row_dict.get("false_positives") or 0,
+            "false_negatives": row_dict.get("false_negatives") or 0,
+            "precision": float(row_dict.get("precision") or 0),
+            "recall": float(row_dict.get("recall") or 0),
+            "f1_score": float(row_dict.get("f1_score") or 0),
+            "accuracy": float(row_dict.get("accuracy") or 0),
+            "specificity": float(row_dict.get("specificity") or 0),
+        },
+        "state_metrics": {
+            "position_rms_km": float(row_dict.get("position_rms_km") or 0),
+            "velocity_rms_km_s": float(row_dict.get("velocity_rms_km_s") or 0),
+            "mahalanobis_distance": row_dict.get("mahalanobis_distance"),
+        },
+        "residual_metrics": {
+            "ra_residual_rms_arcsec": row_dict.get("ra_residual_rms_arcsec"),
+            "dec_residual_rms_arcsec": row_dict.get("dec_residual_rms_arcsec"),
+        },
+        "per_satellite": raw_results.get("per_satellite", []),
+        "state_results": raw_results.get("state_results", []),
+        "residual_ref_results": raw_results.get("residual_ref_results", []),
+        "residual_cand_results": raw_results.get("residual_cand_results", []),
+    }
+
+    if format == "json":
+        return JSONResponse(
+            content=report_data,
+            headers={
+                "Content-Disposition": f'attachment; filename="report_{submission_id}.json"'
+            },
+        )
+
+    if format == "pdf":
+        try:
+            from uct_benchmark.evaluation.evaluationReport import generate_pdf_report
+
+            # Generate PDF to temp file
+            output_dir = Path(tempfile.mkdtemp())
+            output_path = output_dir / f"report_{submission_id}.pdf"
+
+            success = generate_pdf_report(report_data, str(output_path))
+
+            if success and output_path.exists():
+                return FileResponse(
+                    path=str(output_path),
+                    media_type="application/pdf",
+                    filename=f"report_{submission_id}.pdf",
+                )
+            else:
+                raise HTTPException(
+                    status_code=500, detail="PDF generation failed. Check server logs."
+                )
+        except ImportError:
+            logger.warning("PDF generation libraries not available, falling back to JSON")
+            raise HTTPException(
+                status_code=501,
+                detail="PDF generation not available. Use format=json instead.",
+            )
+
+    if format == "html":
+        try:
+            from uct_benchmark.evaluation.evaluationReport import export_report_to_html
+
+            output_dir = Path(tempfile.mkdtemp())
+            output_path = output_dir / f"report_{submission_id}.html"
+
+            export_report_to_html(report_data, str(output_path))
+
+            if output_path.exists():
+                return FileResponse(
+                    path=str(output_path),
+                    media_type="text/html",
+                    filename=f"report_{submission_id}.html",
+                )
+            else:
+                raise HTTPException(
+                    status_code=500, detail="HTML report generation failed."
+                )
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="HTML report generation not available. Use format=json instead.",
+            )
+
+    raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Use 'pdf', 'html', or 'json'.")

@@ -17,6 +17,11 @@ interface SubmissionResponse {
   queue_position?: number;
 }
 
+interface HistogramResponse {
+  labels: string[];
+  counts: number[];
+}
+
 interface ResultsResponse {
   submission_id: string;
   dataset_id: string;
@@ -24,8 +29,11 @@ interface ResultsResponse {
   status: string;
   completed_at?: string;
   true_positives: number;
+  true_negatives?: number;
   false_positives: number;
   false_negatives: number;
+  accuracy?: number;
+  specificity?: number;
   precision: number;
   recall: number;
   f1_score: number;
@@ -43,6 +51,9 @@ interface ResultsResponse {
     velocity_error_km_s?: number;
     confidence?: number;
   }>;
+  ra_residual_histogram?: HistogramResponse;
+  dec_residual_histogram?: HistogramResponse;
+  position_error_histogram?: HistogramResponse;
   rank?: number;
   previous_rank?: number;
   processing_time_seconds?: number;
@@ -62,11 +73,14 @@ function transformSubmission(data: SubmissionResponse): Submission {
     queuePosition: data.queue_position,
     results: data.score !== undefined ? {
       truePositives: 0,
+      trueNegatives: 0,
       falsePositives: 0,
       falseNegatives: 0,
       precision: 0,
       recall: 0,
       f1Score: data.score,
+      accuracy: 0,
+      specificity: 0,
       positionRmsKm: 0,
       velocityRmsKmS: 0,
       mahalanobisDistance: 0,
@@ -81,11 +95,14 @@ function transformSubmission(data: SubmissionResponse): Submission {
 function transformResults(data: ResultsResponse): SubmissionResults {
   return {
     truePositives: data.true_positives,
+    trueNegatives: data.true_negatives || 0,
     falsePositives: data.false_positives,
     falseNegatives: data.false_negatives,
     precision: data.precision,
     recall: data.recall,
     f1Score: data.f1_score,
+    accuracy: data.accuracy || 0,
+    specificity: data.specificity || 0,
     positionRmsKm: data.position_rms_km,
     velocityRmsKmS: data.velocity_rms_km_s,
     mahalanobisDistance: data.mahalanobis_distance || 0,
@@ -100,6 +117,9 @@ function transformResults(data: ResultsResponse): SubmissionResults {
       velocityErrorKmS: sr.velocity_error_km_s,
       confidence: sr.confidence,
     })),
+    raResidualHistogram: data.ra_residual_histogram,
+    decResidualHistogram: data.dec_residual_histogram,
+    positionErrorHistogram: data.position_error_histogram,
     rank: data.rank || 0,
     previousRank: data.previous_rank,
   };
@@ -148,6 +168,9 @@ export function useCreateSubmission() {
       formData.append('version', data.version);
       if (data.description) {
         formData.append('description', data.description);
+      }
+      if (data.classificationMarking) {
+        formData.append('classification_marking', data.classificationMarking);
       }
 
       const response = await api.createSubmission(formData);
@@ -226,6 +249,16 @@ export function useExportResults() {
   return useMutation({
     mutationFn: async ({ submissionId, format }: { submissionId: string; format: 'pdf' | 'csv' | 'json' }) => {
       const response = await api.exportResults(submissionId, format);
+      return response.data;
+    },
+  });
+}
+
+// Hook for downloading evaluation report (PDF/HTML/JSON)
+export function useDownloadReport() {
+  return useMutation({
+    mutationFn: async ({ submissionId, format }: { submissionId: string; format: 'pdf' | 'html' | 'json' }) => {
+      const response = await api.downloadReport(submissionId, format);
       return response.data;
     },
   });

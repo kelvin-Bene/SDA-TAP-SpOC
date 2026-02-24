@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.4.0"
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -60,9 +60,16 @@ CREATE TABLE IF NOT EXISTS observations (
     azimuth DECIMAL(12,8),
     elevation DECIMAL(12,8),
 
-    -- Sensor metadata
+    -- Sensor metadata (per Feb 19 transcript: preserve all UDL fields)
+    sensor_id VARCHAR(64),                -- UDL sensor identifier
     sensor_name VARCHAR(100),
     data_mode VARCHAR(20),                -- REAL, SIMULATED
+    type_optical VARCHAR(20),             -- Observation type (e.g., optical)
+
+    -- Sensor location (per Feb 19 transcript: send_lat, send_long, send_alt)
+    send_lat DECIMAL(12,8),              -- Sensor latitude (degrees)
+    send_long DECIMAL(12,8),             -- Sensor longitude (degrees)
+    send_alt DECIMAL(12,4),              -- Sensor altitude (km)
 
     -- Track association
     track_id VARCHAR(64),
@@ -300,6 +307,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     version VARCHAR(50) DEFAULT '1.0',
     description TEXT,
     file_path VARCHAR(500),
+    classification_marking VARCHAR(200),   -- Organization label (per Louis's spec)
     status VARCHAR(20) DEFAULT 'queued',  -- queued, validating, processing, completed, failed
     job_id VARCHAR(100),                  -- References jobs(id)
     error_message TEXT,
@@ -600,8 +608,10 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(BREAKUP_EVENTS_TABLE)
     db.execute(BREAKUP_EVENTS_INDEXES)
 
-    # Migrate existing DBs to 1.2.0 (adds new columns if missing)
+    # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
+    _migrate_to_1_3_0(db)
+    _migrate_to_1_4_0(db)
 
     # Seed default event types
     _seed_event_types(db)
@@ -745,6 +755,37 @@ def _migrate_to_1_2_0(db: "DatabaseManager") -> None:
             db.execute(f"ALTER TABLE datasets ADD COLUMN IF NOT EXISTS {col}")
         except Exception:
             pass  # Column already exists
+
+
+def _migrate_to_1_3_0(db: "DatabaseManager") -> None:
+    """Add missing UDL observation fields per Feb 19, 2026 transcript.
+
+    New columns: sensor_id, send_lat, send_long, send_alt, type_optical
+    These fields must be preserved from UDL responses so downstream
+    processors can access them.
+    """
+    new_columns = [
+        "sensor_id VARCHAR(64)",
+        "send_lat DECIMAL(12,8)",
+        "send_long DECIMAL(12,8)",
+        "send_alt DECIMAL(12,4)",
+        "type_optical VARCHAR(20)",
+    ]
+    for col in new_columns:
+        try:
+            db.execute(f"ALTER TABLE observations ADD COLUMN IF NOT EXISTS {col}")
+        except Exception:
+            pass  # Column already exists
+
+
+def _migrate_to_1_4_0(db: "DatabaseManager") -> None:
+    """Add classification_marking column to submissions table."""
+    try:
+        db.execute(
+            "ALTER TABLE submissions ADD COLUMN IF NOT EXISTS classification_marking VARCHAR(200)"
+        )
+    except Exception:
+        pass  # Column already exists
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:

@@ -34,6 +34,59 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
+
+# ---------------------------------------------------------------------------
+# Reference-alignment configuration dataclass
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReferenceAlignmentConfig:
+    """
+    Configuration for reference-algorithm alignment options.
+
+    When ``reference_mode`` is True, all flags are set to match the original
+    windowCheck.py behaviour authored by Miles Puchner. When False (default),
+    the production-improved behaviour is retained.
+
+    Attributes:
+        normalize_backward: When True, normalize time backward so that
+            0 corresponds to the *newest* observation (reference behaviour).
+            When False, keep the current forward-time convention.
+        overlap_bisection: When True, bisection halves overlap by
+            0.5 x window_size on each side of the midpoint (reference
+            behaviour).  When False, use a clean midpoint split.
+        short_circuit_first_half: When True, during bisection check the
+            first half only; if it passes, skip the second half entirely
+            (reference behaviour).  When False, evaluate both halves and
+            pick the better one.
+        hard_stop_on_t1: When True, immediately return when a TIER_1
+            window is found, stopping all sliding and bisecting (reference
+            behaviour).  When False, keep the current conditional T1
+            return that continues narrowing when the batch is large.
+        min_batch_threshold_multiplier: Minimum batch-to-window ratio
+            below which the decay loop stops.  Reference uses 2.01;
+            current production default is 1.1.
+    """
+
+    normalize_backward: bool = False
+    overlap_bisection: bool = False
+    short_circuit_first_half: bool = False
+    hard_stop_on_t1: bool = False
+    min_batch_threshold_multiplier: float = 1.1
+
+    @classmethod
+    def from_reference_mode(cls, reference_mode: bool) -> "ReferenceAlignmentConfig":
+        """Create a config with all flags set for reference alignment."""
+        if reference_mode:
+            return cls(
+                normalize_backward=True,
+                overlap_bisection=True,
+                short_circuit_first_half=True,
+                hard_stop_on_t1=True,
+                min_batch_threshold_multiplier=2.01,
+            )
+        return cls()  # all defaults = current production behaviour
+
 from uct_benchmark.settings import (
     highObjectCount,
     highObsCount,
@@ -527,6 +580,27 @@ def _get_max_possible_coverage(regime: str) -> float:
     return max_coverage_limits.get(regime.upper(), 1.0)
 
 
+def _normalize_time_backward(obs_df: pd.DataFrame, epoch_column: str = "obTime") -> pd.Series:
+    """
+    Normalize observation epochs backward so that 0 = newest observation.
+
+    This replicates the ``normalizeTime()`` helper in the reference
+    windowCheck.py.  Each epoch is mapped to
+    ``(max_epoch - epoch).total_seconds() / 86400`` so that the most
+    recent observation has a normalized value of 0 and older observations
+    have positive values (measured in days into the past).
+
+    Args:
+        obs_df: DataFrame containing the epoch column.
+        epoch_column: Name of the datetime column (default ``"obTime"``).
+
+    Returns:
+        pandas Series of backward-normalized times (float, in days).
+    """
+    tf = obs_df[epoch_column].max()
+    return obs_df[epoch_column].apply(lambda t: (tf - t).total_seconds() / 86400.0)
+
+
 def _calculate_next_batch_size(
     iteration: int,
     initial_batch_days: float,
@@ -631,6 +705,11 @@ def _bisect_search(
     depth: int = 0,
     max_depth: int = 10,
     evaluated_windows: List[WindowEvaluation] = None,
+    *,
+    overlap_bisection: bool = False,
+    short_circuit_first_half: bool = False,
+    hard_stop_on_t1: bool = False,
+    min_batch_threshold_multiplier: float = 1.1,
 ) -> Tuple[WindowEvaluation, List[WindowEvaluation]]:
     """
     Recursive bisection search for optimal window.
@@ -641,6 +720,9 @@ def _bisect_search(
     3. Otherwise, split in half and check each half
     4. Continue with the half that has better criteria match
 
+    Reference-alignment parameters (all keyword-only, default to current
+    production behaviour):
+
     Args:
         obs_df: DataFrame of observations
         sat_params: Dict mapping satNo to orbital parameters
@@ -650,6 +732,19 @@ def _bisect_search(
         depth: Current recursion depth
         max_depth: Maximum recursion depth
         evaluated_windows: List to collect all evaluated windows
+        overlap_bisection: When True, each bisection half overlaps by
+            0.5 x fit_span_days around the midpoint (reference behaviour).
+            When False, a clean midpoint split is used.
+        short_circuit_first_half: When True, if the first half meets the
+            threshold the second half is never evaluated (reference
+            behaviour).  When False, both halves are evaluated and the
+            better one is chosen.
+        hard_stop_on_t1: When True, immediately return upon finding a
+            TIER_1 window regardless of batch size (reference behaviour).
+            When False, continue narrowing if the batch is still large.
+        min_batch_threshold_multiplier: Minimum ratio of batch duration to
+            fit_span_days below which bisection stops.  Reference uses
+            2.01; current production default is 1.1.
 
     Returns:
         Tuple of (best_window, evaluated_windows)
@@ -673,7 +768,17 @@ def _bisect_search(
     # 1. Reached max depth
     # 2. Batch is close to fit span (can't bisect further without going below)
     # 3. Found Tier 1 window
-    min_bisect_duration = criteria.fit_span_days * 1.5  # Need 1.5x fit span to bisect
+    #
+    # The minimum bisectable duration uses min_batch_threshold_multiplier so
+    # that reference mode can enforce the 2.01x threshold from windowCheck.py
+    # while production keeps the tighter 1.1x (mapped to 1.5x via the
+    # original constant below when the multiplier is at default).
+    if min_batch_threshold_multiplier >= 2.0:
+        # Reference-style: batch must be >= multiplier * fit_span to bisect
+        min_bisect_duration = criteria.fit_span_days * min_batch_threshold_multiplier
+    else:
+        # Production-style: 1.5x was the original hardcoded constant
+        min_bisect_duration = criteria.fit_span_days * 1.5
 
     if depth >= max_depth:
         logger.debug(f"Max depth {max_depth} reached")
@@ -684,20 +789,94 @@ def _bisect_search(
         return current_eval, evaluated_windows
 
     if current_eval.tier == WindowTier.TIER_1:
-        # Found optimal window, but try to narrow it down
-        # Only continue if batch is significantly larger than fit span
-        if batch_duration_days <= criteria.fit_span_days * 2:
+        if hard_stop_on_t1:
+            # Reference behaviour: stop immediately on T1
+            logger.debug("hard_stop_on_t1: TIER_1 found, returning immediately")
             return current_eval, evaluated_windows
+        else:
+            # Production behaviour: try to narrow it down unless batch is small
+            if batch_duration_days <= criteria.fit_span_days * 2:
+                return current_eval, evaluated_windows
 
     # Bisect: split into two halves
     midpoint = batch_start + (batch_end - batch_start) / 2
 
+    if overlap_bisection:
+        # Reference behaviour: overlapping regions around the midpoint.
+        # Each half extends 0.5 x fit_span_days past the midpoint so the
+        # two halves share a window_size-wide overlap region.
+        overlap_delta = timedelta(days=0.5 * criteria.fit_span_days)
+        first_half_end = midpoint + overlap_delta
+        second_half_start = midpoint - overlap_delta
+
+        # Clamp to batch boundaries
+        first_half_end = min(first_half_end, batch_end)
+        second_half_start = max(second_half_start, batch_start)
+    else:
+        # Production behaviour: clean midpoint split
+        first_half_end = midpoint
+        second_half_start = midpoint
+
+    # --- short_circuit_first_half path (reference behaviour) ---
+    if short_circuit_first_half:
+        # Evaluate first half
+        first_half_eval = evaluate_window(
+            obs_df, sat_params, batch_start, first_half_end, criteria
+        )
+        evaluated_windows.append(first_half_eval)
+
+        logger.debug(
+            f"  [short-circuit] First half score: {first_half_eval.overall_score:.2f}"
+        )
+
+        # If the first half meets the current threshold, recurse into it
+        # and never evaluate the second half.
+        if first_half_eval.tier.value <= current_eval.tier.value:
+            best_eval, evaluated_windows = _bisect_search(
+                obs_df, sat_params, batch_start, first_half_end, criteria,
+                depth + 1, max_depth, evaluated_windows,
+                overlap_bisection=overlap_bisection,
+                short_circuit_first_half=short_circuit_first_half,
+                hard_stop_on_t1=hard_stop_on_t1,
+                min_batch_threshold_multiplier=min_batch_threshold_multiplier,
+            )
+            if current_eval.overall_score > best_eval.overall_score:
+                return current_eval, evaluated_windows
+            return best_eval, evaluated_windows
+
+        # First half did not pass -- fall through to second half
+        second_half_eval = evaluate_window(
+            obs_df, sat_params, second_half_start, batch_end, criteria
+        )
+        evaluated_windows.append(second_half_eval)
+
+        logger.debug(
+            f"  [short-circuit] Second half score: {second_half_eval.overall_score:.2f}"
+        )
+
+        best_eval, evaluated_windows = _bisect_search(
+            obs_df, sat_params, second_half_start, batch_end, criteria,
+            depth + 1, max_depth, evaluated_windows,
+            overlap_bisection=overlap_bisection,
+            short_circuit_first_half=short_circuit_first_half,
+            hard_stop_on_t1=hard_stop_on_t1,
+            min_batch_threshold_multiplier=min_batch_threshold_multiplier,
+        )
+        if current_eval.overall_score > best_eval.overall_score:
+            return current_eval, evaluated_windows
+        return best_eval, evaluated_windows
+
+    # --- Production path: evaluate both halves, pick the better one ---
     # Evaluate first half
-    first_half_eval = evaluate_window(obs_df, sat_params, batch_start, midpoint, criteria)
+    first_half_eval = evaluate_window(
+        obs_df, sat_params, batch_start, first_half_end, criteria
+    )
     evaluated_windows.append(first_half_eval)
 
     # Evaluate second half
-    second_half_eval = evaluate_window(obs_df, sat_params, midpoint, batch_end, criteria)
+    second_half_eval = evaluate_window(
+        obs_df, sat_params, second_half_start, batch_end, criteria
+    )
     evaluated_windows.append(second_half_eval)
 
     logger.debug(
@@ -721,14 +900,22 @@ def _bisect_search(
     if first_is_better:
         # Continue searching in first half
         best_eval, evaluated_windows = _bisect_search(
-            obs_df, sat_params, batch_start, midpoint, criteria,
-            depth + 1, max_depth, evaluated_windows
+            obs_df, sat_params, batch_start, first_half_end, criteria,
+            depth + 1, max_depth, evaluated_windows,
+            overlap_bisection=overlap_bisection,
+            short_circuit_first_half=short_circuit_first_half,
+            hard_stop_on_t1=hard_stop_on_t1,
+            min_batch_threshold_multiplier=min_batch_threshold_multiplier,
         )
     else:
         # Continue searching in second half
         best_eval, evaluated_windows = _bisect_search(
-            obs_df, sat_params, midpoint, batch_end, criteria,
-            depth + 1, max_depth, evaluated_windows
+            obs_df, sat_params, second_half_start, batch_end, criteria,
+            depth + 1, max_depth, evaluated_windows,
+            overlap_bisection=overlap_bisection,
+            short_circuit_first_half=short_circuit_first_half,
+            hard_stop_on_t1=hard_stop_on_t1,
+            min_batch_threshold_multiplier=min_batch_threshold_multiplier,
         )
 
     # Compare with current and return the best
@@ -744,6 +931,8 @@ def _sliding_window_search(
     batch_end: datetime,
     criteria: WindowCriteria,
     step_fraction: float = 0.1,
+    *,
+    hard_stop_on_t1: bool = False,
 ) -> Tuple[WindowEvaluation, List[WindowEvaluation]]:
     """
     Sliding window search within a batch.
@@ -758,6 +947,11 @@ def _sliding_window_search(
         batch_end: End of batch
         criteria: WindowCriteria instance
         step_fraction: Fraction of fit span to step (e.g., 0.1 = 10% steps)
+        hard_stop_on_t1: When True, immediately return the first TIER_1
+            window found without continuing to slide (reference behaviour).
+            When False (default), the current behaviour of breaking the
+            loop on TIER_1 is preserved (identical effect but documented
+            explicitly for clarity).
 
     Returns:
         Tuple of (best_window, all_evaluated_windows)
@@ -787,6 +981,10 @@ def _sliding_window_search(
         # If we found Tier 1, we can stop
         if window_eval.tier == WindowTier.TIER_1:
             logger.debug(f"Found Tier 1 window at {current_start}")
+            if hard_stop_on_t1:
+                # Reference behaviour: return immediately, don't even
+                # check the forced final bin.
+                return best_eval, evaluated_windows
             break
 
         current_start += step
@@ -801,6 +999,14 @@ def find_optimal_window(
     batch_end: datetime,
     criteria: WindowCriteria = None,
     use_sliding_after_bisect: bool = True,
+    *,
+    reference_mode: bool = False,
+    normalize_backward: bool = False,
+    overlap_bisection: bool = False,
+    short_circuit_first_half: bool = False,
+    hard_stop_on_t1: bool = False,
+    min_batch_threshold_multiplier: float = 1.1,
+    alignment_config: "ReferenceAlignmentConfig | None" = None,
 ) -> BisectionResult:
     """
     Find the optimal time window using Lewis's bisection algorithm.
@@ -817,27 +1023,75 @@ def find_optimal_window(
         batch_end: End of the data batch to search
         criteria: WindowCriteria instance (uses defaults if None)
         use_sliding_after_bisect: Whether to use sliding window refinement
+        reference_mode: Convenience flag.  When True, sets
+            normalize_backward, overlap_bisection,
+            short_circuit_first_half, hard_stop_on_t1 all to True, and
+            min_batch_threshold_multiplier to 2.01.  Provides a single
+            switch to get reference-compatible (windowCheck.py) behaviour.
+        normalize_backward: When True, add an ``epochNormalized`` column
+            where 0 = newest observation (reference convention).  Does not
+            change search logic directly but is available on the returned
+            DataFrame for downstream consumers.
+        overlap_bisection: Passed through to ``_bisect_search``.
+        short_circuit_first_half: Passed through to ``_bisect_search``.
+        hard_stop_on_t1: Passed through to ``_bisect_search`` and
+            ``_sliding_window_search``.
+        min_batch_threshold_multiplier: Passed through to
+            ``_bisect_search``.
+        alignment_config: Optional ``ReferenceAlignmentConfig`` instance.
+            If provided, overrides individual alignment keyword arguments.
 
     Returns:
         BisectionResult with best window and search statistics
     """
-    import time
-    start_time = time.time()
+    import time as _time
+    start_time = _time.time()
 
     if criteria is None:
         criteria = WindowCriteria()
+
+    # ---- Resolve alignment configuration ----
+    if alignment_config is not None:
+        cfg = alignment_config
+    elif reference_mode:
+        cfg = ReferenceAlignmentConfig.from_reference_mode(True)
+    else:
+        cfg = ReferenceAlignmentConfig(
+            normalize_backward=normalize_backward,
+            overlap_bisection=overlap_bisection,
+            short_circuit_first_half=short_circuit_first_half,
+            hard_stop_on_t1=hard_stop_on_t1,
+            min_batch_threshold_multiplier=min_batch_threshold_multiplier,
+        )
+
+    # ---- Optional backward time normalization (reference behaviour) ----
+    if cfg.normalize_backward and not obs_df.empty:
+        obs_df = obs_df.copy()
+        if obs_df["obTime"].dtype == "object":
+            obs_df["obTime"] = pd.to_datetime(obs_df["obTime"])
+        obs_df["epochNormalized"] = _normalize_time_backward(obs_df, "obTime")
+        logger.debug(
+            "normalize_backward: added epochNormalized column "
+            f"(range {obs_df['epochNormalized'].min():.4f} -- "
+            f"{obs_df['epochNormalized'].max():.4f} days)"
+        )
 
     result = BisectionResult()
 
     logger.info(
         f"Starting window search: {batch_start} to {batch_end} "
-        f"(fit span: {criteria.fit_span_days} days)"
+        f"(fit span: {criteria.fit_span_days} days, "
+        f"reference_mode={reference_mode or (alignment_config is not None and cfg.overlap_bisection)})"
     )
 
     # Phase 1: Bisection search to find promising region
     best_bisect, bisect_windows = _bisect_search(
         obs_df, sat_params, batch_start, batch_end, criteria,
-        depth=0, max_depth=10
+        depth=0, max_depth=10,
+        overlap_bisection=cfg.overlap_bisection,
+        short_circuit_first_half=cfg.short_circuit_first_half,
+        hard_stop_on_t1=cfg.hard_stop_on_t1,
+        min_batch_threshold_multiplier=cfg.min_batch_threshold_multiplier,
     )
     result.evaluated_windows.extend(bisect_windows)
     result.bisection_depth = len(bisect_windows)
@@ -848,7 +1102,10 @@ def find_optimal_window(
     )
 
     # Phase 2: Sliding window refinement
-    if use_sliding_after_bisect and best_bisect.tier != WindowTier.TIER_1:
+    # In hard_stop_on_t1 mode, skip sliding when bisection already found T1.
+    skip_sliding = cfg.hard_stop_on_t1 and best_bisect.tier == WindowTier.TIER_1
+
+    if use_sliding_after_bisect and not skip_sliding and best_bisect.tier != WindowTier.TIER_1:
         # Expand the best window region slightly for sliding search
         region_start = best_bisect.start_time - timedelta(days=criteria.fit_span_days * 0.5)
         region_end = best_bisect.end_time + timedelta(days=criteria.fit_span_days * 0.5)
@@ -859,7 +1116,8 @@ def find_optimal_window(
 
         best_slide, slide_windows = _sliding_window_search(
             obs_df, sat_params, region_start, region_end, criteria,
-            step_fraction=slide_resolution if slide_resolution > 0 else 0.1
+            step_fraction=slide_resolution if slide_resolution > 0 else 0.1,
+            hard_stop_on_t1=cfg.hard_stop_on_t1,
         )
         result.evaluated_windows.extend(slide_windows)
 
@@ -872,7 +1130,7 @@ def find_optimal_window(
 
     result.best_window = best_bisect
     result.windows_evaluated = len(result.evaluated_windows)
-    result.search_duration_seconds = time.time() - start_time
+    result.search_duration_seconds = _time.time() - start_time
 
     # Determine recommended action
     if best_bisect.tier == WindowTier.TIER_1:
@@ -902,20 +1160,30 @@ def find_optimal_window_with_decay(
     data_end: datetime,
     criteria: WindowCriteria = None,
     max_iterations: int = 20,
+    *,
+    reference_mode: bool = False,
+    normalize_backward: bool = False,
+    overlap_bisection: bool = False,
+    short_circuit_first_half: bool = False,
+    hard_stop_on_t1: bool = False,
+    min_batch_threshold_multiplier: float = 1.1,
+    alignment_config: "ReferenceAlignmentConfig | None" = None,
 ) -> BisectionResult:
     """
     Find optimal window using iterative batch pulling with exponential decay.
 
     This implements Lewis's complete batch decay algorithm:
-    1. Start with large batch (fitspan × batchSizeMultiplier)
+    1. Start with large batch (fitspan x batchSizeMultiplier)
     2. Each iteration, reduce batch size using exponential decay
     3. Search within each batch for optimal window
     4. Stop when criteria met or batch approaches fit span
 
     Per Lewis's specification:
-    - Initial batch = fitspan × batchSizeMultiplier (5x by default)
+    - Initial batch = fitspan x batchSizeMultiplier (5x by default)
     - Each iteration: batch_size = fit_span + (initial - fit_span) * exp(-decay_rate * iteration)
     - Decay rate = batchSizeDecayRate (0.01 by default)
+
+    Reference-alignment parameters (all keyword-only):
 
     Args:
         obs_df: DataFrame of observations with 'obTime', 'satNo' columns
@@ -924,15 +1192,41 @@ def find_optimal_window_with_decay(
         data_end: Latest available data time
         criteria: WindowCriteria instance (uses defaults if None)
         max_iterations: Maximum number of decay iterations
+        reference_mode: When True, activates all reference-alignment
+            flags via ``ReferenceAlignmentConfig.from_reference_mode(True)``.
+        normalize_backward: See ``find_optimal_window``.
+        overlap_bisection: See ``find_optimal_window``.
+        short_circuit_first_half: See ``find_optimal_window``.
+        hard_stop_on_t1: See ``find_optimal_window``.
+        min_batch_threshold_multiplier: Controls the minimum batch-to-
+            fit-span ratio for the decay loop stop condition.  Reference
+            uses 2.01 (``max(decayed, 2.01 * window_size)``); production
+            default is 1.1.
+        alignment_config: Optional ``ReferenceAlignmentConfig`` instance.
+            If provided, overrides individual alignment keyword arguments.
 
     Returns:
         BisectionResult with best window and search statistics
     """
-    import time
-    start_time = time.time()
+    import time as _time
+    start_time = _time.time()
 
     if criteria is None:
         criteria = WindowCriteria()
+
+    # ---- Resolve alignment configuration ----
+    if alignment_config is not None:
+        cfg = alignment_config
+    elif reference_mode:
+        cfg = ReferenceAlignmentConfig.from_reference_mode(True)
+    else:
+        cfg = ReferenceAlignmentConfig(
+            normalize_backward=normalize_backward,
+            overlap_bisection=overlap_bisection,
+            short_circuit_first_half=short_circuit_first_half,
+            hard_stop_on_t1=hard_stop_on_t1,
+            min_batch_threshold_multiplier=min_batch_threshold_multiplier,
+        )
 
     # Calculate initial batch size per Lewis's spec
     initial_batch_days = calculate_initial_batch_size(criteria.fit_span_days)
@@ -942,7 +1236,8 @@ def find_optimal_window_with_decay(
         f"Starting iterative window search with decay: "
         f"initial batch={initial_batch_days:.1f} days, "
         f"fit span={criteria.fit_span_days} days, "
-        f"data duration={data_duration_days:.1f} days"
+        f"data duration={data_duration_days:.1f} days, "
+        f"min_batch_multiplier={cfg.min_batch_threshold_multiplier}"
     )
 
     best_result = None
@@ -954,8 +1249,15 @@ def find_optimal_window_with_decay(
             iteration, initial_batch_days, criteria.fit_span_days
         )
 
-        # Stop if batch is effectively at fit span
-        if batch_days <= criteria.fit_span_days * 1.1:
+        # Reference behaviour: ensure batch never drops below
+        # min_batch_threshold_multiplier * fit_span (reference uses 2.01x)
+        batch_days = max(
+            batch_days,
+            criteria.fit_span_days * cfg.min_batch_threshold_multiplier,
+        )
+
+        # Stop if batch is effectively at fit span (using the multiplier)
+        if batch_days <= criteria.fit_span_days * cfg.min_batch_threshold_multiplier:
             logger.debug(f"Iteration {iteration}: batch size {batch_days:.2f} days at minimum")
             break
 
@@ -971,10 +1273,11 @@ def find_optimal_window_with_decay(
             f"searching {batch_start} to {batch_end}"
         )
 
-        # Run bisection search on this batch
+        # Run bisection search on this batch, passing alignment config
         result = find_optimal_window(
             obs_df, sat_params, batch_start, batch_end, criteria,
-            use_sliding_after_bisect=True
+            use_sliding_after_bisect=True,
+            alignment_config=cfg,
         )
 
         all_evaluated_windows.extend(result.evaluated_windows)
@@ -1002,7 +1305,7 @@ def find_optimal_window_with_decay(
     if best_result:
         best_result.evaluated_windows = all_evaluated_windows
         best_result.windows_evaluated = len(all_evaluated_windows)
-        best_result.search_duration_seconds = time.time() - start_time
+        best_result.search_duration_seconds = _time.time() - start_time
 
     logger.info(
         f"Iterative search complete: {len(all_evaluated_windows)} windows evaluated, "
@@ -1099,6 +1402,9 @@ def select_optimal_window_for_dataset(
     fit_span_days: float = 7.0,
     quality_level: str = "standard",
     regimes: List[str] = None,
+    *,
+    reference_mode: bool = False,
+    alignment_config: "ReferenceAlignmentConfig | None" = None,
 ) -> Tuple[pd.DataFrame, WindowEvaluation, str]:
     """
     High-level function to select optimal window for dataset generation.
@@ -1114,6 +1420,10 @@ def select_optimal_window_for_dataset(
         fit_span_days: Desired duration of dataset
         quality_level: "high", "standard", or "low"
         regimes: Orbital regimes to include
+        reference_mode: Convenience flag -- when True activates all
+            reference-alignment behaviours.  See ``find_optimal_window``
+            for details.
+        alignment_config: Optional ``ReferenceAlignmentConfig`` instance.
 
     Returns:
         Tuple of:
@@ -1147,9 +1457,15 @@ def select_optimal_window_for_dataset(
         regimes=regimes,
     )
 
+    # Resolve alignment config
+    if alignment_config is None and reference_mode:
+        alignment_config = ReferenceAlignmentConfig.from_reference_mode(True)
+
     # Run window search
     result = find_optimal_window(
-        obs_df, sat_params, batch_start, batch_end, criteria
+        obs_df, sat_params, batch_start, batch_end, criteria,
+        reference_mode=reference_mode,
+        alignment_config=alignment_config,
     )
 
     # Filter observations to best window
@@ -1512,10 +1828,10 @@ def interpret_quality_code(quality_char: str) -> dict:
     """
     Interpret A/S/N quality character per Louis's specification.
 
-    Per Benchmarking Documentation:
-    - A (Advanced): 0-33% of objects have LOW quality metrics
-    - S (Standard): 34-66% of objects have LOW quality metrics
-    - N (Novice): 67-100% of objects have LOW quality metrics
+    Per Benchmarking Documentation (% of objects with LOW quality):
+    - A (All-sparse):   >90% of objects have LOW quality (sparse dataset)
+    - S (Standard):     40-60% of objects have LOW quality (mixed dataset)
+    - N (None-sparse):  <10% of objects have LOW quality (dense dataset)
 
     "LOW" is defined by coverage/track-gap/obs-count thresholds:
     - Coverage LOW: < regime threshold (LEO 0.0213%, MEO 0.0449%, GEO 41.656%)

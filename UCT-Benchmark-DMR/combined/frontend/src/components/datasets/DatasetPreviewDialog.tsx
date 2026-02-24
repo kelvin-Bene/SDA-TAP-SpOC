@@ -9,9 +9,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Satellite, Database, Calendar } from 'lucide-react';
+import { Download, Satellite, Database, Calendar, History, Loader2 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
 import type { Dataset } from '@/types';
+import { useDatasetVersions } from '@/hooks/useDatasets';
 
 interface DatasetPreviewDialogProps {
   dataset: Dataset | null;
@@ -26,7 +27,13 @@ export function DatasetPreviewDialog({
   onOpenChange,
   onDownload,
 }: DatasetPreviewDialogProps) {
+  const { data: versions = [], isLoading: versionsLoading } = useDatasetVersions(
+    open && dataset ? dataset.id : null
+  );
+
   if (!dataset) return null;
+
+  const hasVersionHistory = versions.length > 1;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -47,10 +54,16 @@ export function DatasetPreviewDialog({
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${hasVersionHistory ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="statistics">Statistics</TabsTrigger>
             <TabsTrigger value="sample">Sample Data</TabsTrigger>
+            {hasVersionHistory && (
+              <TabsTrigger value="versions" className="gap-1">
+                <History className="h-3 w-3" />
+                Versions
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4">
@@ -78,9 +91,17 @@ export function DatasetPreviewDialog({
                 <p className="text-2xl font-semibold">{formatFileSize(dataset.sizeBytes)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-4 border-t">
-              <Calendar className="h-4 w-4" />
-              Created {formatDate(dataset.createdAt)}
+            <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Created {formatDate(dataset.createdAt)}
+              </div>
+              {dataset.version && dataset.version > 1 && (
+                <div className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Version {dataset.version}
+                </div>
+              )}
             </div>
             {dataset.description && (
               <div className="pt-4 border-t">
@@ -168,6 +189,47 @@ export function DatasetPreviewDialog({
               Sample format showing observation and truth catalog structure
             </p>
           </TabsContent>
+
+          {hasVersionHistory && (
+            <TabsContent value="versions" className="mt-4">
+              {versionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    {versions.length} version{versions.length !== 1 ? 's' : ''} of this dataset configuration
+                  </p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {versions.map((v) => (
+                      <div
+                        key={v.id}
+                        className={`rounded-lg border p-3 ${v.id === dataset.id ? 'border-primary bg-primary/5' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm">v{v.version || 1}</span>
+                            {v.id === dataset.id && (
+                              <Badge variant="outline" className="text-xs">Current</Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(v.createdAt)}
+                          </span>
+                        </div>
+                        <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                          <span>{v.objectCount} objects</span>
+                          <span>{v.observationCount.toLocaleString()} obs</span>
+                          <span>{(v.coverage * 100).toFixed(0)}% coverage</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
 
         <DialogFooter className="mt-6">

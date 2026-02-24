@@ -42,7 +42,7 @@ class TestBinaryMetricsWithTrueNegatives:
         # Algorithm correctly matches all reference observations
         associated_orbits = pd.DataFrame({
             "satNo": [1, 2, 3],
-            "sourcedData": [["obs1", "obs2"], ["obs3", "obs4"], ["obs5"]],
+            "grouped_ops": [["obs1", "obs2"], ["obs3", "obs4"], ["obs5"]],
         })
 
         # Non-reference observations from satellite 99 (not in reference set)
@@ -82,7 +82,7 @@ class TestBinaryMetricsWithTrueNegatives:
 
         associated_orbits = pd.DataFrame({
             "satNo": [1, 2, 3],
-            "sourcedData": [["obs1"], ["obs2"], ["obs3"]],
+            "grouped_ops": [["obs1"], ["obs2"], ["obs3"]],
         })
 
         # No non-reference observations provided
@@ -104,7 +104,7 @@ class TestBinaryMetricsWithTrueNegatives:
         # Algorithm matches 3 correctly, 1 wrong (FP), misses none
         associated_orbits = pd.DataFrame({
             "satNo": [1, 2, 3],  # 3 is wrong satellite for some obs
-            "sourcedData": [["obs1", "obs2"], ["obs3"], ["obs4"]],  # obs4 matched to wrong sat
+            "grouped_ops": [["obs1", "obs2"], ["obs3"], ["obs4"]],  # obs4 matched to wrong sat
         })
 
         non_ref_obs = pd.DataFrame({
@@ -145,7 +145,7 @@ class TestBinaryMetricsWithTrueNegatives:
         # Algorithm correctly matches both
         associated_orbits = pd.DataFrame({
             "satNo": [1],
-            "sourcedData": [["obs1", "obs2"]],
+            "grouped_ops": [["obs1", "obs2"]],
         })
 
         # 4 non-ref observations, algorithm incorrectly matches 1 to a ref satellite
@@ -157,7 +157,7 @@ class TestBinaryMetricsWithTrueNegatives:
         # Simulate algorithm incorrectly matching nonref1 to satellite 1
         associated_orbits_with_error = pd.DataFrame({
             "satNo": [1],
-            "sourcedData": [["obs1", "obs2", "nonref1"]],  # nonref1 incorrectly matched
+            "grouped_ops": [["obs1", "obs2", "nonref1"]],  # nonref1 incorrectly matched
         })
 
         result = binaryMetrics(

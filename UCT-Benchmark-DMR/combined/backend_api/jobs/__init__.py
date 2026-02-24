@@ -226,6 +226,200 @@ class JobManager:
         return removed
 
 
+class DatabaseJobManager(JobManager):
+    """
+    Job manager that mirrors state to the database jobs table.
+
+    In-memory dict remains primary for performance; DB is backup
+    for crash recovery. On startup, recovers incomplete jobs from DB.
+    """
+
+    def __init__(self, db: Any = None):
+        super().__init__()
+        self._db = db
+
+    def set_db(self, db: Any) -> None:
+        """Set or update the database reference."""
+        self._db = db
+        self._recover_from_db()
+
+    def _recover_from_db(self) -> None:
+        """Load incomplete jobs from database on startup."""
+        if self._db is None:
+            return
+        try:
+            import json as _json
+
+            result = self._db.execute(
+                "SELECT id, job_type, status, progress, result, error, metadata, "
+                "created_at, started_at, completed_at FROM jobs "
+                "WHERE status IN ('pending', 'running') "
+                "ORDER BY created_at DESC LIMIT 100"
+            )
+            columns = [desc[0] for desc in result.description]
+            rows = result.fetchall()
+            recovered = 0
+            with self._lock:
+                for row in rows:
+                    row_dict = dict(zip(columns, row))
+                    job_id = row_dict["id"]
+                    if job_id in self._jobs:
+                        continue  # Already tracked in memory
+
+                    # Parse metadata and result from JSON
+                    metadata = {}
+                    if row_dict.get("metadata"):
+                        try:
+                            raw = row_dict["metadata"]
+                            metadata = _json.loads(raw) if isinstance(raw, str) else (raw or {})
+                        except (ValueError, TypeError):
+                            pass
+
+                    job_result = None
+                    if row_dict.get("result"):
+                        try:
+                            raw = row_dict["result"]
+                            job_result = _json.loads(raw) if isinstance(raw, str) else raw
+                        except (ValueError, TypeError):
+                            pass
+
+                    job = Job(
+                        id=job_id,
+                        job_type=JobType(row_dict["job_type"]),
+                        status=JobStatus(row_dict.get("status", "pending")),
+                        progress=row_dict.get("progress") or 0,
+                        result=job_result,
+                        error=row_dict.get("error"),
+                        created_at=row_dict.get("created_at") or datetime.now(timezone.utc),
+                        started_at=row_dict.get("started_at"),
+                        completed_at=row_dict.get("completed_at"),
+                        metadata=metadata,
+                    )
+                    self._jobs[job_id] = job
+                    recovered += 1
+
+            if recovered > 0:
+                from loguru import logger
+                logger.info(f"Recovered {recovered} incomplete jobs from database")
+        except Exception as e:
+            from loguru import logger
+            logger.warning(f"Job recovery from database failed (non-critical): {e}")
+
+    def _persist_job(self, job: Job) -> None:
+        """Write job state to database (fire-and-forget)."""
+        if self._db is None:
+            return
+        try:
+            import json as _json
+
+            self._db.execute(
+                """
+                INSERT INTO jobs (id, job_type, status, progress, result, error, metadata,
+                                  created_at, started_at, completed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    progress = EXCLUDED.progress,
+                    result = EXCLUDED.result,
+                    error = EXCLUDED.error,
+                    started_at = EXCLUDED.started_at,
+                    completed_at = EXCLUDED.completed_at
+                """,
+                (
+                    job.id,
+                    job.job_type.value,
+                    job.status.value,
+                    job.progress,
+                    _json.dumps(job.result) if job.result is not None else None,
+                    job.error,
+                    _json.dumps(job.metadata) if job.metadata else None,
+                    job.created_at.isoformat() if job.created_at else None,
+                    job.started_at.isoformat() if job.started_at else None,
+                    job.completed_at.isoformat() if job.completed_at else None,
+                ),
+            )
+        except Exception:
+            pass  # DB persistence is best-effort; in-memory is primary
+
+    def create_job(self, job_type: JobType, metadata: Optional[Dict[str, Any]] = None) -> Job:
+        job = super().create_job(job_type, metadata)
+        self._persist_job(job)
+        return job
+
+    def update_job(
+        self,
+        job_id: str,
+        status: Optional[JobStatus] = None,
+        progress: Optional[int] = None,
+        stage: Optional[str] = None,
+        result: Optional[Any] = None,
+        error: Optional[str] = None,
+    ) -> Optional[Job]:
+        job = super().update_job(job_id, status, progress, stage, result, error)
+        if job is not None:
+            self._persist_job(job)
+        return job
+
+    def get_job(self, job_id: str) -> Optional[Job]:
+        """Get job from memory, falling back to database."""
+        job = super().get_job(job_id)
+        if job is not None:
+            return job
+
+        # Fall back to database lookup
+        if self._db is None:
+            return None
+        try:
+            import json as _json
+
+            result = self._db.execute(
+                "SELECT id, job_type, status, progress, result, error, metadata, "
+                "created_at, started_at, completed_at FROM jobs WHERE id = ?",
+                (job_id,),
+            )
+            columns = [desc[0] for desc in result.description]
+            row = result.fetchone()
+            if row is None:
+                return None
+
+            row_dict = dict(zip(columns, row))
+
+            metadata = {}
+            if row_dict.get("metadata"):
+                try:
+                    raw = row_dict["metadata"]
+                    metadata = _json.loads(raw) if isinstance(raw, str) else (raw or {})
+                except (ValueError, TypeError):
+                    pass
+
+            job_result = None
+            if row_dict.get("result"):
+                try:
+                    raw = row_dict["result"]
+                    job_result = _json.loads(raw) if isinstance(raw, str) else raw
+                except (ValueError, TypeError):
+                    pass
+
+            job = Job(
+                id=job_id,
+                job_type=JobType(row_dict["job_type"]),
+                status=JobStatus(row_dict.get("status", "pending")),
+                progress=row_dict.get("progress") or 0,
+                result=job_result,
+                error=row_dict.get("error"),
+                created_at=row_dict.get("created_at") or datetime.now(timezone.utc),
+                started_at=row_dict.get("started_at"),
+                completed_at=row_dict.get("completed_at"),
+                metadata=metadata,
+            )
+            # Cache in memory
+            with self._lock:
+                self._jobs[job_id] = job
+            return job
+        except Exception:
+            return None
+
+
 # Global job manager instance (singleton)
 _job_manager: Optional[JobManager] = None
 
@@ -239,12 +433,15 @@ def get_job_manager() -> JobManager:
     """
     global _job_manager
     if _job_manager is None:
-        _job_manager = JobManager()
+        _job_manager = DatabaseJobManager()
     return _job_manager
 
 
-def init_job_manager() -> JobManager:
-    """Initialize the global job manager."""
+def init_job_manager(db: Any = None) -> JobManager:
+    """Initialize the global job manager, optionally with DB persistence."""
     global _job_manager
-    _job_manager = JobManager()
+    if db is not None:
+        _job_manager = DatabaseJobManager(db)
+    else:
+        _job_manager = DatabaseJobManager()
     return _job_manager

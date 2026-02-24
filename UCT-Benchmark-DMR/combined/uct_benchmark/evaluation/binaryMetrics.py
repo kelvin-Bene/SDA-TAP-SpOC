@@ -57,7 +57,8 @@ def binaryMetrics(
     associated_orbits : pd.DataFrame
         DataFrame containing predicted associations with at least:
             - 'satNo': predicted satellite number
-            - 'sourcedData': list of observation IDs associated with that satellite
+            - 'grouped_ops': list of observation IDs associated with that satellite
+              (legacy alias 'sourcedData' is also accepted for backwards compatibility)
 
     non_ref_observations : pd.DataFrame, optional
         DataFrame containing non-reference observations (from satellites NOT in reference set).
@@ -102,9 +103,13 @@ def binaryMetrics(
     # --- Build list of (observation ID, predicted satNo) pairs ---
     obs_to_sat = []
 
+    # Determine the column name for grouped observation IDs
+    # Accept both 'grouped_ops' (canonical) and 'sourcedData' (legacy)
+    _grouped_col = "grouped_ops" if "grouped_ops" in associated_orbits.columns else "sourcedData"
+
     for _, row in associated_orbits.iterrows():
         satNo = row["satNo"]
-        for obs_id in row["sourcedData"]:
+        for obs_id in row[_grouped_col]:
             # Each observation ID is associated with this predicted satellite number
             obs_to_sat.append({"id": obs_id, "satNo": satNo})
 
