@@ -159,28 +159,28 @@ class TestQualityInterpretation:
     """Tests for A/S/N quality level interpretation."""
 
     def test_advanced_quality_range(self):
-        """A (Advanced) = 0-33% have LOW quality."""
+        """A (All-sparse) = >90% of objects have LOW quality (sparse dataset)."""
         from uct_benchmark.data.windowSelection import interpret_quality_code
 
         result = interpret_quality_code('A')
-        assert result['min_pct'] == 0.0, "A min_pct should be 0.0"
-        assert result['max_pct'] == 0.33, "A max_pct should be 0.33"
+        assert result['min_pct'] == 0.90, "A min_pct should be 0.90"
+        assert result['max_pct'] == 1.0, "A max_pct should be 1.0"
 
     def test_standard_quality_range(self):
-        """S (Standard) = 34-66% have LOW quality."""
+        """S (Standard) = 40-60% of objects have LOW quality (mixed)."""
         from uct_benchmark.data.windowSelection import interpret_quality_code
 
         result = interpret_quality_code('S')
-        assert result['min_pct'] == 0.34, "S min_pct should be 0.34"
-        assert result['max_pct'] == 0.66, "S max_pct should be 0.66"
+        assert result['min_pct'] == 0.40, "S min_pct should be 0.40"
+        assert result['max_pct'] == 0.60, "S max_pct should be 0.60"
 
     def test_novice_quality_range(self):
-        """N (Novice) = 67-100% have LOW quality."""
+        """N (None-sparse) = <10% of objects have LOW quality (dense dataset)."""
         from uct_benchmark.data.windowSelection import interpret_quality_code
 
         result = interpret_quality_code('N')
-        assert result['min_pct'] == 0.67, "N min_pct should be 0.67"
-        assert result['max_pct'] == 1.0, "N max_pct should be 1.0"
+        assert result['min_pct'] == 0.0, "N min_pct should be 0.0"
+        assert result['max_pct'] == 0.10, "N max_pct should be 0.10"
 
     def test_case_insensitive(self):
         """Quality codes should be case-insensitive."""
@@ -188,23 +188,23 @@ class TestQualityInterpretation:
 
         for code in ['a', 'A']:
             result = interpret_quality_code(code)
-            assert result['max_pct'] == 0.33
+            assert result['max_pct'] == 1.0
 
         for code in ['s', 'S']:
             result = interpret_quality_code(code)
-            assert result['min_pct'] == 0.34
+            assert result['min_pct'] == 0.40
 
         for code in ['n', 'N']:
             result = interpret_quality_code(code)
-            assert result['min_pct'] == 0.67
+            assert result['min_pct'] == 0.0
 
     def test_invalid_code_returns_standard(self):
         """Invalid quality code should return Standard (S) as default."""
         from uct_benchmark.data.windowSelection import interpret_quality_code
 
         result = interpret_quality_code('X')
-        assert result['min_pct'] == 0.34, "Invalid code should default to S"
-        assert result['max_pct'] == 0.66
+        assert result['min_pct'] == 0.40, "Invalid code should default to S"
+        assert result['max_pct'] == 0.60
 
 
 class TestNonReferenceObservations:

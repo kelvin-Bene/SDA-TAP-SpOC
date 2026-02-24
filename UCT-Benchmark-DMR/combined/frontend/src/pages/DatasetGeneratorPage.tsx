@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGenerateDataset, useJobStatus, MAX_TIMEFRAME_DAYS } from '@/hooks/useDatasets';
+import { useGenerateDataset, useJobStatus, useDatasetConfig, MAX_TIMEFRAME_DAYS } from '@/hooks/useDatasets';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -71,21 +71,38 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-// Regime-specific coverage thresholds per Lewis's specification
-// These define what constitutes "low coverage" for each orbital regime
-// Based on ground-based sensor visibility constraints
-const COVERAGE_THRESHOLDS: Record<OrbitalRegime, { low: number; display: string }> = {
-  LEO: { low: 0.000213, display: '<0.02%' },   // 0.0213% - short passes
-  MEO: { low: 0.000449, display: '<0.05%' },   // 0.0449% - longer visibility
-  GEO: { low: 0.41656, display: '<42%' },      // 41.656% - always visible but arc limited
-  HEO: { low: 0.20, display: '<20%' },         // Highly variable
+// Fallback coverage thresholds in case backend config endpoint is unavailable
+const DEFAULT_COVERAGE_THRESHOLDS: Record<OrbitalRegime, { low: number; display: string }> = {
+  LEO: { low: 0.000213, display: '<0.02%' },
+  MEO: { low: 0.000449, display: '<0.05%' },
+  GEO: { low: 0.41656, display: '<42%' },
+  HEO: { low: 0.20, display: '<20%' },
 };
 
+function buildThresholds(
+  backendThresholds?: Record<string, number>
+): Record<OrbitalRegime, { low: number; display: string }> {
+  if (!backendThresholds) return DEFAULT_COVERAGE_THRESHOLDS;
+  const result = { ...DEFAULT_COVERAGE_THRESHOLDS };
+  for (const regime of ['LEO', 'MEO', 'GEO', 'HEO'] as OrbitalRegime[]) {
+    if (regime in backendThresholds) {
+      const val = backendThresholds[regime];
+      const pct = val * 100;
+      result[regime] = {
+        low: val,
+        display: pct < 1 ? `<${pct.toFixed(2)}%` : `<${Math.round(pct)}%`,
+      };
+    }
+  }
+  return result;
+}
+
 // Get coverage option labels based on selected regime
-function getCoverageOptions(regime: OrbitalRegime): { value: string; label: string }[] {
-  const threshold = COVERAGE_THRESHOLDS[regime] || COVERAGE_THRESHOLDS.LEO;
-  // For LEO/MEO, "high" is much higher than threshold
-  // For GEO, the ranges are different due to higher visibility
+function getCoverageOptions(
+  regime: OrbitalRegime,
+  thresholds: Record<OrbitalRegime, { low: number; display: string }>
+): { value: string; label: string }[] {
+  const threshold = thresholds[regime] || thresholds.LEO;
   if (regime === 'GEO') {
     return [
       { value: 'high', label: 'High (>60%)' },
@@ -94,7 +111,6 @@ function getCoverageOptions(regime: OrbitalRegime): { value: string; label: stri
       { value: 'mixed', label: 'Mixed' },
     ];
   }
-  // LEO/MEO/HEO have very low coverage thresholds
   return [
     { value: 'high', label: 'High (>5%)' },
     { value: 'standard', label: `Standard (${threshold.display}-5%)` },
@@ -147,6 +163,57 @@ function calculateTimeframeDays(startDate: string, endDate: string): number {
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// Generate a 16-character dataset code from the Standard Wizard config
+// Maps user-friendly Standard Wizard values to legacy code positions
+function generateStandardWizardCode(cfg: DatasetGenerationConfig): string {
+  // Position 1: Object Type
+  const objectType = cfg.objectTypeCode ?? 'U';
+
+  // Positions 2-3: Target Percentage
+  const targetPct = cfg.targetPercentage ?? 'UN';
+
+  // Positions 4-6: Orbital Regime (direct map)
+  const regime = cfg.regime; // LEO, MEO, GEO, HEO
+
+  // Positions 7-8: Event Type
+  const event = cfg.eventCode ?? 'NE';
+
+  // Positions 9-10: Sensor Type
+  const sensor = cfg.sensorTypeCode ?? 'OP';
+
+  // Position 11: Coverage (map standard wizard values to A/S/N)
+  const coverageMap: Record<string, string> = { high: 'N', standard: 'S', low: 'A', mixed: 'S' };
+  const coverage = coverageMap[cfg.coverage] ?? 'S';
+
+  // Position 12: Track Gap (map gap target to A/S/N)
+  const trackGap = cfg.trackGapTarget <= 1 ? 'N' : cfg.trackGapTarget <= 2 ? 'S' : 'A';
+
+  // Position 13: Observation Density (map obs count to A/S/N)
+  const obsDensity = cfg.observationDensity > 100 ? 'N' : cfg.observationDensity >= 30 ? 'S' : 'A';
+
+  // Position 14: Object Count (map count to H/S/L)
+  const objCount = cfg.objectCount > 60 ? 'H' : cfg.objectCount >= 20 ? 'S' : 'L';
+
+  // Positions 15-16: Fitspan Days (zero-padded)
+  const fitspan = (cfg.fitspanDays ?? 7).toString().padStart(2, '0');
+
+  return objectType + targetPct + regime + event + sensor + coverage + trackGap + obsDensity + objCount + fitspan;
+}
+
+// Describe each position of the 16-character code for tooltips
+const CODE_POSITION_LABELS: { pos: string; label: string }[] = [
+  { pos: '1', label: 'Object Type' },
+  { pos: '2-3', label: 'Target %' },
+  { pos: '4-6', label: 'Regime' },
+  { pos: '7-8', label: 'Event' },
+  { pos: '9-10', label: 'Sensor' },
+  { pos: '11', label: 'Coverage' },
+  { pos: '12', label: 'Track Gap' },
+  { pos: '13', label: 'Obs Density' },
+  { pos: '14', label: 'Object Count' },
+  { pos: '15-16', label: 'Fitspan' },
+];
+
 const defaultDownsampling: DownsamplingOptions = {
   enabled: false,
   targetCoverage: 0.05,
@@ -178,6 +245,12 @@ const defaultConfig: DatasetGenerationConfig = {
   simulation: defaultSimulation,
   searchStrategy: 'hybrid',
   windowSizeMinutes: 10,
+  // Dataset code positions (all 16 positions exposed)
+  objectTypeCode: 'U',
+  targetPercentage: 'UN',
+  eventCode: 'NE',
+  sensorTypeCode: 'OP',
+  fitspanDays: 7,
 };
 
 export function DatasetGeneratorPage() {
@@ -198,6 +271,8 @@ export function DatasetGeneratorPage() {
 
   const generateDatasetMutation = useGenerateDataset();
   const { data: jobStatus } = useJobStatus(jobId);
+  const { data: datasetConfig } = useDatasetConfig();
+  const coverageThresholds = buildThresholds(datasetConfig?.coverage_thresholds);
 
   // Generate the legacy code from current config
   const currentLegacyCode = generateLegacyCode(legacyConfig);
@@ -1022,6 +1097,47 @@ export function DatasetGeneratorPage() {
                     </Label>
                   ))}
                 </RadioGroup>
+
+                <Separator />
+
+                {/* Target Object Percentage (Positions 2-3) */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Target Object Percentage</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Percentage of objects designated as targets for detection. Maps to positions 2-3 of the 16-character dataset code.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <RadioGroup
+                    value={config.targetPercentage ?? 'UN'}
+                    onValueChange={(v) => updateConfig('targetPercentage', v as TargetPercentage)}
+                    className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+                  >
+                    {([
+                      { value: '50', label: '50%' },
+                      { value: '10', label: '10%' },
+                      { value: '01', label: '1%' },
+                      { value: 'UN', label: 'Unspecified' },
+                    ] as const).map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`target-pct-${opt.value}`}
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
+                          (config.targetPercentage ?? 'UN') === opt.value && 'border-primary bg-primary/5'
+                        )}
+                      >
+                        <RadioGroupItem value={opt.value} id={`target-pct-${opt.value}`} />
+                        <span>{opt.label}</span>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </div>
               </CardContent>
             </>
           )}
@@ -1054,7 +1170,7 @@ export function DatasetGeneratorPage() {
                     onValueChange={(value) => updateConfig('coverage', value as typeof config.coverage)}
                     className="grid grid-cols-2 sm:grid-cols-4 gap-2"
                   >
-                    {getCoverageOptions(config.regime).map((opt) => (
+                    {getCoverageOptions(config.regime, coverageThresholds).map((opt) => (
                       <Label
                         key={opt.value}
                         htmlFor={`coverage-${opt.value}`}
@@ -1138,6 +1254,96 @@ export function DatasetGeneratorPage() {
                   <p className="text-sm text-muted-foreground">
                     {config.trackGapTarget} orbital period{config.trackGapTarget > 1 ? 's' : ''} selected
                   </p>
+                </div>
+
+                <Separator />
+
+                {/* Sensor Type (Positions 9-10) */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Sensor Type</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Type of sensor observations in the dataset. Maps to positions 9-10 of the 16-character dataset code.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <RadioGroup
+                    value={config.sensorTypeCode ?? 'OP'}
+                    onValueChange={(v) => updateConfig('sensorTypeCode', v as LegacySensorType)}
+                    className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+                  >
+                    {([
+                      { value: 'OP', label: 'Optical' },
+                      { value: 'RA', label: 'Radar' },
+                      { value: 'RF', label: 'RF' },
+                      { value: 'FU', label: 'Fusion (All)' },
+                      { value: 'OR', label: 'Optical + Radar' },
+                      { value: 'RR', label: 'Radar + RF' },
+                    ] as const).map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`sensor-type-${opt.value}`}
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
+                          (config.sensorTypeCode ?? 'OP') === opt.value && 'border-primary bg-primary/5'
+                        )}
+                      >
+                        <RadioGroupItem value={opt.value} id={`sensor-type-${opt.value}`} />
+                        <div>
+                          <span className="font-mono mr-1">{opt.value}</span>
+                          <span>{opt.label}</span>
+                        </div>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </div>
+
+                <Separator />
+
+                {/* Event Type (Positions 7-8) */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Event Type</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Whether to include specific orbital events in the dataset. Maps to positions 7-8 of the 16-character dataset code.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <RadioGroup
+                    value={config.eventCode ?? 'NE'}
+                    onValueChange={(v) => updateConfig('eventCode', v as LegacyEventType)}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {([
+                      { value: 'NE', label: 'No Events (Normal)' },
+                      { value: 'MB', label: 'Maneuver Between' },
+                      { value: 'BU', label: 'Breakup Event' },
+                      { value: 'LL', label: 'Long-thrust Low-thrust' },
+                    ] as const).map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`event-type-${opt.value}`}
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
+                          (config.eventCode ?? 'NE') === opt.value && 'border-primary bg-primary/5'
+                        )}
+                      >
+                        <RadioGroupItem value={opt.value} id={`event-type-${opt.value}`} />
+                        <div>
+                          <span className="font-mono mr-1">{opt.value}</span>
+                          <span>{opt.label}</span>
+                        </div>
+                      </Label>
+                    ))}
+                  </RadioGroup>
                 </div>
               </CardContent>
             </>
@@ -1231,6 +1437,38 @@ export function DatasetGeneratorPage() {
 
                 <Separator />
 
+                {/* Object Type (Position 1) */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Object Type</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Type of objects to include in the dataset. Maps to position 1 of the 16-character dataset code.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Select
+                    value={config.objectTypeCode ?? 'U'}
+                    onValueChange={(value) => updateConfig('objectTypeCode', value as 'H' | 'C' | 'A' | 'U' | 'N')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select object type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="U">U - Unspecified (All objects)</SelectItem>
+                      <SelectItem value="H">H - HAMR (High Area-to-Mass Ratio)</SelectItem>
+                      <SelectItem value="C">C - Close (Physical proximity)</SelectItem>
+                      <SelectItem value="A">A - Apparent (Angular proximity)</SelectItem>
+                      <SelectItem value="N">N - Calibration satellites</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
                 {/* HAMR Toggle */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -1243,6 +1481,42 @@ export function DatasetGeneratorPage() {
                     checked={config.includeHamr}
                     onCheckedChange={(checked) => updateConfig('includeHamr', checked)}
                   />
+                </div>
+
+                <Separator />
+
+                {/* Fitspan Days (Positions 15-16) */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Observation Window (Fitspan)</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Duration of the observation window in days. Maps to positions 15-16 of the 16-character dataset code.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Fitspan duration</span>
+                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                      {config.fitspanDays ?? 7} days
+                    </span>
+                  </div>
+                  <Slider
+                    value={[config.fitspanDays ?? 7]}
+                    onValueChange={([v]) => updateConfig('fitspanDays', v)}
+                    min={1}
+                    max={14}
+                    step={1}
+                    className="py-4"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1 day</span>
+                    <span>7 days</span>
+                    <span>14 days</span>
+                  </div>
                 </div>
               </CardContent>
             </>
@@ -1602,45 +1876,6 @@ export function DatasetGeneratorPage() {
                       onCheckedChange={(checked) => updateConfig('useWindowSelection', checked)}
                     />
                   </div>
-
-                  {/* Object Type Code */}
-                  <div className="space-y-2">
-                    <Label>Object Type Filter</Label>
-                    <Select
-                      value={config.objectTypeCode ?? 'U'}
-                      onValueChange={(value) => updateConfig('objectTypeCode', value as 'H' | 'C' | 'A' | 'U' | 'N')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select object type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="U">Unspecified (All objects)</SelectItem>
-                        <SelectItem value="H">HAMR (High Area-to-Mass Ratio)</SelectItem>
-                        <SelectItem value="C">Close (Physical proximity)</SelectItem>
-                        <SelectItem value="A">Apparent (Angular proximity)</SelectItem>
-                        <SelectItem value="N">Calibration satellites</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Event Code */}
-                  <div className="space-y-2">
-                    <Label>Event Filter</Label>
-                    <Select
-                      value={config.eventCode ?? 'NE'}
-                      onValueChange={(value) => updateConfig('eventCode', value as 'MB' | 'BU' | 'LL' | 'NE')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select event type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NE">No Events (Normal)</SelectItem>
-                        <SelectItem value="MB">Maneuver Between observations</SelectItem>
-                        <SelectItem value="BU">Breakup event</SelectItem>
-                        <SelectItem value="LL">Long-duration Low-thrust</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </CardContent>
             </>
@@ -1685,6 +1920,10 @@ export function DatasetGeneratorPage() {
                         </div>
                       </div>
                       <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Target %</h4>
+                        <p className="text-2xl font-semibold">{TARGET_PERCENTAGES[config.targetPercentage ?? 'UN']}</p>
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
                         <h4 className="font-medium">Coverage</h4>
                         <p className="text-2xl font-semibold capitalize">{config.coverage}</p>
                       </div>
@@ -1699,11 +1938,28 @@ export function DatasetGeneratorPage() {
                         <p className="text-xs text-muted-foreground">orbital periods</p>
                       </div>
                       <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Sensor Type</h4>
+                        <p className="text-lg font-semibold">{LEGACY_SENSOR_TYPES[(config.sensorTypeCode ?? 'OP') as LegacySensorType]}</p>
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Event Type</h4>
+                        <p className="text-lg font-semibold">{LEGACY_EVENT_TYPES[(config.eventCode ?? 'NE') as LegacyEventType]}</p>
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Object Type</h4>
+                        <p className="text-lg font-semibold">{LEGACY_OBJECT_TYPES[(config.objectTypeCode ?? 'U') as LegacyObjectType]}</p>
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
                         <h4 className="font-medium">Objects</h4>
                         <p className="text-2xl font-semibold">{config.objectCount}</p>
                         <p className="text-xs text-muted-foreground">
                           {config.includeHamr ? 'Including HAMR objects' : 'Standard objects only'}
                         </p>
+                      </div>
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <h4 className="font-medium">Fitspan</h4>
+                        <p className="text-2xl font-semibold">{config.fitspanDays ?? 7}</p>
+                        <p className="text-xs text-muted-foreground">days</p>
                       </div>
                       <div className="rounded-lg border p-4 space-y-3">
                         <h4 className="font-medium">Date Range</h4>
@@ -1782,6 +2038,54 @@ export function DatasetGeneratorPage() {
                           <p className="text-muted-foreground">Format</p>
                           <p className="font-semibold">JSON</p>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Dataset Code Preview (16-character code) */}
+                    <div className="rounded-lg border p-4 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">Dataset Code (16-character)</h4>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm">
+                            <p className="mb-1">Positions in the 16-character dataset code:</p>
+                            <ul className="text-xs space-y-0.5">
+                              {CODE_POSITION_LABELS.map((p) => (
+                                <li key={p.pos}>Pos {p.pos}: {p.label}</li>
+                              ))}
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="text-center py-3 bg-muted/50 rounded-lg">
+                        <p className="font-mono text-3xl tracking-widest text-primary">
+                          {generateStandardWizardCode(config)}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {(() => {
+                          const code = generateStandardWizardCode(config);
+                          const segments = [
+                            { chars: code[0], label: 'Object Type' },
+                            { chars: code.slice(1, 3), label: 'Target %' },
+                            { chars: code.slice(3, 6), label: 'Regime' },
+                            { chars: code.slice(6, 8), label: 'Event' },
+                            { chars: code.slice(8, 10), label: 'Sensor' },
+                            { chars: code[10], label: 'Coverage' },
+                            { chars: code[11], label: 'Track Gap' },
+                            { chars: code[12], label: 'Obs Density' },
+                            { chars: code[13], label: 'Obj Count' },
+                            { chars: code.slice(14, 16), label: 'Fitspan' },
+                          ];
+                          return segments.map((seg) => (
+                            <div key={seg.label} className="rounded border p-2 text-center">
+                              <p className="font-mono text-sm font-semibold">{seg.chars}</p>
+                              <p className="text-[10px] text-muted-foreground">{seg.label}</p>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     </div>
                   </>

@@ -1832,6 +1832,25 @@ def generateDataset(
             DatasetStage,
         )
 
+    # Per Feb 19, 2026 transcript: automatic fallback between strategies.
+    # If satellite-based query (FAST/HYBRID) returns no results, fall back to
+    # time-based WINDOWED query using observation time instead of satellite number.
+    if (obs_truth_data.empty or "obTime" not in obs_truth_data.columns) and search_strategy != "windowed":
+        logger.warning(
+            f"Strategy '{search_strategy}' returned no results for satellites {list(satIDs)}. "
+            f"Falling back to WINDOWED strategy using time-based query."
+        )
+        obs_truth_data = _fetch_observations_windowed(
+            UDL_token,
+            regime,
+            actual_start_time,
+            actual_end_time,
+            window_size_minutes,
+            dt,
+            report_progress,
+            DatasetStage,
+        )
+
     # Check for empty observation data
     if obs_truth_data.empty or "obTime" not in obs_truth_data.columns:
         raise ValueError(
@@ -2725,9 +2744,13 @@ def generateDataset(
                         "declination": "declination",
                         "ra": "ra",
                         "sensorName": "sensor_name",
-                        "idSensor": "sensor_name",  # Simulated data uses idSensor
+                        "idSensor": "sensor_id",
                         "dataMode": "data_mode",
                         "trackId": "track_id",
+                        "senderLatitude": "send_lat",
+                        "senderLongitude": "send_long",
+                        "senderAltitude": "send_alt",
+                        "typeOptical": "type_optical",
                     }
                 )
                 db.observations.bulk_insert(obs_for_db)

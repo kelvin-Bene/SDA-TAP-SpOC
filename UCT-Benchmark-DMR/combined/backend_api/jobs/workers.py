@@ -485,6 +485,21 @@ def run_evaluation_pipeline(
         with open(file_path, "r") as f:
             submission_data = json.load(f)
 
+        # Normalize field names in submission to canonical forms
+        # This handles different UCTP naming conventions (e.g., VX vs xvel, sourcedData vs grouped_ops)
+        from uct_benchmark.utils.field_mapping import normalize_submission, validate_required_fields
+        if isinstance(submission_data, list):
+            submission_data = normalize_submission(submission_data)
+
+            # Validate required fields on the first record to catch bad submissions early
+            if submission_data:
+                missing = validate_required_fields(submission_data[0])
+                if missing:
+                    raise ValueError(
+                        f"Submission is missing required UCTP fields: {', '.join(missing)}. "
+                        f"Expected fields: grouped_ops, epoch, xpos, ypos, zpos, xvel, yvel, zvel"
+                    )
+
         job_manager.update_job(job_id, progress=30)
 
         # Get reference data from database
@@ -567,6 +582,64 @@ def run_evaluation_pipeline(
 
         job_manager.update_job(job_id, progress=90)
 
+        # Build enriched raw_results with histogram data for visualization
+        raw_results_payload: Dict[str, Any] = {
+            "binary": binary_results,
+            "state": state_results,
+        }
+
+        # Extract residual and position error arrays for histogram visualization
+        # These come from the state metrics or associations if available
+        if associations:
+            try:
+                import numpy as np
+
+                # Collect per-satellite position errors for histogram
+                position_errors: list[float] = []
+                ra_residuals: list[float] = []
+                dec_residuals: list[float] = []
+
+                per_satellite = state_results.get("per_satellite", {})
+                for sat_id, sat_data in per_satellite.items():
+                    if isinstance(sat_data, dict):
+                        pe = sat_data.get("position_error_km")
+                        if pe is not None:
+                            position_errors.append(float(pe))
+                        ra_res = sat_data.get("ra_residual_arcsec")
+                        dec_res = sat_data.get("dec_residual_arcsec")
+                        if ra_res is not None:
+                            ra_residuals.append(float(ra_res))
+                        if dec_res is not None:
+                            dec_residuals.append(float(dec_res))
+
+                # Bin position errors: [0-1, 1-2, 2-3, 3-4, 4-5, 5+] km
+                if position_errors:
+                    pe_arr = np.array(position_errors)
+                    pe_bins = [0, 1, 2, 3, 4, 5, float("inf")]
+                    pe_hist, _ = np.histogram(pe_arr, bins=pe_bins)
+                    raw_results_payload["position_error_histogram"] = {
+                        "labels": ["0-1", "1-2", "2-3", "3-4", "4-5", "5+"],
+                        "counts": pe_hist.tolist(),
+                    }
+
+                # Bin residuals in sigma units: [-3, -2, -1, 0, 1, 2, 3]
+                for name, vals in [("ra_residual_histogram", ra_residuals),
+                                   ("dec_residual_histogram", dec_residuals)]:
+                    if vals:
+                        arr = np.array(vals)
+                        rms = float(np.sqrt(np.mean(arr ** 2))) or 1.0
+                        sigma_vals = arr / rms
+                        bins_edges = [-np.inf, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, np.inf]
+                        hist, _ = np.histogram(sigma_vals, bins=bins_edges)
+                        raw_results_payload[name] = {
+                            "labels": ["-3", "-2", "-1", "0", "1", "2", "3"],
+                            "counts": hist.tolist(),
+                        }
+
+                raw_results_payload["per_satellite"] = per_satellite
+            except Exception as hist_err:
+                logger.debug(f"Histogram generation skipped: {hist_err}")
+
         # Store results in database
         db.execute(
             """
@@ -599,7 +672,7 @@ def run_evaluation_pipeline(
                 binary_results.get("accuracy", binary_results.get("Accuracy", 0.0)),
                 state_results.get("position_rms_km", 0.0),
                 state_results.get("velocity_rms_km_s", 0.0),
-                json.dumps({"binary": binary_results, "state": state_results}),
+                json.dumps(raw_results_payload),
             ),
         )
 

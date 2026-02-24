@@ -1,11 +1,11 @@
 // Orbital Regimes
 export type OrbitalRegime = 'LEO' | 'MEO' | 'GEO' | 'HEO';
 
-// Data Tiers
-export type DataTier = 'T1' | 'T2' | 'T3' | 'T4';
+// Data Tiers (T5 = impossible criteria detected, per Aug 2025 transcript)
+export type DataTier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
 
-// Sensor Types
-export type SensorType = 'optical' | 'radar' | 'rf';
+// Sensor Types (fusion = combined sensor data, per Jan 22 transcript)
+export type SensorType = 'optical' | 'radar' | 'rf' | 'fusion';
 
 // Search Strategy for data fetching
 export type SearchStrategy = 'fast' | 'windowed' | 'hybrid';
@@ -184,6 +184,8 @@ export interface Dataset {
   sensorTypes: SensorType[];
   description?: string;
   downloadUrl?: string;
+  version?: number;
+  parentId?: string;
 }
 
 export interface DatasetFilters {
@@ -243,6 +245,12 @@ export interface DatasetGenerationConfig {
   // Object type and event codes (per Louis's 16-character code spec)
   objectTypeCode?: 'H' | 'C' | 'A' | 'U' | 'N';
   eventCode?: 'MB' | 'BU' | 'LL' | 'NE';
+  // Target percentage (positions 2-3 of 16-char code)
+  targetPercentage?: '50' | '10' | '01' | 'UN';
+  // Sensor type code (positions 9-10 of 16-char code)
+  sensorTypeCode?: 'OP' | 'RA' | 'RF' | 'FU' | 'OR' | 'RO' | 'RR';
+  // Fitspan days (positions 15-16 of 16-char code)
+  fitspanDays?: number;
   // Window selection algorithm (per Louis's bisecting search spec)
   useWindowSelection?: boolean;
 }
@@ -288,9 +296,20 @@ export interface SubmissionResults {
   // Per-satellite breakdown
   satelliteResults: SatelliteResult[];
 
+  // Histogram data (real distributions from evaluation pipeline)
+  raResidualHistogram?: HistogramData;
+  decResidualHistogram?: HistogramData;
+  positionErrorHistogram?: HistogramData;
+
   // Rank info
   rank: number;
   previousRank?: number;
+}
+
+// Histogram data from evaluation pipeline (real distribution data)
+export interface HistogramData {
+  labels: string[];
+  counts: number[];
 }
 
 export interface SatelliteResult {
@@ -379,6 +398,7 @@ export interface SubmissionForm {
   algorithmName: string;
   version: string;
   description?: string;
+  classificationMarking?: string;
   file: File;
 }
 

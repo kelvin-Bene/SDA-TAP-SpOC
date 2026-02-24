@@ -35,6 +35,27 @@ from uct_benchmark.database.connection import DatabaseManager
 router = APIRouter()
 
 
+@router.get("/config")
+async def get_dataset_config():
+    """
+    Return dataset configuration values from backend settings.
+
+    Provides coverage thresholds, track gap multiplier, and observation count
+    thresholds so the frontend stays in sync without hardcoding values.
+    """
+    from uct_benchmark.settings import (
+        COVERAGE_THRESHOLDS,
+        TRACK_GAP_LONG_MULTIPLIER,
+        OBS_COUNT_LOW_THRESHOLD,
+    )
+
+    return {
+        "coverage_thresholds": COVERAGE_THRESHOLDS,
+        "track_gap_long_multiplier": TRACK_GAP_LONG_MULTIPLIER,
+        "obs_count_low_threshold": OBS_COUNT_LOW_THRESHOLD,
+    }
+
+
 def _safe_json_parse(value) -> Any:
     """Safely parse a JSON value that may be a string, dict, or None."""
     if value is None:
@@ -106,6 +127,8 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         size_bytes=estimated_size,
         sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
         job_id=None,  # Could store this in generation_params
+        version=int(row_dict.get("version") or 1),
+        parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
     )
 
 
@@ -246,7 +269,83 @@ async def get_dataset(
         simulated_obs_count=int(row_dict.get("simulated_obs_count") or 0),
         downsampling_config=_safe_json_parse(row_dict.get("downsampling_config")),
         simulation_config=_safe_json_parse(row_dict.get("simulation_config")),
+        version=int(row_dict.get("version") or 1),
+        parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
     )
+
+
+@router.get("/{dataset_id}/versions", response_model=List[DatasetSummary])
+async def get_dataset_versions(
+    dataset_id: str,
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Get version history for a dataset.
+
+    Returns all versions of a dataset, linked by parent_id chain or matching
+    legacy_code/generation config. Per Louis's transcript.md requirement:
+    "if you did have a change, you want to have the ability to go back and look
+    at the old data sets, but at the same time, look at the newer data sets"
+
+    Args:
+        dataset_id: The dataset ID to get version history for
+
+    Returns:
+        List of dataset summaries representing all versions
+    """
+    id_int = validate_dataset_id(dataset_id)
+
+    # First get the target dataset to find its lineage
+    target = db.execute(
+        "SELECT id, legacy_code, parent_id, code FROM datasets WHERE id = ?", (id_int,)
+    ).fetchone()
+
+    if target is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    target_legacy_code = target[1]
+    target_parent_id = target[2]
+    target_code = target[3]
+
+    # Find all related versions:
+    # 1. Same legacy_code (regenerated datasets)
+    # 2. Parent/child chain (versioned datasets)
+    version_ids = {id_int}
+
+    # Follow parent chain upward
+    current_id = target_parent_id
+    while current_id:
+        version_ids.add(current_id)
+        parent_row = db.execute(
+            "SELECT parent_id FROM datasets WHERE id = ?", (current_id,)
+        ).fetchone()
+        current_id = parent_row[0] if parent_row else None
+
+    # Find children (datasets with this ID as parent)
+    children = db.execute(
+        "SELECT id FROM datasets WHERE parent_id = ?", (id_int,)
+    ).fetchall()
+    for child in children:
+        version_ids.add(child[0])
+
+    # Also find by matching legacy_code if available
+    if target_legacy_code:
+        code_matches = db.execute(
+            "SELECT id FROM datasets WHERE legacy_code = ?", (target_legacy_code,)
+        ).fetchall()
+        for match in code_matches:
+            version_ids.add(match[0])
+
+    # Query all version datasets
+    placeholders = ",".join(["?" for _ in version_ids])
+    result = db.execute(
+        f"SELECT * FROM datasets WHERE id IN ({placeholders}) ORDER BY version DESC, created_at DESC",
+        tuple(version_ids),
+    )
+    columns = [desc[0] for desc in result.description]
+    rows = result.fetchall()
+
+    return [_row_to_dataset_summary(row, columns) for row in rows]
 
 
 @router.post("/debug")
@@ -363,6 +462,29 @@ async def create_dataset(
     # Add the final unique name to generation params
     generation_params["name"] = dataset_name
 
+    # Version tracking: check for existing datasets with same base name
+    # Per undated transcript: "if you did have a change, you want to have the ability
+    # to go back and look at the old data sets"
+    version = 1
+    parent_id = None
+    try:
+        # Find the latest version of a dataset with the same user-provided base name
+        existing = db.execute(
+            """
+            SELECT id, version FROM datasets
+            WHERE name LIKE ?
+            ORDER BY version DESC, created_at DESC
+            LIMIT 1
+            """,
+            (f"{request.name}-%",),
+        ).fetchone()
+        if existing:
+            parent_id = existing[0]
+            version = (existing[1] or 1) + 1
+            logger.info(f"Dataset version tracking: parent_id={parent_id}, version={version}")
+    except Exception as e:
+        logger.debug(f"Version tracking lookup failed (non-critical): {e}")
+
     # Use transaction to ensure atomicity of dataset creation
     # If any step fails, rollback to prevent partial/corrupted records
     job = None
@@ -376,8 +498,9 @@ async def create_dataset(
         result = db.execute(
             """
             INSERT INTO datasets (
-                name, code, tier, orbital_regime, status, generation_params, created_at
-            ) VALUES (?, ?, ?, ?, 'generating', ?, CURRENT_TIMESTAMP)
+                name, code, tier, orbital_regime, status, generation_params,
+                version, parent_id, created_at
+            ) VALUES (?, ?, ?, ?, 'generating', ?, ?, ?, CURRENT_TIMESTAMP)
             RETURNING id
             """,
             (
@@ -386,6 +509,8 @@ async def create_dataset(
                 request.tier.value,
                 request.regime.value,
                 json.dumps(generation_params),
+                version,
+                parent_id,
             ),
         )
         dataset_id = result.fetchone()[0]
@@ -504,10 +629,15 @@ async def get_dataset_observations(
             f"0 linked). Please regenerate this dataset or use the /link-observations endpoint to repair.",
         )
 
-    # Query observations linked to this dataset
+    # Query all observation fields linked to this dataset
+    # Per Feb 19 transcript: "Cannot arbitrarily remove fields as unknown processors may need them"
     result = db.execute(
         """
-        SELECT o.id, o.ob_time, o.ra, o.declination, o.sensor_name, o.track_id
+        SELECT o.id, o.ob_time, o.ra, o.declination,
+               o.azimuth, o.elevation, o.range_km,
+               o.sensor_id, o.sensor_name, o.data_mode, o.type_optical,
+               o.send_lat, o.send_long, o.send_alt,
+               o.track_id, o.is_simulated
         FROM observations o
         JOIN dataset_observations dso ON o.id = dso.observation_id
         WHERE dso.dataset_id = ?
@@ -527,10 +657,20 @@ async def get_dataset_observations(
             DatasetObservation(
                 id=str(row_dict["id"]),
                 ob_time=row_dict["ob_time"],
-                ra=float(row_dict["ra"] or 0),
-                declination=float(row_dict["declination"] or 0),
+                ra=float(row_dict["ra"]) if row_dict.get("ra") is not None else None,
+                declination=float(row_dict["declination"]) if row_dict.get("declination") is not None else None,
+                azimuth=float(row_dict["azimuth"]) if row_dict.get("azimuth") is not None else None,
+                elevation=float(row_dict["elevation"]) if row_dict.get("elevation") is not None else None,
+                range_km=float(row_dict["range_km"]) if row_dict.get("range_km") is not None else None,
+                sensor_id=row_dict.get("sensor_id"),
                 sensor_name=row_dict.get("sensor_name"),
+                data_mode=row_dict.get("data_mode"),
+                type_optical=row_dict.get("type_optical"),
+                send_lat=float(row_dict["send_lat"]) if row_dict.get("send_lat") is not None else None,
+                send_long=float(row_dict["send_long"]) if row_dict.get("send_long") is not None else None,
+                send_alt=float(row_dict["send_alt"]) if row_dict.get("send_alt") is not None else None,
                 track_id=str(row_dict["track_id"]) if row_dict.get("track_id") else None,
+                is_simulated=row_dict.get("is_simulated"),
             )
         )
 

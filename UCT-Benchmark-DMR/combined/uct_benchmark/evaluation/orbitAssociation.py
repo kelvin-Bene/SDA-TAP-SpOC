@@ -181,8 +181,12 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
                 e_row["uct"] = True
                 nonassociated_orbits.append(e_row)
     else:
-        # State vector columns
+        # State vector columns (canonical names after normalization)
         state_cols = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
+
+        # Normalize column names if needed (handles VX vs xvel, etc.)
+        from uct_benchmark.utils.field_mapping import normalize_columns
+        est = normalize_columns(est)
 
         # Convert to arrays for computation speed
         est_epochs = pd.to_datetime(est["epoch"].values).to_list()

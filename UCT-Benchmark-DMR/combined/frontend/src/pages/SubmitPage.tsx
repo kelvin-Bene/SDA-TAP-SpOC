@@ -42,6 +42,7 @@ export function SubmitPage() {
   const [algorithmName, setAlgorithmName] = useState('');
   const [version, setVersion] = useState('');
   const [description, setDescription] = useState('');
+  const [organization, setOrganization] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
     { id: 'format', label: 'File format valid', status: 'pending' },
@@ -229,6 +230,7 @@ export function SubmitPage() {
         algorithmName,
         version,
         description: description || undefined,
+        classificationMarking: organization || undefined,
         file,
       });
 
@@ -437,6 +439,20 @@ export function SubmitPage() {
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
             />
+          </div>
+
+          {/* Organization */}
+          <div className="space-y-2">
+            <Label htmlFor="organization">Organization (optional)</Label>
+            <Input
+              id="organization"
+              placeholder="e.g., DMR Lab, TAP Lab"
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Classification marking label for your organization
+            </p>
           </div>
         </CardContent>
       </Card>

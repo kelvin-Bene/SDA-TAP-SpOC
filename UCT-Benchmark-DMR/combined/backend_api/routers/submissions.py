@@ -24,6 +24,9 @@ router = APIRouter()
 UPLOADS_DIR = Path(__file__).parent.parent.parent / "data" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Maximum upload size: 50 MB
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+
 
 def _row_to_submission_summary(row: tuple, columns: list) -> SubmissionSummary:
     """Convert a database row to SubmissionSummary model."""
@@ -152,6 +155,7 @@ async def create_submission(
     algorithm_name: str = Form(...),
     version: str = Form(default="1.0"),
     description: Optional[str] = Form(default=None),
+    classification_marking: Optional[str] = Form(default=None),
     file: UploadFile = File(...),
     db: DatabaseManager = Depends(get_db),
 ):
@@ -198,6 +202,15 @@ async def create_submission(
 
     try:
         contents = await file.read()
+
+        # Check file size
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large ({len(contents) / (1024*1024):.1f} MB). "
+                       f"Maximum upload size is {MAX_UPLOAD_SIZE / (1024*1024):.0f} MB.",
+            )
+
         # Validate that the content is valid JSON
         try:
             json.loads(contents)
@@ -218,8 +231,9 @@ async def create_submission(
     result = db.execute(
         """
         INSERT INTO submissions (
-            dataset_id, algorithm_name, version, description, file_path, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
+            dataset_id, algorithm_name, version, description,
+            classification_marking, file_path, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
         RETURNING id
         """,
         (
@@ -227,6 +241,7 @@ async def create_submission(
             algorithm_name,
             version,
             description,
+            classification_marking,
             str(file_path),
         ),
     )
@@ -305,6 +320,15 @@ async def upload_results(
 
     try:
         contents = await file.read()
+
+        # Check file size
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large ({len(contents) / (1024*1024):.1f} MB). "
+                       f"Maximum upload size is {MAX_UPLOAD_SIZE / (1024*1024):.0f} MB.",
+            )
+
         # Validate that the content is valid JSON
         try:
             json.loads(contents)

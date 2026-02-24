@@ -38,7 +38,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001, 1002, 1003],
-                "sourcedData": [["obs1", "obs2"], ["obs3", "obs4"], ["obs5"]],
+                "grouped_ops": [["obs1", "obs2"], ["obs3", "obs4"], ["obs5"]],
             }
         )
 
@@ -68,7 +68,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [9999, 9998, 9997],
-                "sourcedData": [["obs1"], ["obs2"], ["obs3"]],
+                "grouped_ops": [["obs1"], ["obs2"], ["obs3"]],
             }
         )
 
@@ -94,7 +94,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001, 9999],
-                "sourcedData": [["obs1", "obs2"], ["obs3"]],
+                "grouped_ops": [["obs1", "obs2"], ["obs3"]],
             }
         )
 
@@ -121,7 +121,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [],
-                "sourcedData": [],
+                "grouped_ops": [],
             }
         )
 
@@ -148,7 +148,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001, 1002, 9999],
-                "sourcedData": [
+                "grouped_ops": [
                     ["obs0", "obs1", "obs2", "obs3"],  # 4 correct for 1001
                     ["obs5", "obs6", "obs7", "obs8"],  # 4 correct for 1002
                     ["obs4"],  # Wrong - obs4 is 1001
@@ -178,7 +178,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001, 1002, 9999],
-                "sourcedData": [["obs1", "obs2"], ["obs3"], ["obs4"]],
+                "grouped_ops": [["obs1", "obs2"], ["obs3"], ["obs4"]],
             }
         )
 
@@ -203,7 +203,7 @@ class TestBinaryMetrics:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001, 1002],
-                "sourcedData": [["obs1", "obs2"], ["obs3"]],
+                "grouped_ops": [["obs1", "obs2"], ["obs3"]],
             }
         )
 
@@ -500,7 +500,7 @@ class TestEvaluationEdgeCases:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001],
-                "sourcedData": [["obs1"]],
+                "grouped_ops": [["obs1"]],
             }
         )
 
@@ -523,7 +523,7 @@ class TestEvaluationEdgeCases:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [99999, 100000],
-                "sourcedData": [["obs1"], ["obs2"]],
+                "grouped_ops": [["obs1"], ["obs2"]],
             }
         )
 
@@ -546,7 +546,7 @@ class TestEvaluationEdgeCases:
         associated_orbits = pd.DataFrame(
             {
                 "satNo": [1001, 1002],
-                "sourcedData": [["obs1", "obs2"], ["obs1", "obs3"]],
+                "grouped_ops": [["obs1", "obs2"], ["obs1", "obs3"]],
             }
         )
 

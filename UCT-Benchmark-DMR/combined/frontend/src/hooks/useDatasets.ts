@@ -6,6 +6,24 @@ import type { Dataset, DatasetFilters, DatasetGenerationConfig } from '@/types';
 // This should match the backend's Pydantic validation in DatasetCreate model
 export const MAX_TIMEFRAME_DAYS = 90;
 
+// Dataset config response from backend
+interface DatasetConfigResponse {
+  coverage_thresholds: Record<string, number>;
+  track_gap_long_multiplier: number;
+  obs_count_low_threshold: number;
+}
+
+export function useDatasetConfig() {
+  return useQuery({
+    queryKey: ['dataset-config'],
+    queryFn: async () => {
+      const response = await api.getDatasetConfig();
+      return response.data as DatasetConfigResponse;
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour — config rarely changes
+  });
+}
+
 // Response type from backend
 interface DatasetResponse {
   id: string;
@@ -21,6 +39,8 @@ interface DatasetResponse {
   size_bytes: number;
   sensor_types: string[];
   job_id?: string;
+  version?: number;
+  parent_id?: string;
 }
 
 // Transform backend response to frontend type
@@ -37,6 +57,8 @@ function transformDataset(data: DatasetResponse): Dataset {
     coverage: data.coverage,
     sizeBytes: data.size_bytes,
     sensorTypes: data.sensor_types as Dataset['sensorTypes'],
+    version: data.version,
+    parentId: data.parent_id,
   };
 }
 
@@ -198,6 +220,19 @@ export function useGenerateDataset() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] });
     },
+  });
+}
+
+export function useDatasetVersions(datasetId: string | null) {
+  return useQuery({
+    queryKey: ['dataset-versions', datasetId],
+    queryFn: async () => {
+      if (!datasetId) return [];
+      const response = await api.getDatasetVersions(datasetId);
+      const datasets = response.data as DatasetResponse[];
+      return datasets.map(transformDataset);
+    },
+    enabled: !!datasetId,
   });
 }
 
