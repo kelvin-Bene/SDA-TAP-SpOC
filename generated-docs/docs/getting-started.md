@@ -119,19 +119,25 @@ For detailed Windows Orekit setup, see the [Orekit Setup Guide](guides/OREKIT_SE
 
 ### 2. Orekit Data Files
 
-Orekit requires ephemeris data for orbit propagation. The recommended approach is to install via pip:
+Orekit requires ephemeris data for orbit propagation.
+
+Recommended (install directly from the official Orekit data repository):
 
 ```bash
-# Install orekitdata package (recommended)
-pip install orekitdata
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 
-# This automatically provides required ephemeris data when using:
+# Then use:
 # setup_orekit_curdir(from_pip_library=True)
 ```
 
-Alternatively, the project includes orekit-data in multiple locations:
+Alternative (download archive manually):
+
 ```bash
-# Verify data exists (if using local data):
+# Download official archive from the main branch:
+wget https://gitlab.orekit.org/orekit/orekit-data/-/archive/main/orekit-data-main.zip
+unzip orekit-data-main.zip
+
+# Example verification if extracted locally:
 ls orekit-data-main/
 ```
 
@@ -261,8 +267,9 @@ echo $JAVA_HOME  # Linux/macOS
 # RIGHT: Must call orekit.initVM() FIRST
 
 # Reinstall orekit packages
-pip uninstall orekit-jpype orekitdata
-pip install orekit-jpype orekitdata
+pip uninstall orekit-jpype
+pip install orekit-jpype
+pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
 ```
 
 **3. GUI Display Issues**
