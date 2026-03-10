@@ -99,13 +99,16 @@ def retrieveResiduals(args):
         alpha_obs_est = np.arctan2(y, x) % (2 * np.pi)
         delta_obs_est = np.arcsin(z / r)
 
-        # Determine great circle residual (unit circle)
-        res_temp = abs(
+        # Determine great circle residual (unit circle) in radians
+        res_rad = abs(
             np.arccos(
                 np.sin(delta_obs) * np.sin(delta_obs_est)
                 + np.cos(delta_obs) * np.cos(delta_obs_est) * np.cos(alpha_obs - alpha_obs_est)
             )
         )
+
+        # Convert to arcseconds (consistent with stateMetrics.py)
+        res_temp = np.degrees(res_rad) * 3600
 
         # Compute the RMSE running sum
         rmse += res_temp**2
@@ -114,11 +117,11 @@ def retrieveResiduals(args):
         new_row = np.array([res_temp])
         res = np.vstack([res, new_row])
 
-    # Finalize rmse (rads) for current state
+    # Finalize rmse (arcseconds) for current state
     if obs.shape[0] > 0:
         rmse = np.sqrt(rmse / obs.shape[0])
 
-    # Detemine mean and std of residuals for current state
+    # Determine mean and std of residuals for current state
     mu = np.mean(res)
     sigma = np.std(res)
 

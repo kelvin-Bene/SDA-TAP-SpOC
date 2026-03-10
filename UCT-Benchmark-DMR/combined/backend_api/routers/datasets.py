@@ -863,6 +863,53 @@ async def download_dataset(
     obs_columns = [desc[0] for desc in obs_result.description]
     obs_rows = obs_result.fetchall()
 
+    # Map DB snake_case columns to Benchmarking Documentation camelCase names
+    DB_TO_DOC_FIELD_MAP = {
+        "ob_time": "obTime",
+        "sat_no": "satNo",
+        "range_km": "range",
+        "range_rate_km_s": "rangeRate",
+        "sensor_id": "idSensor",
+        "sensor_name": "sensorName",
+        "data_mode": "dataMode",
+        "type_optical": "typeOptical",
+        "send_lat": "senlat",
+        "send_long": "senlon",
+        "send_alt": "senalt",
+        "track_id": "trackId",
+        "is_uct": "uct",
+        "is_simulated": "isSimulated",
+        "created_at": "createdAt",
+        "classification_marking": "classificationMarking",
+        "id_on_orbit": "idOnOrbit",
+        "task_id": "taskId",
+        "orig_object_id": "origObjectId",
+        "orig_sensor_id": "origSensorId",
+        "sen_x": "senx",
+        "sen_y": "seny",
+        "sen_z": "senz",
+        "sen_vel_x": "senvelx",
+        "sen_vel_y": "senvely",
+        "sen_vel_z": "senvelz",
+        "exp_duration": "expDuration",
+        "net_obj_sig": "netObjSig",
+        "net_obj_sig_unc": "netObjSigUnc",
+        "mag_unc": "magUnc",
+        "geo_lat": "geolat",
+        "geo_lon": "geolon",
+        "geo_alt": "geoalt",
+        "geo_range": "georange",
+        "solar_phase_angle": "solarPhaseAngle",
+        "solar_eq_phase_angle": "solarEqPhaseAngle",
+        "solar_dec_angle": "solarDecAngle",
+        "shutter_delay": "shutterDelay",
+        "raw_file_uri": "rawFileURI",
+        "created_by": "createdBy",
+        "orig_network": "origNetwork",
+        "los_unc": "losUnc",
+        "obs_type": "type",
+    }
+
     observations = []
     for obs_row in obs_rows:
         obs_dict = dict(zip(obs_columns, obs_row))
@@ -873,6 +920,8 @@ async def download_dataset(
                 if hasattr(obs_dict["ob_time"], "isoformat")
                 else str(obs_dict["ob_time"])
             )
+        # Rename DB columns to doc-matching camelCase names
+        obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
         observations.append(obs_dict)
 
     # Build export data

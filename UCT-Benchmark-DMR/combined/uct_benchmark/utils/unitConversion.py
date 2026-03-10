@@ -187,7 +187,7 @@ def unitConversion(ref_orbit):
             df.at[i, "cov_matrix"] = Covariance
 
         ECEF_match = np.array(df[df["referenceFrame"] == "ECR/ECEF"].index.tolist()).astype(int)
-        for i in ITRF_match:  # Convert ECR/ECEF --> J2000
+        for i in ECEF_match:  # Convert ECR/ECEF --> J2000
             PosVel, Covariance = convert_to_j2000(
                 df.at[i, "xpos"],
                 df.at[i, "ypos"],
@@ -197,13 +197,13 @@ def unitConversion(ref_orbit):
                 df.at[i, "zvel"],
                 df.at[i, "epoch"],
                 df.at[i, "cov_matrix"],
-                "ITRF",
+                "ITRF",  # ECR/ECEF uses ITRF as the Orekit frame
             )
             df.loc[i, ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]] = PosVel
             df.at[i, "cov_matrix"] = Covariance
 
         TDR_match = np.array(df[df["referenceFrame"] == "EFG/TDR"].index.tolist()).astype(int)
-        for i in ITRF_match:  # Convert EFG/TDR --> J2000
+        for i in TDR_match:  # Convert EFG/TDR --> J2000
             PosVel, Covariance = convert_to_j2000(
                 df.at[i, "xpos"],
                 df.at[i, "ypos"],
@@ -213,7 +213,7 @@ def unitConversion(ref_orbit):
                 df.at[i, "zvel"],
                 df.at[i, "epoch"],
                 df.at[i, "cov_matrix"],
-                "ITRF",
+                "ITRF",  # EFG/TDR uses ITRF as the Orekit frame
             )
             df.loc[i, ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]] = PosVel
             df.at[i, "cov_matrix"] = Covariance

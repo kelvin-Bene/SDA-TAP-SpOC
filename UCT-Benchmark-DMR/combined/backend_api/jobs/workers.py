@@ -228,7 +228,7 @@ def run_dataset_generation(
         regime = config.get("regime", "LEO")
 
         # Get non-reference observation config (for True Negative calculation)
-        include_non_ref_obs = config.get("include_non_ref_obs", False)
+        include_non_ref_obs = config.get("include_non_ref_obs", True)
         non_ref_ratio = config.get("non_ref_ratio", 0.1)
 
         # Get object type and event codes (per Louis's 16-character code spec)

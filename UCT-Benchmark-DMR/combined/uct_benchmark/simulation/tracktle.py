@@ -19,6 +19,7 @@ Date: 2026
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from itertools import combinations
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -208,15 +209,19 @@ def generate_tracktle(
 
 def modified_gauss_iod(
     observations: List[Observation],
+    max_triplets: int = 20,
 ) -> Tuple[Optional[np.ndarray], Optional[datetime]]:
     """
     Initial Orbit Determination using Modified Gauss Method.
 
-    Uses 3 observations to determine initial orbital elements.
-    Selects observations spread across the track for best geometry.
+    Iterates over multiple well-spaced triplet permutations of the available
+    observations and keeps the result with the lowest angular residual.
+    The number of triplets evaluated is capped at *max_triplets* to avoid
+    combinatorial explosion.
 
     Args:
         observations: Sorted list of observations (minimum 3)
+        max_triplets: Maximum number of triplet combinations to evaluate
 
     Returns:
         Tuple of (state_vector, epoch) or (None, None) if IOD fails
@@ -225,11 +230,97 @@ def modified_gauss_iod(
     if len(observations) < 3:
         return None, None
 
-    # Select 3 well-spaced observations
     n = len(observations)
-    indices = [0, n // 2, n - 1]
-    selected = [observations[i] for i in indices]
+    triplet_indices = _generate_triplet_indices(n, max_triplets)
 
+    best_state: Optional[np.ndarray] = None
+    best_epoch: Optional[datetime] = None
+    best_residual = np.inf
+
+    for indices in triplet_indices:
+        selected = [observations[i] for i in indices]
+        state, epoch = _gauss_iod_single_triplet(selected)
+        if state is None:
+            continue
+
+        residual = _iod_residual(state, epoch, observations)
+        if residual < best_residual:
+            best_residual = residual
+            best_state = state
+            best_epoch = epoch
+
+    if best_state is not None:
+        logger.info(
+            f"Gauss IOD best of {len(triplet_indices)} triplets: "
+            f"r={np.linalg.norm(best_state[:3]):.1f} km, "
+            f"v={np.linalg.norm(best_state[3:6]):.3f} km/s, "
+            f"RMS residual={np.degrees(best_residual) * 3600:.2f} arcsec"
+        )
+    else:
+        logger.warning("Gauss IOD: all triplet attempts failed")
+
+    return best_state, best_epoch
+
+
+def _generate_triplet_indices(
+    n: int,
+    max_triplets: int,
+) -> List[Tuple[int, int, int]]:
+    """
+    Generate well-spaced triplet index combinations from *n* observations.
+
+    Always includes the classic (first, middle, last) triplet.  When the
+    observation count is small enough that C(n,3) <= max_triplets, all
+    ordered combinations are returned.  Otherwise a set of evenly-spaced
+    triplets is sampled to give good geometric coverage.
+
+    Args:
+        n: Total number of observations
+        max_triplets: Maximum number of triplets to return
+
+    Returns:
+        List of (i, j, k) index tuples with i < j < k
+    """
+    if n == 3:
+        return [(0, 1, 2)]
+
+    all_combos = list(combinations(range(n), 3))
+
+    if len(all_combos) <= max_triplets:
+        return all_combos
+
+    # Always include the classic well-spaced triplet
+    selected: List[Tuple[int, int, int]] = [(0, n // 2, n - 1)]
+    seen = {selected[0]}
+
+    # Score remaining combos by how well-spaced the indices are (prefer
+    # large minimum gap between consecutive indices)
+    def spacing_score(tri: Tuple[int, int, int]) -> float:
+        return min(tri[1] - tri[0], tri[2] - tri[1])
+
+    ranked = sorted(all_combos, key=spacing_score, reverse=True)
+    for tri in ranked:
+        if tri not in seen:
+            selected.append(tri)
+            seen.add(tri)
+        if len(selected) >= max_triplets:
+            break
+
+    return selected
+
+
+def _gauss_iod_single_triplet(
+    selected: List[Observation],
+) -> Tuple[Optional[np.ndarray], Optional[datetime]]:
+    """
+    Run Modified Gauss IOD on exactly three observations.
+
+    Args:
+        selected: Exactly 3 Observation objects sorted by epoch
+
+    Returns:
+        Tuple of (state_vector, epoch) or (None, None) if IOD fails
+    """
     # Extract observation data
     epochs = [obs.epoch for obs in selected]
     ra_rad = [np.radians(obs.ra_deg) for obs in selected]
@@ -264,7 +355,6 @@ def modified_gauss_iod(
     D0 = np.dot(los[0], np.cross(los[1], los[2]))
 
     if abs(D0) < 1e-10:
-        logger.warning("Gauss IOD: Coplanar observations, IOD may fail")
         return None, None
 
     R = np.array(site_positions)
@@ -282,7 +372,7 @@ def modified_gauss_iod(
     r2_mag = None
     rho2 = rho2_guess
 
-    for iteration in range(20):
+    for _iteration in range(20):
         # Calculate position vector for observation 2
         r2 = R[1] + rho2 * los[1]
         r2_mag_new = np.linalg.norm(r2)
@@ -300,8 +390,8 @@ def modified_gauss_iod(
         c3 = -g1 / (f1 * g3 - f3 * g1)
 
         # Update rho2
-        rho1 = (a1 - c1) * np.dot(los[0], np.cross(los[1], los[2]))
-        rho3 = (a3 - c3) * np.dot(los[0], np.cross(los[1], los[2]))
+        _rho1 = (a1 - c1) * np.dot(los[0], np.cross(los[1], los[2]))
+        _rho3 = (a3 - c3) * np.dot(los[0], np.cross(los[1], los[2]))
 
         # New estimate for rho2
         num = np.dot(R[1], np.cross(los[0], los[2]))
@@ -314,7 +404,6 @@ def modified_gauss_iod(
         rho2 = 0.5 * (rho2 + rho2_new)  # Damped update
 
     if r2_mag is None or r2_mag < R_EARTH:
-        logger.warning("Gauss IOD: Failed to converge or invalid orbit")
         return None, None
 
     # Calculate position vectors
@@ -334,9 +423,107 @@ def modified_gauss_iod(
     state = np.concatenate([r2, v2])
     epoch = epochs[1]
 
-    logger.info(f"Gauss IOD complete: r={np.linalg.norm(r2):.1f} km, v={np.linalg.norm(v2):.3f} km/s")
-
     return state, epoch
+
+
+def _iod_residual(
+    state: np.ndarray,
+    epoch: datetime,
+    observations: List[Observation],
+) -> float:
+    """
+    Compute RMS angular residual of an IOD solution against all observations.
+
+    Uses simple two-body (Kepler) propagation from *epoch* to each observation
+    time, then compares the predicted RA/Dec direction with the observed one.
+
+    Args:
+        state: State vector [x, y, z, vx, vy, vz] in km and km/s
+        epoch: Epoch of the state vector
+        observations: All observations to evaluate against
+
+    Returns:
+        RMS angular residual in radians (lower is better)
+    """
+    r0 = state[:3]
+    v0 = state[3:6]
+    sum_sq = 0.0
+    count = 0
+
+    for obs in observations:
+        dt = (obs.epoch - epoch).total_seconds()
+        r_pred = _kepler_propagate(r0, v0, dt)
+        if r_pred is None:
+            continue
+
+        # Predicted topocentric direction
+        site = get_site_position_eci(
+            obs.site_lat, obs.site_lon, obs.site_alt_km, obs.epoch
+        )
+        topo = r_pred - site
+        topo_mag = np.linalg.norm(topo)
+        if topo_mag < 1e-6:
+            continue
+        topo_hat = topo / topo_mag
+
+        # Predicted RA/Dec
+        pred_dec = np.arcsin(np.clip(topo_hat[2], -1.0, 1.0))
+        pred_ra = np.arctan2(topo_hat[1], topo_hat[0])
+
+        # Observed RA/Dec in radians
+        obs_ra = np.radians(obs.ra_deg)
+        obs_dec = np.radians(obs.dec_deg)
+
+        # Angular separation (Vincenty-like formula for robustness)
+        d_ra = pred_ra - obs_ra
+        angular_sep = np.arctan2(
+            np.sqrt(
+                (np.cos(pred_dec) * np.sin(d_ra)) ** 2
+                + (np.cos(obs_dec) * np.sin(pred_dec)
+                   - np.sin(obs_dec) * np.cos(pred_dec) * np.cos(d_ra)) ** 2
+            ),
+            np.sin(obs_dec) * np.sin(pred_dec)
+            + np.cos(obs_dec) * np.cos(pred_dec) * np.cos(d_ra),
+        )
+        sum_sq += angular_sep ** 2
+        count += 1
+
+    if count == 0:
+        return np.inf
+    return np.sqrt(sum_sq / count)
+
+
+def _kepler_propagate(
+    r0: np.ndarray,
+    v0: np.ndarray,
+    dt: float,
+) -> Optional[np.ndarray]:
+    """
+    Simple two-body (Kepler) propagation via the universal variable method.
+
+    Uses a truncated f-and-g series for speed.  Sufficient for ranking IOD
+    candidates but not for final orbit determination.
+
+    Args:
+        r0: Initial position vector (km)
+        v0: Initial velocity vector (km/s)
+        dt: Time step in seconds
+
+    Returns:
+        Propagated position vector (km), or None on failure
+    """
+    r0_mag = np.linalg.norm(r0)
+    if r0_mag < 1.0:
+        return None
+
+    u = MU_EARTH / (r0_mag ** 3)
+
+    # f and g series (same truncation as the Gauss IOD iteration)
+    f = 1.0 - 0.5 * u * dt ** 2
+    g = dt - (1.0 / 6.0) * u * dt ** 3
+
+    r_pred = f * r0 + g * v0
+    return r_pred
 
 
 def batch_ls_refinement_orekit(

@@ -41,9 +41,12 @@ def monteCarloPropagator(
 
     # unpack parameters list
     satelliteMass, crossSectionalArea, dragCoefficient, solarCoefficient = satelliteParameters
-    dragCoefficient = config.dragCoef  # Default drag coefficient
-    solarCoefficient = config.solarRadPresCoef  # Default solar radiation pressure coefficient
-    # Set perterbations to 0 if no mass or area given
+    # Use config defaults only when caller passes 0 (meaning "use default")
+    if dragCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
+        dragCoefficient = config.dragCoef
+    if solarCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
+        solarCoefficient = config.solarRadPresCoef
+    # Set perturbations to 0 if no mass or area given
     if satelliteMass == 0 or crossSectionalArea == 0:
         satelliteMass = 1000.0
         crossSectionalArea = 10.0
@@ -242,11 +245,12 @@ def ephemerisPropagator(
 
     # unpack parameters list
     satelliteMass, crossSectionalArea, dragCoefficient, solarCoefficient = satelliteParameters
-    dragCoefficient = config.dragCoef  # Default drag coefficient for boxwing satellite
-    solarCoefficient = (
-        config.solarRadPresCoef
-    )  # Default solar radiation pressure coefficient for boxwing
-    # Set perterbations to 0 is mass or area not given
+    # Use config defaults only when caller passes 0 (meaning "use default")
+    if dragCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
+        dragCoefficient = config.dragCoef
+    if solarCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
+        solarCoefficient = config.solarRadPresCoef
+    # Set perturbations to 0 if mass or area not given
     if satelliteMass == 0 or crossSectionalArea == 0:
         satelliteMass = 1000.0
         crossSectionalArea = 10.0

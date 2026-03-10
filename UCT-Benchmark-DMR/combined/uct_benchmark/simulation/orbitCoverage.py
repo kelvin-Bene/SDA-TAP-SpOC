@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize_scalar
+from scipy.spatial import ConvexHull
 
 
 def _rotation_matrix(i_deg, RAAN_deg, w_deg):
@@ -148,24 +149,28 @@ def orbitCoverage(obs, orbElems):
     v_coords = centered @ v_axis
     polygon_2d = np.stack((u_coords, v_coords), axis=1)
 
-    # Sort the points CCW around the 2D centroid
-    centroid2d = polygon_2d.mean(axis=0)
-    angles = np.arctan2(polygon_2d[:, 1] - centroid2d[1], polygon_2d[:, 0] - centroid2d[0])
-    sort_order = np.argsort(angles)
-    sorted_polygon_2d = polygon_2d[sort_order]
-
-    # Shoelace formula
-    x = sorted_polygon_2d[:, 0]
-    y = sorted_polygon_2d[:, 1]
-    area = 0.5 * np.abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+    # Compute convex hull area (per documentation: "convex polygon" approach)
+    if len(polygon_2d) >= 3:
+        try:
+            hull = ConvexHull(polygon_2d)
+            area = hull.volume  # In 2D, ConvexHull.volume gives area
+            hull_vertex_indices = hull.vertices
+        except Exception:
+            # Degenerate case (collinear points) — area is 0
+            area = 0.0
+            hull_vertex_indices = np.arange(len(polygon_2d))
+    else:
+        area = 0.0
+        hull_vertex_indices = np.arange(len(polygon_2d))
 
     # Find circumscribing circle area
     circArea = np.pi * orbElems["Semi-Major Axis"] ** 2
 
-    # Create point df for other functions
-    sorted_ids = obs["id"].iloc[sort_order].reset_index(drop=True)
-    polygon_df = pd.DataFrame(sorted_polygon_2d, columns=["x", "y"])
-    polygon_df["id"] = sorted_ids
+    # Create point df for other functions (hull vertices in order)
+    hull_polygon = polygon_2d[hull_vertex_indices]
+    hull_ids = obs["id"].iloc[hull_vertex_indices].reset_index(drop=True)
+    polygon_df = pd.DataFrame(hull_polygon, columns=["x", "y"])
+    polygon_df["id"] = hull_ids
 
     return area / circArea, polygon_df
 

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "1.5.0"
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -79,7 +79,40 @@ CREATE TABLE IF NOT EXISTS observations (
     is_simulated BOOLEAN DEFAULT FALSE,
 
     -- Metadata
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Full EO observation fields (per Benchmarking Documentation)
+    classification_marking VARCHAR(200),
+    id_on_orbit VARCHAR(64),
+    task_id VARCHAR(64),
+    orig_object_id VARCHAR(100),
+    orig_sensor_id VARCHAR(100),
+    sen_x DECIMAL(16,9),
+    sen_y DECIMAL(16,9),
+    sen_z DECIMAL(16,9),
+    sen_vel_x DECIMAL(16,12),
+    sen_vel_y DECIMAL(16,12),
+    sen_vel_z DECIMAL(16,12),
+    exp_duration DECIMAL(10,4),
+    zeroptd DECIMAL(16,10),
+    net_obj_sig DECIMAL(16,6),
+    net_obj_sig_unc DECIMAL(16,6),
+    mag DECIMAL(10,6),
+    mag_unc DECIMAL(10,6),
+    geo_lat DECIMAL(12,8),
+    geo_lon DECIMAL(12,8),
+    geo_alt DECIMAL(16,6),
+    geo_range DECIMAL(16,6),
+    solar_phase_angle DECIMAL(12,8),
+    solar_eq_phase_angle DECIMAL(12,8),
+    solar_dec_angle DECIMAL(12,8),
+    shutter_delay DECIMAL(10,4),
+    raw_file_uri VARCHAR(500),
+    created_by VARCHAR(100),
+    orig_network VARCHAR(50),
+    los_unc DECIMAL(12,6),
+    source VARCHAR(50),
+    obs_type VARCHAR(50)
 );
 """
 
@@ -612,6 +645,7 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
+    _migrate_to_1_5_0(db)
 
     # Seed default event types
     _seed_event_types(db)
@@ -695,6 +729,12 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     # Breakup events cache table
     db.execute(convert_json_to_jsonb(BREAKUP_EVENTS_TABLE))
     db.execute(BREAKUP_EVENTS_INDEXES)
+
+    # Migrate existing DBs (adds new columns if missing)
+    _migrate_to_1_2_0(db)
+    _migrate_to_1_3_0(db)
+    _migrate_to_1_4_0(db)
+    _migrate_to_1_5_0(db)
 
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
@@ -786,6 +826,48 @@ def _migrate_to_1_4_0(db: "DatabaseManager") -> None:
         )
     except Exception:
         pass  # Column already exists
+
+
+def _migrate_to_1_5_0(db: "DatabaseManager") -> None:
+    """Add full EO observation fields per Benchmarking Documentation."""
+    new_columns = [
+        "classification_marking VARCHAR(200)",
+        "id_on_orbit VARCHAR(64)",
+        "task_id VARCHAR(64)",
+        "orig_object_id VARCHAR(100)",
+        "orig_sensor_id VARCHAR(100)",
+        "sen_x DECIMAL(16,9)",
+        "sen_y DECIMAL(16,9)",
+        "sen_z DECIMAL(16,9)",
+        "sen_vel_x DECIMAL(16,12)",
+        "sen_vel_y DECIMAL(16,12)",
+        "sen_vel_z DECIMAL(16,12)",
+        "exp_duration DECIMAL(10,4)",
+        "zeroptd DECIMAL(16,10)",
+        "net_obj_sig DECIMAL(16,6)",
+        "net_obj_sig_unc DECIMAL(16,6)",
+        "mag DECIMAL(10,6)",
+        "mag_unc DECIMAL(10,6)",
+        "geo_lat DECIMAL(12,8)",
+        "geo_lon DECIMAL(12,8)",
+        "geo_alt DECIMAL(16,6)",
+        "geo_range DECIMAL(16,6)",
+        "solar_phase_angle DECIMAL(12,8)",
+        "solar_eq_phase_angle DECIMAL(12,8)",
+        "solar_dec_angle DECIMAL(12,8)",
+        "shutter_delay DECIMAL(10,4)",
+        "raw_file_uri VARCHAR(500)",
+        "created_by VARCHAR(100)",
+        "orig_network VARCHAR(50)",
+        "los_unc DECIMAL(12,6)",
+        "source VARCHAR(50)",
+        "obs_type VARCHAR(50)",
+    ]
+    for col in new_columns:
+        try:
+            db.execute(f"ALTER TABLE observations ADD COLUMN IF NOT EXISTS {col}")
+        except Exception:
+            pass
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:

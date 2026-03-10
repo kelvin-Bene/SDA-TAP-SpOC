@@ -52,28 +52,33 @@ def decorrelate_observations(
     obs_df: pd.DataFrame,
     id_columns: List[str] = None,
     seed: Optional[int] = None,
+    track_gap_minutes: float = 90.0,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Decorrelate observations from ground truth for UCT benchmarking.
 
-    This function:
-    1. Removes identifying columns (satNo, idOnOrbit, origObjectId, etc.)
-    2. Assigns new sequential track_id values
-    3. Optionally shuffles track assignments for additional decorrelation
-    4. Creates a truth mapping DataFrame for evaluation
+    Per Louis's documentation, decorrelated observations must be grouped by
+    **observatory passes** (same sensor + temporal proximity), NOT by satellite.
+    This ensures the user-facing output never includes satellite IDs and the
+    answer key is withheld separately.
 
-    The decorrelated observations can be released to benchmark participants,
-    while the truth mapping is kept for evaluation.
+    This function:
+    1. Groups observations by observatory pass (idSensor + time proximity)
+    2. Assigns new sequential track_id values per pass
+    3. Optionally shuffles track assignments for additional decorrelation
+    4. Removes identifying columns (satNo, idOnOrbit, origObjectId, etc.)
+    5. Creates a truth mapping DataFrame for evaluation
 
     Args:
         obs_df: DataFrame of observations with ground truth columns
         id_columns: List of columns to remove. Defaults to standard ID columns.
         seed: Random seed for reproducible shuffling (None = no shuffling)
+        track_gap_minutes: Max time gap within a single observatory pass (default: 90 min)
 
     Returns:
         Tuple of (decorrelated_obs_df, truth_mapping_df)
-        - decorrelated_obs_df: Observations with IDs removed, track_id assigned
-        - truth_mapping_df: Mapping from track_id to original satNo
+        - decorrelated_obs_df: Observations with IDs removed, track_id assigned by pass
+        - truth_mapping_df: Mapping from track_id to original satNo (answer key)
     """
     if id_columns is None:
         id_columns = [
@@ -86,6 +91,7 @@ def decorrelate_observations(
             "catalogId",
             "intlDesignator",
             "objectName",
+            "is_non_reference",
         ]
 
     # Make a copy to avoid modifying original
@@ -100,43 +106,94 @@ def decorrelate_observations(
 
     if primary_id_col is None:
         logger.warning("No primary ID column found. Creating dummy truth mapping.")
-        # Assign sequential track IDs without ground truth
         decorrelated_df["track_id"] = range(len(decorrelated_df))
         truth_mapping = pd.DataFrame({"track_id": [], "satNo": []})
         return decorrelated_df, truth_mapping
 
-    # Create truth mapping before removing IDs
-    # Group observations by satellite and assign track IDs
-    unique_sats = decorrelated_df[primary_id_col].unique()
+    # Determine the time column
+    time_col = None
+    for col in ["obTime", "observationTime", "epoch", "time"]:
+        if col in decorrelated_df.columns:
+            time_col = col
+            break
 
+    # Build observatory pass grouping (sensor + satellite + time proximity)
+    # Step 1: Build sensor grouping key
+    has_sensor = "idSensor" in decorrelated_df.columns
+    if has_sensor:
+        sensor_key = decorrelated_df["idSensor"].fillna("unknown").astype(str)
+    else:
+        # Fallback to location-based grouping if sensor ID is unavailable
+        if "senlat" in decorrelated_df.columns and "senlon" in decorrelated_df.columns:
+            sensor_key = (
+                decorrelated_df["senlat"].astype(str) + "_" +
+                decorrelated_df["senlon"].astype(str)
+            )
+        else:
+            sensor_key = pd.Series("default", index=decorrelated_df.index)
+
+    # Step 2: Group by (sensor, satellite) then split by time gaps
+    decorrelated_df["_sensor_key"] = sensor_key
+    decorrelated_df["_sat_key"] = decorrelated_df[primary_id_col].astype(str)
+    decorrelated_df["_group_key"] = decorrelated_df["_sensor_key"] + "_" + decorrelated_df["_sat_key"]
+
+    # Ensure time column is datetime
+    if time_col and time_col in decorrelated_df.columns:
+        decorrelated_df[time_col] = pd.to_datetime(decorrelated_df[time_col], errors="coerce")
+
+    track_id = 0
+    track_ids = pd.Series(index=decorrelated_df.index, dtype=int)
+    truth_records = []
+    gap_threshold = pd.Timedelta(minutes=track_gap_minutes)
+
+    for group_key, group_df in decorrelated_df.groupby("_group_key", sort=False):
+        sat_no = group_df[primary_id_col].iloc[0]
+
+        if time_col and time_col in group_df.columns:
+            # Sort by time and split by gaps
+            sorted_group = group_df.sort_values(time_col)
+            time_diffs = sorted_group[time_col].diff()
+            pass_boundaries = (time_diffs > gap_threshold).cumsum()
+
+            for _, pass_df in sorted_group.groupby(pass_boundaries, sort=False):
+                track_id += 1
+                track_ids.loc[pass_df.index] = track_id
+                truth_records.append({"track_id": track_id, "satNo": int(sat_no)})
+        else:
+            # No time column: one track per (sensor, satellite) group
+            track_id += 1
+            track_ids.loc[group_df.index] = track_id
+            truth_records.append({"track_id": track_id, "satNo": int(sat_no)})
+
+    decorrelated_df["track_id"] = track_ids
+
+    # Create truth mapping DataFrame (answer key)
+    truth_mapping = pd.DataFrame(truth_records)
+
+    # Shuffle track IDs for additional decorrelation
     if seed is not None:
-        np.random.seed(seed)
-        # Shuffle satellite order for additional decorrelation
-        np.random.shuffle(unique_sats)
+        rng = np.random.default_rng(seed)
+        unique_tracks = truth_mapping["track_id"].values.copy()
+        shuffled_tracks = rng.permutation(len(unique_tracks)) + 1
+        track_remap = dict(zip(unique_tracks, shuffled_tracks))
+        decorrelated_df["track_id"] = decorrelated_df["track_id"].map(track_remap)
+        truth_mapping["track_id"] = truth_mapping["track_id"].map(track_remap)
+        truth_mapping = truth_mapping.sort_values("track_id").reset_index(drop=True)
 
-    # Create mapping: track_id -> satNo
-    sat_to_track = {sat: i + 1 for i, sat in enumerate(unique_sats)}
+    # Remove temporary columns
+    decorrelated_df = decorrelated_df.drop(columns=["_sensor_key", "_sat_key", "_group_key"], errors="ignore")
 
-    # Assign track_id to observations
-    decorrelated_df["track_id"] = decorrelated_df[primary_id_col].map(sat_to_track)
-
-    # Create truth mapping DataFrame
-    truth_mapping = pd.DataFrame([
-        {"track_id": track_id, "satNo": int(sat_no)}
-        for sat_no, track_id in sat_to_track.items()
-    ]).sort_values("track_id")
-
-    # Remove identifying columns
+    # Remove identifying columns (satellite IDs must never appear in user output)
     columns_to_remove = [col for col in id_columns if col in decorrelated_df.columns]
     decorrelated_df = decorrelated_df.drop(columns=columns_to_remove)
 
-    # Log what was removed
     if columns_to_remove:
         logger.info(f"Removed identifying columns: {columns_to_remove}")
 
+    unique_sats = obs_df[primary_id_col].nunique()
     logger.info(
-        f"Decorrelation complete: {len(unique_sats)} satellites -> "
-        f"{len(unique_sats)} tracks, {len(decorrelated_df)} observations"
+        f"Decorrelation complete: {unique_sats} satellites -> "
+        f"{track_id} observatory-pass tracks, {len(decorrelated_df)} observations"
     )
 
     return decorrelated_df, truth_mapping

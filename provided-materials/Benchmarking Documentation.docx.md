@@ -523,7 +523,7 @@ The binary classification function will classify each observation or TrackTLE in
 * **Cohen’s Kappa Coefficient: ![][image10]**  
 * **Matthews Correlation Coefficient:** \[(TP)(TN)-(FP)(FN)\]/sqrt\[(TP+FP)(TP+FN)(TN+FP)(TN+FN)\]  
 * Positive Predictive Value/Precision: TP/(TP+FP)  
-* **F1 Score:** (2TP)/(2TP+FN+TN)  
+* **F1 Score:** (2TP)/(2TP+FP+FN)  
 * **Specificity**: TN/(TN+FP)
 
 # 

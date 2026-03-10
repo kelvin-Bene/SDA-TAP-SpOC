@@ -295,8 +295,13 @@ def basicScoring(datasetCode, allObs, satData):
 
     # Initialize scoring flags
     T4 = False
+    T5 = False  # T5 = impossible criteria (per Louis's spec)
     # Initialize data manipulation Counts
     dwnGap = simGap = dwnCovg = simCovg = dwnObsLow = dwnObsStd = simObs = None
+
+    # Flag T5: criteria impossible to meet (no objects/observations at all)
+    if numObj == 0:
+        T5 = True
 
     # Flag T4: not enough objects available
     enoughObj = numObj > targetNumObj
@@ -367,16 +372,28 @@ def basicScoring(datasetCode, allObs, satData):
         print("Target Obs count Character is not valid")
 
     # === Determine Which Flag to Return ===
-    # T1 is true when all criteria are good (no manipulation needed)
+    # T1: all criteria met (no manipulation needed)
+    # T2: downsample only (too much data for existing objects)
+    # T3: downsample + simulate observations for existing objects (obs quality insufficient)
+    # T4: downsample + simulate observations + simulate new objects (not enough objects)
+    # Higher tier = more manipulation required; highest tier wins
     T1 = covgGood and gapGood and countGood
-    flags = {"T1": T1, "T2": T2covg or T2Gap or T2Obs, "T3": T3covg or T3Gap or T3Obs, "T4": T4}
+    has_T2 = T2covg or T2Gap or T2Obs
+    has_T3 = T3covg or T3Gap or T3Obs
 
-    true_flag = next((k for k, v in flags.items() if v), "T1")
-
-    thresholds = ["T5", "T4", "T3", "T2", "T1"]
-    true_flag = thresholds.index(true_flag)
-    if true_flag == 3:
-        true_flag = 4
+    # T5 = impossible (no data); T4 > T3 > T2 > T1 priority
+    if T5:
+        true_flag = 0  # T5 index in ["T5","T4","T3","T2","T1"]
+    elif T4:
+        true_flag = 1  # T4
+    elif has_T3:
+        true_flag = 2  # T3
+    elif has_T2:
+        true_flag = 3  # T2
+    elif T1:
+        true_flag = 4  # T1
+    else:
+        true_flag = 4  # Default to T1 (no manipulation)
 
     # Build a dictionary of what needs manipulation
     flagCoverage = "T1" if covgGood else ("T2" if T2covg else "T3")

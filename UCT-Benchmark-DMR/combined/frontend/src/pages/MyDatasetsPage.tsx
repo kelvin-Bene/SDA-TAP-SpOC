@@ -12,16 +12,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Copy, Eye, Loader2 } from 'lucide-react';
+import { Plus, Download, Trash2, Copy, Eye, Loader2, History } from 'lucide-react';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { useDatasets, useDeleteDataset } from '@/hooks/useDatasets';
+import { api } from '@/api/client';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
   const { data: datasets, isLoading, error } = useDatasets();
   const deleteDataset = useDeleteDataset();
   const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
+  const [versionHistory, setVersionHistory] = useState<Dataset[] | null>(null);
+  const [versionDataset, setVersionDataset] = useState<Dataset | null>(null);
+  const [loadingVersions, setLoadingVersions] = useState(false);
   const userDatasets = datasets ?? [];
+
+  const handleShowVersions = async (dataset: Dataset) => {
+    setVersionDataset(dataset);
+    setLoadingVersions(true);
+    try {
+      const response = await api.getDatasetVersions(dataset.id);
+      setVersionHistory(response.data ?? []);
+    } catch {
+      setVersionHistory([]);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
 
   const handleDeleteClick = (dataset: Dataset) => {
     setDatasetToDelete(dataset);
@@ -107,6 +124,7 @@ export function MyDatasetsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Version</TableHead>
                   <TableHead>Regime</TableHead>
                   <TableHead>Tier</TableHead>
                   <TableHead>Objects</TableHead>
@@ -119,6 +137,11 @@ export function MyDatasetsPage() {
                 {userDatasets.map((dataset) => (
                   <TableRow key={dataset.id}>
                     <TableCell className="font-medium">{dataset.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono">
+                        v{dataset.version ?? 1}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={dataset.regime === 'LEO' ? 'leo' : dataset.regime === 'MEO' ? 'meo' : dataset.regime === 'GEO' ? 'geo' : 'heo'}>
                         {dataset.regime}
@@ -136,6 +159,14 @@ export function MyDatasetsPage() {
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon">
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Version history"
+                          onClick={() => handleShowVersions(dataset)}
+                        >
+                          <History className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon">
                           <Download className="h-4 w-4" />
@@ -161,6 +192,54 @@ export function MyDatasetsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Version History Dialog */}
+      <Dialog open={!!versionDataset} onOpenChange={() => { setVersionDataset(null); setVersionHistory(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Version History: {versionDataset?.name}</DialogTitle>
+            <DialogDescription>
+              View all versions of this dataset to compare old and new generations.
+            </DialogDescription>
+          </DialogHeader>
+          {loadingVersions ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : versionHistory && versionHistory.length > 0 ? (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {versionHistory.map((v) => (
+                <div
+                  key={v.id}
+                  className={`flex items-center justify-between rounded-lg border p-3 ${v.id === versionDataset?.id ? 'border-primary bg-primary/5' : ''}`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-mono">v{v.version ?? 1}</Badge>
+                      <span className="font-medium text-sm">{v.name}</span>
+                      {v.id === versionDataset?.id && (
+                        <Badge variant="secondary" className="text-xs">current</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {v.objectCount} objects &middot; {v.observationCount} obs &middot; {formatDate(v.createdAt)}
+                    </p>
+                  </div>
+                  <Link to={`/datasets/${v.id}`}>
+                    <Button variant="ghost" size="sm">
+                      <Eye className="h-3 w-3 mr-1" /> View
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center py-4 text-muted-foreground text-sm">
+              No other versions found for this dataset.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!datasetToDelete} onOpenChange={() => setDatasetToDelete(null)}>

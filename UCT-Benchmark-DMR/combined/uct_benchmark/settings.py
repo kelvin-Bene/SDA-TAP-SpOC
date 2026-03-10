@@ -89,7 +89,7 @@ eccentricity_HEO = 0.7  # a HEO object has eccentricity greater than or equal to
 # High Area-to-Mass Ratio (HAMR) threshold
 # Objects with A/M ratio above this are considered HAMR
 # Per Louis's documentation: HAMR objects have A/M > 0.1 m²/kg
-HAMR_THRESHOLD = 0.1  # m^2/kg - objects above this are HAMR (per Louis's spec)
+HAMR_THRESHOLD = 1.0  # m^2/kg - objects above this are HAMR (per Louis's documentation: A/M > 1 m²/kg)
 
 # =============================================================================
 # ORBITAL COVERAGE THRESHOLDS (per Louis's Benchmarking Documentation)
@@ -230,8 +230,8 @@ monteCarloPoints = 100
 # Covariance for each is identity scaled by the factor below. Position is in units of km and angular position is in units of radians
 # (set arbitrarily)
 positionNoise = 0.01
-arcseconds2radians = 3600
-angularNoise = (1) * arcseconds2radians
+# 1 arcsecond expressed in degrees (RA/Dec are in degrees)
+angularNoise = 1.0 / 3600.0
 
 ## --- Downsampling Configuration --- ##
 # Parameters for T1/T2 downsampling to reduce data quality to target levels

@@ -651,10 +651,14 @@ export function DatasetGeneratorPage() {
                       className="grid grid-cols-2 gap-4"
                     >
                       {[
-                        { value: 'LEO', label: 'Low Earth Orbit', desc: '200-2000 km altitude' },
-                        { value: 'MEO', label: 'Medium Earth Orbit', desc: '2000-35,786 km' },
-                        { value: 'GEO', label: 'Geostationary Orbit', desc: '35,786 km' },
-                        { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Variable altitude' },
+                        { value: 'LEO', label: 'Low Earth Orbit', desc: 'a ≤ 8378 km (alt < 2000 km)' },
+                        { value: 'MEO', label: 'Medium Earth Orbit', desc: '8378 < a < 42164 km' },
+                        { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km' },
+                        { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7' },
+                        { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO' },
+                        { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits' },
+                        { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO' },
+                        { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO' },
                       ].map((regime) => (
                         <Label
                           key={regime.value}
@@ -852,8 +856,8 @@ export function DatasetGeneratorPage() {
                         onValueChange={(v) => updateLegacyConfig('objectCount', v as ObjectCountLevel)}
                         className="grid grid-cols-3 gap-4"
                       >
-                        {(Object.entries(OBJECT_COUNT_LEVELS) as [ObjectCountLevel, { label: string; count: number }][]).map(
-                          ([value, { label, count }]) => (
+                        {(Object.entries(OBJECT_COUNT_LEVELS) as [ObjectCountLevel, { label: string; count: number; tolerance: number }][]).map(
+                          ([value, { label, count, tolerance }]) => (
                             <Label
                               key={value}
                               className={cn(
@@ -864,7 +868,7 @@ export function DatasetGeneratorPage() {
                               <RadioGroupItem value={value} />
                               <span className="font-mono text-2xl">{value}</span>
                               <span className="text-sm">{label}</span>
-                              <span className="text-muted-foreground">{count} objects</span>
+                              <span className="text-muted-foreground">{count} &plusmn; {tolerance} objects</span>
                             </Label>
                           )
                         )}
@@ -1073,10 +1077,14 @@ export function DatasetGeneratorPage() {
                   className="grid grid-cols-2 gap-4"
                 >
                   {[
-                    { value: 'LEO', label: 'Low Earth Orbit', desc: '200-2000 km altitude, fast-moving satellites', color: 'bg-orbital-leo' },
-                    { value: 'MEO', label: 'Medium Earth Orbit', desc: '2000-35,786 km, navigation satellites', color: 'bg-orbital-meo' },
-                    { value: 'GEO', label: 'Geostationary Orbit', desc: '35,786 km, stationary position', color: 'bg-orbital-geo' },
-                    { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Variable altitude, challenging tracking', color: 'bg-orbital-heo' },
+                    { value: 'LEO', label: 'Low Earth Orbit', desc: 'a ≤ 8378 km (alt < 2000 km)', color: 'bg-orbital-leo' },
+                    { value: 'MEO', label: 'Medium Earth Orbit', desc: '8378 < a < 42164 km', color: 'bg-orbital-meo' },
+                    { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km', color: 'bg-orbital-geo' },
+                    { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7', color: 'bg-orbital-heo' },
+                    { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO', color: 'bg-gray-400' },
+                    { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits', color: 'bg-orbital-leo' },
+                    { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO', color: 'bg-orbital-meo' },
+                    { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO', color: 'bg-orbital-geo' },
                   ].map((regime) => (
                     <Label
                       key={regime.value}

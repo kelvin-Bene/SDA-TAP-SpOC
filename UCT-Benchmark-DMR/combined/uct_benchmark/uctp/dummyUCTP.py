@@ -1,6 +1,7 @@
 import json
 import random
 from datetime import datetime
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -86,11 +87,11 @@ def dummy(truth_data_filename, blind_data_filename, output_path="./data/uctp_out
             ] + [random.uniform(-1, 1) for _ in range(15)]
             to_json.append(
                 {
-                    "idStateVector": i,
-                    "grouped_ops": grouped_obs.iloc[i],
+                    "idStateVector": str(uuid.uuid4()),
+                    "sourcedData": grouped_obs.iloc[i],
                     # EO = Electro-Optical (telescope observations), NOT Earth Observation
-                    "source_data_types": ["EO"] * len(grouped_obs.iloc[i]),
-                    "classificationMarking": "?? U//PR-LSAS-SV",
+                    "sourcedDataTypes": ["EO"] * len(grouped_obs.iloc[i]),
+                    "classificationMarking": "U//PR-LSAS-SV",
                     "epoch": datetime.now().isoformat(),
                     "uct": True,
                     "xpos": position[0] / 1000,

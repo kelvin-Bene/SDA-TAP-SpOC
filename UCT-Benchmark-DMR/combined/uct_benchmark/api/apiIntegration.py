@@ -1264,9 +1264,14 @@ def spacetrackQuery(token, params, request="satcat", controller="basicspacedata"
     return pd.DataFrame(resp.json())
 
 
+# Simple in-memory cache for DiscoWeb results (keyed by filter params)
+_discosweb_cache: Dict[str, pd.DataFrame] = {}
+
+
 def discoswebQuery(token, params, data="objects", version=2):
     """
     Performs an ESA Discosweb search using the given parameters.
+    Results are cached in memory to avoid redundant API calls.
 
     Args:
         token (string): Your ESA Discosweb access token. If you don't have one, generate one at https://discosweb.esoc.esa.int/tokens.
@@ -1281,6 +1286,11 @@ def discoswebQuery(token, params, data="objects", version=2):
         TypeError: If input types are incorrect.
         HTTPError: If login or query fails.
     """
+    # Check cache first
+    cache_key = f"{data}:{params}"
+    if cache_key in _discosweb_cache:
+        logger.debug(f"DiscoWeb cache hit for: {cache_key[:80]}")
+        return _discosweb_cache[cache_key]
 
     # Error handling
     if not (
@@ -1317,7 +1327,10 @@ def discoswebQuery(token, params, data="objects", version=2):
                 + str(resp.status_code)
                 + "); double-check login info and query parameters.",
             )
-    return pd.DataFrame(resp.json()["data"])
+    result = pd.DataFrame(resp.json()["data"])
+    # Cache for future calls
+    _discosweb_cache[cache_key] = result
+    return result
 
 
 def celestrakSatcat():
@@ -1724,7 +1737,7 @@ def generateDataset(
     search_strategy="hybrid",
     window_size_minutes=10,
     regime="LEO",
-    include_non_ref_obs=False,
+    include_non_ref_obs=True,
     non_ref_ratio=0.1,
     object_type_code="U",
     event_code="NE",
@@ -1965,9 +1978,15 @@ def generateDataset(
         state_truth_data = pd.merge(state_truth_data, supp_data, on="satNo", how="left")
         state_truth_data = state_truth_data.fillna({"mass": 0, "crossSection": 0})
     else:
-        logger.warning("No ESA token provided - skipping Discosweb query. Mass and crossSection will default to 0.")
-        state_truth_data["mass"] = 0
-        state_truth_data["crossSection"] = 0
+        # Apply reasonable defaults based on orbital regime when ESA data unavailable.
+        # Using 0 breaks HAMR filtering (A/M = 0/0) and propagation force models.
+        # Defaults: typical LEO satellite ~1000 kg, ~10 m² cross-section
+        logger.warning(
+            "No ESA token provided - skipping Discosweb query. "
+            "Using default mass/crossSection values based on typical satellites."
+        )
+        state_truth_data["mass"] = 1000.0          # kg (typical LEO satellite)
+        state_truth_data["crossSection"] = 10.0     # m² (typical cross-section)
 
     # Compute elapsed time for state vector query step
     sv_elapsed_time = time.perf_counter() - obs_elapsed_time - start_time
@@ -2260,6 +2279,35 @@ def generateDataset(
         except Exception as e:
             logger.warning(f"Event filtering failed: {e}. Continuing with unfiltered data.")
             event_metadata = {"status": "failed", "error": str(e)}
+
+    # =========================================================================
+    # TIER-DRIVEN MANIPULATION (per Louis's documentation)
+    # T1 → no manipulation; T2 → downsample only; T3 → downsample + simulate obs;
+    # T4 → downsample + simulate obs + simulate new objects
+    # =========================================================================
+    if determined_tier in ("T2", "T3", "T4"):
+        # Auto-enable downsampling for T2, T3, T4
+        if downsample_config is None:
+            downsample_config = {"enabled": True}
+        elif isinstance(downsample_config, dict):
+            downsample_config["enabled"] = True
+        logger.info(f"Tier {determined_tier}: auto-enabled downsampling")
+
+    if determined_tier in ("T3", "T4"):
+        # Auto-enable simulation for T3, T4
+        if simulation_config is None:
+            simulation_config = {"enabled": True}
+        elif isinstance(simulation_config, dict):
+            simulation_config["enabled"] = True
+        logger.info(f"Tier {determined_tier}: auto-enabled simulation")
+
+    if determined_tier == "T1":
+        # T1: no manipulation needed — disable both
+        if isinstance(downsample_config, dict):
+            downsample_config["enabled"] = False
+        if isinstance(simulation_config, dict):
+            simulation_config["enabled"] = False
+        logger.info("Tier T1: no data manipulation required")
 
     # =========================================================================
     # OPTIONAL: Apply downsampling to reduce observation quality
@@ -2761,6 +2809,43 @@ def generateDataset(
                         "senderLongitude": "send_long",
                         "senderAltitude": "send_alt",
                         "typeOptical": "type_optical",
+                        "classificationMarking": "classification_marking",
+                        "idOnOrbit": "id_on_orbit",
+                        "taskId": "task_id",
+                        "origObjectId": "orig_object_id",
+                        "origSensorId": "orig_sensor_id",
+                        "senx": "sen_x",
+                        "seny": "sen_y",
+                        "senz": "sen_z",
+                        "senvelx": "sen_vel_x",
+                        "senvely": "sen_vel_y",
+                        "senvelz": "sen_vel_z",
+                        "expDuration": "exp_duration",
+                        "zeroptd": "zeroptd",
+                        "netObjSig": "net_obj_sig",
+                        "netObjSigUnc": "net_obj_sig_unc",
+                        "mag": "mag",
+                        "magUnc": "mag_unc",
+                        "geolat": "geo_lat",
+                        "geolon": "geo_lon",
+                        "geoalt": "geo_alt",
+                        "georange": "geo_range",
+                        "solarPhaseAngle": "solar_phase_angle",
+                        "solarEqPhaseAngle": "solar_eq_phase_angle",
+                        "solarDecAngle": "solar_dec_angle",
+                        "shutterDelay": "shutter_delay",
+                        "rawFileURI": "raw_file_uri",
+                        "createdBy": "created_by",
+                        "origNetwork": "orig_network",
+                        "losUnc": "los_unc",
+                        "source": "source",
+                        "type": "obs_type",
+                        "senlat": "send_lat",
+                        "senlon": "send_long",
+                        "senalt": "send_alt",
+                        "range": "range_km",
+                        "uct": "is_uct",
+                        "createdAt": "created_at",
                     }
                 )
                 db.observations.bulk_insert(obs_for_db)
@@ -3266,6 +3351,9 @@ def loadDataset(input_path):
     ref_track["satNo"] = ref_track["id"].map(elset_id_to_satno)
 
     # Reconstruct ref_sv
+    # saveDataset writes the column as "cov"; rename to "cov_matrix" for downstream use
+    if "cov" in reference.columns and "cov_matrix" not in reference.columns:
+        reference = reference.rename(columns={"cov": "cov_matrix"})
     ref_sv = reference[
         [
             "satNo",
@@ -3284,7 +3372,7 @@ def loadDataset(input_path):
         ]
     ].copy()
     ref_sv["epoch"] = pd.to_datetime(ref_sv["epoch"])
-    ref_sv["cov_matrix"] = ref_sv["cov_matrix"].apply(lambda x: np.array(json.loads(x)))
+    ref_sv["cov_matrix"] = ref_sv["cov_matrix"].apply(lambda x: np.array(json.loads(x)) if isinstance(x, str) else np.array(x))
 
     # Reconstruct ref_elset
     ref_elset = reference[["satNo", "line1", "line2"]].copy()

@@ -1,5 +1,5 @@
-// Orbital Regimes
-export type OrbitalRegime = 'LEO' | 'MEO' | 'GEO' | 'HEO';
+// Orbital Regimes (includes combo regimes per Louis's documentation)
+export type OrbitalRegime = 'LEO' | 'MEO' | 'GEO' | 'HEO' | 'ALL' | 'LMO' | 'LMG' | 'MGH';
 
 // Data Tiers (T5 = impossible criteria detected, per Aug 2025 transcript)
 export type DataTier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
@@ -68,10 +68,10 @@ export const QUALITY_LEVELS: Record<QualityLevel, string> = {
 
 // Object Count Level (Position 14)
 export type ObjectCountLevel = 'H' | 'S' | 'L';
-export const OBJECT_COUNT_LEVELS: Record<ObjectCountLevel, { label: string; count: number }> = {
-  H: { label: 'High', count: 80 },
-  S: { label: 'Standard', count: 40 },
-  L: { label: 'Low', count: 10 },
+export const OBJECT_COUNT_LEVELS: Record<ObjectCountLevel, { label: string; count: number; tolerance: number }> = {
+  H: { label: 'High', count: 80, tolerance: 2 },
+  S: { label: 'Standard', count: 40, tolerance: 2 },
+  L: { label: 'Low', count: 10, tolerance: 2 },
 };
 
 // Legacy Dataset Code Configuration
@@ -168,6 +168,56 @@ export function validateLegacyCode(code: string): { valid: boolean; errors: stri
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+// EO Observation Dataset (per Benchmarking Documentation)
+export interface EOObservation {
+  id: string;
+  classificationMarking: string;
+  obTime: string;
+  idOnOrbit: string;
+  idSensor: string;
+  satNo: number;
+  taskId: string;
+  origObjectId: string;
+  origSensorId: string;
+  uct: boolean;
+  azimuth: number;
+  elevation: number;
+  range: number;
+  ra: number;
+  declination: number;
+  losUnc: number;
+  senlat: number;
+  senlon: number;
+  senalt: number;
+  senx: number;
+  seny: number;
+  senz: number;
+  senvelx: number;
+  senvely: number;
+  senvelz: number;
+  expDuration: number;
+  zeroptd: number;
+  netObjSig: number;
+  netObjSigUnc: number;
+  mag: number;
+  magUnc: number;
+  geolat: number;
+  geolon: number;
+  geoalt: number;
+  georange: number;
+  solarPhaseAngle: number;
+  solarEqPhaseAngle: number;
+  solarDecAngle: number;
+  shutterDelay: number;
+  rawFileURI: string;
+  source: string;
+  dataMode: string;
+  createdAt: string;
+  createdBy: string;
+  origNetwork: string;
+  type: string;
 }
 
 // Dataset Types

@@ -199,8 +199,8 @@ def binTracks(ref_obs, ref_sv, cutoff=90):
     # --------------------------------------------------------------------
     tracks = []
 
-    # Define the time gap threshold
-    threshold = pd.Timedelta(minutes=90)
+    # Define the time gap threshold (use cutoff parameter)
+    threshold = pd.Timedelta(minutes=cutoff)
 
     for sat, obs in bins:
         # Get orbital period in seconds for this satellite
@@ -710,6 +710,35 @@ def compute_3d_coverage(obs_df: pd.DataFrame, orbital_elements: Dict) -> Tuple[f
 # =============================================================================
 
 
+def _get_exempt_satellites(ref_obs: pd.DataFrame) -> set:
+    """
+    Identify satellites that must NOT be downsampled.
+
+    Exemption criteria:
+      1. Simulated satellites (is_simulated flag is True for all their obs).
+      2. Satellites with <= 2 observations (too few to downsample meaningfully).
+
+    Args:
+        ref_obs: Observation DataFrame with at least 'satNo' column, and
+                 optionally 'is_simulated'.
+
+    Returns:
+        Set of satNo values that are exempt from downsampling.
+    """
+    exempt: set = set()
+
+    # Criterion 1: simulated satellites
+    if "is_simulated" in ref_obs.columns:
+        sim_flags = ref_obs.groupby("satNo", observed=True)["is_simulated"].all()
+        exempt.update(sim_flags[sim_flags].index)
+
+    # Criterion 2: satellites with <= 2 observations
+    counts = ref_obs["satNo"].value_counts()
+    exempt.update(counts[counts <= 2].index)
+
+    return exempt
+
+
 def _downsampleAbsolute(ref_obs, sat_params, objp, obs_max, rand, rng, chosen_sats=None, bins=10):
     """
     Downsamples data to a maximum obs count.
@@ -744,6 +773,18 @@ def _downsampleAbsolute(ref_obs, sat_params, objp, obs_max, rand, rng, chosen_sa
     Outputs:
         ref_obs, dataset: Downsampled DataFrames.
     """
+
+    # --- Downsampling exemptions: skip simulated sats and sats with <= 2 obs ---
+    exempt_sats = _get_exempt_satellites(ref_obs)
+    if exempt_sats:
+        logger.debug(f"Stage 3 (_downsampleAbsolute): exempting {len(exempt_sats)} satellites "
+                     f"(simulated or <=2 obs)")
+    exempt_obs = ref_obs[ref_obs["satNo"].isin(exempt_sats)]
+    ref_obs = ref_obs[~ref_obs["satNo"].isin(exempt_sats)].copy()
+
+    if ref_obs.empty:
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True)
+    # ---------------------------------------------------------------------------
 
     orbital_periods = {
         sat: elems["Period"] for sat, elems in sat_params.items() if np.isfinite(elems["Period"])
@@ -782,7 +823,7 @@ def _downsampleAbsolute(ref_obs, sat_params, objp, obs_max, rand, rng, chosen_sa
     initial_fraction = len(already_low_sats) / len(satIDs)
 
     if initial_fraction >= objp[0]:
-        return ref_obs
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True)
 
     # Candidates for downsampling (still above threshold)
     remaining_sats = [sat for sat, count in sat_obs_counts.items() if count > obs_max]
@@ -868,6 +909,9 @@ def _downsampleAbsolute(ref_obs, sat_params, objp, obs_max, rand, rng, chosen_sa
     # Remove sample column
     ref_obs = ref_obs.drop("time_bin", axis=1)
 
+    # Re-merge exempt satellites (simulated / <=2 obs)
+    ref_obs = pd.concat([ref_obs, exempt_obs], ignore_index=True)
+
     return ref_obs
 
 
@@ -926,6 +970,18 @@ def _lowerOrbitCoverage(ref_obs, sat_params, objp, coveragep, rng, chosen_sats=N
 
     err = 0
 
+    # --- Downsampling exemptions: skip simulated sats and sats with <= 2 obs ---
+    exempt_sats = _get_exempt_satellites(ref_obs)
+    if exempt_sats:
+        logger.debug(f"Stage 1 (_lowerOrbitCoverage): exempting {len(exempt_sats)} satellites "
+                     f"(simulated or <=2 obs)")
+    exempt_obs = ref_obs[ref_obs["satNo"].isin(exempt_sats)]
+    ref_obs = ref_obs[~ref_obs["satNo"].isin(exempt_sats)].copy()
+
+    if ref_obs.empty:
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True), err
+    # ---------------------------------------------------------------------------
+
     # --------------------------------------------------------------------
     # Compute current orbit coverage and check current coverages
     # --------------------------------------------------------------------
@@ -965,12 +1021,12 @@ def _lowerOrbitCoverage(ref_obs, sat_params, objp, coveragep, rng, chosen_sats=N
     target_required = int(np.ceil(objp[2] * total_sat_count))
 
     if len(low_coverage_sats) >= min_required:
-        return ref_obs, err
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True), err
 
     # Compute how many more sats we need to prune
     sats_to_prune = target_required - len(low_coverage_sats)
     if sats_to_prune <= 0:
-        return ref_obs, err
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True), err
 
     # --------------------------------------------------------------------
     # Downsample to obtain required coverage
@@ -1090,6 +1146,9 @@ def _lowerOrbitCoverage(ref_obs, sat_params, objp, coveragep, rng, chosen_sats=N
     mask_ref = ~ref_obs["id"].map(dropped_id_set.__contains__)
     ref_obs = ref_obs.loc[mask_ref].reset_index(drop=True)
 
+    # Re-merge exempt satellites (simulated / <=2 obs)
+    ref_obs = pd.concat([ref_obs, exempt_obs], ignore_index=True)
+
     return ref_obs, err
 
 
@@ -1129,6 +1188,18 @@ def _increaseTrackDistance(ref_obs, sat_params, objp, trackp, rng, chosen_sats=N
     """
 
     err = 0
+
+    # --- Downsampling exemptions: skip simulated sats and sats with <= 2 obs ---
+    exempt_sats = _get_exempt_satellites(ref_obs)
+    if exempt_sats:
+        logger.debug(f"Stage 2 (_increaseTrackDistance): exempting {len(exempt_sats)} satellites "
+                     f"(simulated or <=2 obs)")
+    exempt_obs = ref_obs[ref_obs["satNo"].isin(exempt_sats)]
+    ref_obs = ref_obs[~ref_obs["satNo"].isin(exempt_sats)].copy()
+
+    if ref_obs.empty:
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True), err
+    # ---------------------------------------------------------------------------
 
     # --------------------------------------------------------------------
     # Compute the maximum time gap between observations per satellite
@@ -1172,12 +1243,12 @@ def _increaseTrackDistance(ref_obs, sat_params, objp, trackp, rng, chosen_sats=N
 
     # Return early if meets min threshold
     if len(sufficient_sats) >= min_required:
-        return ref_obs, err
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True), err
 
     # Determine how many additional satellites need gap widening
     num_to_prune = target_required - len(sufficient_sats)
     if num_to_prune <= 0:
-        return ref_obs, err
+        return pd.concat([ref_obs, exempt_obs], ignore_index=True), err
     num_to_prune = min(num_to_prune, len(insufficient_sats))  # Don't exceed available sats
 
     # --------------------------------------------------------------------
@@ -1264,6 +1335,9 @@ def _increaseTrackDistance(ref_obs, sat_params, objp, trackp, rng, chosen_sats=N
     # Mask to keep only non-dropped observations
     mask_ref = ~ref_obs["id"].map(dropped_id_set.__contains__)
     ref_obs = ref_obs.loc[mask_ref].reset_index(drop=True)
+
+    # Re-merge exempt satellites (simulated / <=2 obs)
+    ref_obs = pd.concat([ref_obs, exempt_obs], ignore_index=True)
 
     return ref_obs, err
 

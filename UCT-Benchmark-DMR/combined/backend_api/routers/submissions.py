@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
@@ -19,6 +19,137 @@ from backend_api.models import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
+
+
+# =============================================================================
+# UCTP Output Schema Validation (per Louis's Benchmarking Documentation)
+# =============================================================================
+
+# Required fields for state-vector UCTP output
+UCTP_SV_REQUIRED_FIELDS = {
+    "sourcedData": list,       # List of observation IDs grouped by this orbit
+    "epoch": str,              # Epoch of the state vector (ISO datetime)
+    "xpos": (int, float),      # Position X [km]
+    "ypos": (int, float),      # Position Y [km]
+    "zpos": (int, float),      # Position Z [km]
+    "xvel": (int, float),      # Velocity X [km/s]
+    "yvel": (int, float),      # Velocity Y [km/s]
+    "zvel": (int, float),      # Velocity Z [km/s]
+}
+
+# Optional but documented fields for state-vector output
+UCTP_SV_OPTIONAL_FIELDS = {
+    "idStateVector": str,            # Unique alphanumeric identifier (per Louis's spec)
+    "sourcedDataTypes": list,        # Type of each sourced observation (e.g., "EO")
+    "referenceFrame": str,           # Reference frame (e.g., "EME2000", "J2000")
+    "covReferenceFrame": str,        # Covariance reference frame
+    "cov": list,                     # 21 lower-triangular covariance elements
+    "classificationMarking": str,    # Organization label (e.g., "U//LSAS")
+}
+
+# Required fields for TLE UCTP output
+UCTP_TLE_REQUIRED_FIELDS = {
+    "sourcedData": list,
+    "line1": str,
+    "line2": str,
+}
+
+# Optional but documented fields for TLE output
+UCTP_TLE_OPTIONAL_FIELDS = {
+    "idElset": str,                  # Unique TLE identifier
+    "sourcedDataTypes": list,        # Type of each sourced item (e.g., "ELSET")
+    "epoch": str,                    # TLE epoch
+    "meanMotion": (int, float),
+    "eccentricity": (int, float),
+    "inclination": (int, float),
+    "raan": (int, float),
+    "argOfPerigee": (int, float),
+    "meanAnomaly": (int, float),
+    "bStar": (int, float),
+    "semiMajorAxis": (int, float),
+    "period": (int, float),
+}
+
+
+def validate_uctp_output(data: Any) -> Tuple[bool, List[str]]:
+    """
+    Validate UCTP output against the documented schema.
+
+    Accepts both state-vector and TLE formats.
+
+    Args:
+        data: Parsed JSON data (list of orbit records)
+
+    Returns:
+        Tuple of (is_valid, list of error messages)
+    """
+    errors: List[str] = []
+
+    if not isinstance(data, list):
+        return False, ["UCTP output must be a JSON array of orbit records"]
+
+    if len(data) == 0:
+        return False, ["UCTP output is empty (no orbit records)"]
+
+    # Detect format from first record
+    first_record = data[0]
+    if not isinstance(first_record, dict):
+        return False, ["Each orbit record must be a JSON object"]
+
+    is_tle = "line1" in first_record and "line2" in first_record
+    required = UCTP_TLE_REQUIRED_FIELDS if is_tle else UCTP_SV_REQUIRED_FIELDS
+    format_name = "TLE" if is_tle else "state-vector"
+
+    for i, record in enumerate(data):
+        if not isinstance(record, dict):
+            errors.append(f"Record {i}: expected JSON object, got {type(record).__name__}")
+            continue
+
+        # Check required fields
+        for field, expected_type in required.items():
+            if field not in record:
+                # Also check common aliases
+                aliases = {
+                    "sourcedData": ["grouped_ops", "sourced_data"],
+                    "xpos": ["X", "x", "posX"],
+                    "ypos": ["Y", "y", "posY"],
+                    "zpos": ["Z", "z", "posZ"],
+                    "xvel": ["VX", "vx", "velX", "Xdot"],
+                    "yvel": ["VY", "vy", "velY", "Ydot"],
+                    "zvel": ["VZ", "vz", "velZ", "Zdot"],
+                }
+                found_alias = False
+                for alias in aliases.get(field, []):
+                    if alias in record:
+                        found_alias = True
+                        break
+                if not found_alias:
+                    errors.append(f"Record {i}: missing required field '{field}'")
+            elif not isinstance(record[field], expected_type):
+                errors.append(
+                    f"Record {i}: field '{field}' expected {expected_type}, "
+                    f"got {type(record[field]).__name__}"
+                )
+
+        # Validate covariance if present (21 lower-triangular elements)
+        if not is_tle and "cov" in record:
+            cov = record["cov"]
+            if isinstance(cov, list) and len(cov) != 21:
+                errors.append(
+                    f"Record {i}: 'cov' must have exactly 21 lower-triangular elements, "
+                    f"got {len(cov)}"
+                )
+
+        # Cap error reporting to first 20 errors
+        if len(errors) >= 20:
+            errors.append(f"... and possibly more errors (checked {i+1}/{len(data)} records)")
+            break
+
+    is_valid = len(errors) == 0
+    if is_valid:
+        logger.info(f"UCTP schema validation passed: {len(data)} {format_name} records")
+
+    return is_valid, errors
 
 # Directory for storing uploaded submission files
 UPLOADS_DIR = Path(__file__).parent.parent.parent / "data" / "uploads"
@@ -213,13 +344,30 @@ async def create_submission(
 
         # Validate that the content is valid JSON
         try:
-            json.loads(contents)
+            parsed_data = json.loads(contents)
         except json.JSONDecodeError as e:
             logger.warning(f"Rejected upload with invalid JSON: {e}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid JSON file: {str(e)}",
             )
+
+        # Validate UCTP output schema (per Louis's Benchmarking Documentation)
+        is_valid, schema_errors = validate_uctp_output(parsed_data)
+        if not is_valid:
+            logger.warning(f"UCTP schema validation failed: {schema_errors[:5]}")
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "UCTP output does not match expected schema",
+                    "errors": schema_errors,
+                    "hint": (
+                        "Expected fields: sourcedData, epoch, xpos, ypos, zpos, "
+                        "xvel, yvel, zvel (state-vector) OR sourcedData, line1, line2 (TLE)"
+                    ),
+                },
+            )
+
         with open(file_path, "wb") as f:
             f.write(contents)
     except HTTPException:

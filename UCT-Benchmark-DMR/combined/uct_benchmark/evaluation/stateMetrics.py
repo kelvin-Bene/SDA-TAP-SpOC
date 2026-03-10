@@ -292,10 +292,10 @@ def stateMetrics(ref, candidate, propagator, elset_mode=False):
         delta = candidate[VELOCITY_COLUMNS].values - prop_ref[VELOCITY_COLUMNS].values
         stats["Velocity Error Norm"] = np.linalg.norm(delta, axis=1)
 
-        # Bias
+        # Bias — per-pair, per-dimension difference (no averaging)
         bias = candidate[STATE_COLUMNS].values - prop_ref[STATE_COLUMNS].values
-        stats[[f"{col} Bias" for col in STATE_COLUMNS]] = bias / point_size
-        stats["Total Bias"] = np.sum(bias / point_size, axis=1)
+        stats[[f"{col} Bias" for col in STATE_COLUMNS]] = bias
+        stats["Total Bias"] = np.sum(bias, axis=1)
 
         # NEES and p-score
         NEES = _compute_NEES(ref, candidate)

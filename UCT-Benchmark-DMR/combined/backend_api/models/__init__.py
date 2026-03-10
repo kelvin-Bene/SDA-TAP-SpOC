@@ -465,6 +465,38 @@ class DatasetObservation(BaseModel):
     track_id: Optional[str] = None
     # Flags
     is_simulated: Optional[bool] = None
+    # Full EO observation fields (per Benchmarking Documentation)
+    classification_marking: Optional[str] = None
+    id_on_orbit: Optional[str] = None
+    task_id: Optional[str] = None
+    orig_object_id: Optional[str] = None
+    orig_sensor_id: Optional[str] = None
+    sen_x: Optional[float] = None
+    sen_y: Optional[float] = None
+    sen_z: Optional[float] = None
+    sen_vel_x: Optional[float] = None
+    sen_vel_y: Optional[float] = None
+    sen_vel_z: Optional[float] = None
+    exp_duration: Optional[float] = None
+    zeroptd: Optional[float] = None
+    net_obj_sig: Optional[float] = None
+    net_obj_sig_unc: Optional[float] = None
+    mag: Optional[float] = None
+    mag_unc: Optional[float] = None
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
+    geo_alt: Optional[float] = None
+    geo_range: Optional[float] = None
+    solar_phase_angle: Optional[float] = None
+    solar_eq_phase_angle: Optional[float] = None
+    solar_dec_angle: Optional[float] = None
+    shutter_delay: Optional[float] = None
+    raw_file_uri: Optional[str] = None
+    created_by: Optional[str] = None
+    orig_network: Optional[str] = None
+    los_unc: Optional[float] = None
+    source: Optional[str] = None
+    obs_type: Optional[str] = None
 
 
 # ============================================================
