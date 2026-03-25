@@ -56,11 +56,15 @@ export function useDashboardStats() {
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       // Fetch all required data in parallel
-      const [leaderboardRes, statsRes, submissionsRes] = await Promise.all([
+      const [leaderboardResult, statsResult, submissionsResult] = await Promise.allSettled([
         api.getLeaderboard({ limit: '10' }),
         api.getLeaderboardStatistics({}),
         api.getSubmissions({ limit: '100' }),
       ]);
+
+      const leaderboardRes = leaderboardResult.status === 'fulfilled' ? leaderboardResult.value : { data: { entries: [] } };
+      const statsRes = statsResult.status === 'fulfilled' ? statsResult.value : { data: {} };
+      const submissionsRes = submissionsResult.status === 'fulfilled' ? submissionsResult.value : { data: [] };
 
       const leaderboard = leaderboardRes.data as LeaderboardResponse;
       const stats = statsRes.data as StatisticsResponse;

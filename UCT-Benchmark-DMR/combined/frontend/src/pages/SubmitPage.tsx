@@ -43,6 +43,7 @@ export function SubmitPage() {
   const [version, setVersion] = useState('');
   const [description, setDescription] = useState('');
   const [organization, setOrganization] = useState('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
     { id: 'format', label: 'File format valid', status: 'pending' },
@@ -222,7 +223,9 @@ export function SubmitPage() {
   };
 
   const handleSubmit = async () => {
+    setSubmitAttempted(true);
     if (!file || !datasetId || !algorithmName || !version) return;
+    if (!canSubmit) return;
 
     try {
       await createSubmission.mutateAsync({
@@ -373,6 +376,9 @@ export function SubmitPage() {
               </div>
             </div>
           )}
+          {submitAttempted && !file && (
+            <p className="text-sm text-destructive mt-1">This field is required</p>
+          )}
         </CardContent>
       </Card>
 
@@ -405,6 +411,9 @@ export function SubmitPage() {
                 )}
               </SelectContent>
             </Select>
+            {submitAttempted && !datasetId && (
+              <p className="text-sm text-destructive mt-1">This field is required</p>
+            )}
           </div>
 
           {/* Algorithm Name */}
@@ -416,6 +425,9 @@ export function SubmitPage() {
               value={algorithmName}
               onChange={(e) => setAlgorithmName(e.target.value)}
             />
+            {submitAttempted && !algorithmName && (
+              <p className="text-sm text-destructive mt-1">This field is required</p>
+            )}
           </div>
 
           {/* Version */}
@@ -427,6 +439,9 @@ export function SubmitPage() {
               value={version}
               onChange={(e) => setVersion(e.target.value)}
             />
+            {submitAttempted && !version && (
+              <p className="text-sm text-destructive mt-1">This field is required</p>
+            )}
           </div>
 
           {/* Description */}
@@ -464,7 +479,7 @@ export function SubmitPage() {
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!canSubmit}
+          disabled={createSubmission.isPending}
           className="gap-2"
         >
           {createSubmission.isPending ? (

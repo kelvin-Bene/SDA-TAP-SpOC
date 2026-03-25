@@ -28,17 +28,20 @@ WORKDIR /app
 # Copy dependency spec first for layer caching
 COPY pyproject.toml ./
 
-# Install Python dependencies (with postgres extras for production)
-RUN pip install --no-cache-dir ".[postgres]"
+# Install Python dependencies (all deps now in core, no extras needed)
+RUN pip install --no-cache-dir "."
 
 # Copy application code
 COPY uct_benchmark/ ./uct_benchmark/
 COPY backend_api/ ./backend_api/
 
+# Copy Orekit data (required for orbital propagation)
+COPY orekit-data-main/ ./orekit-data-main/
+
 # Set environment
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
-    DATABASE_BACKEND=postgres
+    OREKIT_DATA_PATH=/app/orekit-data-main
 
 # Create uploads directory
 RUN mkdir -p /app/data/uploads

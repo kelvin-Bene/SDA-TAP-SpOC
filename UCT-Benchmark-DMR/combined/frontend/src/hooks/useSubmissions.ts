@@ -94,21 +94,21 @@ function transformSubmission(data: SubmissionResponse): Submission {
 
 function transformResults(data: ResultsResponse): SubmissionResults {
   return {
-    truePositives: data.true_positives,
-    trueNegatives: data.true_negatives || 0,
-    falsePositives: data.false_positives,
-    falseNegatives: data.false_negatives,
-    precision: data.precision,
-    recall: data.recall,
-    f1Score: data.f1_score,
-    accuracy: data.accuracy || 0,
-    specificity: data.specificity || 0,
-    positionRmsKm: data.position_rms_km,
-    velocityRmsKmS: data.velocity_rms_km_s,
-    mahalanobisDistance: data.mahalanobis_distance || 0,
-    raResidualRmsArcsec: data.ra_residual_rms_arcsec || 0,
-    decResidualRmsArcsec: data.dec_residual_rms_arcsec || 0,
-    satelliteResults: data.satellite_results.map((sr) => ({
+    truePositives: data.true_positives ?? 0,
+    trueNegatives: data.true_negatives ?? 0,
+    falsePositives: data.false_positives ?? 0,
+    falseNegatives: data.false_negatives ?? 0,
+    precision: data.precision ?? 0,
+    recall: data.recall ?? 0,
+    f1Score: data.f1_score ?? 0,
+    accuracy: data.accuracy ?? 0,
+    specificity: data.specificity ?? 0,
+    positionRmsKm: data.position_rms_km ?? 0,
+    velocityRmsKmS: data.velocity_rms_km_s ?? 0,
+    mahalanobisDistance: data.mahalanobis_distance ?? 0,
+    raResidualRmsArcsec: data.ra_residual_rms_arcsec ?? 0,
+    decResidualRmsArcsec: data.dec_residual_rms_arcsec ?? 0,
+    satelliteResults: (data.satellite_results || []).map((sr) => ({
       satelliteId: sr.satellite_id,
       status: sr.status as 'TP' | 'FP' | 'FN',
       observationsUsed: sr.observations_used,
@@ -120,7 +120,7 @@ function transformResults(data: ResultsResponse): SubmissionResults {
     raResidualHistogram: data.ra_residual_histogram,
     decResidualHistogram: data.dec_residual_histogram,
     positionErrorHistogram: data.position_error_histogram,
-    rank: data.rank || 0,
+    rank: data.rank ?? 0,
     previousRank: data.previous_rank,
   };
 }

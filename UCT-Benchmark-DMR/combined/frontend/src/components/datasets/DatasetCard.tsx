@@ -35,6 +35,30 @@ const regimeStyles: Record<OrbitalRegime, { color: string; bgColor: string; bord
     borderColor: 'border-red-400/30',
     glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(0_72%_51%_/_0.5)]',
   },
+  ALL: {
+    color: 'text-gray-400',
+    bgColor: 'bg-gray-400/10',
+    borderColor: 'border-gray-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(220_9%_46%_/_0.5)]',
+  },
+  LMO: {
+    color: 'text-teal-400',
+    bgColor: 'bg-teal-400/10',
+    borderColor: 'border-teal-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(171_77%_64%_/_0.5)]',
+  },
+  LMG: {
+    color: 'text-indigo-400',
+    bgColor: 'bg-indigo-400/10',
+    borderColor: 'border-indigo-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(231_48%_48%_/_0.5)]',
+  },
+  MGH: {
+    color: 'text-orange-400',
+    bgColor: 'bg-orange-400/10',
+    borderColor: 'border-orange-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(27_96%_61%_/_0.5)]',
+  },
 };
 
 const tierStyles: Record<DataTier, { color: string; bgColor: string; borderColor: string; label: string }> = {
@@ -61,6 +85,12 @@ const tierStyles: Record<DataTier, { color: string; bgColor: string; borderColor
     bgColor: 'bg-red-400/10',
     borderColor: 'border-red-400/30',
     label: 'Synthetic',
+  },
+  T5: {
+    color: 'text-rose-500',
+    bgColor: 'bg-rose-500/10',
+    borderColor: 'border-rose-500/30',
+    label: 'Impossible',
   },
 };
 

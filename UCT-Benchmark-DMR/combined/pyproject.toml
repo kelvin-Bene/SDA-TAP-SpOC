@@ -1,15 +1,14 @@
 [project]
 name = "uct_benchmark"
-version = "1.0.0"
+version = "2.0.0"
 description = "UCT Benchmark - Combined Pipeline and Demo UI"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    # Core pipeline (from Kelvin's)
+    # Core pipeline
     "aiohttp>=3.13.0",
     "astropy>=7.1.1",
     "customtkinter>=5.2.2",
-    "duckdb>=1.4.1",
     "loguru",
     "matplotlib",
     "nest-asyncio",
@@ -24,10 +23,18 @@ dependencies = [
     "scipy",
     "tqdm",
     "typer",
-    # Backend API (for frontend)
+    # Backend API
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
     "python-multipart>=0.0.6",
+    # Database (PostgreSQL only)
+    "pg8000>=1.30.0",
+    # Auth & Security
+    "PyJWT[crypto]>=2.8.0",
+    "supabase>=2.0.0",
+    "slowapi>=0.1.9",
+    # Monitoring
+    "sentry-sdk[fastapi]>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -43,9 +50,6 @@ dev = [
 docs = [
     "mkdocs",
     "mkdocs-material",
-]
-postgres = [
-    "pg8000>=1.30.0",
 ]
 
 [build-system]

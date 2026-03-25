@@ -59,7 +59,6 @@ import {
 } from '@/types';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
@@ -77,6 +76,10 @@ const DEFAULT_COVERAGE_THRESHOLDS: Record<OrbitalRegime, { low: number; display:
   MEO: { low: 0.000449, display: '<0.05%' },
   GEO: { low: 0.41656, display: '<42%' },
   HEO: { low: 0.20, display: '<20%' },
+  ALL: { low: 0.10, display: '<10%' },
+  LMO: { low: 0.000331, display: '<0.03%' },
+  LMG: { low: 0.14, display: '<14%' },
+  MGH: { low: 0.20, display: '<20%' },
 };
 
 function buildThresholds(
@@ -472,8 +475,6 @@ export function DatasetGeneratorPage() {
   // Get current steps based on mode
   const activeSteps = mode === 'legacy' ? legacySteps : steps;
   const activeStep = mode === 'legacy' ? legacyStep : currentStep;
-  const maxSteps = mode === 'legacy' ? 7 : 5;
-
   return (
     <TooltipProvider>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -617,7 +618,7 @@ export function DatasetGeneratorPage() {
                         onValueChange={(v) => updateLegacyConfig('targetPercentage', v as TargetPercentage)}
                         className="grid grid-cols-2 sm:grid-cols-4 gap-2"
                       >
-                        {(Object.entries(TARGET_PERCENTAGES) as [TargetPercentage, string][]).map(([value, label]) => (
+                        {(Object.entries(TARGET_PERCENTAGES) as [TargetPercentage, string][]).map(([value, _label]) => (
                           <Label
                             key={value}
                             className={cn(

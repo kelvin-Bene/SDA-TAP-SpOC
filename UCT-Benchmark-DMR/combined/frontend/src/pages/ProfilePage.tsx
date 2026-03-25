@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,15 +17,41 @@ import {
   Check,
   Eye,
   EyeOff,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLeaderboardStatistics } from '@/hooks/useLeaderboard';
 import { useSubmissions } from '@/hooks/useSubmissions';
+import { useAuthStore } from '@/stores/authStore';
+import { api } from '@/api/client';
 
 export function ProfilePage() {
   const { toast } = useToast();
+  const { user } = useAuthStore();
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Editable fields initialized from auth user data
+  const [displayName, setDisplayName] = useState(user?.username ?? '');
+  const [organization, setOrganization] = useState(user?.organization ?? '');
+  const [udlToken, setUdlToken] = useState('');
+  const [esaToken, setEsaToken] = useState('');
+  const [showUdlToken, setShowUdlToken] = useState(false);
+  const [showEsaToken, setShowEsaToken] = useState(false);
+  const [udlTokenMask, setUdlTokenMask] = useState('');
+  const [esaTokenMask, setEsaTokenMask] = useState('');
+
+  // Fetch profile from backend to get masked token values
+  useEffect(() => {
+    api.getCurrentUser().then((res) => {
+      const profile = res.data;
+      if (profile.udl_token) setUdlTokenMask(profile.udl_token);
+      if (profile.esa_token) setEsaTokenMask(profile.esa_token);
+    }).catch(() => {
+      // Ignore -- profile may not exist yet
+    });
+  }, []);
 
   // Fetch real stats from API
   const { data: stats } = useLeaderboardStatistics();
@@ -53,6 +79,47 @@ export function ProfilePage() {
       variant: 'destructive',
     });
   };
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const payload: Record<string, string> = {
+        display_name: displayName,
+        organization,
+      };
+      // Only send tokens when the user has typed a new value
+      if (udlToken) payload.udl_token = udlToken;
+      if (esaToken) payload.esa_token = esaToken;
+
+      const res = await api.updateProfile(payload);
+      const profile = res.data;
+
+      // Update masks from response and clear raw inputs
+      if (profile.udl_token) setUdlTokenMask(profile.udl_token);
+      if (profile.esa_token) setEsaTokenMask(profile.esa_token);
+      setUdlToken('');
+      setEsaToken('');
+
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile information has been saved.',
+      });
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast({
+        title: 'Update Failed',
+        description: 'Failed to save profile changes. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Format member since date from user data
+  const memberSince = user?.createdAt
+    ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : '--';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -98,18 +165,97 @@ export function ProfilePage() {
               {/* Form Fields */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" defaultValue="researcher" />
+                  <Label htmlFor="username">Display Name</Label>
+                  <Input
+                    id="username"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="researcher@aerospace.org" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={user?.email ?? ''}
+                    disabled
+                    className="opacity-60"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Email is managed by your authentication provider.
+                  </p>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="organization">Organization</Label>
                   <div className="flex gap-2">
                     <Building2 className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
-                    <Input id="organization" defaultValue="Aerospace Corporation" className="flex-1" />
+                    <Input
+                      id="organization"
+                      value={organization}
+                      onChange={(e) => setOrganization(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* API Token Fields */}
+              <Separator />
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium">Data Source API Tokens</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Your API tokens are stored securely and used for dataset generation.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="udl-token">UDL API Token</Label>
+                  <div className="flex gap-2">
+                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
+                    <div className="relative flex-1">
+                      <Input
+                        id="udl-token"
+                        type={showUdlToken ? 'text' : 'password'}
+                        placeholder={udlTokenMask || 'Enter your UDL API token'}
+                        value={udlToken}
+                        onChange={(e) => setUdlToken(e.target.value)}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => setShowUdlToken(!showUdlToken)}
+                      >
+                        {showUdlToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="esa-token">ESA API Token</Label>
+                  <div className="flex gap-2">
+                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
+                    <div className="relative flex-1">
+                      <Input
+                        id="esa-token"
+                        type={showEsaToken ? 'text' : 'password'}
+                        placeholder={esaTokenMask || 'Enter your ESA API token'}
+                        value={esaToken}
+                        onChange={(e) => setEsaToken(e.target.value)}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => setShowEsaToken(!showEsaToken)}
+                      >
+                        {showEsaToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -118,7 +264,7 @@ export function ProfilePage() {
               <div className="grid gap-4 sm:grid-cols-3 pt-4 border-t">
                 <div>
                   <p className="text-sm text-muted-foreground">Member Since</p>
-                  <p className="font-medium">January 2026</p>
+                  <p className="font-medium">{memberSince}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Submissions</p>
@@ -131,7 +277,16 @@ export function ProfilePage() {
               </div>
 
               <div className="flex justify-end">
-                <Button>Save Changes</Button>
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -164,14 +319,14 @@ export function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-muted px-3 py-2 rounded font-mono text-sm">
-                    {showApiKey ? placeholderApiKey : '•'.repeat(40)}
+                    {showApiKey ? placeholderApiKey : '\u2022'.repeat(40)}
                   </code>
                   <Button variant="outline" size="icon" onClick={handleCopyApiKey}>
                     {copiedKey ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Created: Jan 15, 2026 • Last used: 2 hours ago
+                  Created: Jan 15, 2026 -- Last used: 2 hours ago
                 </p>
               </div>
 
@@ -329,21 +484,10 @@ export function ProfilePage() {
                     <div>
                       <p className="font-medium">Current Session</p>
                       <p className="text-sm text-muted-foreground">
-                        Chrome on Windows • Los Angeles, CA
+                        {user?.email ?? 'Unknown'} -- This device
                       </p>
                     </div>
                     <Badge variant="success">Active</Badge>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="font-medium">Firefox on macOS</p>
-                      <p className="text-sm text-muted-foreground">
-                        Last active: 2 days ago • San Francisco, CA
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm" className="text-destructive">
-                      Revoke
-                    </Button>
                   </div>
                 </div>
               </div>
