@@ -1,9 +1,9 @@
 # Backend Dockerfile: Java 17 (Orekit) + Python 3.12 (FastAPI)
-# Orekit JVM uses ~500MB per worker, so limit uvicorn workers to 2.
+# Orekit data loaded from pip package (from_pip_library=True), no local copy needed.
 
-FROM eclipse-temurin:17-jdk-jammy AS base
+FROM eclipse-temurin:17-jre-jammy AS base
 
-# Install Python 3.12 from deadsnakes PPA
+# Install Python 3.12 + build deps for native extensions
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common && \
@@ -12,7 +12,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.12 \
         python3.12-venv \
-        python3.12-dev && \
+        python3.12-dev \
+        gcc \
+        libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Set python3.12 as default
@@ -28,25 +30,24 @@ WORKDIR /app
 # Copy dependency spec first for layer caching
 COPY pyproject.toml ./
 
-# Install Python dependencies (all deps now in core, no extras needed)
+# Remove system cryptography to avoid conflicts with pip version
+RUN apt-get update && apt-get remove -y python3-cryptography 2>/dev/null; rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir "."
 
 # Copy application code
 COPY uct_benchmark/ ./uct_benchmark/
 COPY backend_api/ ./backend_api/
+COPY start.py ./
 
-# Copy Orekit data (required for orbital propagation)
-COPY orekit-data-main/ ./orekit-data-main/
-
-# Set environment
+# Set environment — JVM memory limits for Orekit
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
-    OREKIT_DATA_PATH=/app/orekit-data-main
+    JAVA_TOOL_OPTIONS="-Xmx256m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
 
 # Create uploads directory
 RUN mkdir -p /app/data/uploads
 
-# Create non-root user
+# Non-root user
 RUN addgroup --system --gid 1001 appuser && \
     adduser --system --uid 1001 --ingroup appuser appuser
 RUN chown -R appuser:appuser /app
@@ -54,9 +55,7 @@ USER appuser
 
 EXPOSE 8000
 
-# Health check using Python's urllib (no curl in base image)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Run with 2 workers (Orekit JVM memory constraint)
-CMD ["python3", "-m", "uvicorn", "backend_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["python", "start.py"]

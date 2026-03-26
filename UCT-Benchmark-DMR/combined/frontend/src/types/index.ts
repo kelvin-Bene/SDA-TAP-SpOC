@@ -274,6 +274,7 @@ export interface SimulationOptions {
 
 // Dataset Generation Configuration
 export interface DatasetGenerationConfig {
+  name?: string;
   regime: OrbitalRegime;
   coverage: 'high' | 'standard' | 'low' | 'mixed';
   observationDensity: number;

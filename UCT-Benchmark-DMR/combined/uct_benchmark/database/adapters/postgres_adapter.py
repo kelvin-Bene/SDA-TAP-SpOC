@@ -114,6 +114,12 @@ class PostgresAdapter(DatabaseAdapter):
         if self._ssl_context:
             kwargs["ssl_context"] = self._ssl_context
         conn = pg8000.connect(**kwargs)
+        # Disable server-side prepared statements — required for Supabase
+        # connection pooler (Supavisor) which uses transaction mode
+        conn.autocommit = True
+        cursor = conn.cursor()
+        cursor.execute("SET plan_cache_mode = 'force_custom_plan'")
+        conn.autocommit = False
         # Set timeout on this connection's socket only (not globally)
         if hasattr(conn, '_sock') and conn._sock:
             conn._sock.settimeout(60)
@@ -159,7 +165,10 @@ class PostgresAdapter(DatabaseAdapter):
 
     def execute(self, query: str, params: Tuple = ()) -> Any:
         """
-        Execute a SQL query.
+        Execute a SQL query with automatic retry on connection failure.
+
+        Handles Supabase pooler disconnections and transaction aborts
+        by reconnecting and retrying once.
 
         Args:
             query: SQL query string with %s placeholders
@@ -169,11 +178,27 @@ class PostgresAdapter(DatabaseAdapter):
             Cursor object
         """
         converted_query = self.convert_placeholders(query)
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        conn.commit()
-        return cursor
+        for attempt in range(2):
+            try:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                cursor.execute(converted_query, params)
+                conn.commit()
+                return cursor
+            except (pg8000.exceptions.InterfaceError, OSError, ConnectionError):
+                if attempt == 0:
+                    self._connection = None
+                    continue
+                raise
+            except pg8000.exceptions.DatabaseError as e:
+                # Transaction aborted — rollback and retry
+                if attempt == 0 and '25P02' in str(e):
+                    try:
+                        self._get_connection().rollback()
+                    except Exception:
+                        self._connection = None
+                    continue
+                raise
 
     def executemany(self, query: str, params_list: List[Tuple], batch_size: int = 500) -> None:
         """

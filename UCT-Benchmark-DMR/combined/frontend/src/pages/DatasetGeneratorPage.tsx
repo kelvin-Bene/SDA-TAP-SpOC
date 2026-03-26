@@ -362,16 +362,19 @@ export function DatasetGeneratorPage() {
   };
 
   const handleGenerate = async () => {
-    console.log('=== handleGenerate called ===');
-    console.log('Current config state:', JSON.stringify(config, null, 2));
-
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    console.log('Generating dataset with config:', config);
+    // Auto-generate a name from regime + date + unique suffix
+    const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+    const suffix = Math.random().toString(36).slice(2, 10);
+    const autoName = `${config.regime}-standard-${timestamp}-${suffix}`;
 
     try {
-      const result = await generateDatasetMutation.mutateAsync(config);
+      const result = await generateDatasetMutation.mutateAsync({
+        ...config,
+        name: autoName,
+      });
       console.log('Generation result:', result);
       // The API returns a job_id for tracking progress
       if (result?.job_id) {
