@@ -114,12 +114,6 @@ class PostgresAdapter(DatabaseAdapter):
         if self._ssl_context:
             kwargs["ssl_context"] = self._ssl_context
         conn = pg8000.connect(**kwargs)
-        # Disable server-side prepared statements — required for Supabase
-        # connection pooler (Supavisor) which uses transaction mode
-        conn.autocommit = True
-        cursor = conn.cursor()
-        cursor.execute("SET plan_cache_mode = 'force_custom_plan'")
-        conn.autocommit = False
         # Set timeout on this connection's socket only (not globally)
         if hasattr(conn, '_sock') and conn._sock:
             conn._sock.settimeout(60)
@@ -167,8 +161,11 @@ class PostgresAdapter(DatabaseAdapter):
         """
         Execute a SQL query with automatic retry on connection failure.
 
-        Handles Supabase pooler disconnections and transaction aborts
-        by reconnecting and retrying once.
+        Handles Supabase pooler issues:
+        - Stale prepared statements (26000) → reconnect and retry
+        - Prepared statement parameter mismatch (08P01) → reconnect and retry
+        - Connection drops → reconnect and retry
+        - Transaction aborts (25P02) → rollback and retry
 
         Args:
             query: SQL query string with %s placeholders
@@ -191,8 +188,18 @@ class PostgresAdapter(DatabaseAdapter):
                     continue
                 raise
             except pg8000.exceptions.DatabaseError as e:
+                err_str = str(e)
+                # Stale prepared statement or parameter mismatch (Supabase pooler)
+                # → drop connection entirely so a fresh one is created
+                if attempt == 0 and ('26000' in err_str or '08P01' in err_str):
+                    try:
+                        self._connection.close()
+                    except Exception:
+                        pass
+                    self._connection = None
+                    continue
                 # Transaction aborted — rollback and retry
-                if attempt == 0 and '25P02' in str(e):
+                if attempt == 0 and '25P02' in err_str:
                     try:
                         self._get_connection().rollback()
                     except Exception:
