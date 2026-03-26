@@ -189,9 +189,15 @@ class PostgresAdapter(DatabaseAdapter):
                 raise
             except pg8000.exceptions.DatabaseError as e:
                 err_str = str(e)
-                # Stale prepared statement or parameter mismatch (Supabase pooler)
-                # → drop connection entirely so a fresh one is created
-                if attempt == 0 and ('26000' in err_str or '08P01' in err_str):
+                # Supabase pooler can invalidate pg8000's connection state in
+                # multiple ways. All these errors mean "reconnect and retry":
+                #   26000 = invalid prepared statement
+                #   34000 = invalid portal (cursor)
+                #   08P01 = protocol violation (param count mismatch)
+                #   08006 = connection failure
+                #   08001 = unable to establish connection
+                pooler_errors = ('26000', '34000', '08P01', '08006', '08001')
+                if attempt == 0 and any(code in err_str for code in pooler_errors):
                     try:
                         self._connection.close()
                     except Exception:
