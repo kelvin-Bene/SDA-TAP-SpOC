@@ -27,8 +27,8 @@ RUN python3.12 -m ensurepip --upgrade && \
 
 WORKDIR /app
 
-# Copy dependency spec first for layer caching
-COPY pyproject.toml ./
+# Copy dependency spec + README (required by hatchling metadata)
+COPY pyproject.toml README.md ./
 
 # Remove system cryptography to avoid conflicts with pip version
 RUN apt-get update && apt-get remove -y python3-cryptography 2>/dev/null; rm -rf /var/lib/apt/lists/*
