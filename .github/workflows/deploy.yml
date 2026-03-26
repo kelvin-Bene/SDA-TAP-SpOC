@@ -1,13 +1,10 @@
-name: Deploy to Railway
+name: Deploy Production to Railway
 
 on:
   push:
     branches: [master]
 
 jobs:
-  # ───────────────────────────────────────────────────
-  # Run tests before deploy
-  # ───────────────────────────────────────────────────
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -40,10 +37,7 @@ jobs:
           npm ci
           npx tsc --noEmit
 
-  # ───────────────────────────────────────────────────
-  # Deploy to Production
-  # ───────────────────────────────────────────────────
-  deploy-prod-backend:
+  deploy-backend:
     name: Deploy Backend (production)
     runs-on: ubuntu-latest
     needs: test
@@ -57,10 +51,10 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
-  deploy-prod-frontend:
+  deploy-frontend:
     name: Deploy Frontend (production)
     runs-on: ubuntu-latest
-    needs: deploy-prod-backend
+    needs: deploy-backend
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
@@ -92,54 +86,3 @@ jobs:
         run: railway up --service frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
-
-  # ───────────────────────────────────────────────────
-  # Deploy to Demo
-  # ───────────────────────────────────────────────────
-  deploy-demo-backend:
-    name: Deploy Backend (demo)
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Railway CLI
-        run: npm i -g @railway/cli
-      - name: Deploy
-        working-directory: ./UCT-Benchmark-DMR/combined
-        run: railway up --service backend --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEMO }}
-
-  deploy-demo-frontend:
-    name: Deploy Frontend (demo)
-    runs-on: ubuntu-latest
-    needs: deploy-demo-backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: UCT-Benchmark-DMR/combined/frontend/package-lock.json
-      - name: Build Frontend (demo — no VITE_API_BASE_URL, nginx proxies instead)
-        working-directory: ./UCT-Benchmark-DMR/combined/frontend
-        run: |
-          npm ci
-          npm run build
-        env:
-          VITE_DEMO_MODE: "true"
-      - name: Prepare deploy directory
-        run: |
-          mkdir -p deploy-dist-demo
-          cp -r UCT-Benchmark-DMR/combined/frontend/dist deploy-dist-demo/
-          cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template deploy-dist-demo/
-          cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist-demo/Dockerfile
-          cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist-demo/
-      - name: Install Railway CLI
-        run: npm i -g @railway/cli
-      - name: Deploy
-        working-directory: ./deploy-dist-demo
-        run: railway up --service frontend --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEMO }}
