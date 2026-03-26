@@ -161,11 +161,8 @@ class PostgresAdapter(DatabaseAdapter):
         """
         Execute a SQL query with automatic retry on connection failure.
 
-        Handles Supabase pooler issues:
-        - Stale prepared statements (26000) → reconnect and retry
-        - Prepared statement parameter mismatch (08P01) → reconnect and retry
-        - Connection drops → reconnect and retry
-        - Transaction aborts (25P02) → rollback and retry
+        Uses pg8000's simple query protocol when possible to avoid
+        prepared statement issues with Supabase's connection pooler.
 
         Args:
             query: SQL query string with %s placeholders
@@ -178,9 +175,18 @@ class PostgresAdapter(DatabaseAdapter):
         for attempt in range(2):
             try:
                 conn = self._get_connection()
-                cursor = conn.cursor()
-                cursor.execute(converted_query, params)
-                conn.commit()
+                if not params:
+                    # No params → use simple query protocol (no prepared statements)
+                    conn.autocommit = True
+                    cursor = conn.cursor()
+                    cursor.execute(converted_query)
+                    conn.autocommit = False
+                else:
+                    # Has params → use extended protocol but on a FRESH connection
+                    # to avoid stale prepared statement state
+                    cursor = conn.cursor()
+                    cursor.execute(converted_query, params)
+                    conn.commit()
                 return cursor
             except (pg8000.exceptions.InterfaceError, OSError, ConnectionError):
                 if attempt == 0:
@@ -188,28 +194,13 @@ class PostgresAdapter(DatabaseAdapter):
                     continue
                 raise
             except pg8000.exceptions.DatabaseError as e:
-                err_str = str(e)
-                # Supabase pooler can invalidate pg8000's connection state in
-                # multiple ways. All these errors mean "reconnect and retry":
-                #   26000 = invalid prepared statement
-                #   34000 = invalid portal (cursor)
-                #   08P01 = protocol violation (param count mismatch)
-                #   08006 = connection failure
-                #   08001 = unable to establish connection
-                pooler_errors = ('26000', '34000', '08P01', '08006', '08001')
-                if attempt == 0 and any(code in err_str for code in pooler_errors):
+                if attempt == 0:
+                    # Any database error on first attempt → drop connection and retry fresh
                     try:
                         self._connection.close()
                     except Exception:
                         pass
                     self._connection = None
-                    continue
-                # Transaction aborted — rollback and retry
-                if attempt == 0 and '25P02' in err_str:
-                    try:
-                        self._get_connection().rollback()
-                    except Exception:
-                        self._connection = None
                     continue
                 raise
 
