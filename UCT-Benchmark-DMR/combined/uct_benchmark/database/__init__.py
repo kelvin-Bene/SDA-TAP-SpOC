@@ -33,7 +33,6 @@ Usage:
 
 from .adapters import (
     DatabaseAdapter,
-    DuckDBAdapter,
     create_adapter,
     create_test_adapter,
     get_database_backend,
@@ -65,7 +64,6 @@ from .schema import (
 __all__ = [
     # Adapters
     "DatabaseAdapter",
-    "DuckDBAdapter",
     "create_adapter",
     "create_test_adapter",
     "get_database_backend",
