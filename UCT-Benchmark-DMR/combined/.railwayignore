@@ -4,7 +4,6 @@ frontend/
 tests/
 validation/
 docs/
-*.md
 # Exclude environment files
 .env
 .env.*
