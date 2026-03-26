@@ -1,37 +1,16 @@
-# Backend Dockerfile: Java 17 (Orekit) + Python 3.12 (FastAPI)
-# Orekit data loaded from pip package (from_pip_library=True), no local copy needed.
+# Demo Backend Dockerfile: Python 3.12 only (no Java/Orekit)
+# Uses DuckDB for database, no Supabase connection needed
 
-FROM eclipse-temurin:17-jre-jammy AS base
+FROM python:3.12-slim
 
-# Install Python 3.12 + build deps for native extensions
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        software-properties-common && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3.12 \
-        python3.12-venv \
-        python3.12-dev \
-        gcc \
-        libpq-dev && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
-
-# Set python3.12 as default
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1 && \
-    update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1
-
-# Install pip
-RUN python3.12 -m ensurepip --upgrade && \
-    python3.12 -m pip install --no-cache-dir --upgrade pip
 
 WORKDIR /app
 
-# Copy dependency spec first for layer caching
+# Copy dependency spec and install
 COPY pyproject.toml ./
-
-# Remove system cryptography to avoid conflicts with pip version
-RUN apt-get update && apt-get remove -y python3-cryptography 2>/dev/null; rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir "."
 
 # Copy application code
@@ -39,13 +18,12 @@ COPY uct_benchmark/ ./uct_benchmark/
 COPY backend_api/ ./backend_api/
 COPY start.py ./
 
-# Set environment — JVM memory limits for Orekit
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
-    JAVA_TOOL_OPTIONS="-Xmx256m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
+    DEMO_MODE=true \
+    DATABASE_BACKEND=duckdb
 
-# Create uploads directory
-RUN mkdir -p /app/data/uploads
+RUN mkdir -p /app/data/uploads /app/data/database
 
 # Non-root user
 RUN addgroup --system --gid 1001 appuser && \
@@ -55,7 +33,7 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 CMD ["python", "start.py"]
