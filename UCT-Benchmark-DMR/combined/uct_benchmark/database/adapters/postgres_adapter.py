@@ -11,6 +11,7 @@ from typing import Any, Generator, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
 import pandas as pd
+from loguru import logger
 
 from .base import DatabaseAdapter
 
@@ -90,19 +91,18 @@ class PostgresAdapter(DatabaseAdapter):
         if sslmode in ("require", "verify-ca", "verify-full", "prefer"):
             import ssl
             self._ssl_context = ssl.create_default_context()
-            # Supabase pooler uses a certificate that may not validate normally
-            # Disable hostname check and cert verification for compatibility
-            self._ssl_context.check_hostname = False
-            self._ssl_context.verify_mode = ssl.CERT_NONE
+            # Allow disabling SSL verification for development/Supabase compatibility
+            if os.getenv("DATABASE_SSL_VERIFY", "true").lower() in ("false", "0", "no"):
+                logger.warning("SSL certificate verification disabled for database connection")
+                self._ssl_context.check_hostname = False
+                self._ssl_context.verify_mode = ssl.CERT_NONE
+            else:
+                # Secure default: verify certificates
+                self._ssl_context.check_hostname = True
+                self._ssl_context.verify_mode = ssl.CERT_REQUIRED
 
     def _create_connection(self) -> pg8000.Connection:
         """Create a new database connection."""
-        import socket as sock_module
-
-        # Set a global socket timeout for read/write operations
-        # This prevents timeouts during long-running queries with Supabase
-        sock_module.setdefaulttimeout(60)  # 60 second timeout for all socket operations
-
         kwargs = {
             "host": self._host,
             "port": self._port,
@@ -113,7 +113,13 @@ class PostgresAdapter(DatabaseAdapter):
         }
         if self._ssl_context:
             kwargs["ssl_context"] = self._ssl_context
-        return pg8000.connect(**kwargs)
+        conn = pg8000.connect(**kwargs)
+        # Set timeout on this connection's socket only (not globally)
+        if hasattr(conn, '_sock') and conn._sock:
+            conn._sock.settimeout(60)
+        elif hasattr(conn, '_usock') and conn._usock:
+            conn._usock.settimeout(60)
+        return conn
 
     def connect(self) -> None:
         """Establish a database connection."""

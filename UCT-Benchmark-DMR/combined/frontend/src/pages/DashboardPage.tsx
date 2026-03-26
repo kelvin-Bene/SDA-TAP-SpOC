@@ -63,28 +63,28 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Top Rank"
-          value={isLoading ? '...' : rankDisplay}
+          value={isLoading ? '\u2014' : rankDisplay}
           subtitle={stats?.topAlgorithmName || 'Loading...'}
           icon={<Trophy className="h-5 w-5" />}
           accentColor="cyan"
         />
         <StatCard
           title="Submissions"
-          value={isLoading ? '...' : submissionsDisplay}
+          value={isLoading ? '\u2014' : submissionsDisplay}
           subtitle={processingSubtitle}
           icon={<FileText className="h-5 w-5" />}
           accentColor="blue"
         />
         <StatCard
           title="Best F1-Score"
-          value={isLoading ? '...' : f1Display}
+          value={isLoading ? '\u2014' : f1Display}
           subtitle={f1Subtitle}
           icon={<Target className="h-5 w-5" />}
           accentColor="purple"
         />
         <StatCard
           title="vs. Average"
-          value={isLoading ? '...' : improvementDisplay}
+          value={isLoading ? '\u2014' : improvementDisplay}
           change={stats?.improvementVsAverage || 0}
           changeLabel="above average"
           icon={<TrendingUp className="h-5 w-5" />}

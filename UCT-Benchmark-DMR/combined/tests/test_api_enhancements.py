@@ -19,12 +19,13 @@ try:
 except (ImportError, ModuleNotFoundError, OSError, RuntimeError):
     OREKIT_AVAILABLE = False
 
-pytestmark = pytest.mark.skipif(
+_skip_no_orekit = pytest.mark.skipif(
     not OREKIT_AVAILABLE,
     reason="orekit_jpype/jpype not available - required for apiIntegration imports"
 )
 
 
+@_skip_no_orekit
 class TestQueryCache:
     """Tests for the QueryCache class."""
 
@@ -71,6 +72,7 @@ class TestQueryCache:
         assert result is None
 
 
+@_skip_no_orekit
 class TestRegimeDetection:
     """Tests for orbital regime detection."""
 
@@ -117,6 +119,7 @@ class TestRegimeDetection:
         assert geo_batch > leo_batch
 
 
+@_skip_no_orekit
 class TestAPIMetrics:
     """Tests for API call logging and metrics."""
 
@@ -155,6 +158,7 @@ class TestAPIMetrics:
         assert metrics["total_errors"] == 1
 
 
+@_skip_no_orekit
 class TestDatetimeConversion:
     """Tests for datetime conversion functions."""
 

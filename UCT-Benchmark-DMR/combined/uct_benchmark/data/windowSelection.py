@@ -260,6 +260,7 @@ def evaluate_window(
 
     # Filter observations to time window
     if obs_df.empty:
+        logger.warning("Empty observation DataFrame passed to window evaluation; returning TIER_4")
         result.tier = WindowTier.TIER_4
         return result
 

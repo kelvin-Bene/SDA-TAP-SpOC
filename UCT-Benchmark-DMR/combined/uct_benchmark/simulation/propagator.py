@@ -206,7 +206,6 @@ def monteCarloPropagator(
                 # This catches Orekit errors (e.g., satellite decays to inside Earth radius)
                 failedProps += 1
                 continue
-        # print(failedProps)
         if not MCstates:  # Check if MCstates is empty (all propagations failed)
             finalCovariance = 0
         else:
@@ -892,4 +891,3 @@ if __name__ == "__main__":
 
     _, _, finalState = TLEpropagator(initialState, initialEpoch, finalEpoch)
     print(finalState)
-    # print(finalCov)

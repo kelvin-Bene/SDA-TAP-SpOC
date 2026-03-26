@@ -135,6 +135,8 @@ class DatabaseManager:
         self._element_sets: Optional["ElementSetRepository"] = None
         self._datasets: Optional["DatasetRepository"] = None
         self._events: Optional["EventRepository"] = None
+        # B14: Lock for thread-safe lazy initialization of repositories
+        self._repo_lock = threading.Lock()
 
     @property
     def adapter(self) -> DatabaseAdapter:
@@ -307,59 +309,65 @@ class DatabaseManager:
 
         return stats
 
-    # Repository accessors (lazy loading)
+    # Repository accessors (lazy loading, B14: thread-safe)
     @property
     def satellites(self) -> "SatelliteRepository":
         """Get the satellite repository."""
         if self._satellites is None:
-            from .repository import SatelliteRepository
-
-            self._satellites = SatelliteRepository(self)
+            with self._repo_lock:
+                if self._satellites is None:
+                    from .repository import SatelliteRepository
+                    self._satellites = SatelliteRepository(self)
         return self._satellites
 
     @property
     def observations(self) -> "ObservationRepository":
         """Get the observation repository."""
         if self._observations is None:
-            from .repository import ObservationRepository
-
-            self._observations = ObservationRepository(self)
+            with self._repo_lock:
+                if self._observations is None:
+                    from .repository import ObservationRepository
+                    self._observations = ObservationRepository(self)
         return self._observations
 
     @property
     def state_vectors(self) -> "StateVectorRepository":
         """Get the state vector repository."""
         if self._state_vectors is None:
-            from .repository import StateVectorRepository
-
-            self._state_vectors = StateVectorRepository(self)
+            with self._repo_lock:
+                if self._state_vectors is None:
+                    from .repository import StateVectorRepository
+                    self._state_vectors = StateVectorRepository(self)
         return self._state_vectors
 
     @property
     def element_sets(self) -> "ElementSetRepository":
         """Get the element set repository."""
         if self._element_sets is None:
-            from .repository import ElementSetRepository
-
-            self._element_sets = ElementSetRepository(self)
+            with self._repo_lock:
+                if self._element_sets is None:
+                    from .repository import ElementSetRepository
+                    self._element_sets = ElementSetRepository(self)
         return self._element_sets
 
     @property
     def datasets(self) -> "DatasetRepository":
         """Get the dataset repository."""
         if self._datasets is None:
-            from .repository import DatasetRepository
-
-            self._datasets = DatasetRepository(self)
+            with self._repo_lock:
+                if self._datasets is None:
+                    from .repository import DatasetRepository
+                    self._datasets = DatasetRepository(self)
         return self._datasets
 
     @property
     def events(self) -> "EventRepository":
         """Get the event repository."""
         if self._events is None:
-            from .repository import EventRepository
-
-            self._events = EventRepository(self)
+            with self._repo_lock:
+                if self._events is None:
+                    from .repository import EventRepository
+                    self._events = EventRepository(self)
         return self._events
 
     # Legacy DuckDB-specific access for backward compatibility

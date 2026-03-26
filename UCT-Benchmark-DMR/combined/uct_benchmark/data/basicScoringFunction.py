@@ -10,7 +10,6 @@ from pathlib import Path
 
 # Set working directory to the parent of this script's directory (i.e., 'src/')
 os.chdir(Path(__file__).resolve().parent.parent)
-print("Current working directory:", os.getcwd())
 
 import sys
 
@@ -19,6 +18,9 @@ sys.path.insert(0, str((Path(__file__).resolve().parent.parent)))
 # Function to incorporate scoring logic
 
 from typing import Dict, Tuple, Optional
+
+from loguru import logger
+
 import uct_benchmark.settings as config
 from uct_benchmark.simulation.orbitCoverage import orbitCoverage
 from uct_benchmark.simulation.propagator import orbit2OE
@@ -235,15 +237,6 @@ def basicScoring(datasetCode, allObs, satData):
     # Count total number of standard and low coverage
     numStdCovg = len(stdCovgSats)
     numLowCovg = len(lowCovgSats)
-    """stdCovg = 0.01
-    lowCovg = 0.001
-    stdCovgSats = results_df[results_df.orbitCoverage > stdCovg].satNo.tolist()
-    numstdCovg = len(stdCovgSats)
-    lowCovgSats = results_df[
-        (results_df.orbitCoverage > lowCovg) & (results_df.orbitCoverage < stdCovg)
-    ].satNo.tolist()
-    numLowCovg = len(lowCovgSats)"""
-
     # Track gap categories
     longGap = config.longTrackGap  # threshold: 2 periods
     longGapSats = results_df[results_df.maxGap > longGap].satNo.tolist()
@@ -265,16 +258,10 @@ def basicScoring(datasetCode, allObs, satData):
 
     # === Decode dataset part number ===
     partNumber = datasetCode
-    # targetObjects = partNumber.ObjType  # Unused variable
-    # targetObjPerc = int(partNumber.ObjDist)  # Unused variable
-    # orbitRegime = partNumber.Regime  # Unused variable
-    # eventClass = partNumber.Event  # Unused variable
-    # sensorType = partNumber.SensorType  # Unused variable
     targetOrbitCoverage = partNumber.PercentOrb
     targetTrackGap = partNumber.TrackGapPer
     targetObsCount = partNumber.ObsCount
     objectCount = partNumber.ObjCount
-    # fitSpan = int(partNumber.TimeWindow)  # Unused variable
 
     # read cutoff percentages from config file
     highPercentage = config.highPercentage[1]
@@ -369,7 +356,7 @@ def basicScoring(datasetCode, allObs, satData):
             if T3Obs:
                 simObs = targetNumObj * (1 - lowPercentage) - numStdObs
     else:
-        print("Target Obs count Character is not valid")
+        logger.debug("Target Obs count Character is not valid")
 
     # === Determine Which Flag to Return ===
     # T1: all criteria met (no manipulation needed)
@@ -377,6 +364,8 @@ def basicScoring(datasetCode, allObs, satData):
     # T3: downsample + simulate observations for existing objects (obs quality insufficient)
     # T4: downsample + simulate observations + simulate new objects (not enough objects)
     # Higher tier = more manipulation required; highest tier wins
+    if numLowObs == 0 and numStdObs == 0 and numhighObs == 0:
+        logger.warning("All observation count bins are empty; scoring may be unreliable")
     T1 = covgGood and gapGood and countGood
     has_T2 = T2covg or T2Gap or T2Obs
     has_T3 = T3covg or T3Gap or T3Obs
@@ -443,9 +432,6 @@ if __name__ == "__main__":
     satData = pd.read_csv("./data/satelliteData_Full.csv")
     allObs = pd.read_csv("./data/sampleWindow.csv")
 
-    # print(satData['satNo'])
-
-    # print(datasetcode.PercentOrb)
     flag, orbElems, metadata = basicScoring(datasetcode, allObs, satData)
     print(metadata)
     print(orbElems)

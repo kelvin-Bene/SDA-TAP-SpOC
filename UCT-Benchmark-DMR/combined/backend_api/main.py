@@ -15,16 +15,24 @@ import json
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .database import close_database, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
-from .routers import datasets, jobs, leaderboard, results, submissions
+from .middleware.auth import get_current_user
+from .middleware.logging import RequestLoggingMiddleware
+from .middleware.rate_limit import limiter
+from .routers import auth as auth_router
+from .routers import datasets, feedback, jobs, leaderboard, results, submissions
 
 # Module-level flag to skip lifespan initialization during testing
 # Set to True when using create_test_app() to prevent double database initialization
@@ -112,35 +120,102 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate limiting (slowapi) — attach limiter to app state and register error handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses (S6)."""
+
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # HSTS only in production (when CORS_ORIGINS is set to non-localhost)
+        if os.getenv("CORS_ORIGINS"):
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        return response
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Log and return detailed validation errors."""
+    """Log details server-side but return sanitized error to client (S7)."""
     body = await request.body()
     logger.error(f"Validation error for {request.method} {request.url}")
     logger.error(f"Request body: {body.decode()}")
     logger.error(f"Validation errors: {json.dumps(exc.errors(), indent=2, default=str)}")
+
+    # Sanitize: only return field names and error types, not raw input values
+    sanitized = []
+    for err in exc.errors():
+        sanitized.append({
+            "loc": err.get("loc"),
+            "msg": err.get("msg"),
+            "type": err.get("type"),
+        })
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()},
+        content={"detail": sanitized},
     )
 
 
-# Configure CORS - use environment variable in production
+# Security headers middleware (S6) — added first so it wraps all responses
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request logging with correlation IDs
+app.add_middleware(RequestLoggingMiddleware)
+
+# Configure CORS - use environment variable in production (S11)
+cors_origins = get_cors_origins()
+if not os.getenv("CORS_ORIGINS"):
+    logger.warning(
+        "CORS_ORIGINS not set — using localhost defaults. "
+        "Set CORS_ORIGINS env var for production."
+    )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins(),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
-# Include routers
-app.include_router(datasets.router, prefix="/api/v1/datasets", tags=["Datasets"])
-app.include_router(submissions.router, prefix="/api/v1/submissions", tags=["Submissions"])
-app.include_router(results.router, prefix="/api/v1/results", tags=["Results"])
-app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"])
-app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
+# Include routers with JWT auth dependency (S1)
+# All API routes require valid Supabase JWT — / and /health remain public
+_auth_deps = [Depends(get_current_user)]
+app.include_router(
+    datasets.router, prefix="/api/v1/datasets", tags=["Datasets"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    submissions.router, prefix="/api/v1/submissions", tags=["Submissions"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    results.router, prefix="/api/v1/results", tags=["Results"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    jobs.router, prefix="/api/v1/jobs", tags=["Jobs"],
+    dependencies=_auth_deps,
+)
+
+# Auth router (verify, profile management) — uses its own auth dependency
+# from backend_api.auth (ES256 JWKS in production)
+app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["Auth"])
+
+# Feedback router — POST is public (optional auth), GET/PATCH are admin-only
+app.include_router(feedback.router, prefix="/api/v1", tags=["Feedback"])
 
 
 @app.get("/")

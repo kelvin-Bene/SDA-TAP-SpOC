@@ -374,7 +374,11 @@ def select_tracks_for_coverage(
         if bin_tracks:
             # Prefer tracks with more observations
             weights = np.array([t["count"] for t in bin_tracks], dtype=float)
-            weights /= weights.sum()
+            weight_sum = weights.sum()
+            if weight_sum == 0:
+                logger.warning("All track weights are zero in bin — skipping bin")
+                continue
+            weights /= weight_sum
             chosen_idx = rng.choice(len(bin_tracks), p=weights)
             selected_indices.add(bin_tracks[chosen_idx]["index"])
 
@@ -452,6 +456,7 @@ def thin_within_tracks(
 
     if thinned_tracks:
         return pd.concat(thinned_tracks, ignore_index=True)
+    logger.warning("No thinned tracks produced; returning empty DataFrame")
     return pd.DataFrame()
 
 
@@ -1045,7 +1050,7 @@ def _lowerOrbitCoverage(ref_obs, sat_params, objp, coveragep, rng, chosen_sats=N
 
     while len(successfully_pruned) < sats_to_prune:
         if not remaining_candidates:
-            print("Warning: Could not meet desired coverage reduction.")
+            logger.warning("Could not meet desired coverage reduction.")
             err = 1
             break
 
@@ -1269,7 +1274,7 @@ def _increaseTrackDistance(ref_obs, sat_params, objp, trackp, rng, chosen_sats=N
 
     while len(successfully_pruned) < num_to_prune:
         if not remaining_candidates:
-            print("Warning: Could not achieve desired number of satellites with widened gaps.")
+            logger.warning("Could not achieve desired number of satellites with widened gaps.")
             err = 1
 
         # Pick the satellite with highest existing gap to try pruning
@@ -2037,16 +2042,6 @@ from uct_benchmark.data.dataManipulation_experimental import (  # noqa: E402, F8
 )
 
 
-# NOTE: The following functions were previously defined here and are now
-# imported from dataManipulation_experimental. See that module for
-# full implementations:
-#   - get_downsample_config_from_legacy()
-#   - should_simulate_for_legacy_code()
-#   - add_non_reference_observations()
-#   - downsample_preserve_tracks()
-#   - downsample_observations_sequential()
-#   - downsample_dataset_sequential()
-#   - classify_window_tier()
 #   - process_window_by_tier()
 #   - LewisTier
 

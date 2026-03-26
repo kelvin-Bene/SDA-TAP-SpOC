@@ -1,16 +1,18 @@
 """Submission handling endpoints."""
 
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_evaluation
+from backend_api.middleware.rate_limit import limiter
 from backend_api.models import (
     SubmissionDetail,
     SubmissionStatus,
@@ -281,7 +283,9 @@ async def get_submission(
 
 
 @router.post("/", response_model=SubmissionSummary, status_code=201)
+@limiter.limit("10/minute")
 async def create_submission(
+    request: Request,
     dataset_id: str = Form(...),
     algorithm_name: str = Form(...),
     version: str = Form(default="1.0"),
@@ -370,10 +374,14 @@ async def create_submission(
 
         with open(file_path, "wb") as f:
             f.write(contents)
+
+        # S17: Compute SHA-256 hash for data integrity verification
+        file_hash = hashlib.sha256(contents).hexdigest()
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
+        logger.error(f"Failed to save uploaded file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
 
     # Create submission record using RETURNING to get the ID
     result = db.execute(
@@ -394,6 +402,9 @@ async def create_submission(
         ),
     )
     submission_id = result.fetchone()[0]
+
+    # S17: Log file hash for audit trail
+    logger.info(f"Submission {submission_id}: file_hash=sha256:{file_hash}")
 
     # Submit evaluation job
     job = submit_evaluation(
@@ -491,7 +502,8 @@ async def upload_results(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
+        logger.error(f"Failed to save uploaded results file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
 
     # Update submission with new file path and reset status
     db.execute(

@@ -96,7 +96,16 @@ def get_area_to_mass_ratio(
     if mass is None or area is None or mass <= 0:
         return None
 
-    return area / mass
+    try:
+        ratio = area / mass
+    except (TypeError, ZeroDivisionError):
+        return None
+
+    # Guard against NaN/Inf propagating from non-numeric or degenerate values
+    if not np.isfinite(ratio):
+        return None
+
+    return ratio
 
 
 def filter_hamr_objects(

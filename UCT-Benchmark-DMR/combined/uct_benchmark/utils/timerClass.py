@@ -7,6 +7,8 @@ Created on Thu Jul  3 15:15:04 2025
 
 import time
 
+from loguru import logger
+
 
 class Timer:
     def __init__(self):
@@ -25,5 +27,5 @@ class Timer:
     def report(self):
         times = [self.start] + self.checkpoints
         for i in range(1, len(times)):
-            print(f"{self.labels[i - 1]}: {times[i] - times[i - 1]:.4f} s")
-        print(f"Total: {times[-1] - self.start:.4f} s")
+            logger.debug(f"{self.labels[i - 1]}: {times[i] - times[i - 1]:.4f} s")
+        logger.debug(f"Total: {times[-1] - self.start:.4f} s")

@@ -220,6 +220,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
           size="sm"
           className="flex-1 gap-1.5 text-muted-foreground hover:text-foreground hover:bg-white/5"
           onClick={() => onPreview?.(dataset)}
+          aria-label="Preview dataset"
         >
           <Eye className="h-4 w-4" />
           Preview
@@ -230,6 +231,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
             'flex-1 gap-1.5 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity'
           )}
           onClick={() => onDownload?.(dataset)}
+          aria-label="Download dataset"
         >
           <Download className="h-4 w-4" />
           Download

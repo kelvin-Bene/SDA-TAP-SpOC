@@ -8,6 +8,7 @@ Created on Tue 10 June 2025
 import numpy as np
 import orekit_jpype as orekit
 import pandas as pd
+from loguru import logger
 from orekit_jpype.pyhelpers import setup_orekit_curdir
 
 from uct_benchmark.utils.generateCov import generateCov
@@ -223,7 +224,7 @@ def unitConversion(ref_orbit):
         df["covReferenceFrame"] = "J2000"
 
     else:
-        print("Warning: Column does not exist. I'm gonna make them <3")
+        logger.warning("Reference frame columns do not exist; creating them")
         position = df.columns.get_loc("origNetwork") + 1  # get index of 'name' and add 1
         position_cov = df.columns.get_loc("origNetwork") + 2  # get index of 'name' and add 1
         df.insert(position, "referenceFrame", "J2000")

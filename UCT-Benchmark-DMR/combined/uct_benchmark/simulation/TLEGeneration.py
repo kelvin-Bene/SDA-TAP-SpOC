@@ -10,6 +10,7 @@ import time as time
 # initialize orekit and JVM
 import orekit_jpype as orekit
 import pandas as pd
+from loguru import logger
 
 from uct_benchmark.data.dataManipulation import binTracks
 from uct_benchmark.simulation.gauss import gaussSorter
@@ -66,19 +67,10 @@ def TLEGeneration(ref_obs, ref_sv):
             reference_pv (tuple[Vector3D, Vector3D]): A tuple containing the reference
                                                     position and velocity for comparison.
         """
-        # 1. Setup Frames and Constants
-        # The TLE frame is TEME (True Equator, Mean Equinox)
-        # teme_frame = FramesFactory.getTEME()  # Unused variable
-        # utc = TimeScalesFactory.getUTC()  # Unused variable
-
-        # 2. Create the initial TLE object
-
-        # tle_epoch = template_tle.getDate()  # Unused variable
-
-        print("--- Initial TLE ---")
-        print(template_tle.getLine1())
-        print(template_tle.getLine2())
-        print("-" * 21)
+        logger.debug("--- Initial TLE ---")
+        logger.debug(template_tle.getLine1())
+        logger.debug(template_tle.getLine2())
+        logger.debug("-" * 21)
 
         # 3. Configure the Orbit Determination
         # We use a Levenberg-Marquardt optimizer for the least-squares problem
@@ -99,9 +91,6 @@ def TLEGeneration(ref_obs, ref_sv):
         estimator = BatchLSEstimator(optimizer, propagator_builder)
 
         # 4. Add Measurements to the Estimator
-        # The estimator needs a satellite object for the measurements
-        # sat = ObservableSatellite(0)  # Unused variable
-
         # Convert the input PV data into Orekit PV measurement objects
         for i in range(len(pv_measurements)):
             estimator.addMeasurement(pv_measurements[i])
@@ -113,19 +102,19 @@ def TLEGeneration(ref_obs, ref_sv):
         estimator.setMaxEvaluations(100)
 
         # 5. Run the Estimation
-        print("\nRunning orbit determination...")
+        logger.debug("Running orbit determination...")
         estimated_propagators = estimator.estimate()
-        print("Estimation complete.\n")
+        logger.debug("Estimation complete.")
 
         # 6. Get the Estimated TLE
         # The result is a propagator, from which we can extract the new TLE
         estimated_tle_propagator = TLEPropagator.cast_(estimated_propagators[0])
         estimated_tle = estimated_tle_propagator.getTLE()
 
-        print("--- Estimated TLE ---")
-        print(estimated_tle.getLine1())
-        print(estimated_tle.getLine2())
-        print("-" * 21)
+        logger.debug("--- Estimated TLE ---")
+        logger.debug(estimated_tle.getLine1())
+        logger.debug(estimated_tle.getLine2())
+        logger.debug("-" * 21)
 
         # Get PV from the initial template TLE at its epoch
         # initial_propagator = TLEPropagator.selectExtrapolator(template_tle)
@@ -139,9 +128,7 @@ def TLEGeneration(ref_obs, ref_sv):
 
     ################# GRAB FRAMES, DATA, AND GENERATE EARTH BODY
     UTC = TimeScalesFactory.getUTC()  # Define UTC time scale.
-    # ECI = FramesFactory.getEME2000()  # Unused variable
     ECEF = FramesFactory.getITRF(IERSConventions.IERS_2010, True)  # Define ECEF reference frame.
-    # TEME = FramesFactory.getTEME()  # Unused variable
     ITRF = ECEF
     Mu = Constants.WGS84_EARTH_MU  # Gravitational parameter of Earth
 
@@ -236,8 +223,8 @@ def TLEGeneration(ref_obs, ref_sv):
         try:
             IOD_TLE = TLE.stateToTLE(IOD_STATE, templateTLE, fixedPoint)
         except orekit.JavaError as e:
-            print("Error in TLE Generation:", e)
-            print("Skipping Window.")
+            logger.debug("Error in TLE Generation: %s", e)
+            logger.debug("Skipping Window.")
             df_output.loc[j, "origObjectId"] = None
             df_output.loc[j, "NORAD_ID"] = IODresult[0]
             df_output.loc[j, "TLE1"] = None
@@ -259,9 +246,7 @@ def TLEGeneration(ref_obs, ref_sv):
 
         for i in range(len(PV_ALL)):
             position = Vector3D(PV_ALL[i][0] * 1000, PV_ALL[i][1] * 1000, PV_ALL[i][2] * 1000)
-            # print(position)
             velocity = Vector3D(PV_ALL[i][3] * 1000, PV_ALL[i][4] * 1000, PV_ALL[i][5] * 1000)
-            # print(velocity)
 
             # Create TimeStampedPVCoordinates for each epoch
             epoch = pd.to_datetime(
@@ -287,8 +272,8 @@ def TLEGeneration(ref_obs, ref_sv):
         try:  # Run the TLE-based orbit determination to refine the TLE
             TLE_Batch = run_tle_orbit_determination(IOD_TLE, measurements)
         except orekit.JavaError as e:
-            print("Error in Batch Filter:", e)
-            print("Using IOD as TLE.")
+            logger.debug("Error in Batch Filter: %s", e)
+            logger.debug("Using IOD as TLE.")
             TLE_Batch = IOD_TLE
 
         ########### ADD RESULTS TO OUTPUT

@@ -55,6 +55,17 @@ const accentStyles = {
   },
 };
 
+// P8/U9: Moved to module scope — avoids recreation on every render
+function getChangeColor(change?: number) {
+  if (!change) return 'text-muted-foreground';
+  return change > 0 ? 'text-aurora-green' : change < 0 ? 'text-red-400' : 'text-muted-foreground';
+}
+
+function getChangeIcon(change?: number) {
+  if (!change) return <Minus className="h-3 w-3" />;
+  return change > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
 export function StatCard({
   title,
   value,
@@ -66,16 +77,6 @@ export function StatCard({
   accentColor = 'cyan',
 }: StatCardProps) {
   const styles = accentStyles[accentColor];
-
-  const getChangeColor = () => {
-    if (!change) return 'text-muted-foreground';
-    return change > 0 ? 'text-aurora-green' : change < 0 ? 'text-red-400' : 'text-muted-foreground';
-  };
-
-  const getChangeIcon = () => {
-    if (!change) return <Minus className="h-3 w-3" />;
-    return change > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
-  };
 
   return (
     <div
@@ -113,8 +114,8 @@ export function StatCard({
           {(change !== undefined || subtitle) && (
             <div className="flex items-center gap-2 text-sm">
               {change !== undefined && (
-                <span className={cn('flex items-center gap-1', getChangeColor())}>
-                  {getChangeIcon()}
+                <span className={cn('flex items-center gap-1', getChangeColor(change))}>
+                  {getChangeIcon(change)}
                   {Math.abs(change)}
                   {changeLabel && <span className="text-muted-foreground ml-1">{changeLabel}</span>}
                 </span>

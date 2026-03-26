@@ -18,6 +18,7 @@ def simulateObs(
     angularNoise=config.angularNoise,
     step=10.0,
     satelliteParameters=[99999, 0, 0],
+    seed: int | None = None,
 ):
     """
     Simulate RA/Dec observations from TLE using Orekit-generated ephemeris.
@@ -38,6 +39,10 @@ def simulateObs(
     from datetime import timezone
 
     import numpy as np
+
+    # B7: Set random seed for reproducible simulation
+    if seed is not None:
+        np.random.seed(seed)
 
     # Import propagator functions
     from uct_benchmark.simulation.propagator import TLEpropagator, ephemerisPropagator
@@ -95,7 +100,7 @@ def simulateObs(
         # Pick a random sensor to simulate observations for (but keep constant for debugging purposes)
         # Sample sensor every group_size observations
         if i % groupSize == 0:
-            randomSensor = sensorsDataFrame.sample(weights="count", random_state=None).iloc[0]
+            randomSensor = sensorsDataFrame.sample(weights="count", random_state=seed).iloc[0]
             sensorPosition = randomSensor[["senlat", "senlon", "senalt"]].tolist()
             sensorID = randomSensor["idSensor"]
         az, el = radec2azel(
@@ -107,7 +112,7 @@ def simulateObs(
             availableSensors = sensorsDataFrame[~sensorsDataFrame["idSensor"].isin(triedSensors)]
             if availableSensors.empty:
                 break
-            randomSensor = availableSensors.sample(weights="count", random_state=None).iloc[0]
+            randomSensor = availableSensors.sample(weights="count", random_state=seed).iloc[0]
             sensorPosition = randomSensor[["senlat", "senlon", "senalt"]].tolist()
             sensorID = randomSensor["idSensor"]
             az, el = radec2azel(

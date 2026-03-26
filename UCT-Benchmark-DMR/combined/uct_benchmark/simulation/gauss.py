@@ -18,6 +18,8 @@ Updated: 31 July 2025
 
 import base64
 import multiprocessing
+
+from loguru import logger
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -114,7 +116,7 @@ def generateTriplets(obs):
     # Check if triplets were found or if angle criteria is too harsh
     if len(triplets) == 0:
         # Inform user that states could not be generated with the angle separation criteria
-        print(
+        logger.debug(
             f"STATES FOR SATELLITE {satNo} COULD NOT BE GENERATED WITH CURRENT ANGLE SEPARATIONS; CRITERIA REMOVED, EXPECT BAD STATES"
         )
 
@@ -124,7 +126,7 @@ def generateTriplets(obs):
         # Recall triplet generator
         triplets = tripletFunc(obs, firstPass)
 
-    print(f"Number of triplets: {len(triplets)}")
+    logger.debug(f"Number of triplets: {len(triplets)}")
 
     # Return the triplets
     return triplets

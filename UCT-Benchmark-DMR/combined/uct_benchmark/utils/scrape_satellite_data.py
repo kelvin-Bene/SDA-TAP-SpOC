@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+from loguru import logger
 
 from uct_benchmark.settings import EXTERNAL_DATA_DIR
 
@@ -145,15 +146,15 @@ def scrape_udl_data():
     ]
 
     for range_param, description in batch_ranges:
-        print(f"Querying {description}...")
+        logger.info(f"Querying {description}...")
         url = f"{UDL_BASE_URL}?satNo={range_param}"
 
         try:
-            resp = requests.get(url, headers={"Authorization": basic_auth}, verify=False)
+            resp = requests.get(url, headers={"Authorization": basic_auth})
             resp.raise_for_status()
             udl_data_frames.append(pd.DataFrame(resp.json()))
         except requests.RequestException as e:
-            print(f"Error querying {description}: {e}")
+            logger.error(f"Error querying {description}: {e}")
             continue
 
     if not udl_data_frames:
@@ -169,7 +170,7 @@ def scrape_esa_data():
     esa_token = os.environ.get("ESA_TOKEN")
 
     if not esa_token:
-        print("Warning: Using placeholder ESA token. Replace with actual token.")
+        logger.warning("Using placeholder ESA token. Replace with actual token.")
 
     max_iterations = int(np.ceil(MAX_SATELLITES / BATCH_SIZE))
     esa_data_frames = []
@@ -183,11 +184,11 @@ def scrape_esa_data():
             temp = pd.json_normalize(resp["attributes"])
             esa_data_frames.append(temp)
         except (requests.RequestException, KeyError, ValueError) as e:
-            print(f"Error querying ESA data for satellites {sat_ids[0]}-{sat_ids[-1]}: {e}")
+            logger.error(f"Error querying ESA data for satellites {sat_ids[0]}-{sat_ids[-1]}: {e}")
             continue
 
     if not esa_data_frames:
-        print("Warning: No ESA data retrieved")
+        logger.warning("No ESA data retrieved")
         return pd.DataFrame()
 
     return pd.concat(esa_data_frames, ignore_index=True)
@@ -212,20 +213,20 @@ def calculate_amr_and_hamr(df):
 
 def main():
     """Main function to scrape and process satellite data."""
-    print("Starting satellite data scraping...")
+    logger.info("Starting satellite data scraping...")
 
     # Scrape UDL data
-    print("Scraping UDL data...")
+    logger.info("Scraping UDL data...")
     udl_data = scrape_udl_data()
-    print(f"Retrieved {len(udl_data)} records from UDL")
+    logger.info(f"Retrieved {len(udl_data)} records from UDL")
 
     # Scrape ESA data
-    print("Scraping ESA data...")
+    logger.info("Scraping ESA data...")
     esa_data = scrape_esa_data()
-    print(f"Retrieved {len(esa_data)} records from ESA")
+    logger.info(f"Retrieved {len(esa_data)} records from ESA")
 
     # Merge dataframes by satellite number
-    print("Merging datasets...")
+    logger.info("Merging datasets...")
     merged_data = pd.merge(esa_data, udl_data, left_on="satno", right_on="satNo", how="outer")
 
     # Filter to relevant columns
@@ -242,7 +243,7 @@ def main():
     #   - original version: output_file = 'satelliteData_Full.csv'
     output_file = EXTERNAL_DATA_DIR / "satellite_data_full.parquet"
     merged_data.to_parquet(output_file, index=False)
-    print(f"Saved {len(merged_data)} records to {output_file}")
+    logger.info(f"Saved {len(merged_data)} records to {output_file}")
 
     return merged_data
 

@@ -28,7 +28,7 @@ def _compute_cost_column(
         errors = np.linalg.norm(deltas, axis=1)
         return j, errors
     except Exception as e:
-        print(f"[ERROR] Propagation failed for truth index {j}: {e}")
+        logger.error(f"Propagation failed for truth index {j}: {e}")
         return j, np.full(est_states.shape[0], np.inf)
 
 
@@ -46,7 +46,7 @@ def _compute_cost_column_TLE(
                 errors[i] = np.linalg.norm(delta)
         return j, errors
     except Exception as e:
-        print(f"[ERROR] Propagation failed for truth index {j}: {e}")
+        logger.error(f"Propagation failed for truth index {j}: {e}")
         return j, np.full(len(est_states), np.inf)
 
 

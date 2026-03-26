@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from loguru import logger
+
 
 def timeSort(t_X, t_obs):
     t_obs_before = []
@@ -15,18 +17,19 @@ def timeSort(t_X, t_obs):
     return t_obs_before, t_obs_after
 
 
-# Example datetime list (must already be sorted chronologically)
-dt_list = [
-    datetime(2025, 1, 1),
-    datetime(2025, 3, 1),
-    datetime(2025, 5, 1),
-    datetime(2025, 7, 1),
-]
+if __name__ == "__main__":
+    # Example datetime list (must already be sorted chronologically)
+    dt_list = [
+        datetime(2025, 1, 1),
+        datetime(2025, 3, 1),
+        datetime(2025, 5, 1),
+        datetime(2025, 7, 1),
+    ]
 
-# Cutoff datetime
-cutoff = datetime(2025, 4, 1)
+    # Cutoff datetime
+    cutoff = datetime(2025, 4, 1)
 
-t_obs_before, t_obs_after = timeSort(cutoff, dt_list)
+    t_obs_before, t_obs_after = timeSort(cutoff, dt_list)
 
-print("Before:", t_obs_before)
-print("After:", t_obs_after)
+    logger.debug("Before: %s" % t_obs_before)
+    logger.debug("After: %s" % t_obs_after)

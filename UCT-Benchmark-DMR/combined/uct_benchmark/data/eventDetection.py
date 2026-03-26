@@ -1072,14 +1072,11 @@ def _fetch_spacetrack_maneuvers(
 
                 result = spacetrackQuery(spacetrack_token, params, request="boxscore")
 
-                if result is None or (isinstance(result, pd.DataFrame) and result.empty):
+                if result is None or (isinstance(result, pd.DataFrame) and result.empty) or (isinstance(result, list) and len(result) == 0):
                     continue
 
                 if isinstance(result, list):
                     result = pd.DataFrame(result)
-
-                if result.empty:
-                    continue
 
                 # Look for significant position changes (potential maneuvers)
                 # Boxscore contains RMS of position changes
@@ -1161,14 +1158,11 @@ def _fetch_spacetrack_cdm(
 
                 result = spacetrackQuery(spacetrack_token, params, request="cdm_public")
 
-                if result is None or (isinstance(result, pd.DataFrame) and result.empty):
+                if result is None or (isinstance(result, pd.DataFrame) and result.empty) or (isinstance(result, list) and len(result) == 0):
                     continue
 
                 if isinstance(result, list):
                     result = pd.DataFrame(result)
-
-                if result.empty:
-                    continue
 
                 for _, row in result.iterrows():
                     tca_str = row.get("TCA")

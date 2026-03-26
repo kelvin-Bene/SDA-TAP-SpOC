@@ -22,10 +22,13 @@ import pytest
 class TestObservationSimulation:
     """Tests for simulateObs function."""
 
-    def test_simulation_returns_dataframe(self):
-        """Test that simulation returns a properly structured DataFrame."""
-        # This test verifies the expected output structure
-        # without requiring full Orekit initialization
+    def test_simulation_output_schema(self):
+        """Test that simulation output schema has the required columns.
+
+        Note: This validates the expected interface contract (column names)
+        without calling simulateObs(), which requires Orekit initialization.
+        """
+        # TODO: Replace mock with integration test against simulateObs()
         expected_columns = [
             "obTime",
             "ra",
@@ -41,13 +44,16 @@ class TestObservationSimulation:
         result_df = pd.DataFrame(columns=expected_columns)
         assert all(col in result_df.columns for col in expected_columns)
 
+    @pytest.mark.skip(reason="Mock-only test - needs integration replacement with simulateObs()")
     def test_simulation_time_span(self):
-        """Test that observations span the requested time range."""
-        # Create a mock observation output
+        """Test that observations span the requested time range.
+
+        Note: Currently only exercises pd.date_range, not simulateObs().
+        """
+        # TODO: Replace mock with integration test against simulateObs()
         start_time = datetime(2024, 1, 1, 12, 0, 0)
         end_time = datetime(2024, 1, 1, 14, 0, 0)
 
-        # Simulated observations should span the time range
         times = pd.date_range(start=start_time, end=end_time, periods=10)
 
         assert times[0] == start_time

@@ -1,5 +1,5 @@
 """API Routers."""
 
-from . import datasets, leaderboard, results, submissions
+from . import auth, datasets, feedback, jobs, leaderboard, results, submissions
 
-__all__ = ["datasets", "submissions", "results", "leaderboard"]
+__all__ = ["auth", "datasets", "feedback", "jobs", "leaderboard", "results", "submissions"]

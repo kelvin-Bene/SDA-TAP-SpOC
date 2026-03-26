@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -239,17 +239,32 @@ export function SubmitPage() {
 
       // Navigate to submissions page
       navigate('/submit/my-submissions');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Submission failed:', error);
+      // U6: Distinguish validation errors from network/server failures
+      const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
+      const status = axiosError?.response?.status;
+      let description = 'Failed to submit your algorithm results. Please try again.';
+      if (status === 422) {
+        description = 'Validation error — please check your file format matches the UCTP schema.';
+      } else if (status === 413) {
+        description = 'File too large — maximum upload size is 50MB.';
+      } else if (!status) {
+        description = 'Network error — check your connection and try again.';
+      }
       toast({
         title: 'Submission failed',
-        description: 'Failed to submit your algorithm results. Please try again.',
+        description,
         variant: 'destructive',
       });
     }
   };
 
-  const allValidationsPassed = validationSteps.every((step) => step.status === 'passed');
+  // U10: Memoize validation check to avoid recomputing on every keystroke
+  const allValidationsPassed = useMemo(
+    () => validationSteps.every((step) => step.status === 'passed'),
+    [validationSteps]
+  );
   const canSubmit =
     file &&
     datasetId &&

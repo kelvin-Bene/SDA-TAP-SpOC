@@ -30,7 +30,6 @@ with open('./data/raw_results.json', 'r') as file:
     residual_ref = data.get("residual_ref_results")
     residual_cand = data.get("residual_cand_results")
 
-    #print(assoc)
 """
 path = "../data/report.pdf"
 

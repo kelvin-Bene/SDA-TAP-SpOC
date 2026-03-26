@@ -1,27 +1,28 @@
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.key
+
 # Version control
-.git
+.git/
 .gitignore
 
 # Python
-__pycache__
+__pycache__/
 *.pyc
 *.pyo
-.venv
-.venv-wsl
-*.egg-info
+.venv*/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Node
-node_modules
-
-# Environment
-.env
-.env.local
-.env.*.local
+node_modules/
 
 # Data (mounted as volumes in production)
-data/database
-data/uploads
-orekit-data-main
+data/
 
 # Tests and docs
 tests/e2e/test-results

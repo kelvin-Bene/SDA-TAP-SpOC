@@ -75,7 +75,8 @@ def evaluationReport(
 
     # Convert DataFrame cell arrays to nested lists
     def _convert_arrays(df):
-        return df.applymap(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+        # B5: .applymap() deprecated in pandas 2.1+, use .map()
+        return df.map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
 
     association_results.pop("Time Elapsed", None)
 
@@ -117,26 +118,26 @@ def _create_summary_stats(combined_dict: Dict) -> Dict[str, Any]:
     stats["total_references"] = assoc.get("Num Reference Objects", 0)
     stats["associated_count"] = assoc.get("Num Associations Made", 0)
 
-    # Binary metrics summary
+    # Binary metrics summary — B13: default to 0 when DataFrame is empty or has NaN
     binary = combined_dict.get("binary_results", [])
     if binary:
         df = pd.DataFrame(binary)
         if "Accuracy" in df.columns:
-            stats["mean_accuracy"] = df["Accuracy"].mean()
+            stats["mean_accuracy"] = float(df["Accuracy"].mean() or 0)
         if "F1" in df.columns:
-            stats["mean_f1"] = df["F1"].mean()
+            stats["mean_f1"] = float(df["F1"].mean() or 0)
         if "True Positive" in df.columns:
-            stats["total_tp"] = df["True Positive"].sum()
+            stats["total_tp"] = int(df["True Positive"].sum() or 0)
         if "False Positive" in df.columns:
-            stats["total_fp"] = df["False Positive"].sum()
+            stats["total_fp"] = int(df["False Positive"].sum() or 0)
 
-    # State metrics summary
+    # State metrics summary — B13: default to 0 when empty
     state = combined_dict.get("state_results", [])
     if state:
         df = pd.DataFrame(state)
         if "Position Error" in df.columns:
-            stats["mean_pos_error_km"] = df["Position Error"].mean()
-            stats["max_pos_error_km"] = df["Position Error"].max()
+            stats["mean_pos_error_km"] = float(df["Position Error"].mean() or 0)
+            stats["max_pos_error_km"] = float(df["Position Error"].max() or 0)
         if "Velocity Error" in df.columns:
             stats["mean_vel_error_km_s"] = df["Velocity Error"].mean()
 

@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
@@ -211,6 +212,7 @@ _api_call_metrics: Dict[str, Any] = {
     "total_errors": 0,
     "call_history": [],
 }
+_api_metrics_lock = threading.Lock()
 
 # API logger (separate from main logger for filtering)
 api_logger = logger.bind(name="udl.api")
@@ -235,15 +237,16 @@ def _log_api_call(
         "error": error_msg,
     }
 
-    _api_call_metrics["total_calls"] += 1
-    _api_call_metrics["total_records"] += response_size
-    if not success:
-        _api_call_metrics["total_errors"] += 1
+    with _api_metrics_lock:
+        _api_call_metrics["total_calls"] += 1
+        _api_call_metrics["total_records"] += response_size
+        if not success:
+            _api_call_metrics["total_errors"] += 1
 
-    # Keep last 100 calls for debugging
-    _api_call_metrics["call_history"].append(call_record)
-    if len(_api_call_metrics["call_history"]) > 100:
-        _api_call_metrics["call_history"].pop(0)
+        # Keep last 100 calls for debugging
+        _api_call_metrics["call_history"].append(call_record)
+        if len(_api_call_metrics["call_history"]) > 100:
+            _api_call_metrics["call_history"].pop(0)
 
     if success:
         api_logger.debug(
@@ -255,18 +258,20 @@ def _log_api_call(
 
 def get_api_metrics() -> Dict[str, Any]:
     """Return current API call metrics."""
-    return _api_call_metrics.copy()
+    with _api_metrics_lock:
+        return _api_call_metrics.copy()
 
 
 def reset_api_metrics() -> None:
     """Reset API call metrics."""
     global _api_call_metrics
-    _api_call_metrics = {
-        "total_calls": 0,
-        "total_records": 0,
-        "total_errors": 0,
-        "call_history": [],
-    }
+    with _api_metrics_lock:
+        _api_call_metrics = {
+            "total_calls": 0,
+            "total_records": 0,
+            "total_errors": 0,
+            "call_history": [],
+        }
 
 
 # =============================================================================
@@ -281,6 +286,7 @@ class QueryCache:
         self._cache: Dict[str, Tuple[Any, float]] = {}
         self._max_size = max_size
         self._ttl_seconds = ttl_seconds
+        self._lock = threading.Lock()
 
     def _make_key(self, service: str, params: Dict) -> str:
         """Generate cache key from service and params."""
@@ -290,31 +296,34 @@ class QueryCache:
     def get(self, service: str, params: Dict) -> Optional[Any]:
         """Get cached response if available and not expired."""
         key = self._make_key(service, params)
-        if key in self._cache:
-            data, timestamp = self._cache[key]
-            if time.time() - timestamp < self._ttl_seconds:
-                logger.debug(f"Cache hit for {service}")
-                return data
-            else:
-                del self._cache[key]
+        with self._lock:
+            if key in self._cache:
+                data, timestamp = self._cache[key]
+                if time.time() - timestamp < self._ttl_seconds:
+                    logger.debug(f"Cache hit for {service}")
+                    return data
+                else:
+                    del self._cache[key]
         return None
 
     def set(self, service: str, params: Dict, data: Any) -> None:
         """Cache response data."""
-        if len(self._cache) >= self._max_size:
-            # Remove oldest entries
-            oldest_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][1])[
-                : self._max_size // 4
-            ]
-            for k in oldest_keys:
-                del self._cache[k]
-
         key = self._make_key(service, params)
-        self._cache[key] = (data, time.time())
+        with self._lock:
+            if len(self._cache) >= self._max_size:
+                # Remove oldest entries
+                oldest_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][1])[
+                    : self._max_size // 4
+                ]
+                for k in oldest_keys:
+                    del self._cache[k]
+
+            self._cache[key] = (data, time.time())
 
     def clear(self) -> None:
         """Clear all cached data."""
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
 
 # Global cache instance
@@ -1027,7 +1036,7 @@ def UDLQuery(token, service, params, count=False, history=False):
     logger.info(f"Performing UDL query on service '{service}' with parameters={params}...")
 
     try:
-        resp = requests.get(url, headers={"Authorization": basicAuth}, params=params, verify=False)
+        resp = requests.get(url, headers={"Authorization": basicAuth}, params=params)
         elapsed = time.perf_counter() - start_time
 
         # If call worked, return data

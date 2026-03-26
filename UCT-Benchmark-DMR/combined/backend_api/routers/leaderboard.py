@@ -18,7 +18,7 @@ async def get_leaderboard(
     regime: Optional[str] = None,
     tier: Optional[str] = None,
     period: Optional[str] = None,  # all, month, week
-    limit: int = 50,
+    limit: int = 50,  # S10: clamped below
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -34,6 +34,9 @@ async def get_leaderboard(
     Returns:
         Leaderboard with ranked entries sorted by F1 score
     """
+    # S10: Clamp limit to safe range
+    limit = max(1, min(limit, 500))
+
     # Build query for completed submissions with results
     query = """
         SELECT
@@ -137,12 +140,15 @@ async def get_leaderboard_history(
 
     Args:
         dataset_id: Filter by specific dataset
-        days: Number of days of history
+        days: Number of days of history (1-365)
 
     Returns:
         Historical ranking data for trend visualization
     """
-    # Get completed submissions over time
+    # S2/B1+S10: Clamp to safe int range — eliminates SQL injection since int
+    # cannot contain SQL metacharacters, and INTERVAL doesn't support parameterization
+    days = max(1, min(int(days), 365))
+
     query = f"""
         SELECT
             DATE(s.completed_at) as date,
@@ -153,7 +159,7 @@ async def get_leaderboard_history(
         WHERE s.status = 'completed'
           AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '{days} days'
     """
-    params = []
+    params: list = []
 
     if dataset_id:
         query += " AND s.dataset_id = ?"

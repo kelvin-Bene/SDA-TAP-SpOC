@@ -19,6 +19,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { downloadBlob } from '@/lib/downloadUtils';
 import {
   BarChart,
   Bar,
@@ -28,7 +29,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useResults, useSubmission, useExportResults, useDownloadReport } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
 
@@ -53,14 +54,7 @@ export function ResultsPage() {
         format: 'pdf',
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `report_${submissionId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadBlob(blob, `report_${submissionId}.pdf`);
     } catch (err) {
       console.error('Report download failed:', err);
       toast({
@@ -79,14 +73,7 @@ export function ResultsPage() {
         format: 'json',
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `results_${submissionId}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadBlob(blob, `results_${submissionId}.json`);
     } catch (err) {
       console.error('Export failed:', err);
       toast({
@@ -134,69 +121,33 @@ export function ResultsPage() {
   const hasPreviousRank = results.previousRank !== undefined && results.previousRank !== null;
   const rankChange = hasPreviousRank ? (results.previousRank as number) - (results.rank || 0) : 0;
 
-  // Use real histogram data from evaluation pipeline when available,
-  // fall back to synthetic Gaussian approximation otherwise
-  const totalSamples = results.truePositives + results.falsePositives;
-  const raRms = results.raResidualRmsArcsec || 1;
-  const decRms = results.decResidualRmsArcsec || 1;
+  // U12: Use real histogram data only — don't mask missing backend data with synthetics
+  // U10: Memoize expensive computation
+  const hasRealResiduals = !!(results.raResidualHistogram && results.decResidualHistogram);
 
-  const generateGaussianBins = (rms: number, samples: number) => {
-    const sigma = rms;
-    const bins = [-3, -2, -1, 0, 1, 2, 3];
-    return bins.map((bin) => {
-      const density = Math.exp(-0.5 * Math.pow(bin / (sigma || 1), 2));
-      return Math.round(samples * density * 0.15);
-    });
-  };
+  const residualData = useMemo(() => {
+    if (!hasRealResiduals) return null;
+    const labels = results.raResidualHistogram!.labels;
+    const raBins = results.raResidualHistogram!.counts;
+    const decBins = results.decResidualHistogram!.counts;
+    return labels.map((label, i) => ({
+      range: label,
+      ra: raBins[i] ?? 0,
+      dec: decBins[i] ?? 0,
+    }));
+  }, [hasRealResiduals, results.raResidualHistogram, results.decResidualHistogram]);
 
-  const hasRealResiduals = results.raResidualHistogram && results.decResidualHistogram;
-  const residualLabels = hasRealResiduals
-    ? results.raResidualHistogram!.labels
-    : ['-3', '-2', '-1', '0', '1', '2', '3'];
-
-  const raBins = hasRealResiduals
-    ? results.raResidualHistogram!.counts
-    : generateGaussianBins(raRms, totalSamples);
-  const decBins = hasRealResiduals
-    ? results.decResidualHistogram!.counts
-    : generateGaussianBins(decRms, totalSamples);
-
-  const residualData = residualLabels.map((label, i) => ({
-    range: label,
-    ra: raBins[i] ?? 0,
-    dec: decBins[i] ?? 0,
-  }));
-
-  // Position error distribution: use real data or synthetic Chi approximation
-  const posRms = results.positionRmsKm || 1;
+  // U12: Position error distribution — use real data only
   const hasRealPosErrors = !!results.positionErrorHistogram;
 
-  let positionErrorData: { range: string; count: number }[];
-  if (hasRealPosErrors) {
+  const positionErrorData = useMemo(() => {
+    if (!hasRealPosErrors) return null;
     const hist = results.positionErrorHistogram!;
-    positionErrorData = hist.labels.map((label, i) => ({
+    return hist.labels.map((label, i) => ({
       range: label,
       count: hist.counts[i] ?? 0,
     }));
-  } else {
-    const generateErrorDistribution = (rms: number, samples: number) => {
-      const ranges = [0.5, 1.5, 2.5, 3.5, 4.5, 6];
-      return ranges.map((r) => {
-        const x = r / rms;
-        const density = x * x * Math.exp(-0.5 * x * x);
-        return Math.max(1, Math.round(samples * density * 0.3));
-      });
-    };
-    const errorBins = generateErrorDistribution(posRms, results.truePositives);
-    positionErrorData = [
-      { range: '0-1', count: errorBins[0] },
-      { range: '1-2', count: errorBins[1] },
-      { range: '2-3', count: errorBins[2] },
-      { range: '3-4', count: errorBins[3] },
-      { range: '4-5', count: errorBins[4] },
-      { range: '5+', count: errorBins[5] },
-    ];
-  }
+  }, [hasRealPosErrors, results.positionErrorHistogram]);
 
   return (
     <div className="space-y-6">
@@ -440,15 +391,21 @@ export function ResultsPage() {
                 <CardDescription>Histogram of position errors (km)</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={positionErrorData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="range" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <RechartsTooltip />
-                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {positionErrorData ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={positionErrorData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="range" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <RechartsTooltip />
+                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No position error histogram data available
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -463,18 +420,26 @@ export function ResultsPage() {
                 <CardDescription>Right Ascension residual distribution (arcsec)</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={residualData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="range" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <RechartsTooltip />
-                    <Bar dataKey="ra" fill="#06B6D4" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-sm text-muted-foreground mt-2 text-center">
-                  RMS: {results.raResidualRmsArcsec?.toFixed(2) || '-'} arcsec
-                </p>
+                {residualData ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={residualData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="range" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <RechartsTooltip />
+                        <Bar dataKey="ra" fill="#06B6D4" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <p className="text-sm text-muted-foreground mt-2 text-center">
+                      RMS: {results.raResidualRmsArcsec?.toFixed(2) || '-'} arcsec
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No RA residual histogram data available
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -484,18 +449,26 @@ export function ResultsPage() {
                 <CardDescription>Declination residual distribution (arcsec)</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={residualData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="range" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <RechartsTooltip />
-                    <Bar dataKey="dec" fill="#10B981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-sm text-muted-foreground mt-2 text-center">
-                  RMS: {results.decResidualRmsArcsec?.toFixed(2) || '-'} arcsec
-                </p>
+                {residualData ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={residualData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="range" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <RechartsTooltip />
+                        <Bar dataKey="dec" fill="#10B981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <p className="text-sm text-muted-foreground mt-2 text-center">
+                      RMS: {results.decResidualRmsArcsec?.toFixed(2) || '-'} arcsec
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No Dec residual histogram data available
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -536,12 +509,12 @@ export function ResultsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Satellite ID</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Obs Used</TableHead>
-                        <TableHead>Pos Error (km)</TableHead>
-                        <TableHead>Vel Error (km/s)</TableHead>
-                        <TableHead>Confidence</TableHead>
+                        <TableHead scope="col">Satellite ID</TableHead>
+                        <TableHead scope="col">Status</TableHead>
+                        <TableHead scope="col">Obs Used</TableHead>
+                        <TableHead scope="col">Pos Error (km)</TableHead>
+                        <TableHead scope="col">Vel Error (km/s)</TableHead>
+                        <TableHead scope="col">Confidence</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

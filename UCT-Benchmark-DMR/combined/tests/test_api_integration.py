@@ -55,8 +55,8 @@ class TestDatasetsEndpointIntegration:
         data = response.json()
         assert isinstance(data, list)
 
-        # We know there are 17 datasets in the database
-        print(f"Found {len(data)} datasets")
+        # Dataset count is dynamic; just verify we got a non-empty list
+        assert len(data) > 0, "Expected at least one dataset in the database"
 
         if len(data) > 0:
             # Check dataset structure
@@ -99,8 +99,8 @@ class TestSubmissionsEndpointIntegration:
         data = response.json()
         assert isinstance(data, list)
 
-        # We know there are 4 submissions in the database
-        print(f"Found {len(data)} submissions")
+        # Submission count is dynamic; just verify we got a list
+        assert len(data) >= 0
 
         if len(data) > 0:
             submission = data[0]

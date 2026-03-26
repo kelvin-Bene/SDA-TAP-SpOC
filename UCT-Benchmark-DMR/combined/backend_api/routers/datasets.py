@@ -11,6 +11,7 @@ from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_dataset_generation
+from backend_api.middleware.rate_limit import limiter
 from backend_api.models import (
     DatasetCreate,
     DatasetDetail,
@@ -154,6 +155,10 @@ async def list_datasets(
     Returns:
         List of dataset summaries
     """
+    # S10: Clamp to safe ranges
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
     # Build query with optional filters
     query = "SELECT * FROM datasets WHERE 1=1"
     params = []
@@ -362,7 +367,9 @@ async def debug_request(request: Request):
 
 
 @router.post("/", response_model=DatasetSummary, status_code=201)
+@limiter.limit("5/minute")
 async def create_dataset(
+    http_request: Request,
     request: DatasetCreate,
     db: DatabaseManager = Depends(get_db),
 ):
@@ -597,6 +604,10 @@ async def get_dataset_observations(
     Returns:
         Paginated list of observations
     """
+    # S10: Clamp to safe ranges
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
     # Validate dataset ID
     id_int = validate_dataset_id(dataset_id)
 

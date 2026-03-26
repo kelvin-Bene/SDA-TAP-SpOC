@@ -14,8 +14,6 @@ def dummy(truth_data_filename, blind_data_filename, output_path="./data/uctp_out
     # parse dataset and truthobs csv
     truth_obs = pd.read_csv(truth_data_filename)
     # blindObs = pd.read_csv(blind_data_filename) # don't need this unless we improve the dummy
-    # print(inputData.head())
-    # print(blindObs.head())
 
     satList = truth_obs.satNo.unique()
     obsSatDF = truth_obs[truth_obs["satNo"].isin(satList)]

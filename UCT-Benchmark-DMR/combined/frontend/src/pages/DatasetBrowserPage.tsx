@@ -6,6 +6,7 @@ import { DatasetFilters } from '@/components/datasets/DatasetFilters';
 import { DatasetPreviewDialog } from '@/components/datasets/DatasetPreviewDialog';
 import { Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { downloadBlob } from '@/lib/downloadUtils';
 import { useDatasets, useDownloadDataset } from '@/hooks/useDatasets';
 import { useToast } from '@/hooks/use-toast';
 import type { Dataset, DatasetFilters as FilterType } from '@/types';
@@ -36,20 +37,16 @@ export function DatasetBrowserPage() {
     try {
       const blob = await downloadMutation.mutateAsync(dataset.id);
 
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${dataset.name}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
+      downloadBlob(blob, `${dataset.name}.json`);
+    } catch (err: unknown) {
       console.error('Download failed:', err);
+      // U6: Differentiate network vs server errors for better user guidance
+      const isNetworkError = err instanceof Error && ('code' in err || err.message === 'Network Error');
       toast({
         title: 'Download failed',
-        description: 'Failed to download dataset. Please try again.',
+        description: isNetworkError
+          ? 'Network error — check your connection and try again.'
+          : 'Failed to download dataset. The server may be unavailable.',
         variant: 'destructive',
       });
     }

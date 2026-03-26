@@ -1,0 +1,12 @@
+# Exclude frontend from backend deploys (separate service)
+frontend/
+# Exclude test/dev files
+tests/
+validation/
+docs/
+*.md
+# Exclude data files (mounted/generated at runtime)
+data/
+# Exclude environment files
+.env
+.env.*

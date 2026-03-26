@@ -1,63 +1,21 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Upload,
   Eye,
   Download,
   Trash2,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { getStatusBadge } from '@/lib/statusUtils';
+import { downloadBlob } from '@/lib/downloadUtils';
 import { useSubmissions, useExportResults } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
-import type { Submission, SubmissionStatus } from '@/types';
-
-function getStatusBadge(status: SubmissionStatus) {
-  switch (status) {
-    case 'completed':
-      return (
-        <Badge variant="success" className="gap-1">
-          <CheckCircle className="h-3 w-3" />
-          Complete
-        </Badge>
-      );
-    case 'processing':
-      return (
-        <Badge variant="processing" className="gap-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Processing
-        </Badge>
-      );
-    case 'queued':
-      return (
-        <Badge variant="secondary" className="gap-1">
-          <Clock className="h-3 w-3" />
-          Queued
-        </Badge>
-      );
-    case 'validating':
-      return (
-        <Badge variant="secondary" className="gap-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Validating
-        </Badge>
-      );
-    case 'failed':
-      return (
-        <Badge variant="destructive" className="gap-1">
-          <AlertCircle className="h-3 w-3" />
-          Failed
-        </Badge>
-      );
-  }
-}
+import type { Submission } from '@/types';
 
 export function MySubmissionsPage() {
   const { toast } = useToast();
@@ -77,14 +35,7 @@ export function MySubmissionsPage() {
         format: 'json',
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `results_${submission.id}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadBlob(blob, `results_${submission.id}.json`);
     } catch (err) {
       console.error('Export failed:', err);
       toast({

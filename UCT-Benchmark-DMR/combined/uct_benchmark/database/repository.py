@@ -98,7 +98,9 @@ class BaseRepository(ABC):
         Returns:
             Full INSERT statement with conflict handling
         """
-        placeholders = ", ".join(["?"] * len(columns))
+        # B9: Use adapter-specific placeholder (? for DuckDB, %s for PostgreSQL)
+        ph = self.adapter.placeholder
+        placeholders = ", ".join([ph] * len(columns))
         cols = ", ".join(columns)
         conflict_cols = ", ".join(conflict_columns)
         return f"""

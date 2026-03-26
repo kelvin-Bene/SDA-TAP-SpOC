@@ -46,6 +46,12 @@ ENV PYTHONPATH=/app \
 # Create uploads directory
 RUN mkdir -p /app/data/uploads
 
+# Create non-root user
+RUN addgroup --system --gid 1001 appuser && \
+    adduser --system --uid 1001 --ingroup appuser appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8000
 
 # Health check using Python's urllib (no curl in base image)
