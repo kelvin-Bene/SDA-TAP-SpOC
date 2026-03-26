@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Optional
 
 from .base import DatabaseAdapter
-from .duckdb_adapter import DuckDBAdapter
 
 # PostgreSQL/Supabase connection requires DATABASE_URL environment variable
 # Example: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres
@@ -90,7 +89,7 @@ def _create_duckdb_adapter(
     db_path: Optional[str | Path] = None,
     in_memory: bool = False,
     read_only: bool = False,
-) -> DuckDBAdapter:
+):
     """
     Create a DuckDB adapter with configuration from environment.
 
@@ -116,6 +115,7 @@ def _create_duckdb_adapter(
             except ImportError:
                 db_path = Path(__file__).parent.parent.parent.parent / "data" / "database" / "uct_benchmark.duckdb"
 
+    from .duckdb_adapter import DuckDBAdapter
     return DuckDBAdapter(
         db_path=db_path,
         in_memory=in_memory,
@@ -193,6 +193,7 @@ def create_test_adapter(backend: Optional[str] = None) -> DatabaseAdapter:
         ).lower()
 
     if backend == "duckdb":
+        from .duckdb_adapter import DuckDBAdapter
         return DuckDBAdapter(in_memory=True)
     elif backend in ("postgres", "postgresql", "supabase"):
         from .postgres_adapter import PostgresAdapter
