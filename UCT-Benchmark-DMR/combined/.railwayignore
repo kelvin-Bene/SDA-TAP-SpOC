@@ -5,9 +5,6 @@ tests/
 validation/
 docs/
 *.md
-# Exclude top-level data files (mounted/generated at runtime)
-# Use explicit path to avoid excluding uct_benchmark/data/ source code
-/data/
 # Exclude environment files
 .env
 .env.*
