@@ -2030,7 +2030,20 @@ def generateDataset(
         ]
         elset_truth_data = asyncUDLBatchQuery(UDL_token, "elset", params_list, dt)
 
-    # If no data at all was returned, fail gracefully
+    # If time-ranged TLE query returned empty, fall back to elset/current
+    # (latest TLE is usually sufficient for orbit determination)
+    if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
+        logger.warning(
+            f"Time-ranged TLE query returned no data for {len(satIDs)} sats, "
+            "falling back to elset/current"
+        )
+        elset_truth_data = UDLQuery(
+            UDL_token,
+            "elset/current",
+            {"satNo": ",".join(map(str, satIDs))},
+        )
+
+    # If still no data after fallback, fail gracefully
     if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
         raise ValueError(
             f"No element set (TLE) data returned from UDL for any of the {len(satIDs)} satellites "
