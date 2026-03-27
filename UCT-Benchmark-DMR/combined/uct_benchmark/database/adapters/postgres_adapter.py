@@ -210,6 +210,7 @@ class PostgresAdapter(DatabaseAdapter):
 
         For INSERT statements, uses multi-row VALUES for much better performance.
         Falls back to individual execution for non-INSERT queries.
+        Each batch is retried once on connection errors.
 
         Args:
             query: SQL query string with placeholders
@@ -220,8 +221,6 @@ class PostgresAdapter(DatabaseAdapter):
             return
 
         converted_query = self.convert_placeholders(query)
-        conn = self._get_connection()
-        cursor = conn.cursor()
 
         # Check if this is an INSERT statement that can be batched
         # Normalize whitespace for easier parsing
@@ -266,14 +265,52 @@ class PostgresAdapter(DatabaseAdapter):
                     for params in batch:
                         flat_params.extend(params)
 
-                    cursor.execute(batch_query, tuple(flat_params))
-                    conn.commit()
+                    def _do_batch(q=batch_query, p=tuple(flat_params)):
+                        conn = self._get_connection()
+                        cursor = conn.cursor()
+                        cursor.execute(q, p)
+                        conn.commit()
+
+                    self._retry_on_error(_do_batch)
                 return
 
         # Fallback: execute one by one for non-INSERT queries
-        for params in params_list:
-            cursor.execute(converted_query, params)
-        conn.commit()
+        def _do_fallback():
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            for params in params_list:
+                cursor.execute(converted_query, params)
+            conn.commit()
+
+        self._retry_on_error(_do_fallback)
+
+    def _retry_on_error(self, fn):
+        """
+        Retry a database operation once on connection/prepared statement errors.
+
+        Drops the stale connection and retries with a fresh one.
+        Handles Supabase pooler errors (34000 portal missing, 08P01 bind mismatch,
+        25P02 aborted transaction, 26000 invalid prepared statement).
+        """
+        for attempt in range(2):
+            try:
+                return fn()
+            except (pg8000.exceptions.InterfaceError, OSError, ConnectionError):
+                if attempt == 0:
+                    logger.debug("Connection error on attempt 0, reconnecting")
+                    self._connection = None
+                    continue
+                raise
+            except pg8000.exceptions.DatabaseError as e:
+                if attempt == 0:
+                    logger.debug(f"Database error on attempt 0, reconnecting: {e}")
+                    try:
+                        self._connection.close()
+                    except Exception:
+                        pass
+                    self._connection = None
+                    continue
+                raise
 
     def fetchone(self, query: str, params: Tuple = ()) -> Optional[Tuple]:
         """
@@ -287,10 +324,14 @@ class PostgresAdapter(DatabaseAdapter):
             Single row as tuple, or None if no results
         """
         converted_query = self.convert_placeholders(query)
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        return cursor.fetchone()
+
+        def _do():
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(converted_query, params)
+            return cursor.fetchone()
+
+        return self._retry_on_error(_do)
 
     def fetchall(self, query: str, params: Tuple = ()) -> List[Tuple]:
         """
@@ -304,10 +345,14 @@ class PostgresAdapter(DatabaseAdapter):
             List of tuples
         """
         converted_query = self.convert_placeholders(query)
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        return cursor.fetchall()
+
+        def _do():
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(converted_query, params)
+            return cursor.fetchall()
+
+        return self._retry_on_error(_do)
 
     def fetchdf(self, query: str, params: Tuple = ()) -> pd.DataFrame:
         """
@@ -321,12 +366,16 @@ class PostgresAdapter(DatabaseAdapter):
             pandas DataFrame with query results
         """
         converted_query = self.convert_placeholders(query)
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(converted_query, params)
-        columns = [desc[0] for desc in cursor.description] if cursor.description else []
-        rows = cursor.fetchall()
-        return pd.DataFrame(rows, columns=columns)
+
+        def _do():
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(converted_query, params)
+            columns = [desc[0] for desc in cursor.description] if cursor.description else []
+            rows = cursor.fetchall()
+            return pd.DataFrame(rows, columns=columns)
+
+        return self._retry_on_error(_do)
 
     def bulk_insert_df(
         self,
@@ -384,7 +433,7 @@ class PostgresAdapter(DatabaseAdapter):
         total_rows = len(rows)
         inserted = 0
 
-        # Process in batches for better performance
+        # Process in batches for better performance — each batch retried on error
         for batch_start in range(0, total_rows, batch_size):
             batch_end = min(batch_start + batch_size, total_rows)
             batch = rows[batch_start:batch_end]
@@ -404,8 +453,13 @@ class PostgresAdapter(DatabaseAdapter):
             for row in batch:
                 params.extend(row)
 
-            cursor.execute(query, tuple(params))
-            conn.commit()  # Commit each batch to avoid long transactions
+            def _do_batch(q=query, p=tuple(params)):
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                cursor.execute(q, p)
+                conn.commit()
+
+            self._retry_on_error(_do_batch)
             inserted += len(batch)
 
         return inserted

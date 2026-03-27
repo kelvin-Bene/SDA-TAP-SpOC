@@ -95,6 +95,21 @@ async def lifespan(app: FastAPI):
         logger.info(f"Database initialized (DuckDB): {db.db_path}")
     else:
         logger.info("Database initialized (PostgreSQL): connection pool ready")
+        # Verify connection works and log diagnostics
+        try:
+            result = db.execute("SELECT 1").fetchone()
+            logger.info(f"PostgreSQL connection verified: SELECT 1 = {result}")
+            tables = db.adapter.get_tables()
+            logger.info(f"Database tables found: {tables}")
+        except Exception as e:
+            logger.error(f"PostgreSQL connection test FAILED: {e}")
+
+    # Verify critical modules are importable
+    try:
+        import uct_benchmark.data.dataManipulation  # noqa: F401
+        logger.info("Module uct_benchmark.data loaded successfully")
+    except ImportError as e:
+        logger.error(f"CRITICAL: Failed to import uct_benchmark.data: {e}")
 
     # Initialize job manager with DB persistence for crash recovery
     job_manager = init_job_manager(db=db)

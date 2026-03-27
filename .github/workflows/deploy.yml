@@ -18,7 +18,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: pip install ".[test]" 2>/dev/null || pip install "." && pip install pytest
+        run: pip install ".[dev]"
 
       - name: Run backend tests (non-Orekit)
         working-directory: ./UCT-Benchmark-DMR/combined
