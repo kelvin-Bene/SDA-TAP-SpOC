@@ -28,7 +28,7 @@ dependencies = [
     "uvicorn>=0.27.0",
     "python-multipart>=0.0.6",
     # Database (PostgreSQL only)
-    "pg8000>=1.30.0",
+    "psycopg2-binary>=2.9.9",
     # Auth & Security
     "PyJWT[crypto]>=2.8.0",
     "supabase>=2.0.0",
