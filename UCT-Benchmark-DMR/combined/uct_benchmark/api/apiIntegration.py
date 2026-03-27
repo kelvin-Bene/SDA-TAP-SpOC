@@ -2030,6 +2030,13 @@ def generateDataset(
         ]
         elset_truth_data = asyncUDLBatchQuery(UDL_token, "elset", params_list, dt)
 
+    # If no data at all was returned, fail gracefully
+    if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
+        raise ValueError(
+            f"No element set (TLE) data returned from UDL for any of the {len(satIDs)} satellites "
+            f"in the requested time window. The UDL may not have data for this date range."
+        )
+
     # If a satellite has no TLE data, drop it from list, state vectors, and obs
     satIDs = elset_truth_data["satNo"].unique()
     elset_sats = len(satIDs)
