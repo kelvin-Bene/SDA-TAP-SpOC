@@ -356,6 +356,32 @@ INSERT INTO event_types (id, name, description) VALUES
     (6, 'unknown', 'Unknown or unclassified event')
 ON CONFLICT (id) DO NOTHING;
 
+-- ============================================================
+-- FEEDBACK TABLE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS feedback (
+    id              VARCHAR(36)  PRIMARY KEY,
+    description     TEXT         NOT NULL,
+    severity        VARCHAR(20)  NOT NULL,
+    screenshot_url  VARCHAR(500),
+    page_url        VARCHAR(2048),
+    user_agent      VARCHAR(500),
+    viewport        VARCHAR(100),
+    recent_actions  JSONB,
+    console_errors  JSONB,
+    sentry_event_id VARCHAR(200),
+    reporter_id     VARCHAR(36),
+    reporter_email  VARCHAR(255),
+    status          VARCHAR(50)  NOT NULL DEFAULT 'open',
+    resolution      TEXT,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+
 -- Set schema version
 INSERT INTO _schema_metadata (key, value, updated_at)
 VALUES ('version', '1.0.0', CURRENT_TIMESTAMP)

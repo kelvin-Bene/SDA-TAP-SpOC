@@ -532,6 +532,36 @@ CREATE INDEX IF NOT EXISTS idx_breakup_events_parent ON breakup_events(parent_no
 """
 
 # ============================================================
+# FEEDBACK TABLE
+# ============================================================
+
+FEEDBACK_TABLE = """
+CREATE TABLE IF NOT EXISTS feedback (
+    id              VARCHAR(36)  PRIMARY KEY,
+    description     TEXT         NOT NULL,
+    severity        VARCHAR(20)  NOT NULL,
+    screenshot_url  VARCHAR(500),
+    page_url        VARCHAR(2048),
+    user_agent      VARCHAR(500),
+    viewport        VARCHAR(100),
+    recent_actions  TEXT,
+    console_errors  TEXT,
+    sentry_event_id VARCHAR(200),
+    reporter_id     VARCHAR(36),
+    reporter_email  VARCHAR(255),
+    status          VARCHAR(50)  NOT NULL DEFAULT 'open',
+    resolution      TEXT,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP
+);
+"""
+
+FEEDBACK_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+"""
+
+# ============================================================
 # SCHEMA VERSION TRACKING
 # ============================================================
 
@@ -641,6 +671,10 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(BREAKUP_EVENTS_TABLE)
     db.execute(BREAKUP_EVENTS_INDEXES)
 
+    # Feedback table
+    db.execute(FEEDBACK_TABLE)
+    db.execute(FEEDBACK_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
@@ -729,6 +763,10 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     # Breakup events cache table
     db.execute(convert_json_to_jsonb(BREAKUP_EVENTS_TABLE))
     db.execute(BREAKUP_EVENTS_INDEXES)
+
+    # Feedback table
+    db.execute(FEEDBACK_TABLE)
+    db.execute(FEEDBACK_INDEXES)
 
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
@@ -926,6 +964,7 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "event_observations",
         "non_reference_observations",
         "breakup_events",
+        "feedback",
         "_schema_metadata",
     ]
 
