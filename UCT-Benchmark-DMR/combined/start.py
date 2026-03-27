@@ -11,4 +11,4 @@ if __name__ == "__main__":
         port=port,
         workers=workers,
     )
-# cache bust Thu, Mar 26, 2026  2:41:01 PM
+# deploy: direct DB connection + dockerignore fix + retry logic
