@@ -8,7 +8,6 @@ Note: Dataset ID is now passed to generateDataset to avoid duplicate creation.
 """
 
 import json
-import os
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Optional
@@ -76,6 +75,8 @@ def run_dataset_generation(
     job_id: str,
     dataset_id: int,
     config: Dict[str, Any],
+    udl_token: str,
+    esa_token: Optional[str] = None,
 ) -> None:
     """
     Worker function for dataset generation.
@@ -90,6 +91,8 @@ def run_dataset_generation(
             - object_count: Number of satellites
             - timeframe: Duration in days
             - satellites: Optional list of specific NORAD IDs
+        udl_token: User's UDL API token (passed directly, never stored in DB)
+        esa_token: User's ESA API token (optional, passed directly)
     """
     job_manager = get_job_manager()
     job_manager.start_job(job_id)
@@ -102,18 +105,12 @@ def run_dataset_generation(
         from uct_benchmark.api.apiIntegration import generateDataset
         from uct_benchmark.settings import satIDs as DEFAULT_SATELLITES
 
-        # Get tokens from environment
-        udl_token = os.getenv("UDL_TOKEN")
-        esa_token = os.getenv("ESA_TOKEN")
-
+        # Tokens are passed directly from the authenticated user's profile
         if not udl_token:
-            raise ValueError(
-                "Missing required environment variable: UDL_TOKEN. "
-                "Please set it in your .env file."
-            )
+            raise ValueError("UDL token was not provided to worker")
         if not esa_token:
             logger.warning(
-                "ESA_TOKEN not set - Discosweb data (mass/crossSection) will be unavailable. "
+                "ESA token not provided — Discosweb data (mass/crossSection) will be unavailable. "
                 "HAMR object filtering will not work correctly."
             )
 
@@ -727,6 +724,8 @@ def run_evaluation_pipeline(
 def submit_dataset_generation(
     dataset_id: int,
     config: Dict[str, Any],
+    udl_token: str,
+    esa_token: Optional[str] = None,
 ) -> Job:
     """
     Submit a dataset generation job to run in the background.
@@ -734,6 +733,8 @@ def submit_dataset_generation(
     Args:
         dataset_id: The database ID for the dataset
         config: Dataset generation configuration
+        udl_token: User's UDL API token (passed as arg, never stored in job metadata)
+        esa_token: User's ESA API token (optional)
 
     Returns:
         The created Job instance
@@ -745,7 +746,7 @@ def submit_dataset_generation(
     )
 
     executor = get_executor()
-    executor.submit(run_dataset_generation, job.id, dataset_id, config)
+    executor.submit(run_dataset_generation, job.id, dataset_id, config, udl_token, esa_token)
 
     return job
 

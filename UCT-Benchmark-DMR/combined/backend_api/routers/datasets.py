@@ -1,5 +1,6 @@
 """Dataset management endpoints."""
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -9,9 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from backend_api.auth import CurrentUser, get_current_user
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_dataset_generation
 from backend_api.middleware.rate_limit import limiter
+from backend_api.routers.auth import get_user_tokens
+from backend_api.utils.token_validation import validate_udl_token
 from backend_api.models import (
     DatasetCreate,
     DatasetDetail,
@@ -371,6 +375,7 @@ async def debug_request(request: Request):
 async def create_dataset(
     request: Request,
     dataset_request: DatasetCreate,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -388,6 +393,31 @@ async def create_dataset(
     logger.info(
         f"Creating dataset with: name={dataset_request.name}, regime={dataset_request.regime}, tier={dataset_request.tier}"
     )
+
+    # Fetch and validate user's API tokens
+    tokens = get_user_tokens(db, user.id)
+    if tokens["udl_token"] is None:
+        # Check if token exists but decryption failed vs never set
+        raw = db.execute(
+            "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
+        ).fetchone()
+        if raw and raw[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="UDL API token required. Set it in Profile Settings.",
+        )
+
+    valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
+
+    if not tokens.get("esa_token"):
+        logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
+
     # Prepare generation parameters (name will be set after uniqueness check)
     generation_params = {
         "regime": dataset_request.regime.value,
@@ -506,8 +536,8 @@ async def create_dataset(
             """
             INSERT INTO datasets (
                 name, code, tier, orbital_regime, status, generation_params,
-                version, parent_id, created_at
-            ) VALUES (?, ?, ?, ?, 'generating', ?, ?, ?, CURRENT_TIMESTAMP)
+                version, parent_id, user_id, created_at
+            ) VALUES (?, ?, ?, ?, 'generating', ?, ?, ?, ?, CURRENT_TIMESTAMP)
             RETURNING id
             """,
             (
@@ -518,12 +548,15 @@ async def create_dataset(
                 json.dumps(generation_params),
                 version,
                 parent_id,
+                user.id,
             ),
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job for dataset generation
-        job = submit_dataset_generation(dataset_id, generation_params)
+        # Submit background job for dataset generation — pass tokens as args, NOT in metadata
+        job = submit_dataset_generation(
+            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token")
+        )
 
         # Update dataset with job_id
         db.execute(

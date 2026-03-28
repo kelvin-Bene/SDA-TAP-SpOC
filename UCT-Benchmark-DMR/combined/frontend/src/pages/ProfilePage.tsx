@@ -104,13 +104,24 @@ export function ProfilePage() {
         title: 'Profile Updated',
         description: 'Your profile information has been saved.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update profile:', error);
-      toast({
-        title: 'Update Failed',
-        description: 'Failed to save profile changes. Please try again.',
-        variant: 'destructive',
-      });
+      const detail = error?.response?.data?.detail;
+      if (typeof detail === 'object' && detail !== null && !Array.isArray(detail)) {
+        // Per-field validation errors from token validation: {udl_token: "...", esa_token: "..."}
+        const messages = Object.entries(detail).map(([k, v]) => `${k}: ${v}`).join('\n');
+        toast({
+          title: 'Token Validation Failed',
+          description: messages,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Update Failed',
+          description: String(detail || 'Failed to save profile changes. Please try again.'),
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -209,7 +220,10 @@ export function ProfilePage() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="udl-token">UDL API Token</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="udl-token">UDL API Token</Label>
+                    <Badge variant="destructive" className="text-xs">Required</Badge>
+                  </div>
                   <div className="flex gap-2">
                     <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
                     <div className="relative flex-1">
@@ -232,6 +246,9 @@ export function ProfilePage() {
                       </Button>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Required for dataset generation. Get your token from UDL.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="esa-token">ESA API Token</Label>

@@ -185,6 +185,9 @@ CREATE TABLE IF NOT EXISTS datasets (
     -- Parameters used (JSONB blob)
     generation_params JSONB,
 
+    -- Ownership
+    user_id VARCHAR(36),
+
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
 
@@ -381,6 +384,8 @@ CREATE TABLE IF NOT EXISTS feedback (
 
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_datasets_user_id ON datasets(user_id);
 
 -- Set schema version
 INSERT INTO _schema_metadata (key, value, updated_at)

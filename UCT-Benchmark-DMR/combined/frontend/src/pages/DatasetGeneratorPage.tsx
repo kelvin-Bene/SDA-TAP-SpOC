@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { api } from '@/api/client';
 import type {
   OrbitalRegime,
   DatasetGenerationConfig,
@@ -265,6 +266,18 @@ export function DatasetGeneratorPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
 
+  // Token availability check
+  const [hasUdlToken, setHasUdlToken] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.getCurrentUser().then((res) => {
+      // Masked token looks like "****XXXX" — null means not set
+      setHasUdlToken(!!res.data.udl_token);
+    }).catch(() => {
+      setHasUdlToken(false);
+    });
+  }, []);
+
   // Legacy code mode state
   const [mode, setMode] = useState<'standard' | 'legacy'>('standard');
   const [legacyConfig, setLegacyConfig] = useState<LegacyDatasetCodeConfig>(defaultLegacyConfig);
@@ -400,6 +413,10 @@ export function DatasetGeneratorPage() {
         ).join('\n');
       } else if (typeof detail === 'string') {
         errorMessage = detail;
+        // If token-related, refresh the token check
+        if (detail.toLowerCase().includes('token')) {
+          setHasUdlToken(false);
+        }
       } else if (error?.message) {
         errorMessage = error.message;
       }
@@ -487,6 +504,18 @@ export function DatasetGeneratorPage() {
           <p className="text-muted-foreground mt-1">
             Configure parameters to generate a custom benchmark dataset
           </p>
+          {hasUdlToken === false && (
+            <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-destructive">UDL API Token Required</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  You need a UDL API token to generate datasets.{' '}
+                  <a href="/profile" className="underline font-medium text-primary">Set it in Profile Settings</a>.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Mode Tabs */}
@@ -2134,7 +2163,7 @@ export function DatasetGeneratorPage() {
               ) : (
                 <Button
                   onClick={handleGenerate}
-                  disabled={isGenerating || !isTimeframeValid}
+                  disabled={isGenerating || !isTimeframeValid || !hasUdlToken}
                   className="gap-2"
                 >
                   {isGenerating ? (
@@ -2161,7 +2190,7 @@ export function DatasetGeneratorPage() {
                 ) : (
                   <Button
                     onClick={handleLegacyGenerate}
-                    disabled={isGenerating || !legacyCodeValidation.valid}
+                    disabled={isGenerating || !legacyCodeValidation.valid || !hasUdlToken}
                     className="gap-2"
                   >
                     {isGenerating ? (
@@ -2181,7 +2210,7 @@ export function DatasetGeneratorPage() {
                 // Direct code entry mode
                 <Button
                   onClick={handleLegacyGenerate}
-                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16}
+                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16 || !hasUdlToken}
                   className="gap-2"
                 >
                   {isGenerating ? (

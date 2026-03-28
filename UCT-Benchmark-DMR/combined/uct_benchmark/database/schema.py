@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.5.0"
+SCHEMA_VERSION = "1.6.0"
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -261,6 +261,9 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Parameters used (JSON blob)
     generation_params JSON,
+
+    -- Ownership
+    user_id VARCHAR(36),
 
     -- Full provenance metadata from generation (timing, window selection, filtering, etc.)
     performance_metadata JSON,
@@ -680,6 +683,7 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
+    _migrate_to_1_6_0(db)
 
     # Seed default event types
     _seed_event_types(db)
@@ -773,6 +777,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
+    _migrate_to_1_6_0(db)
 
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
@@ -828,9 +833,10 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
 
 def _migrate_to_1_2_0(db: "DatabaseManager") -> None:
     """Add performance_metadata and actual_satellite_ids columns to datasets table."""
-    for col in ["performance_metadata JSON", "actual_satellite_ids JSON"]:
+    json_type = "JSONB" if db.backend == "postgres" else "JSON"
+    for col_name in ["performance_metadata", "actual_satellite_ids"]:
         try:
-            db.execute(f"ALTER TABLE datasets ADD COLUMN IF NOT EXISTS {col}")
+            db.execute(f"ALTER TABLE datasets ADD COLUMN IF NOT EXISTS {col_name} {json_type}")
         except Exception:
             pass  # Column already exists
 
@@ -906,6 +912,14 @@ def _migrate_to_1_5_0(db: "DatabaseManager") -> None:
             db.execute(f"ALTER TABLE observations ADD COLUMN IF NOT EXISTS {col}")
         except Exception:
             pass
+
+
+def _migrate_to_1_6_0(db: "DatabaseManager") -> None:
+    """Add user_id column to datasets table for ownership tracking."""
+    try:
+        db.execute("ALTER TABLE datasets ADD COLUMN IF NOT EXISTS user_id VARCHAR(36)")
+    except Exception:
+        pass  # Column already exists
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:
