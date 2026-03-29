@@ -22,15 +22,11 @@ RUN npm run build
 # Stage 2: Serve
 FROM nginx:1.25-alpine
 
-# Default backend connection (overridable via Railway env vars)
-ENV BACKEND_HOST=backend
-ENV BACKEND_PORT=8000
-
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx config as template (nginx:alpine auto-runs envsubst on *.template files)
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
