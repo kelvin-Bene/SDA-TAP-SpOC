@@ -1,7 +1,5 @@
 [build]
 builder = "DOCKERFILE"
-# Production uses Dockerfile (Java + Orekit)
-# Demo overrides via RAILWAY_DOCKERFILE_PATH=Dockerfile.demo env var
 dockerfilePath = "Dockerfile"
 
 [deploy]

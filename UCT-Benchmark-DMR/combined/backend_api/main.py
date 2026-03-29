@@ -1,5 +1,5 @@
 """
-UCT Benchmark API - FastAPI backend for the frontend demo UI.
+UCT Benchmark API - FastAPI backend.
 
 This module provides REST endpoints for:
 - Dataset management (list, create, retrieve)
@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="UCT Benchmark API",
     version="1.0.0",
-    description="Backend API for the UCT Benchmark demo UI",
+    description="Backend API for the UCT Benchmark platform",
     lifespan=lifespan,
 )
 
