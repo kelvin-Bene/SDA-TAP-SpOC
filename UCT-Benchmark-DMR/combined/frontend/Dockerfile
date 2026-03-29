@@ -13,16 +13,24 @@ COPY . .
 # API requests go through nginx proxy at /api/v1
 ENV VITE_API_BASE_URL=/api/v1
 
+# Demo mode flag (set to "true" for demo builds)
+ARG VITE_DEMO_MODE=false
+ENV VITE_DEMO_MODE=${VITE_DEMO_MODE}
+
 RUN npm run build
 
 # Stage 2: Serve
 FROM nginx:1.25-alpine
 
+# Default backend connection (overridable via Railway env vars)
+ENV BACKEND_HOST=backend
+ENV BACKEND_PORT=8000
+
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx config as template (nginx:alpine auto-runs envsubst on *.template files)
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 
