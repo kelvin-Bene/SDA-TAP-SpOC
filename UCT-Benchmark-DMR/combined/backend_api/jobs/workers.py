@@ -107,7 +107,10 @@ def run_dataset_generation(
 
         # Tokens are passed directly from the authenticated user's profile
         if not udl_token:
-            raise ValueError("UDL token was not provided to worker")
+            raise ValueError(
+                "The dataset generation service is temporarily unavailable due to a missing API credential. "
+                "Please contact the platform administrator or try again later."
+            )
         if not esa_token:
             logger.warning(
                 "ESA token not provided — Discosweb data (mass/crossSection) will be unavailable. "

@@ -315,6 +315,17 @@ export function DatasetGeneratorPage() {
         setIsGenerating(false);
         navigate('/datasets/my-datasets');
       } else if (jobStatus.status === 'failed') {
+        let errorMessage = jobStatus.error || 'Dataset generation failed. Please try different parameters.';
+        if (errorMessage.includes('No observation data returned')) {
+          errorMessage = 'No observation data is available for the selected parameters. Try a different orbital regime, date range, or sensor type.';
+        } else if (errorMessage.includes('Missing required environment variable') || errorMessage.includes('API credential')) {
+          errorMessage = 'The dataset generation service is temporarily unavailable. Please try again later or contact support.';
+        }
+        toast({
+          title: 'Dataset generation failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
         setIsGenerating(false);
         setJobId(null);
       }
@@ -404,7 +415,7 @@ export function DatasetGeneratorPage() {
       console.error('Error response:', error?.response?.data);
 
       // Handle Pydantic validation errors which return an array of error details
-      let errorMessage = 'Unknown error';
+      let errorMessage = 'An unexpected error occurred. Please try again.';
       const detail = error?.response?.data?.detail;
       if (Array.isArray(detail)) {
         // Pydantic validation error - format each error
@@ -419,6 +430,15 @@ export function DatasetGeneratorPage() {
         }
       } else if (error?.message) {
         errorMessage = error.message;
+      }
+
+      // Map technical errors to user-friendly messages
+      if (errorMessage.includes('No observation data returned')) {
+        errorMessage = 'No observation data is available for the selected parameters. Try a different orbital regime, date range, or sensor type.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('Network') || errorMessage.includes('ECONNREFUSED')) {
+        errorMessage = 'Unable to reach the server. Please check your connection and try again.';
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+        errorMessage = 'The request timed out. The server may be under heavy load — please try again in a few minutes.';
       }
 
       toast({
