@@ -20,6 +20,8 @@ const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => (
 const DocumentationPage = lazy(() => import('@/pages/DocumentationPage').then(m => ({ default: m.DocumentationPage })));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const LandingPage = lazy(() => import('@/pages/LandingPage'));
+const OrbitMapPage = lazy(() => import('@/pages/OrbitMapPage').then(m => ({ default: m.OrbitMapPage })));
 
 function PageLoader() {
   return (
@@ -46,6 +48,7 @@ function App() {
         <FeedbackProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              <Route path="/welcome" element={<LazyRoute><LandingPage /></LazyRoute>} />
               <Route path="/login" element={<LazyRoute><LoginPage /></LazyRoute>} />
               <Route
                 path="/"
@@ -69,6 +72,7 @@ function App() {
                 <Route path="leaderboard" element={<LazyRoute><LeaderboardPage /></LazyRoute>} />
                 <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
                 <Route path="profile" element={<LazyRoute><ProfilePage /></LazyRoute>} />
+                <Route path="orbit-map" element={<LazyRoute><OrbitMapPage /></LazyRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

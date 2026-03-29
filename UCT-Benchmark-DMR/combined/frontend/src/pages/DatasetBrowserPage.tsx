@@ -63,7 +63,7 @@ export function DatasetBrowserPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Datasets</h1>
           <p className="text-muted-foreground mt-1">
-            Browse and download benchmark datasets for UCT algorithm evaluation
+            Browse and download benchmark datasets for UCTP algorithm evaluation
           </p>
         </div>
         <Link to="/datasets/generate">

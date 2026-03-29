@@ -62,7 +62,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               <span className="text-gradient-cosmic">SpOC</span>
             </span>
             <span className="text-muted-foreground text-xs block -mt-0.5 tracking-wide">
-              UCT Benchmark
+              UCTP Benchmark
             </span>
           </div>
         </Link>

@@ -292,7 +292,7 @@ export function SubmitPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Submit Algorithm Results</h1>
         <p className="text-muted-foreground mt-1">
-          Upload your UCT algorithm results for evaluation against benchmark datasets
+          Upload your UCTP algorithm results for evaluation against benchmark datasets
         </p>
       </div>
 
