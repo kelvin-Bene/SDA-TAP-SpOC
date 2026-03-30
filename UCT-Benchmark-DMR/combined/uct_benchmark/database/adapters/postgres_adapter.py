@@ -121,7 +121,8 @@ class PostgresAdapter(DatabaseAdapter):
         for attempt in range(2):
             try:
                 return fn()
-            except (psycopg2.InterfaceError, psycopg2.OperationalError, OSError) as e:
+            except (psycopg2.InterfaceError, psycopg2.OperationalError,
+                    psycopg2.DatabaseError, OSError) as e:
                 if attempt == 0:
                     logger.debug(f"DB error on attempt 0, reconnecting: {e}")
                     self._drop_connection()
