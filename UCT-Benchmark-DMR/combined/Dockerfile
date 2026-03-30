@@ -10,8 +10,9 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy dependency spec and install
-COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir "."
+COPY pyproject.toml README.md requirements-demo.txt ./
+RUN pip install --no-cache-dir "." && \
+    pip install --no-cache-dir -r requirements-demo.txt
 
 # Copy application code
 COPY uct_benchmark/ ./uct_benchmark/
