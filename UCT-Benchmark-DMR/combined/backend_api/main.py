@@ -100,6 +100,13 @@ async def lifespan(app: FastAPI):
     job_manager = init_job_manager(db=db)
     logger.info("Job manager initialized (with DB persistence)")
 
+    # Demo mode: seed database with mock data
+    from .demo import is_demo_mode
+    if is_demo_mode():
+        from .demo.seed_db import seed_demo_database
+        seed_demo_database(db)
+        logger.info("DEMO MODE: Database seeded with mock data")
+
     yield
 
     # Shutdown

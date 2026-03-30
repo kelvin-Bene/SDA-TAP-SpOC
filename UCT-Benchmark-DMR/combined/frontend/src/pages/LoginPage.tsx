@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Orbit, Loader2, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Orbit, Loader2, AlertCircle, CheckCircle2, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+
+const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 
@@ -21,6 +23,15 @@ export function LoginPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+
+  const handleDemoSSO = async () => {
+    clearError();
+    await login('demo@spoc-benchmark.org', 'demo');
+    const currentError = useAuthStore.getState().error;
+    if (!currentError) {
+      navigate(from, { replace: true });
+    }
+  };
 
   const switchView = (newView: AuthView) => {
     setView(newView);
@@ -128,6 +139,61 @@ export function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-6 pt-4">
+          {/* Demo mode section */}
+          {isDemoMode && view === 'login' && (
+            <>
+              {/* Prominent demo banner */}
+              <div className="rounded-lg border border-cosmic-cyan/30 bg-cosmic-cyan/5 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-cosmic-cyan font-semibold text-sm">
+                  <ShieldCheck className="h-4 w-4" />
+                  Demo Mode
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  This is a demonstration instance with mock authentication.
+                  No real credentials are required. Click below to enter as a demo user.
+                </p>
+                <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground/70">
+                  <span className="flex items-center gap-1">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Mock SSO
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Synthetic Data
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Full Platform Access
+                  </span>
+                </div>
+              </div>
+
+              {/* SSO Button */}
+              <Button
+                onClick={handleDemoSSO}
+                className="w-full h-12 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity shadow-glow-cyan font-semibold text-base"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="mr-2 h-5 w-5" />
+                    Sign in with SSO
+                  </>
+                )}
+              </Button>
+
+              {/* Demo user hint */}
+              <p className="text-center text-xs text-muted-foreground/50">
+                You will be signed in as Demo User (demo@spoc-benchmark.org)
+              </p>
+            </>
+          )}
+
           {/* Error display */}
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -144,8 +210,8 @@ export function LoginPage() {
             </div>
           )}
 
-          {/* Login View */}
-          {view === 'login' && (
+          {/* Production Login View */}
+          {!isDemoMode && view === 'login' && (
             <>
               {/* Email/Password Form */}
               <form onSubmit={handleLogin} className="space-y-4">
@@ -304,32 +370,34 @@ export function LoginPage() {
           )}
         </CardContent>
 
-        <CardFooter className="flex justify-center pt-2">
-          {view === 'login' && (
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => switchView('signup')}
-                className="text-cosmic-cyan hover:text-cosmic-cyan/80 font-medium transition-colors"
-              >
-                Sign up
-              </button>
-            </p>
-          )}
-          {view === 'signup' && (
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => switchView('login')}
-                className="text-cosmic-cyan hover:text-cosmic-cyan/80 font-medium transition-colors"
-              >
-                Sign in
-              </button>
-            </p>
-          )}
-        </CardFooter>
+        {!isDemoMode && (
+          <CardFooter className="flex justify-center pt-2">
+            {view === 'login' && (
+              <p className="text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchView('signup')}
+                  className="text-cosmic-cyan hover:text-cosmic-cyan/80 font-medium transition-colors"
+                >
+                  Sign up
+                </button>
+              </p>
+            )}
+            {view === 'signup' && (
+              <p className="text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchView('login')}
+                  className="text-cosmic-cyan hover:text-cosmic-cyan/80 font-medium transition-colors"
+                >
+                  Sign in
+                </button>
+              </p>
+            )}
+          </CardFooter>
+        )}
       </Card>
 
       {/* Version tag */}
@@ -339,3 +407,4 @@ export function LoginPage() {
     </div>
   );
 }
+// build-bust: 1774626352

@@ -1,0 +1,68 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [master, demo]
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./UCT-Benchmark-DMR/combined
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Set environment
+        run: |
+          if [ "${{ github.ref_name }}" = "demo" ]; then
+            echo "RAILWAY_ENVIRONMENT=demo" >> $GITHUB_ENV
+          else
+            echo "RAILWAY_ENVIRONMENT=production" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy Backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up \
+            --service backend \
+            --environment ${{ env.RAILWAY_ENVIRONMENT }} \
+            --detach
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Set environment
+        run: |
+          if [ "${{ github.ref_name }}" = "demo" ]; then
+            echo "RAILWAY_ENVIRONMENT=demo" >> $GITHUB_ENV
+          else
+            echo "RAILWAY_ENVIRONMENT=production" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy Frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up \
+            --service frontend \
+            --environment ${{ env.RAILWAY_ENVIRONMENT }} \
+            --detach
