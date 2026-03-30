@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
 
   initialize: async () => {
     if (isDemoMode) {
-      set({ user: DEMO_USER, isAuthenticated: true, isAdmin: true, isLoading: false });
+      set({ isLoading: false, isAuthenticated: false });
       return;
     }
     try {
