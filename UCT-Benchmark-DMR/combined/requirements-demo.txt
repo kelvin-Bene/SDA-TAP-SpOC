@@ -9,3 +9,4 @@ numpy
 pandas
 duckdb
 pyyaml
+PyJWT[crypto]>=2.8.0
