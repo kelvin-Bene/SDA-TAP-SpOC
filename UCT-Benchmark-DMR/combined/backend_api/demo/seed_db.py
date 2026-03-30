@@ -21,6 +21,9 @@ from .seed_data import (
 
 def seed_demo_database(db) -> None:
     """Seed the demo database with mock data. Idempotent - skips if data exists."""
+    # Always ensure profiles table exists (not in base schema, managed by Supabase in prod)
+    _ensure_profiles_table(db)
+
     count = db.execute("SELECT COUNT(*) FROM datasets").fetchone()[0]
     if count > 0:
         logger.info("DEMO MODE: Database already seeded, skipping")
@@ -33,6 +36,7 @@ def seed_demo_database(db) -> None:
     _seed_observations_and_links(db, dataset_ids)
     submission_ids = _seed_submissions(db, dataset_ids)
     _seed_submission_results(db, submission_ids)
+    _seed_demo_profile(db)
 
     logger.info("DEMO MODE: Database seeding complete")
 
@@ -252,3 +256,30 @@ def _seed_submission_results(db, submission_ids: list[int]) -> None:
         )
 
     logger.info(f"DEMO MODE: Seeded {len(submission_ids)} submission results")
+
+
+def _ensure_profiles_table(db) -> None:
+    """Create the profiles table if it doesn't exist (managed by Supabase in prod)."""
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS profiles (
+            id VARCHAR PRIMARY KEY,
+            email VARCHAR,
+            role VARCHAR DEFAULT 'authenticated',
+            display_name VARCHAR,
+            organization VARCHAR,
+            udl_token VARCHAR,
+            esa_token VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+def _seed_demo_profile(db) -> None:
+    """Insert a demo user profile."""
+    db.execute("""
+        INSERT INTO profiles (id, email, role, display_name, organization, created_at, updated_at)
+        VALUES ('dev-user', 'dev@localhost', 'authenticated', 'Demo User', 'SpOC Demo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (id) DO NOTHING
+    """)
+    logger.info("DEMO MODE: Seeded demo user profile")
