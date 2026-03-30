@@ -745,7 +745,14 @@ def submit_dataset_generation(
     )
 
     executor = get_executor()
-    executor.submit(run_dataset_generation, job.id, dataset_id, config)
+
+    # In demo mode, use mock worker instead of real UDL/Orekit pipeline
+    from backend_api.demo import is_demo_mode
+    if is_demo_mode():
+        from backend_api.demo.mock_workers import run_mock_dataset_generation
+        executor.submit(run_mock_dataset_generation, job.id, dataset_id, config)
+    else:
+        executor.submit(run_dataset_generation, job.id, dataset_id, config)
 
     return job
 
@@ -777,6 +784,12 @@ def submit_evaluation(
     )
 
     executor = get_executor()
-    executor.submit(run_evaluation_pipeline, job.id, submission_id, dataset_id, file_path)
+
+    from backend_api.demo import is_demo_mode
+    if is_demo_mode():
+        from backend_api.demo.mock_workers import run_mock_evaluation
+        executor.submit(run_mock_evaluation, job.id, submission_id, dataset_id, file_path)
+    else:
+        executor.submit(run_evaluation_pipeline, job.id, submission_id, dataset_id, file_path)
 
     return job
