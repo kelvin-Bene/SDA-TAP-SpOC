@@ -13,9 +13,6 @@ server {
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
     gzip_min_length 1000;
 
-    # Use Docker/Railway DNS resolver with short cache for dynamic upstreams
-    resolver 127.0.0.11 valid=10s ipv6=off;
-
     # Cache static assets (JS/CSS with content hashes)
     location /assets/ {
         expires 1y;

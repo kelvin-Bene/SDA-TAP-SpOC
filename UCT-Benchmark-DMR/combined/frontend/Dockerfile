@@ -26,7 +26,8 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Default port (Railway overrides via $PORT env var)
 ENV PORT=80
+ENV BACKEND_URL=http://localhost:8000
 
 EXPOSE 80
 
-CMD ["/bin/sh", "-c", "envsubst '${PORT} ${BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "envsubst '$$PORT $$BACKEND_URL' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
