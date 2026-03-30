@@ -369,8 +369,8 @@ async def debug_request(request: Request):
 @router.post("/", response_model=DatasetSummary, status_code=201)
 @limiter.limit("5/minute")
 async def create_dataset(
-    http_request: Request,
-    request: DatasetCreate,
+    request: Request,
+    dataset_request: DatasetCreate,
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -386,84 +386,84 @@ async def create_dataset(
         The created dataset summary with job_id for tracking progress
     """
     logger.info(
-        f"Creating dataset with: name={request.name}, regime={request.regime}, tier={request.tier}"
+        f"Creating dataset with: name={dataset_request.name}, regime={dataset_request.regime}, tier={dataset_request.tier}"
     )
     # Prepare generation parameters (name will be set after uniqueness check)
     generation_params = {
-        "regime": request.regime.value,
-        "tier": request.tier.value,
-        "object_count": request.object_count,
-        "timeframe": request.timeframe,
-        "timeunit": request.timeunit,
-        "sensors": [s.value for s in request.sensors],
-        "coverage": request.coverage,
-        "include_hamr": request.include_hamr,
+        "regime": dataset_request.regime.value,
+        "tier": dataset_request.tier.value,
+        "object_count": dataset_request.object_count,
+        "timeframe": dataset_request.timeframe,
+        "timeunit": dataset_request.timeunit,
+        "sensors": [s.value for s in dataset_request.sensors],
+        "coverage": dataset_request.coverage,
+        "include_hamr": dataset_request.include_hamr,
     }
 
-    if request.satellites:
-        generation_params["satellites"] = request.satellites
+    if dataset_request.satellites:
+        generation_params["satellites"] = dataset_request.satellites
 
-    if request.start_date:
-        generation_params["start_date"] = request.start_date.isoformat()
+    if dataset_request.start_date:
+        generation_params["start_date"] = dataset_request.start_date.isoformat()
 
-    if request.end_date:
-        generation_params["end_date"] = request.end_date.isoformat()
+    if dataset_request.end_date:
+        generation_params["end_date"] = dataset_request.end_date.isoformat()
 
     # Add downsampling options if specified
-    if request.downsampling:
+    if dataset_request.downsampling:
         generation_params["downsampling"] = {
-            "enabled": request.downsampling.enabled,
-            "target_coverage": request.downsampling.target_coverage,
-            "target_gap": request.downsampling.target_gap,
-            "max_obs_per_sat": request.downsampling.max_obs_per_sat,
-            "preserve_tracks": request.downsampling.preserve_tracks,
-            "seed": request.downsampling.seed,
+            "enabled": dataset_request.downsampling.enabled,
+            "target_coverage": dataset_request.downsampling.target_coverage,
+            "target_gap": dataset_request.downsampling.target_gap,
+            "max_obs_per_sat": dataset_request.downsampling.max_obs_per_sat,
+            "preserve_tracks": dataset_request.downsampling.preserve_tracks,
+            "seed": dataset_request.downsampling.seed,
         }
-        logger.info(f"Downsampling enabled: {request.downsampling.enabled}")
+        logger.info(f"Downsampling enabled: {dataset_request.downsampling.enabled}")
 
     # Add simulation options if specified
-    if request.simulation:
+    if dataset_request.simulation:
         generation_params["simulation"] = {
-            "enabled": request.simulation.enabled,
-            "fill_gaps": request.simulation.fill_gaps,
-            "sensor_model": request.simulation.sensor_model,
-            "apply_noise": request.simulation.apply_noise,
-            "max_synthetic_ratio": request.simulation.max_synthetic_ratio,
-            "seed": request.simulation.seed,
+            "enabled": dataset_request.simulation.enabled,
+            "fill_gaps": dataset_request.simulation.fill_gaps,
+            "sensor_model": dataset_request.simulation.sensor_model,
+            "apply_noise": dataset_request.simulation.apply_noise,
+            "max_synthetic_ratio": dataset_request.simulation.max_synthetic_ratio,
+            "seed": dataset_request.simulation.seed,
         }
-        logger.info(f"Simulation enabled: {request.simulation.enabled}")
+        logger.info(f"Simulation enabled: {dataset_request.simulation.enabled}")
 
     # Add search strategy
-    generation_params["search_strategy"] = request.search_strategy.value
-    if request.search_strategy == SearchStrategy.WINDOWED:
-        generation_params["window_size_minutes"] = request.window_size_minutes or 10
-    logger.info(f"Search strategy: {request.search_strategy.value}")
+    generation_params["search_strategy"] = dataset_request.search_strategy.value
+    if dataset_request.search_strategy == SearchStrategy.WINDOWED:
+        generation_params["window_size_minutes"] = dataset_request.window_size_minutes or 10
+    logger.info(f"Search strategy: {dataset_request.search_strategy.value}")
 
     # Add non-reference observation options (for True Negative calculation per Louis's spec)
-    generation_params["include_non_ref_obs"] = request.include_non_ref_obs
-    generation_params["non_ref_ratio"] = request.non_ref_ratio
-    if request.include_non_ref_obs:
-        logger.info(f"Non-ref observations enabled: ratio={request.non_ref_ratio}")
+    generation_params["include_non_ref_obs"] = dataset_request.include_non_ref_obs
+    generation_params["non_ref_ratio"] = dataset_request.non_ref_ratio
+    if dataset_request.include_non_ref_obs:
+        logger.info(f"Non-ref observations enabled: ratio={dataset_request.non_ref_ratio}")
 
     # Add object type and event codes (per Louis's 16-character code spec)
-    generation_params["object_type_code"] = getattr(request, "object_type_code", "U")
-    generation_params["event_code"] = getattr(request, "event_code", "NE")
+    generation_params["object_type_code"] = getattr(dataset_request, "object_type_code", "U")
+    generation_params["event_code"] = getattr(dataset_request, "event_code", "NE")
 
     # Add window selection option (per Louis's bisecting search spec)
-    generation_params["use_window_selection"] = getattr(request, "use_window_selection", False)
+    generation_params["use_window_selection"] = getattr(dataset_request, "use_window_selection", False)
     if generation_params["use_window_selection"]:
         logger.info("Window selection algorithm enabled")
 
     # Record target percentage and TrackTLE options for full provenance
-    generation_params["target_percentage"] = getattr(request, "target_percentage", "UN")
-    generation_params["output_tracktle"] = getattr(request, "output_tracktle", False)
+    generation_params["target_percentage"] = getattr(dataset_request, "target_percentage", "UN")
+    generation_params["output_tracktle"] = getattr(dataset_request, "output_tracktle", False)
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
     # Format: {user_name}-{YYYYMMDD}-{HHMMSS}-{short_uuid}
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     short_uuid = str(uuid.uuid4())[:8]
-    dataset_name = f"{request.name}-{timestamp}-{short_uuid}"
+    dataset_name = f"{dataset_request.name}-{timestamp}-{short_uuid}"
     logger.info(f"Generated unique dataset name: {dataset_name}")
 
     # Add the final unique name to generation params
@@ -483,7 +483,7 @@ async def create_dataset(
             ORDER BY version DESC, created_at DESC
             LIMIT 1
             """,
-            (f"{request.name}-%",),
+            (f"{dataset_request.name}-%",),
         ).fetchone()
         if existing:
             parent_id = existing[0]
@@ -512,9 +512,9 @@ async def create_dataset(
             """,
             (
                 dataset_name,
-                f"{request.regime.value}_{request.tier.value}",
-                request.tier.value,
-                request.regime.value,
+                f"{dataset_request.regime.value}_{dataset_request.tier.value}",
+                dataset_request.tier.value,
+                dataset_request.regime.value,
                 json.dumps(generation_params),
                 version,
                 parent_id,
@@ -571,17 +571,17 @@ async def create_dataset(
 
     return DatasetSummary(
         id=str(dataset_id),
-        name=request.name,
+        name=dataset_request.name,
         description=None,
-        regime=request.regime,
-        tier=request.tier,
+        regime=dataset_request.regime,
+        tier=dataset_request.tier,
         status=DatasetStatus.GENERATING,
         created_at=datetime.now(timezone.utc),
         observation_count=0,
-        satellite_count=request.object_count,
+        satellite_count=dataset_request.object_count,
         coverage=0.0,
         size_bytes=0,
-        sensor_types=request.sensors,
+        sensor_types=dataset_request.sensors,
         job_id=job.id,
     )
 
