@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from loguru import logger
 
-from backend_api.auth import CurrentUser, get_current_user, get_optional_user
+from backend_api.middleware.auth import AuthUser as CurrentUser, get_current_user, get_optional_user
 from backend_api.database import get_db
 from backend_api.models.feedback import (
     FeedbackCreate,
