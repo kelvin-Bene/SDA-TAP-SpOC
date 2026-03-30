@@ -1,4 +1,4 @@
-# Demo mode dependencies (no Orekit/Java needed)
+# Demo mode dependencies (no Orekit/Java needed) — updated 2026-03-30
 fastapi>=0.109.0
 uvicorn>=0.27.0
 python-multipart>=0.0.6
