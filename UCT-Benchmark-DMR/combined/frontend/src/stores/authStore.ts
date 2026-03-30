@@ -3,6 +3,18 @@ import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { Session, Provider, AuthError, AuthChangeEvent } from '@supabase/supabase-js';
 
+const isDemoMode = !supabase;
+
+const DEMO_USER: User = {
+  id: 'demo-user',
+  username: 'Demo User',
+  email: 'demo@spoc.mil',
+  organization: 'SDA TAP Lab',
+  role: 'admin',
+  createdAt: new Date().toISOString(),
+  submissionCount: 0,
+};
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -58,8 +70,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   error: null,
 
   initialize: async () => {
+    if (isDemoMode) {
+      set({ user: DEMO_USER, isAuthenticated: true, isAdmin: true, isLoading: false });
+      return;
+    }
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase!.auth.getSession();
 
       if (error) {
         console.error('Failed to get session:', error.message);
@@ -80,8 +96,7 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         set({ isLoading: false, isAuthenticated: false });
       }
 
-      // Listen for auth state changes (sign in, sign out, token refresh)
-      supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
+      supabase!.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
         if (newSession?.user) {
           const user = mapSupabaseUser(newSession.user);
           set({
@@ -107,15 +122,18 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
     }
   },
 
-  login: async (email: string, password: string) => {
+  login: async (email: string, _password: string) => {
+    if (isDemoMode) {
+      set({ user: { ...DEMO_USER, email }, isAuthenticated: true, isAdmin: true, isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase!.auth.signInWithPassword({ email, password: _password });
       if (error) {
         set({ isLoading: false, error: formatAuthError(error) });
         return;
       }
-      // Session will be set by onAuthStateChange listener
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
       set({ isLoading: false, error: message });
@@ -123,9 +141,13 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   },
 
   loginWithOAuth: async (provider: Provider) => {
+    if (isDemoMode) {
+      set({ user: DEMO_USER, isAuthenticated: true, isAdmin: true, isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase!.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/`,
@@ -134,19 +156,22 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
       if (error) {
         set({ isLoading: false, error: formatAuthError(error) });
       }
-      // OAuth redirects the browser; loading state will persist until redirect
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
       set({ isLoading: false, error: message });
     }
   },
 
-  signup: async (email: string, password: string) => {
+  signup: async (email: string, _password: string) => {
+    if (isDemoMode) {
+      set({ user: { ...DEMO_USER, email }, isAuthenticated: true, isAdmin: true, isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error } = await supabase!.auth.signUp({
         email,
-        password,
+        password: _password,
         options: {
           emailRedirectTo: `${window.location.origin}/login`,
         },
@@ -155,10 +180,7 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         set({ isLoading: false, error: formatAuthError(error) });
         return;
       }
-      set({
-        isLoading: false,
-        error: null,
-      });
+      set({ isLoading: false, error: null });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
       set({ isLoading: false, error: message });
@@ -166,30 +188,30 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   },
 
   logout: async () => {
+    if (isDemoMode) {
+      set({ user: null, isAuthenticated: false, isAdmin: false, isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase!.auth.signOut();
       if (error) {
         console.error('Logout error:', error.message);
       }
-      // State will be cleared by onAuthStateChange listener
     } catch (err) {
       console.error('Logout failed:', err);
-      // Force clear state even if signOut fails
-      set({
-        user: null,
-        session: null,
-        isAuthenticated: false,
-        isAdmin: false,
-        isLoading: false,
-      });
+      set({ user: null, session: null, isAuthenticated: false, isAdmin: false, isLoading: false });
     }
   },
 
   resetPassword: async (email: string) => {
+    if (isDemoMode) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase!.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/login`,
       });
       if (error) {

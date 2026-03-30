@@ -13,6 +13,7 @@ export const apiClient = axios.create({
 // Request interceptor for auth token - uses Supabase session JWT
 apiClient.interceptors.request.use(
   async (config) => {
+    if (!supabase) return config;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
@@ -64,6 +65,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
+        if (!supabase) return Promise.reject(error);
         const { data, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !data.session) {
           await supabase.auth.signOut();
@@ -76,7 +78,7 @@ apiClient.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch {
-        await supabase.auth.signOut();
+        if (supabase) await supabase.auth.signOut();
         window.location.href = '/login';
         return Promise.reject(error);
       } finally {
