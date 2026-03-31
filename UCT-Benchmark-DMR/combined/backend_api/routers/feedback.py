@@ -129,10 +129,10 @@ async def submit_feedback(
                 recent_actions, console_errors, sentry_event_id,
                 reporter_id, reporter_email, status, created_at
             ) VALUES (
-                %s, %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s, %s
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?
             )
             """,
             (
@@ -205,22 +205,22 @@ async def list_feedback(
     params: list = []
 
     if status_filter:
-        query += " AND status = %s"
+        query += " AND status = ?"
         params.append(status_filter)
 
     if severity:
-        query += " AND severity = %s"
+        query += " AND severity = ?"
         params.append(severity)
 
     if date_from:
-        query += " AND created_at >= %s"
+        query += " AND created_at >= ?"
         params.append(date_from)
 
     if date_to:
-        query += " AND created_at <= %s"
+        query += " AND created_at <= ?"
         params.append(date_to)
 
-    query += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
     try:
@@ -275,7 +275,7 @@ async def get_feedback(
 
     try:
         result = db.execute(
-            "SELECT * FROM feedback WHERE id = %s",
+            "SELECT * FROM feedback WHERE id = ?",
             (feedback_id,),
         )
         columns = [desc[0] for desc in result.description]
@@ -337,7 +337,7 @@ async def update_feedback(
     # Verify the feedback exists
     try:
         result = db.execute(
-            "SELECT id FROM feedback WHERE id = %s",
+            "SELECT id FROM feedback WHERE id = ?",
             (feedback_id,),
         )
         if result.fetchone() is None:
@@ -359,11 +359,11 @@ async def update_feedback(
     params: list = []
 
     if body.status is not None:
-        set_parts.append("status = %s")
+        set_parts.append("status = ?")
         params.append(body.status)
 
     if body.resolution is not None:
-        set_parts.append("resolution = %s")
+        set_parts.append("resolution = ?")
         params.append(body.resolution)
 
     if not set_parts:
@@ -372,7 +372,7 @@ async def update_feedback(
             detail="No fields to update.",
         )
 
-    set_parts.append("updated_at = %s")
+    set_parts.append("updated_at = ?")
     params.append(datetime.utcnow().isoformat())
     params.append(feedback_id)
 
@@ -380,7 +380,7 @@ async def update_feedback(
 
     try:
         db.execute(
-            f"UPDATE feedback SET {set_clause} WHERE id = %s",
+            f"UPDATE feedback SET {set_clause} WHERE id = ?",
             tuple(params),
         )
     except Exception as e:
