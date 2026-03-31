@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { Session, Provider, AuthError, AuthChangeEvent } from '@supabase/supabase-js';
 
+const DEMO_AUTH_KEY = 'spoc-demo-auth';
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -59,10 +61,24 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   initialize: async () => {
     try {
-      // Demo mode: skip Supabase session check, preserve existing auth
+      // Demo mode: restore auth from localStorage if available
       if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        const current = get();
-        if (!current.isAuthenticated) {
+        try {
+          const stored = localStorage.getItem(DEMO_AUTH_KEY);
+          if (stored) {
+            const user: User = JSON.parse(stored);
+            set({
+              user,
+              session: null,
+              isAuthenticated: true,
+              isAdmin: user.role === 'admin',
+              isLoading: false,
+            });
+          } else {
+            set({ isLoading: false });
+          }
+        } catch {
+          localStorage.removeItem(DEMO_AUTH_KEY);
           set({ isLoading: false });
         }
         return;
@@ -119,18 +135,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      // Demo mode: bypass Supabase, set mock user directly
+      // Demo mode: bypass Supabase, set mock user directly and persist
       if (import.meta.env.VITE_DEMO_MODE === 'true') {
+        const demoUser: User = {
+          id: 'dev-user',
+          email: 'demo@spoc-benchmark.org',
+          username: 'Demo User',
+          organization: 'SpOC Demo',
+          role: 'developer',
+          createdAt: new Date().toISOString(),
+          submissionCount: 0,
+        };
+        localStorage.setItem(DEMO_AUTH_KEY, JSON.stringify(demoUser));
         set({
-          user: {
-            id: 'dev-user',
-            email: 'demo@spoc-benchmark.org',
-            username: 'Demo User',
-            organization: 'SpOC Demo',
-            role: 'developer',
-            createdAt: new Date().toISOString(),
-            submissionCount: 0,
-          },
+          user: demoUser,
           session: null,
           isAuthenticated: true,
           isAdmin: false,
@@ -195,6 +213,17 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   logout: async () => {
     set({ isLoading: true, error: null });
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      localStorage.removeItem(DEMO_AUTH_KEY);
+      set({
+        user: null,
+        session: null,
+        isAuthenticated: false,
+        isAdmin: false,
+        isLoading: false,
+      });
+      return;
+    }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
