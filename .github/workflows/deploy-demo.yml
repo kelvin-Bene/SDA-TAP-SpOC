@@ -78,6 +78,7 @@ jobs:
           cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template deploy-dist/
           cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist/Dockerfile
           cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist/
+          echo '!dist/' > deploy-dist/.railwayignore
       - name: Install Railway CLI
         run: npm i -g @railway/cli
       - name: Deploy
