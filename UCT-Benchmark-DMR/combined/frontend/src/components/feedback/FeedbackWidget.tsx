@@ -103,7 +103,8 @@ function FeedbackWidgetInner() {
       const response = await submitFeedback({
         description: description.trim(),
         severity,
-        screenshot_base64: screenshotBase64,
+        // Screenshot is shown in the dialog for user context but not sent
+        // to the API — the base64 payload causes 504 timeouts on Railway's proxy
       });
 
       if (response.success) {
