@@ -46,7 +46,7 @@ interface DatasetResponse {
 // Transform backend response to frontend type
 function transformDataset(data: DatasetResponse): Dataset {
   return {
-    id: data.id,
+    id: String(data.id),
     name: data.name,
     description: data.description,
     regime: data.regime as Dataset['regime'],

@@ -422,7 +422,7 @@ export function SubmitPage() {
                   </SelectItem>
                 ))}
                 {availableDatasets.length === 0 && !loadingDatasets && (
-                  <SelectItem value="" disabled>
+                  <SelectItem value="__none__" disabled>
                     No datasets available
                   </SelectItem>
                 )}
