@@ -123,7 +123,7 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
             id: 'dev-user',
             email: 'demo@spoc-benchmark.org',
             name: 'Demo User',
-            role: 'authenticated',
+            role: 'developer',
             avatarUrl: null,
           },
           session: null,
