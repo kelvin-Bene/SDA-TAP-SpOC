@@ -70,12 +70,13 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
             "SUPABASE_JWT_SECRET not configured — auth enforcement disabled. "
             "Set this env var in production."
         )
-        # Return a minimal payload when auth is not configured (development mode)
+        # Return a minimal payload when auth is not configured (development/demo mode)
+        # Use admin role so all features (e.g. feedback review) are accessible
         return {
             "sub": "dev-user",
             "email": "dev@localhost",
-            "role": "authenticated",
-            "app_metadata": {},
+            "role": "admin",
+            "app_metadata": {"is_admin": True},
             "user_metadata": {},
         }
 

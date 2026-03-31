@@ -161,7 +161,8 @@ async def submit_feedback(
 
     logger.info(
         f"Feedback {feedback_id} submitted "
-        f"(severity={body.severity}, user={reporter_email or 'anonymous'})"
+        f"(severity={body.severity}, user={reporter_email or 'anonymous'}, "
+        f"page={body.page_url or 'n/a'}, description={description[:120]})"
     )
 
     return FeedbackResponse(

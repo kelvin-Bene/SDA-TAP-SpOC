@@ -37,6 +37,7 @@ def seed_demo_database(db) -> None:
     submission_ids = _seed_submissions(db, dataset_ids)
     _seed_submission_results(db, submission_ids)
     _seed_demo_profile(db)
+    _seed_feedback(db)
 
     logger.info("DEMO MODE: Database seeding complete")
 
@@ -279,7 +280,85 @@ def _seed_demo_profile(db) -> None:
     """Insert a demo user profile."""
     db.execute("""
         INSERT INTO profiles (id, email, role, display_name, organization, created_at, updated_at)
-        VALUES ('dev-user', 'dev@localhost', 'authenticated', 'Demo User', 'SpOC Demo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        VALUES ('dev-user', 'dev@localhost', 'admin', 'Demo User', 'SpOC Demo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT (id) DO NOTHING
     """)
     logger.info("DEMO MODE: Seeded demo user profile")
+
+
+def _seed_feedback(db) -> None:
+    """Insert sample feedback entries so the demo has data to display."""
+    import uuid
+
+    now = datetime.now(timezone.utc)
+    feedback_entries = [
+        {
+            "id": str(uuid.uuid4()),
+            "description": "The dataset generation wizard is intuitive and easy to use. Would be great to have a template library for common orbital regimes.",
+            "severity": "suggestion",
+            "page_url": "/datasets/generate",
+            "reporter_email": "researcher@mit.edu",
+            "status": "open",
+            "created_at": (now - timedelta(days=3, hours=7)).isoformat(),
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "description": "Leaderboard F1 scores don't update immediately after submission completes. Had to refresh the page manually to see new results.",
+            "severity": "bug",
+            "page_url": "/leaderboard",
+            "reporter_email": "dev@aerospace-corp.com",
+            "status": "open",
+            "created_at": (now - timedelta(days=2, hours=14)).isoformat(),
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "description": "Is there a way to export dataset observations to CSV or FITS format? Our pipeline needs raw observation data for offline analysis.",
+            "severity": "question",
+            "page_url": "/datasets",
+            "reporter_email": "analyst@esa.int",
+            "status": "open",
+            "created_at": (now - timedelta(days=1, hours=22)).isoformat(),
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "description": "The submission upload flow could benefit from drag-and-drop support. Currently only the file picker button works.",
+            "severity": "suggestion",
+            "page_url": "/submissions/new",
+            "reporter_email": "anonymous",
+            "status": "resolved",
+            "created_at": (now - timedelta(days=5, hours=3)).isoformat(),
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "description": "Getting a 500 error when trying to generate a dataset with more than 50 satellites in the GEO regime. Works fine with fewer objects.",
+            "severity": "bug",
+            "page_url": "/datasets/generate",
+            "reporter_email": "ops@spaceforce.mil",
+            "status": "in_progress",
+            "created_at": (now - timedelta(days=1, hours=5)).isoformat(),
+        },
+    ]
+
+    for fb in feedback_entries:
+        try:
+            db.execute(
+                """
+                INSERT INTO feedback (
+                    id, description, severity, page_url,
+                    reporter_email, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    fb["id"],
+                    fb["description"],
+                    fb["severity"],
+                    fb["page_url"],
+                    fb["reporter_email"],
+                    fb["status"],
+                    fb["created_at"],
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"DEMO MODE: Failed to seed feedback: {e}")
+
+    logger.info(f"DEMO MODE: Seeded {len(feedback_entries)} feedback entries")
