@@ -392,6 +392,7 @@ export interface LeaderboardFilters {
   regime?: OrbitalRegime | 'all';
   tier?: DataTier | 'all';
   period?: 'all' | 'month' | 'week';
+  datasetId?: string | 'all';
 }
 
 // User Types

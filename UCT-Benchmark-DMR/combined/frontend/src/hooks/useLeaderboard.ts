@@ -57,6 +57,9 @@ export function useLeaderboard(filters?: LeaderboardFilters) {
       if (filters?.period && filters.period !== 'all') {
         params.period = filters.period;
       }
+      if (filters?.datasetId && filters.datasetId !== 'all') {
+        params.dataset_id = filters.datasetId;
+      }
 
       const response = await api.getLeaderboard(params);
       const data = response.data as LeaderboardResponse;
