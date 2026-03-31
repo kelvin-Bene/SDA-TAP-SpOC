@@ -63,17 +63,8 @@ export function LoginPage() {
 
     const currentError = useAuthStore.getState().error;
     if (!currentError) {
-      // If Supabase auto-confirmed the user, a session already exists — navigate directly
-      const { isAuthenticated } = useAuthStore.getState();
-      if (isAuthenticated) {
-        navigate(from, { replace: true });
-      } else {
-        // Email confirmation is required — show instructions
-        setSuccessMessage('Check your email for a confirmation link to complete your signup.');
-        setView('login');
-        setPassword('');
-        setConfirmPassword('');
-      }
+      // Auto-confirm is enabled — session already exists, navigate directly
+      navigate(from, { replace: true });
     }
   };
 

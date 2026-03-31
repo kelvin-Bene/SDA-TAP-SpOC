@@ -175,8 +175,8 @@ export function Header({ onMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
-                onClick={async () => {
-                  await logout();
+                onClick={() => {
+                  logout();
                   navigate('/login');
                 }}
                 className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
