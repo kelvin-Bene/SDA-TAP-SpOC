@@ -59,6 +59,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
 
   initialize: async () => {
     try {
+      // Demo mode: skip Supabase session check
+      if (import.meta.env.VITE_DEMO_MODE === 'true') {
+        set({ isLoading: false, isAuthenticated: false });
+        return;
+      }
+
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
@@ -110,6 +116,23 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
+      // Demo mode: bypass Supabase, set mock user directly
+      if (import.meta.env.VITE_DEMO_MODE === 'true') {
+        set({
+          user: {
+            id: 'dev-user',
+            email: 'demo@spoc-benchmark.org',
+            name: 'Demo User',
+            role: 'authenticated',
+            avatarUrl: null,
+          },
+          session: null,
+          isAuthenticated: true,
+          isAdmin: false,
+          isLoading: false,
+        });
+        return;
+      }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         set({ isLoading: false, error: formatAuthError(error) });

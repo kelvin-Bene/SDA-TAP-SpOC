@@ -13,9 +13,6 @@ server {
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
     gzip_min_length 1000;
 
-    # Use Docker/Railway DNS resolver with short cache for dynamic upstreams
-    resolver 127.0.0.11 valid=10s ipv6=off;
-
     # Cache static assets (JS/CSS with content hashes)
     location /assets/ {
         expires 1y;
@@ -23,12 +20,8 @@ server {
     }
 
     # Proxy API requests to backend
-    # BACKEND_URL is set via environment variable:
-    #   Docker Compose: http://backend:8000
-    #   Railway: http://backend.railway.internal:8000
     location /api/ {
-        set $backend ${BACKEND_URL};
-        proxy_pass $backend/api/;
+        proxy_pass ${BACKEND_URL}/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -42,8 +35,7 @@ server {
 
     # Proxy health check to backend
     location /health {
-        set $backend ${BACKEND_URL};
-        proxy_pass $backend/health;
+        proxy_pass ${BACKEND_URL}/health;
         proxy_set_header Host $host;
     }
 
