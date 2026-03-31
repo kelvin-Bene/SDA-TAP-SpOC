@@ -28,6 +28,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         recent_actions: actions,
         console_errors: consoleErrors,
+        app_version: __APP_VERSION__,
       });
       return response.data;
     },

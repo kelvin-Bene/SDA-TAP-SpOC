@@ -201,23 +201,24 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
-# Include routers with JWT auth dependency (S1)
-# All API routes require valid Supabase JWT — / and /health remain public
+# 3-tier auth: public routers have no global auth dep; authenticated routers require JWT (S1)
 _auth_deps = [Depends(get_current_user)]
+
+# Public routers — no global auth dependency (individual write endpoints protect themselves)
 app.include_router(
     datasets.router, prefix="/api/v1/datasets", tags=["Datasets"],
-    dependencies=_auth_deps,
 )
+app.include_router(
+    leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"],
+)
+
+# Authenticated routers — require valid Supabase JWT for all endpoints
 app.include_router(
     submissions.router, prefix="/api/v1/submissions", tags=["Submissions"],
     dependencies=_auth_deps,
 )
 app.include_router(
     results.router, prefix="/api/v1/results", tags=["Results"],
-    dependencies=_auth_deps,
-)
-app.include_router(
-    leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"],
     dependencies=_auth_deps,
 )
 app.include_router(

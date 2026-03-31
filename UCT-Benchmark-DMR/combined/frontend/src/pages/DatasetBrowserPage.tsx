@@ -42,11 +42,29 @@ export function DatasetBrowserPage() {
       console.error('Download failed:', err);
       // U6: Differentiate network vs server errors for better user guidance
       const isNetworkError = err instanceof Error && ('code' in err || err.message === 'Network Error');
+      // Extract server error detail from axios error response (may be a Blob)
+      let serverDetail = '';
+      const axiosErr = err as { response?: { status?: number; data?: unknown } };
+      if (axiosErr?.response?.data instanceof Blob) {
+        try {
+          const text = await axiosErr.response.data.text();
+          const parsed = JSON.parse(text);
+          serverDetail = parsed.detail || '';
+        } catch { /* ignore parse errors */ }
+      } else if (axiosErr?.response?.data && typeof axiosErr.response.data === 'object') {
+        serverDetail = (axiosErr.response.data as { detail?: string }).detail || '';
+      }
+
+      const status = axiosErr?.response?.status;
       toast({
         title: 'Download failed',
         description: isNetworkError
           ? 'Network error — check your connection and try again.'
-          : 'Failed to download dataset. The server may be unavailable.',
+          : status === 404 && serverDetail
+            ? serverDetail
+            : status === 400
+              ? serverDetail || 'This dataset is not available for download.'
+              : 'Failed to download dataset. The server may be unavailable.',
         variant: 'destructive',
       });
     }

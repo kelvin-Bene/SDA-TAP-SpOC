@@ -4,6 +4,7 @@
 
 
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -107,25 +108,34 @@ def discoswebQuery(token, params, data="objects", version=2):
 
     auth = {"Authorization": f"Bearer {token}", "DiscosWeb-Api-Version": str(version)}
 
-    # Perform query
-    resp = requests.get(
-        f"{base_url}/api/{data}",
-        headers=auth,
-        params={"filter": params},
-    )
+    # Perform query with 429 retry
+    max_retries = 2
+    for attempt in range(1 + max_retries):
+        resp = requests.get(
+            f"{base_url}/api/{data}",
+            headers=auth,
+            params={"filter": params},
+        )
 
-    if resp.status_code != 200:
-        if resp.status_code == 429:
-            raise requests.exceptions.HTTPError(
-                resp, "Query failed due to API rate limit (429). Slow down!"
-            )
-        else:
-            raise requests.exceptions.HTTPError(
-                resp,
-                f"Query failed for unknown reason ({resp.status_code}); "
-                "double-check login info and query parameters.",
-            )
-    return pd.DataFrame(resp.json()["data"])
+        if resp.status_code == 429 and attempt < max_retries:
+            retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+            wait = min(retry_after, 30)
+            logger.warning(f"ESA rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+            time.sleep(wait)
+            continue
+
+        if resp.status_code != 200:
+            if resp.status_code == 429:
+                raise requests.exceptions.HTTPError(
+                    resp, "Query failed due to API rate limit (429) after retries."
+                )
+            else:
+                raise requests.exceptions.HTTPError(
+                    resp,
+                    f"Query failed for unknown reason ({resp.status_code}); "
+                    "double-check login info and query parameters.",
+                )
+        return pd.DataFrame(resp.json()["data"])
 
 
 def scrape_udl_data():
@@ -150,7 +160,16 @@ def scrape_udl_data():
         url = f"{UDL_BASE_URL}?satNo={range_param}"
 
         try:
-            resp = requests.get(url, headers={"Authorization": basic_auth})
+            max_retries = 2
+            for attempt in range(1 + max_retries):
+                resp = requests.get(url, headers={"Authorization": basic_auth})
+                if resp.status_code == 429 and attempt < max_retries:
+                    retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                    wait = min(retry_after, 30)
+                    logger.warning(f"UDL rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                break
             resp.raise_for_status()
             udl_data_frames.append(pd.DataFrame(resp.json()))
         except requests.RequestException as e:

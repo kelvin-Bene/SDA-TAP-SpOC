@@ -1036,43 +1036,56 @@ def UDLQuery(token, service, params, count=False, history=False):
     start_time = time.perf_counter()
     logger.info(f"Performing UDL query on service '{service}' with parameters={params}...")
 
-    try:
-        resp = requests.get(url, headers={"Authorization": basicAuth}, params=params)
-        elapsed = time.perf_counter() - start_time
+    max_retries = 2
+    for attempt in range(1 + max_retries):
+        try:
+            resp = requests.get(url, headers={"Authorization": basicAuth}, params=params)
+            elapsed = time.perf_counter() - start_time
 
-        # If call worked, return data
-        if resp.status_code != 200:
-            error_msg = None
-            if resp.status_code == 400:
-                error_msg = "Query failed due to bad parameters."
-            elif resp.status_code == 401:
-                error_msg = "Query failed due to invalid login."
-            elif resp.status_code == 500:
-                error_msg = "Query failed due to internal error; if UDL isn't down, likely a time-out for excessive data request."
+            # Retry on 429 rate limit
+            if resp.status_code == 429 and attempt < max_retries:
+                retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                wait = min(retry_after, 30)
+                logger.warning(f"UDL rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait)
+                start_time = time.perf_counter()
+                continue
+
+            # If call worked, return data
+            if resp.status_code != 200:
+                error_msg = None
+                if resp.status_code == 400:
+                    error_msg = "Query failed due to bad parameters."
+                elif resp.status_code == 401:
+                    error_msg = "Query failed due to invalid login."
+                elif resp.status_code == 429:
+                    error_msg = "Query failed due to API rate limit (429). Try again shortly."
+                elif resp.status_code == 500:
+                    error_msg = "Query failed due to internal error; if UDL isn't down, likely a time-out for excessive data request."
+                else:
+                    error_msg = "Query failed for unknown reason."
+
+                _log_api_call(service, params, 0, elapsed, success=False, error_msg=error_msg)
+                raise requests.exceptions.HTTPError(resp, error_msg)
+
+            result = resp.json()
+            response_size = result if count else len(result)
+            _log_api_call(
+                service,
+                params,
+                response_size if isinstance(response_size, int) else len(result),
+                elapsed,
+            )
+
+            if not count:
+                return pd.DataFrame(result)
             else:
-                error_msg = "Query failed for unknown reason."
+                return result
 
-            _log_api_call(service, params, 0, elapsed, success=False, error_msg=error_msg)
-            raise requests.exceptions.HTTPError(resp, error_msg)
-
-        result = resp.json()
-        response_size = result if count else len(result)
-        _log_api_call(
-            service,
-            params,
-            response_size if isinstance(response_size, int) else len(result),
-            elapsed,
-        )
-
-        if not count:
-            return pd.DataFrame(result)
-        else:
-            return result
-
-    except requests.exceptions.RequestException as e:
-        elapsed = time.perf_counter() - start_time
-        _log_api_call(service, params, 0, elapsed, success=False, error_msg=str(e))
-        raise
+        except requests.exceptions.RequestException as e:
+            elapsed = time.perf_counter() - start_time
+            _log_api_call(service, params, 0, elapsed, success=False, error_msg=str(e))
+            raise
 
 
 def TLEToSV(line1, line2):
@@ -1422,7 +1435,7 @@ def datetimeToUDL(time, micro=6):
     if not isinstance(micro, int):
         raise TypeError(f"Expected micro to  be an int, got {type(micro).__name__}) instead.")
 
-    micro = max(micro, 6)
+    micro = min(micro, 6)
 
     return time.strftime("%Y-%m-%dT%H:%M:%S.") + str(time.microsecond)[0:micro] + "Z"
 
@@ -1484,6 +1497,13 @@ async def _asyncUDLQuery(token, service, params, count=False, history=False, max
                     if response.status == 200:
                         data = await response.json()
                         return data if count else pd.DataFrame(data)
+                    elif response.status == 429 and attempt < max_retries - 1:
+                        # Retry on 429 rate limit with Retry-After or exponential backoff
+                        retry_after = int(response.headers.get("Retry-After", 2 ** attempt))
+                        wait = min(retry_after, 30)
+                        logger.warning(f"UDL rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait)
+                        continue
                     elif response.status == 500 and attempt < max_retries - 1:
                         # Retry on 500 errors (server overload/timeout)
                         await asyncio.sleep(2**attempt)  # Exponential backoff
@@ -1875,7 +1895,7 @@ def generateDataset(
         )
         obs_truth_data = _fetch_observations_windowed(
             UDL_token,
-            regime,
+            satIDs,
             actual_start_time,
             actual_end_time,
             window_size_minutes,
@@ -1894,6 +1914,35 @@ def generateDataset(
 
     # Convert observation times to datetime objects
     obs_truth_data["obTime"] = [UDLToDatetime(t) for t in obs_truth_data["obTime"]]
+
+    # Post-fetch date filter: ensure observations are within the requested range.
+    # The UDL API may return observations slightly outside the requested window,
+    # and fallback strategies may widen the query range. Filter strictly here.
+    #
+    # UDLToDatetime returns naive (no tz) datetimes while actual_start/end may
+    # be timezone-aware (UTC). Strip tz info for a safe comparison -- all times
+    # in this pipeline are UTC.
+    filter_start = actual_start_time.replace(tzinfo=None) if hasattr(actual_start_time, 'tzinfo') and actual_start_time.tzinfo else actual_start_time
+    filter_end = actual_end_time.replace(tzinfo=None) if hasattr(actual_end_time, 'tzinfo') and actual_end_time.tzinfo else actual_end_time
+    pre_filter_count = len(obs_truth_data)
+    obs_truth_data = obs_truth_data[
+        (obs_truth_data["obTime"] >= filter_start) &
+        (obs_truth_data["obTime"] <= filter_end)
+    ].copy()
+    post_filter_count = len(obs_truth_data)
+    if pre_filter_count != post_filter_count:
+        logger.warning(
+            f"Post-fetch date filter removed {pre_filter_count - post_filter_count} "
+            f"observations outside [{filter_start}, {filter_end}]"
+        )
+
+    if obs_truth_data.empty:
+        raise ValueError(
+            f"No observation data within the requested date range "
+            f"[{filter_start} to {filter_end}] for satellites {list(satIDs)}. "
+            "The UDL API returned data but all observations were outside the requested range. "
+            "Try expanding the date range."
+        )
 
     # Cull satIDs list to only include those for which data was actually returned
     requested_sats = len(satIDs)

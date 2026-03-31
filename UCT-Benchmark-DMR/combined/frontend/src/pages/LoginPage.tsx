@@ -331,7 +331,7 @@ export function LoginPage() {
 
       {/* Version tag */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50">
-        SpOC v1.0.0
+        SpOC v{__APP_VERSION__}
       </div>
     </div>
   );

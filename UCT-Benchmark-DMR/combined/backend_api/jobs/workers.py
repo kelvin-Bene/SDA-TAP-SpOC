@@ -17,6 +17,16 @@ from loguru import logger
 from . import Job, JobType, get_job_manager
 from .progress import DatasetStage, create_job_progress_callback
 
+# Regime-specific satellite NORAD IDs for auto-selection.
+# LEO satellites are loaded at runtime from settings.satIDs (the calibration list).
+# MEO/GEO/HEO lists contain well-known satellites in those regimes.
+REGIME_SATELLITES = {
+    "LEO": None,  # Populated at runtime from settings.satIDs (DEFAULT_SATELLITES)
+    "MEO": [24876, 26360, 28190, 28474, 29486, 32260, 36585, 37753, 38833, 39166],  # GPS constellation
+    "GEO": [37826, 38087, 39616, 40258, 41028, 41866, 42432, 43039, 43479, 44333],  # GEO comm sats
+    "HEO": [25847, 26867, 27434, 28163, 29389, 36744, 39731, 40358],  # Molniya/Tundra orbits
+}
+
 
 def _convert_numpy_to_native(obj: Any) -> Any:
     """Recursively convert numpy arrays and types to native Python types for JSON serialization."""
@@ -136,17 +146,23 @@ def run_dataset_generation(
         # Update progress - initializing
         progress_callback(DatasetStage.INITIALIZING, 0.0)
 
-        # Get satellite list from config or auto-select
+        # Get satellite list from config or auto-select based on regime
         satellites = config.get("satellites", [])
         object_count = config.get("object_count", 5)
+        regime = config.get("regime", "LEO")
 
         if not satellites:
-            # Auto-select satellites from the default calibration list
-            # Use object_count to determine how many to select
-            available_sats = list(DEFAULT_SATELLITES)
+            # Auto-select satellites from the regime-appropriate list
+            # LEO uses the default calibration list; other regimes use dedicated lists
+            if regime == "LEO" or regime not in REGIME_SATELLITES:
+                available_sats = list(DEFAULT_SATELLITES)
+            else:
+                available_sats = list(REGIME_SATELLITES[regime])
             random.shuffle(available_sats)
             satellites = available_sats[: min(object_count, len(available_sats))]
-            logger.info(f"Auto-selected {len(satellites)} satellites: {satellites}")
+            logger.info(
+                f"Auto-selected {len(satellites)} {regime} satellites: {satellites}"
+            )
 
         timeframe = config.get("timeframe", 7)
         timeunit = config.get("timeunit", "days")
@@ -158,28 +174,39 @@ def run_dataset_generation(
         end_date_str = config.get("end_date")
 
         if end_date_str:
-            from datetime import datetime
+            from datetime import datetime, timezone
+
+            def _parse_iso_datetime(date_str: str, end_of_day: bool = False) -> datetime:
+                """Parse an ISO date/datetime string into a timezone-aware UTC datetime.
+
+                Always returns a timezone-aware datetime to avoid naive/aware
+                subtraction errors.  Date-only strings (no 'T') get midnight
+                (start of day) or 23:59:59 (end of day) in UTC.
+                """
+                if "T" in date_str:
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                else:
+                    suffix = "T23:59:59+00:00" if end_of_day else "T00:00:00+00:00"
+                    dt = datetime.fromisoformat(date_str + suffix)
+                # Ensure timezone-aware (UTC) even if the source had no tz info
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
 
             try:
-                # Parse end_date - handle both date-only and full datetime formats
-                if "T" in end_date_str:
-                    end_time = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-                else:
-                    # Date only - set to end of day
-                    end_time = datetime.fromisoformat(end_date_str + "T23:59:59")
+                end_time = _parse_iso_datetime(end_date_str, end_of_day=True)
                 logger.info(f"Using end_date from config: {end_time}")
 
                 # If both dates provided, calculate timeframe from them
                 if start_date_str:
-                    if "T" in start_date_str:
-                        start_time = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-                    else:
-                        start_time = datetime.fromisoformat(start_date_str + "T00:00:00")
-                    # Calculate timeframe in days
+                    start_time = _parse_iso_datetime(start_date_str, end_of_day=False)
+                    # Calculate timeframe in days (round up to avoid losing partial days)
                     delta = end_time - start_time
-                    timeframe = max(1, delta.days)
+                    total_seconds = delta.total_seconds()
+                    timeframe = max(1, int(total_seconds / 86400) + (1 if total_seconds % 86400 else 0))
                     timeunit = "days"
-                    logger.info(f"Calculated timeframe from dates: {timeframe} {timeunit}")
+                    logger.info(f"Calculated timeframe from dates: {timeframe} {timeunit} "
+                                f"(start={start_time}, end={end_time})")
             except (ValueError, TypeError) as e:
                 logger.warning(f"Failed to parse dates: {e}, falling back to timeframe={timeframe}")
                 end_time = "now"
@@ -224,8 +251,7 @@ def run_dataset_generation(
         search_strategy = config.get("search_strategy", "hybrid")
         window_size_minutes = config.get("window_size_minutes", 10)
 
-        # Get regime from config (used for windowed strategy)
-        regime = config.get("regime", "LEO")
+        # regime was already extracted above for satellite selection
 
         # Get non-reference observation config (for True Negative calculation)
         include_non_ref_obs = config.get("include_non_ref_obs", True)
@@ -262,7 +288,7 @@ def run_dataset_generation(
             dt=0.5,
             max_datapoints=0,
             end_time=end_time,
-            use_database=True,
+            use_database=False,  # Worker persists to production DB directly
             dataset_name=config.get("name"),
             downsample_config=downsample_config,
             simulation_config=simulation_config,
@@ -356,16 +382,64 @@ def run_dataset_generation(
             ),
         )
 
-        # Link observations to dataset if we have observation data
-        # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable
-        progress_callback(DatasetStage.PERSISTING_DATABASE, 0.5)
-        logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
+        # Persist observations to the production database, then link them.
+        # Previously generateDataset() with use_database=True wrote only to
+        # a local DuckDB instance, leaving the production PostgreSQL without
+        # the actual observation rows.  The worker now handles persistence
+        # directly so the download endpoint's JOIN succeeds.
+        progress_callback(DatasetStage.PERSISTING_DATABASE, 0.4)
+        logger.info(f"[WORKER] Persisting observations to production DB for dataset {dataset_id}")
         if obs_truth is not None and not obs_truth.empty and "id" in obs_truth.columns:
+            import pandas as pd
+
+            # Rename camelCase API columns to snake_case DB columns
+            obs_for_db = obs_truth.copy()
+            obs_for_db = obs_for_db.rename(
+                columns={
+                    "satNo": "sat_no",
+                    "obTime": "ob_time",
+                    "sensorName": "sensor_name",
+                    "idSensor": "sensor_id",
+                    "dataMode": "data_mode",
+                    "trackId": "track_id",
+                    "senderLatitude": "send_lat",
+                    "senderLongitude": "send_long",
+                    "senderAltitude": "send_alt",
+                    "typeOptical": "type_optical",
+                    "classificationMarking": "classification_marking",
+                    "idOnOrbit": "id_on_orbit",
+                    "taskId": "task_id",
+                    "origObjectId": "orig_object_id",
+                    "origSensorId": "orig_sensor_id",
+                    "senx": "sen_x",
+                    "seny": "sen_y",
+                    "senz": "sen_z",
+                    "expDuration": "exp_duration",
+                    "magUnc": "mag_unc",
+                    "geolat": "geo_lat",
+                    "geolon": "geo_lon",
+                    "geoalt": "geo_alt",
+                    "georange": "geo_range",
+                    "senlat": "send_lat",
+                    "senlon": "send_long",
+                    "senalt": "send_alt",
+                    "range": "range_km",
+                    "rangeRate": "range_rate_km_s",
+                    "uct": "is_uct",
+                    "isSimulated": "is_simulated",
+                    "createdAt": "created_at",
+                }
+            )
+            inserted = db.observations.bulk_insert(obs_for_db)
+            logger.info(f"Persisted {inserted} observations to production DB for dataset {dataset_id}")
+
+            # Link observations to dataset
+            # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable
+            progress_callback(DatasetStage.PERSISTING_DATABASE, 0.7)
+            logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
             obs_ids = obs_truth["id"].tolist()
             track_assignments = {}
             if "trackId" in obs_truth.columns:
-                import pandas as pd
-
                 INT32_MAX = 2147483647  # Max value for INT32
                 for _, row in obs_truth.iterrows():
                     track_id = row.get("trackId")

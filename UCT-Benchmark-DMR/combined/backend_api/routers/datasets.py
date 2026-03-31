@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from backend_api.auth import CurrentUser, get_current_user
+from backend_api.middleware.auth import require_admin
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_dataset_generation
 from backend_api.middleware.rate_limit import limiter
@@ -387,7 +388,7 @@ async def get_dataset_versions(
 
 
 @router.post("/debug")
-async def debug_request(request: Request):
+async def debug_request(request: Request, user: CurrentUser = Depends(get_current_user)):
     """Debug endpoint to log raw request body."""
     body = await request.body()
     try:
@@ -757,7 +758,7 @@ async def get_dataset_observations(
 
 
 @router.post("/{dataset_id}/link-observations")
-async def link_observations(dataset_id: str, db=Depends(get_db)):
+async def link_observations(dataset_id: str, user: CurrentUser = Depends(get_current_user), db=Depends(get_db)):
     """
     Manually link observations to a dataset.
 
@@ -824,6 +825,7 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
 async def update_dataset_coverage(
     dataset_id: str,
     coverage: float,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -859,6 +861,7 @@ async def update_dataset_coverage(
 @router.delete("/{dataset_id}")
 async def delete_dataset(
     dataset_id: str,
+    user = Depends(require_admin),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -894,6 +897,7 @@ async def delete_dataset(
 @router.get("/{dataset_id}/download")
 async def download_dataset(
     dataset_id: str,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -918,7 +922,7 @@ async def download_dataset(
 
     row_dict = dict(zip(columns, row))
 
-    if row_dict.get("status") != "available":
+    if row_dict.get("status") not in ("available", "complete"):
         raise HTTPException(status_code=400, detail="Dataset is not available for download")
 
     # Get observations
@@ -935,6 +939,18 @@ async def download_dataset(
 
     obs_columns = [desc[0] for desc in obs_result.description]
     obs_rows = obs_result.fetchall()
+
+    if not obs_rows:
+        expected = row_dict.get("observation_count", 0)
+        if expected and expected > 0:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Dataset '{row_dict['name']}' reports {expected} observations but none "
+                    "were found in the database. The observation data may not have been "
+                    "persisted correctly during generation. Try regenerating this dataset."
+                ),
+            )
 
     # Map DB snake_case columns to Benchmarking Documentation camelCase names
     DB_TO_DOC_FIELD_MAP = {
@@ -1012,6 +1028,7 @@ async def download_dataset(
 @router.post("/legacy", response_model=DatasetSummary, status_code=201)
 async def create_dataset_from_legacy_code(
     request: LegacyDatasetCreate,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """

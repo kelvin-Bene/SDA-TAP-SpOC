@@ -16,11 +16,13 @@ import { Plus, Download, Trash2, Copy, Eye, Loader2, History } from 'lucide-reac
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { useDatasets, useDeleteDataset } from '@/hooks/useDatasets';
 import { api } from '@/api/client';
+import { useAuthStore } from '@/stores/authStore';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
   const { data: datasets, isLoading, error } = useDatasets();
   const deleteDataset = useDeleteDataset();
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
   const [versionHistory, setVersionHistory] = useState<Dataset[] | null>(null);
   const [versionDataset, setVersionDataset] = useState<Dataset | null>(null);
@@ -174,15 +176,17 @@ export function MyDatasetsPage() {
                         <Button variant="ghost" size="icon">
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => handleDeleteClick(dataset)}
-                          disabled={deleteDataset.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => handleDeleteClick(dataset)}
+                            disabled={deleteDataset.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
