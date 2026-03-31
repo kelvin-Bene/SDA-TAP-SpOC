@@ -127,12 +127,12 @@ async def submit_feedback(
                 id, description, severity, screenshot_url,
                 page_url, user_agent, viewport,
                 recent_actions, console_errors, sentry_event_id,
-                reporter_id, reporter_email, status, created_at
+                reporter_id, reporter_email, status, app_version, created_at
             ) VALUES (
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s,
-                %s, %s, %s, %s
+                %s, %s, %s, %s, %s
             )
             """,
             (
@@ -149,6 +149,7 @@ async def submit_feedback(
                 reporter_id,
                 reporter_email,
                 "open",
+                body.app_version,
                 datetime.utcnow().isoformat(),
             ),
         )

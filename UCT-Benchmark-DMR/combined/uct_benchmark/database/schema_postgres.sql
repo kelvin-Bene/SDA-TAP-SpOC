@@ -374,6 +374,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     recent_actions  JSONB,
     console_errors  JSONB,
     sentry_event_id VARCHAR(200),
+    app_version     VARCHAR(50),
     reporter_id     VARCHAR(36),
     reporter_email  VARCHAR(255),
     status          VARCHAR(50)  NOT NULL DEFAULT 'open',

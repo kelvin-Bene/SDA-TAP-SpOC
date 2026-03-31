@@ -247,6 +247,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-aurora-green animate-ping opacity-75" />
               </div>
               <span>All systems operational</span>
+              <span className="ml-auto text-muted-foreground/50">v{__APP_VERSION__}</span>
             </div>
           </div>
         </div>
