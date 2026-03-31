@@ -22,6 +22,7 @@ import {
   Legend,
 } from 'recharts';
 import { useLeaderboard, useLeaderboardHistory } from '@/hooks/useLeaderboard';
+import { useDatasets } from '@/hooks/useDatasets';
 import type { LeaderboardFilters } from '@/types';
 
 function getRankIcon(rank: number) {
@@ -42,12 +43,14 @@ export function LeaderboardPage() {
     regime: 'all',
     tier: 'all',
     period: 'all',
+    datasetId: 'all',
   });
   const [sortColumn, setSortColumn] = useState<'f1Score' | 'precision' | 'recall' | 'positionRmsKm'>('f1Score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Use real API hooks
   const { data: leaderboard = [], isLoading, error } = useLeaderboard(filters);
+  const { data: datasets = [] } = useDatasets();
   const { data: historyData = [] } = useLeaderboardHistory(undefined, 180);
 
   const sortedLeaderboard = useMemo(() => {
@@ -233,6 +236,25 @@ export function LeaderboardPage() {
                 <SelectItem value="all">All Time</SelectItem>
                 <SelectItem value="month">Last Month</SelectItem>
                 <SelectItem value="week">Last Week</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Dataset</label>
+            <Select
+              value={filters.datasetId || 'all'}
+              onValueChange={(v) => setFilters({ ...filters, datasetId: v })}
+            >
+              <SelectTrigger className="w-[220px] bg-white/5 border-white/20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="glass border-white/10 max-h-[300px]">
+                <SelectItem value="all">All Datasets</SelectItem>
+                {datasets.map((ds) => (
+                  <SelectItem key={ds.id} value={String(ds.id)}>
+                    {ds.name.length > 30 ? ds.name.slice(0, 27) + '...' : ds.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

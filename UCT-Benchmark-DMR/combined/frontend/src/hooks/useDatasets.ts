@@ -74,6 +74,15 @@ export function useDatasets(filters?: DatasetFilters) {
       if (filters?.tier && filters.tier !== 'all') {
         params.tier = filters.tier;
       }
+      if (filters?.search) {
+        params.search = filters.search;
+      }
+      if (filters?.sortBy) {
+        params.sort_by = filters.sortBy;
+      }
+      if (filters?.sortOrder) {
+        params.order = filters.sortOrder;
+      }
 
       const response = await api.getDatasets(params);
       const datasets = response.data as DatasetResponse[];

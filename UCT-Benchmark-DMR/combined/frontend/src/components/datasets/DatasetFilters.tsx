@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -9,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { X } from 'lucide-react';
+import { X, Search, ArrowUpDown } from 'lucide-react';
 import type { DatasetFilters as FilterType, OrbitalRegime, DataTier, SensorType } from '@/types';
 
 interface DatasetFiltersProps {
@@ -46,11 +47,63 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
     filters.regime !== 'all' ||
     filters.tier !== 'all' ||
     filters.sensor !== 'all' ||
-    filters.objectCountRange;
+    filters.objectCountRange ||
+    filters.search ||
+    filters.sortBy;
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardContent className="pt-6 space-y-4">
+        {/* Search and Sort Row */}
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-2 flex-1 min-w-[200px] max-w-[400px]">
+            <Label htmlFor="search-filter">Search</Label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search-filter"
+                placeholder="Search by dataset name..."
+                value={filters.search || ''}
+                onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+                className="pl-9"
+              />
+            </div>
+          </div>
+          <div className="space-y-2 min-w-[180px]">
+            <Label htmlFor="sort-filter">Sort By</Label>
+            <Select
+              value={filters.sortBy || 'created_at'}
+              onValueChange={(value) =>
+                onFiltersChange({ ...filters, sortBy: value as FilterType['sortBy'] })
+              }
+            >
+              <SelectTrigger id="sort-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">Date Created</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="satellite_count">Object Count</SelectItem>
+                <SelectItem value="observation_count">Observations</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() =>
+              onFiltersChange({
+                ...filters,
+                sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
+              })
+            }
+            title={filters.sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            <ArrowUpDown className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Filter Dropdowns Row */}
         <div className="flex flex-wrap items-end gap-4">
           {/* Regime Filter */}
           <div className="space-y-2 min-w-[180px]">

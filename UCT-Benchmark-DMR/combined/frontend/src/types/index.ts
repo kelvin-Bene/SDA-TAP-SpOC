@@ -242,6 +242,9 @@ export interface DatasetFilters {
   regime?: OrbitalRegime | 'all';
   tier?: DataTier | 'all';
   sensor?: SensorType | 'all';
+  search?: string;
+  sortBy?: 'name' | 'created_at' | 'satellite_count' | 'observation_count';
+  sortOrder?: 'asc' | 'desc';
   dateRange?: {
     start: Date;
     end: Date;
@@ -392,6 +395,7 @@ export interface LeaderboardFilters {
   regime?: OrbitalRegime | 'all';
   tier?: DataTier | 'all';
   period?: 'all' | 'month' | 'week';
+  datasetId?: string | 'all';
 }
 
 // User Types
