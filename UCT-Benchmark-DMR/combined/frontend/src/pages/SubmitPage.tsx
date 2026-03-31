@@ -46,9 +46,9 @@ export function SubmitPage() {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
-    { id: 'format', label: 'File format valid', status: 'pending' },
-    { id: 'schema', label: 'Schema validation passed', status: 'pending' },
-    { id: 'references', label: 'Observation ID references valid', status: 'pending' },
+    { id: 'format', label: 'File format', status: 'pending' },
+    { id: 'schema', label: 'Schema validation', status: 'pending' },
+    { id: 'references', label: 'Observation ID references', status: 'pending' },
     { id: 'state', label: 'State vector reasonableness', status: 'pending' },
     { id: 'covariance', label: 'Covariance positive-definiteness', status: 'pending' },
   ]);
@@ -370,6 +370,8 @@ export function SubmitPage() {
                           )}
                         >
                           {step.label}
+                          {step.status === 'passed' && ' — passed'}
+                          {step.status === 'failed' && ' — failed'}
                         </span>
                         {step.status === 'failed' && step.message && (
                           <p className="text-xs text-red-500 mt-0.5">{step.message}</p>

@@ -167,25 +167,25 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
 
       {/* Stats */}
       <div className="px-5 pb-4">
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <Satellite className={cn('h-4 w-4', regime.color)} />
-            <span>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <Satellite className={cn('h-4 w-4 shrink-0', regime.color)} />
+            <span className="truncate">
               <span className="font-semibold">{dataset.objectCount}</span>{' '}
               <span className="text-muted-foreground">objects</span>
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-muted-foreground" />
-            <span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Database className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">
               <span className="font-semibold">{dataset.observationCount.toLocaleString()}</span>{' '}
               <span className="text-muted-foreground">obs</span>
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">Coverage:</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-muted-foreground text-xs shrink-0">Coverage:</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden shrink-0">
                 <div
                   className={cn('h-full rounded-full', regime.bgColor.replace('/10', ''))}
                   style={{
@@ -200,9 +200,9 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
               <span className="font-semibold text-xs">{(dataset.coverage * 100).toFixed(0)}%</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">Size:</span>
-            <span className="font-semibold text-xs">{formatFileSize(dataset.sizeBytes)}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-muted-foreground text-xs shrink-0">Size:</span>
+            <span className="font-semibold text-xs truncate">{formatFileSize(dataset.sizeBytes)}</span>
           </div>
         </div>
 
