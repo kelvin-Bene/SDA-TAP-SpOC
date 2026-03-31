@@ -47,7 +47,7 @@ jobs:
         run: npm i -g @railway/cli
       - name: Deploy
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: railway up --service backend-demo --detach
+        run: railway up --service backend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEMO }}
 
@@ -82,6 +82,6 @@ jobs:
         run: npm i -g @railway/cli
       - name: Deploy
         working-directory: ./deploy-dist
-        run: railway up --service frontend-demo --detach
+        run: railway up --service frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEMO }}
