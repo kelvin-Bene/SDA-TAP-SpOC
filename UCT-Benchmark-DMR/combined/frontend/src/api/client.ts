@@ -2,6 +2,7 @@ import axios from 'axios';
 import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,9 +11,14 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor for auth token - uses Supabase session JWT
+// Request interceptor for auth token
 apiClient.interceptors.request.use(
   async (config) => {
+    if (isDemoMode) {
+      // Demo mode: send a dummy Bearer token so the backend stub auth accepts it
+      config.headers.Authorization = 'Bearer demo-token';
+      return config;
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
@@ -48,7 +54,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isDemoMode) {
       if (isRefreshing) {
         // Another request is already refreshing — queue this one
         return new Promise((resolve) => {
