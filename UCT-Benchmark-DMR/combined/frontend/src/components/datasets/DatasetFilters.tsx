@@ -47,7 +47,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
     filters.regime !== 'all' ||
     filters.tier !== 'all' ||
     filters.sensor !== 'all' ||
-    filters.objectCountRange ||
+    (filters.objectCountRange && (filters.objectCountRange.min > 0 || filters.objectCountRange.max < 200)) ||
     filters.search ||
     filters.sortBy;
 
@@ -173,12 +173,12 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Object Count Range */}
           <div className="space-y-2 min-w-[200px] flex-1 max-w-[300px]">
-            <Label>Object Count: {filters.objectCountRange?.min || 10} - {filters.objectCountRange?.max || 100}</Label>
+            <Label>Object Count: {filters.objectCountRange?.min ?? 0} - {filters.objectCountRange?.max ?? 200}</Label>
             <Slider
-              defaultValue={[filters.objectCountRange?.min || 10, filters.objectCountRange?.max || 100]}
-              min={10}
+              defaultValue={[filters.objectCountRange?.min ?? 0, filters.objectCountRange?.max ?? 200]}
+              min={0}
               max={200}
-              step={10}
+              step={5}
               onValueChange={(value) =>
                 onFiltersChange({
                   ...filters,

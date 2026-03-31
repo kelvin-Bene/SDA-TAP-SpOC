@@ -169,6 +169,20 @@ async def list_datasets(
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
 
+    # Auto-recover stuck datasets: mark any dataset that's been "generating"
+    # for more than 15 minutes as "failed" (indicates worker crash/timeout)
+    try:
+        db.execute(
+            """
+            UPDATE datasets
+            SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'generating'
+              AND created_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+            """,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to clean up stuck datasets: {e}")
+
     # Build query with optional filters
     query = "SELECT * FROM datasets WHERE 1=1"
     params = []

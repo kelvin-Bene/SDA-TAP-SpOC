@@ -278,6 +278,9 @@ export function DatasetGeneratorPage() {
     });
   }, []);
 
+  // Optional user-provided dataset name
+  const [customName, setCustomName] = useState('');
+
   // Legacy code mode state
   const [mode, setMode] = useState<'standard' | 'legacy'>('standard');
   const [legacyConfig, setLegacyConfig] = useState<LegacyDatasetCodeConfig>(defaultLegacyConfig);
@@ -389,15 +392,13 @@ export function DatasetGeneratorPage() {
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // Auto-generate a name from regime + date + unique suffix
-    const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
-    const suffix = Math.random().toString(36).slice(2, 10);
-    const autoName = `${config.regime}-standard-${timestamp}-${suffix}`;
+    // Use custom name if provided, otherwise auto-generate
+    const datasetName = customName.trim() || `${config.regime}-${config.coverage}`;
 
     try {
       const result = await generateDatasetMutation.mutateAsync({
         ...config,
-        name: autoName,
+        name: datasetName,
       });
       console.log('Generation result:', result);
       // The API returns a job_id for tracking progress
@@ -1967,6 +1968,21 @@ export function DatasetGeneratorPage() {
                   </div>
                 ) : (
                   <>
+                    {/* Optional dataset name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="dataset-name">Dataset Name (optional)</Label>
+                      <Input
+                        id="dataset-name"
+                        placeholder={`e.g., My LEO test run — defaults to "${config.regime}-${config.coverage}"`}
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        maxLength={80}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        A timestamp and unique ID will be appended automatically.
+                      </p>
+                    </div>
+
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="rounded-lg border p-4 space-y-3">
                         <h4 className="font-medium">Orbital Regime</h4>

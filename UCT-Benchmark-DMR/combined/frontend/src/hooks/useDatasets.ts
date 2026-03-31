@@ -87,13 +87,16 @@ export function useDatasets(filters?: DatasetFilters) {
       const response = await api.getDatasets(params);
       const datasets = response.data as DatasetResponse[];
 
-      // Transform and filter
+      // Transform and apply client-side filters
       return datasets
         .map(transformDataset)
         .filter((d) => {
-          // Additional client-side filtering if needed
           if (filters?.sensor && filters.sensor !== 'all') {
-            return d.sensorTypes.includes(filters.sensor);
+            if (!d.sensorTypes.includes(filters.sensor)) return false;
+          }
+          if (filters?.objectCountRange) {
+            const { min, max } = filters.objectCountRange;
+            if (d.objectCount < min || d.objectCount > max) return false;
           }
           return true;
         });
