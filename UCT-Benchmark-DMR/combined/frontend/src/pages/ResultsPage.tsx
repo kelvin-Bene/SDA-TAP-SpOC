@@ -46,6 +46,30 @@ export function ResultsPage() {
 
   const isLoading = loadingResults || loadingSubmission;
 
+  // Memoized histogram data — must be before early returns to satisfy hook ordering rules
+  const hasRealResiduals = !!(results?.raResidualHistogram && results?.decResidualHistogram);
+  const residualData = useMemo(() => {
+    if (!hasRealResiduals || !results) return null;
+    const labels = results.raResidualHistogram!.labels;
+    const raBins = results.raResidualHistogram!.counts;
+    const decBins = results.decResidualHistogram!.counts;
+    return labels.map((label, i) => ({
+      range: label,
+      ra: raBins[i] ?? 0,
+      dec: decBins[i] ?? 0,
+    }));
+  }, [hasRealResiduals, results?.raResidualHistogram, results?.decResidualHistogram]);
+
+  const hasRealPosErrors = !!results?.positionErrorHistogram;
+  const positionErrorData = useMemo(() => {
+    if (!hasRealPosErrors || !results) return null;
+    const hist = results.positionErrorHistogram!;
+    return hist.labels.map((label, i) => ({
+      range: label,
+      count: hist.counts[i] ?? 0,
+    }));
+  }, [hasRealPosErrors, results?.positionErrorHistogram]);
+
   const handleDownloadReport = async () => {
     if (!submissionId) return;
     try {
@@ -121,33 +145,7 @@ export function ResultsPage() {
   const hasPreviousRank = results.previousRank !== undefined && results.previousRank !== null;
   const rankChange = hasPreviousRank ? (results.previousRank as number) - (results.rank || 0) : 0;
 
-  // U12: Use real histogram data only — don't mask missing backend data with synthetics
-  // U10: Memoize expensive computation
-  const hasRealResiduals = !!(results.raResidualHistogram && results.decResidualHistogram);
-
-  const residualData = useMemo(() => {
-    if (!hasRealResiduals) return null;
-    const labels = results.raResidualHistogram!.labels;
-    const raBins = results.raResidualHistogram!.counts;
-    const decBins = results.decResidualHistogram!.counts;
-    return labels.map((label, i) => ({
-      range: label,
-      ra: raBins[i] ?? 0,
-      dec: decBins[i] ?? 0,
-    }));
-  }, [hasRealResiduals, results.raResidualHistogram, results.decResidualHistogram]);
-
-  // U12: Position error distribution — use real data only
-  const hasRealPosErrors = !!results.positionErrorHistogram;
-
-  const positionErrorData = useMemo(() => {
-    if (!hasRealPosErrors) return null;
-    const hist = results.positionErrorHistogram!;
-    return hist.labels.map((label, i) => ({
-      range: label,
-      count: hist.counts[i] ?? 0,
-    }));
-  }, [hasRealPosErrors, results.positionErrorHistogram]);
+  // (residualData and positionErrorData are memoized above, before early returns)
 
   return (
     <div className="space-y-6">
