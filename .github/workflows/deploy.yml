@@ -70,6 +70,7 @@ jobs:
           npm run build
         env:
           VITE_DEMO_MODE: "true"
+          VITE_FEEDBACK_ENABLED: "true"
       - name: Prepare deploy directory
         run: |
           mkdir -p deploy-dist
