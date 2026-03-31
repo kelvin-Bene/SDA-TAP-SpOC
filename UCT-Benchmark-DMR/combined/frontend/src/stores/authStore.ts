@@ -49,7 +49,7 @@ function formatAuthError(error: AuthError): string {
   }
 }
 
-export const useAuthStore = create<AuthState>()((set, _get) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   session: null,
   isAuthenticated: false,
@@ -59,9 +59,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
 
   initialize: async () => {
     try {
-      // Demo mode: skip Supabase session check
+      // Demo mode: skip Supabase session check, preserve existing auth
       if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        set({ isLoading: false, isAuthenticated: false });
+        const current = get();
+        if (!current.isAuthenticated) {
+          set({ isLoading: false });
+        }
         return;
       }
 
