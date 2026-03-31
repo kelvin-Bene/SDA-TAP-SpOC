@@ -20,8 +20,11 @@ server {
     }
 
     # Proxy API requests to backend
+    # Use variable so nginx re-resolves DNS on each request (avoids stale IP after backend redeploy)
     location /api/ {
-        proxy_pass ${BACKEND_URL}/api/;
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $backend ${BACKEND_URL};
+        proxy_pass $backend/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -35,7 +38,9 @@ server {
 
     # Proxy health check to backend
     location /health {
-        proxy_pass ${BACKEND_URL}/health;
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $backend ${BACKEND_URL};
+        proxy_pass $backend/health;
         proxy_set_header Host $host;
     }
 
