@@ -424,8 +424,10 @@ export function DatasetGeneratorPage() {
         ).join('\n');
       } else if (typeof detail === 'string') {
         errorMessage = detail;
-        // If token-related, refresh the token check
-        if (detail.toLowerCase().includes('token')) {
+        // Only mark token as missing for genuinely-missing-token errors,
+        // not for validation failures like "token validation failed"
+        if (detail.toLowerCase().includes('token required') ||
+            detail.toLowerCase().includes('re-enter your token')) {
           setHasUdlToken(false);
         }
       } else if (error?.message) {

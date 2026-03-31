@@ -242,6 +242,9 @@ export interface DatasetFilters {
   regime?: OrbitalRegime | 'all';
   tier?: DataTier | 'all';
   sensor?: SensorType | 'all';
+  search?: string;
+  sortBy?: 'name' | 'created_at' | 'satellite_count' | 'observation_count';
+  sortOrder?: 'asc' | 'desc';
   dateRange?: {
     start: Date;
     end: Date;

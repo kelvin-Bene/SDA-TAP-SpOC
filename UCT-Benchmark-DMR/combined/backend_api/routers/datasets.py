@@ -144,6 +144,9 @@ async def list_datasets(
     status: Optional[str] = None,
     regime: Optional[str] = None,
     tier: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    order: Optional[str] = None,
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -155,6 +158,9 @@ async def list_datasets(
         status: Filter by status (created, generating, available, failed)
         regime: Filter by orbital regime (LEO, MEO, GEO, HEO)
         tier: Filter by complexity tier (T1, T2, T3, T4)
+        search: Text search on dataset name and code
+        sort_by: Column to sort by (name, created_at, satellite_count, observation_count)
+        order: Sort order (asc, desc)
 
     Returns:
         List of dataset summaries
@@ -179,7 +185,16 @@ async def list_datasets(
         query += " AND tier = ?"
         params.append(tier)
 
-    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    if search:
+        query += " AND (LOWER(name) LIKE ? OR LOWER(COALESCE(code, '')) LIKE ?)"
+        search_term = f"%{search.lower()}%"
+        params.extend([search_term, search_term])
+
+    # Sorting — whitelist allowed columns to prevent SQL injection
+    allowed_sort = {"name", "created_at", "satellite_count", "observation_count", "tier", "orbital_regime"}
+    sort_col = sort_by if sort_by in allowed_sort else "created_at"
+    sort_dir = "ASC" if order and order.lower() == "asc" else "DESC"
+    query += f" ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
     result = db.execute(query, tuple(params))
