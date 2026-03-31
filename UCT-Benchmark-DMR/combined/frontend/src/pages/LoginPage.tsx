@@ -50,7 +50,6 @@ export function LoginPage() {
     setSuccessMessage(null);
 
     if (password !== confirmPassword) {
-      // Use the store's error mechanism is not ideal here, so handle locally
       useAuthStore.setState({ error: 'Passwords do not match.' });
       return;
     }
@@ -64,10 +63,17 @@ export function LoginPage() {
 
     const currentError = useAuthStore.getState().error;
     if (!currentError) {
-      setSuccessMessage('Check your email for a confirmation link to complete your signup.');
-      setView('login');
-      setPassword('');
-      setConfirmPassword('');
+      // If Supabase auto-confirmed the user, a session already exists — navigate directly
+      const { isAuthenticated } = useAuthStore.getState();
+      if (isAuthenticated) {
+        navigate(from, { replace: true });
+      } else {
+        // Email confirmation is required — show instructions
+        setSuccessMessage('Check your email for a confirmation link to complete your signup.');
+        setView('login');
+        setPassword('');
+        setConfirmPassword('');
+      }
     }
   };
 
