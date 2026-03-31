@@ -41,6 +41,7 @@ interface DatasetResponse {
   job_id?: string;
   version?: number;
   parent_id?: string;
+  error_message?: string;
 }
 
 // Transform backend response to frontend type
@@ -51,6 +52,7 @@ function transformDataset(data: DatasetResponse): Dataset {
     description: data.description,
     regime: data.regime as Dataset['regime'],
     tier: data.tier as Dataset['tier'],
+    status: (data.status || 'created') as Dataset['status'],
     createdAt: data.created_at,
     objectCount: data.satellite_count,
     observationCount: data.observation_count,
@@ -59,6 +61,7 @@ function transformDataset(data: DatasetResponse): Dataset {
     sensorTypes: data.sensor_types as Dataset['sensorTypes'],
     version: data.version,
     parentId: data.parent_id,
+    errorMessage: data.error_message,
   };
 }
 
@@ -91,6 +94,11 @@ export function useDatasets(filters?: DatasetFilters) {
       return datasets
         .map(transformDataset)
         .filter((d) => {
+          // Client-side search filter (supplements server-side search)
+          if (filters?.search) {
+            const term = filters.search.toLowerCase();
+            if (!d.name.toLowerCase().includes(term)) return false;
+          }
           if (filters?.sensor && filters.sensor !== 'all') {
             if (!d.sensorTypes.includes(filters.sensor)) return false;
           }

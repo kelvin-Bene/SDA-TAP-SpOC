@@ -38,7 +38,7 @@ export function RecentSubmissions() {
             {recentSubmissions.map((submission) => (
               <Link
                 key={submission.id}
-                to={submission.status === 'completed' ? `/results/${submission.id}` : '#'}
+                to={submission.status === 'completed' ? `/results/${submission.id}` : '/submit/my-submissions'}
                 className="block"
               >
                 <div className="rounded-lg border p-4 transition-colors hover:bg-accent/50">

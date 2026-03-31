@@ -160,6 +160,8 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
+              <div className="space-y-6">
               {/* Avatar */}
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
@@ -294,7 +296,7 @@ export function ProfilePage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -305,6 +307,8 @@ export function ProfilePage() {
                   )}
                 </Button>
               </div>
+              </div>
+            </form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -456,24 +460,26 @@ export function ProfilePage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Change Password */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Change Password</h4>
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" />
+              <form onSubmit={(e) => e.preventDefault()}>
+                <div className="space-y-4">
+                  <h4 className="font-medium">Change Password</h4>
+                  <div className="space-y-4 max-w-md">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <Input id="current-password" type="password" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <Input id="new-password" type="password" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <Input id="confirm-password" type="password" />
+                    </div>
+                    <Button type="submit">Update Password</Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" />
-                  </div>
-                  <Button>Update Password</Button>
                 </div>
-              </div>
+              </form>
 
               <Separator />
 

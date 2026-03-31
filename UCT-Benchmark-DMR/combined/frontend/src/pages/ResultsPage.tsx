@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { downloadBlob } from '@/lib/downloadUtils';
@@ -39,8 +40,8 @@ export function ResultsPage() {
   const { toast } = useToast();
 
   // Use real API hooks
-  const { data: results, isLoading: loadingResults, error: resultsError } = useResults(submissionId || '');
-  const { data: submission, isLoading: loadingSubmission } = useSubmission(submissionId || '');
+  const { data: results, isLoading: loadingResults, error: resultsError, refetch: refetchResults } = useResults(submissionId || '');
+  const { data: submission, isLoading: loadingSubmission, error: submissionError } = useSubmission(submissionId || '');
   const exportMutation = useExportResults();
   const reportMutation = useDownloadReport();
 
@@ -93,6 +94,27 @@ export function ResultsPage() {
   }
 
   if (resultsError || !results) {
+    // Determine the specific error scenario for a helpful message
+    const is404 = resultsError && typeof resultsError === 'object' && 'response' in resultsError
+      && (resultsError as { response?: { status?: number } }).response?.status === 404;
+    const isSubmission404 = submissionError && typeof submissionError === 'object' && 'response' in submissionError
+      && (submissionError as { response?: { status?: number } }).response?.status === 404;
+    const isNetworkError = resultsError && !is404;
+
+    let title = 'Results Not Found';
+    let description = 'The results for this submission could not be loaded.';
+
+    if (isSubmission404 || is404) {
+      title = 'Submission Not Found';
+      description = `No submission exists with ID "${submissionId}". It may have been deleted, or the link may be incorrect.`;
+    } else if (submission && submission.status !== 'completed') {
+      title = 'Results Not Ready';
+      description = `This submission is currently "${submission.status}". Results will be available once evaluation is complete.`;
+    } else if (isNetworkError) {
+      title = 'Failed to Load Results';
+      description = 'A network error occurred while fetching the results. Please check your connection and try again.';
+    }
+
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -101,16 +123,25 @@ export function ResultsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Results Not Found</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         </div>
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground">
-              The results for this submission are not available yet or the submission doesn't exist.
-            </p>
-            <Link to="/submit/my-submissions" className="mt-4 inline-block">
-              <Button>Back to Submissions</Button>
-            </Link>
+          <CardContent className="pt-6 space-y-4">
+            <p className="text-muted-foreground">{description}</p>
+            <div className="flex gap-3">
+              <Link to="/submit/my-submissions">
+                <Button variant="outline">Back to Submissions</Button>
+              </Link>
+              {!isSubmission404 && !is404 && (
+                <Button
+                  onClick={() => refetchResults()}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

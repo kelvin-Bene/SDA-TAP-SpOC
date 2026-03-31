@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/ErrorBoundary';
@@ -13,6 +13,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ de
 const DatasetBrowserPage = lazy(() => import('@/pages/DatasetBrowserPage').then(m => ({ default: m.DatasetBrowserPage })));
 const DatasetGeneratorPage = lazy(() => import('@/pages/DatasetGeneratorPage').then(m => ({ default: m.DatasetGeneratorPage })));
 const MyDatasetsPage = lazy(() => import('@/pages/MyDatasetsPage').then(m => ({ default: m.MyDatasetsPage })));
+const DatasetDetailPage = lazy(() => import('@/pages/DatasetDetailPage').then(m => ({ default: m.DatasetDetailPage })));
 const SubmitPage = lazy(() => import('@/pages/SubmitPage').then(m => ({ default: m.SubmitPage })));
 const MySubmissionsPage = lazy(() => import('@/pages/MySubmissionsPage').then(m => ({ default: m.MySubmissionsPage })));
 const ResultsPage = lazy(() => import('@/pages/ResultsPage').then(m => ({ default: m.ResultsPage })));
@@ -20,6 +21,7 @@ const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => (
 const DocumentationPage = lazy(() => import('@/pages/DocumentationPage').then(m => ({ default: m.DocumentationPage })));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function PageLoader() {
   return (
@@ -52,6 +54,7 @@ function App() {
               <Route path="/" element={<MainLayout />}>
                 <Route path="leaderboard" element={<LazyRoute><LeaderboardPage /></LazyRoute>} />
                 <Route path="datasets" element={<LazyRoute><DatasetBrowserPage /></LazyRoute>} />
+                <Route path="datasets/:id" element={<LazyRoute><DatasetDetailPage /></LazyRoute>} />
                 <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
               </Route>
 
@@ -75,7 +78,9 @@ function App() {
                 <Route path="profile" element={<LazyRoute><ProfilePage /></LazyRoute>} />
               </Route>
 
-              <Route path="*" element={<Navigate to="/leaderboard" replace />} />
+              <Route path="*" element={<MainLayout />}>
+                <Route path="*" element={<LazyRoute><NotFoundPage /></LazyRoute>} />
+              </Route>
             </Routes>
           </Suspense>
           <Toaster />

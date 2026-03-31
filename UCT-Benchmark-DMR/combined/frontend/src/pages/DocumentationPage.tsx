@@ -15,7 +15,7 @@ export function DocumentationPage() {
       </div>
 
       <Tabs defaultValue="getting-started" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-2">
+        <TabsList className="flex-wrap h-auto gap-2 overflow-x-auto w-full justify-start">
           <TabsTrigger value="getting-started" className="gap-2">
             <Rocket className="h-4 w-4" />
             Getting Started

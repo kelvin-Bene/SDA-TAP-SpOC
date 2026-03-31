@@ -315,6 +315,33 @@ def run_dataset_generation(
         observation_count = len(dataset_obs) if dataset_obs is not None else 0
         satellite_count = len(actual_sats) if actual_sats is not None else 0
 
+        # Detect empty results and fail gracefully instead of creating a 0-object dataset
+        if satellite_count == 0 or observation_count == 0:
+            error_msg = (
+                "No observations found for the specified parameters. "
+                "The UDL API returned no data for the selected orbital regime and time window. "
+                "Try expanding the date range, selecting a different orbital regime, "
+                "or verifying that your UDL token has access to the requested data."
+            )
+            logger.warning(
+                f"Dataset generation produced 0 results for job {job_id}: "
+                f"satellite_count={satellite_count}, observation_count={observation_count}"
+            )
+            db.execute(
+                """
+                UPDATE datasets
+                SET status = 'failed',
+                    error_message = ?,
+                    satellite_count = 0,
+                    observation_count = 0,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (error_msg, dataset_id),
+            )
+            job_manager.fail_job(job_id, error_msg)
+            return
+
         # Calculate coverage as ratio of satellites with full data vs requested
         requested_count = len(satellites)
         avg_coverage = (satellite_count / requested_count) if requested_count > 0 else 0.0
@@ -502,8 +529,8 @@ def run_dataset_generation(
             except Exception as rollback_error:
                 logger.debug(f"Rollback not needed or failed: {rollback_error}")
             db.execute(
-                "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (dataset_id,),
+                "UPDATE datasets SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (error_msg, dataset_id),
             )
         except Exception as db_error:
             # Log the secondary failure - this is critical as the dataset will be stuck in 'generating' state

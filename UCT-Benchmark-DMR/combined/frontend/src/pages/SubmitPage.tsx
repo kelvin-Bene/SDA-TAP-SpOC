@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,11 +46,11 @@ export function SubmitPage() {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
-    { id: 'format', label: 'File format', status: 'pending' },
-    { id: 'schema', label: 'Schema validation', status: 'pending' },
-    { id: 'references', label: 'Observation ID references', status: 'pending' },
-    { id: 'state', label: 'State vector reasonableness', status: 'pending' },
-    { id: 'covariance', label: 'Covariance positive-definiteness', status: 'pending' },
+    { id: 'format', label: 'File format (valid JSON)', status: 'pending' },
+    { id: 'schema', label: 'UCTP schema (required fields)', status: 'pending' },
+    { id: 'references', label: 'Observation ID references (sourcedData)', status: 'pending' },
+    { id: 'state', label: 'State vector / TLE value check', status: 'pending' },
+    { id: 'covariance', label: 'Covariance format (if present)', status: 'pending' },
   ]);
 
   const { toast } = useToast();
@@ -98,87 +98,172 @@ export function SubmitPage() {
       }
 
       // Step 2: Schema validation
+      // UCTP output is a JSON array of orbit records, each with required fields.
+      // State-vector format: sourcedData, epoch, xpos, ypos, zpos, xvel, yvel, zvel
+      // TLE format: sourcedData, line1, line2
       updateStep('schema', 'checking');
       await delay(400);
 
-      const data = parsedJson as Record<string, unknown>;
-      const hasRequiredFields =
-        data &&
-        typeof data === 'object' &&
-        ('satellites' in data || 'tracks' in data || 'results' in data || 'ucds' in data);
-
-      if (hasRequiredFields) {
-        updateStep('schema', 'passed');
+      // The UCTP output must be an array of orbit record objects
+      let records: Record<string, unknown>[];
+      if (Array.isArray(parsedJson)) {
+        records = parsedJson as Record<string, unknown>[];
+      } else if (parsedJson && typeof parsedJson === 'object') {
+        // Support legacy wrapper formats: { satellites: [...], tracks: [...], results: [...], ucds: [...] }
+        const wrapper = parsedJson as Record<string, unknown>;
+        const inner = wrapper.satellites || wrapper.tracks || wrapper.results || wrapper.ucds;
+        if (Array.isArray(inner)) {
+          records = inner as Record<string, unknown>[];
+        } else {
+          updateStep('schema', 'failed', 'Expected a JSON array of orbit records, or an object with a satellites/tracks/results array');
+          setIsValidating(false);
+          return;
+        }
       } else {
-        updateStep('schema', 'failed', 'Missing required fields (satellites, tracks, or results)');
+        updateStep('schema', 'failed', 'Expected a JSON array of orbit records');
         setIsValidating(false);
         return;
       }
 
-      // Step 3: Observation ID references
+      if (records.length === 0) {
+        updateStep('schema', 'failed', 'File contains an empty array (no orbit records)');
+        setIsValidating(false);
+        return;
+      }
+
+      // Detect format from first record
+      const first = records[0];
+      if (typeof first !== 'object' || first === null) {
+        updateStep('schema', 'failed', 'Each orbit record must be a JSON object');
+        setIsValidating(false);
+        return;
+      }
+
+      const isTLE = 'line1' in first && 'line2' in first;
+      const requiredFields = isTLE
+        ? ['sourcedData', 'line1', 'line2']
+        : ['sourcedData', 'epoch', 'xpos', 'ypos', 'zpos', 'xvel', 'yvel', 'zvel'];
+
+      // Also accept common aliases for state-vector field names
+      const fieldAliases: Record<string, string[]> = {
+        sourcedData: ['grouped_ops', 'sourced_data'],
+        xpos: ['X', 'x', 'posX'],
+        ypos: ['Y', 'y', 'posY'],
+        zpos: ['Z', 'z', 'posZ'],
+        xvel: ['VX', 'vx', 'velX', 'Xdot'],
+        yvel: ['VY', 'vy', 'velY', 'Ydot'],
+        zvel: ['VZ', 'vz', 'velZ', 'Zdot'],
+      };
+
+      const missingFields: string[] = [];
+      for (const field of requiredFields) {
+        const hasField = field in first;
+        const hasAlias = (fieldAliases[field] || []).some((alias) => alias in first);
+        if (!hasField && !hasAlias) {
+          missingFields.push(field);
+        }
+      }
+
+      if (missingFields.length > 0) {
+        const formatLabel = isTLE ? 'TLE' : 'state-vector';
+        updateStep(
+          'schema',
+          'failed',
+          `Missing required ${formatLabel} fields in first record: ${missingFields.join(', ')}`
+        );
+        setIsValidating(false);
+        return;
+      }
+
+      updateStep('schema', 'passed');
+
+      // Step 3: Observation ID references (sourcedData should contain observation IDs)
       updateStep('references', 'checking');
       await delay(350);
 
-      // Check if there are any satellite/track entries with IDs
-      const satellites = (data.satellites || data.tracks || data.results || data.ucds) as unknown[];
-      const hasValidReferences = Array.isArray(satellites) && satellites.length > 0;
+      let hasValidReferences = true;
+      let refErrorMsg = '';
+      for (let i = 0; i < Math.min(records.length, 10); i++) {
+        const rec = records[i];
+        const sourced = rec.sourcedData ?? rec.grouped_ops ?? rec.sourced_data;
+        if (!Array.isArray(sourced) || sourced.length === 0) {
+          hasValidReferences = false;
+          refErrorMsg = `Record ${i}: sourcedData must be a non-empty array of observation IDs`;
+          break;
+        }
+      }
 
       if (hasValidReferences) {
         updateStep('references', 'passed');
       } else {
-        updateStep('references', 'failed', 'No valid satellite or track entries found');
+        updateStep('references', 'failed', refErrorMsg);
         setIsValidating(false);
         return;
       }
 
-      // Step 4: State vector reasonableness
+      // Step 4: State vector / TLE value reasonableness
       updateStep('state', 'checking');
       await delay(500);
 
-      // Check if state vectors exist and have reasonable values
-      let stateVectorValid = true;
-      if (Array.isArray(satellites)) {
-        for (const sat of satellites) {
-          const s = sat as Record<string, unknown>;
-          const state = s.state || s.state_vector || s.position;
-          if (state) {
-            const stateArr = state as number[];
-            // Basic check: state values shouldn't be NaN or Infinity
-            if (Array.isArray(stateArr)) {
-              const hasInvalidValues = stateArr.some(
-                (v) => typeof v !== 'number' || !Number.isFinite(v)
-              );
-              if (hasInvalidValues) {
-                stateVectorValid = false;
-                break;
-              }
+      let stateValid = true;
+      let stateErrorMsg = '';
+      if (isTLE) {
+        // TLE lines should be strings of ~69 characters
+        for (let i = 0; i < Math.min(records.length, 10); i++) {
+          const rec = records[i];
+          if (typeof rec.line1 !== 'string' || typeof rec.line2 !== 'string') {
+            stateValid = false;
+            stateErrorMsg = `Record ${i}: line1 and line2 must be strings`;
+            break;
+          }
+        }
+      } else {
+        // State-vector: numeric fields should be finite numbers
+        const numericFields = ['xpos', 'ypos', 'zpos', 'xvel', 'yvel', 'zvel'];
+        const numericAliases: Record<string, string[]> = fieldAliases;
+        for (let i = 0; i < Math.min(records.length, 10); i++) {
+          const rec = records[i];
+          for (const field of numericFields) {
+            const val = rec[field] ?? (numericAliases[field] || []).reduce<unknown>(
+              (found, alias) => found ?? rec[alias], undefined
+            );
+            if (val !== undefined && (typeof val !== 'number' || !Number.isFinite(val))) {
+              stateValid = false;
+              stateErrorMsg = `Record ${i}: '${field}' must be a finite number, got ${typeof val}`;
+              break;
             }
           }
+          if (!stateValid) break;
         }
       }
 
-      if (stateVectorValid) {
+      if (stateValid) {
         updateStep('state', 'passed');
       } else {
-        updateStep('state', 'failed', 'State vectors contain invalid values');
+        updateStep('state', 'failed', stateErrorMsg);
         setIsValidating(false);
         return;
       }
 
-      // Step 5: Covariance check
+      // Step 5: Covariance check (optional but validate format if present)
       updateStep('covariance', 'checking');
       await delay(400);
 
-      // Check if covariance matrices exist (optional but check format if present)
       let covarianceValid = true;
-      if (Array.isArray(satellites)) {
-        for (const sat of satellites) {
-          const s = sat as Record<string, unknown>;
-          const cov = s.covariance || s.cov;
-          if (cov) {
-            // Basic check: covariance should be an array or matrix
+      let covErrorMsg = '';
+      if (!isTLE) {
+        for (let i = 0; i < Math.min(records.length, 10); i++) {
+          const rec = records[i];
+          const cov = rec.covariance ?? rec.cov;
+          if (cov !== undefined) {
             if (!Array.isArray(cov)) {
               covarianceValid = false;
+              covErrorMsg = `Record ${i}: 'cov' must be an array, got ${typeof cov}`;
+              break;
+            }
+            if ((cov as unknown[]).length !== 21) {
+              covarianceValid = false;
+              covErrorMsg = `Record ${i}: 'cov' should have 21 lower-triangular elements, got ${(cov as unknown[]).length}`;
               break;
             }
           }
@@ -188,7 +273,7 @@ export function SubmitPage() {
       if (covarianceValid) {
         updateStep('covariance', 'passed');
       } else {
-        updateStep('covariance', 'failed', 'Invalid covariance matrix format');
+        updateStep('covariance', 'failed', covErrorMsg);
       }
     } catch (err) {
       console.error('Validation error:', err);
@@ -222,9 +307,22 @@ export function SubmitPage() {
     );
   };
 
+  const scrollToFirstError = useCallback(() => {
+    // Wait for React to render the error messages, then scroll to the first one
+    requestAnimationFrame(() => {
+      const firstError = document.querySelector('.text-destructive');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }, []);
+
   const handleSubmit = async () => {
     setSubmitAttempted(true);
-    if (!file || !datasetId || !algorithmName || !version) return;
+    if (!file || !datasetId || !algorithmName || !version) {
+      scrollToFirstError();
+      return;
+    }
     if (!canSubmit) return;
 
     try {
@@ -242,19 +340,41 @@ export function SubmitPage() {
     } catch (error: unknown) {
       console.error('Submission failed:', error);
       // U6: Distinguish validation errors from network/server failures
-      const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: { detail?: string | { message?: string; errors?: string[]; hint?: string } };
+        };
+      };
       const status = axiosError?.response?.status;
-      let description = 'Failed to submit your algorithm results. Please try again.';
-      if (status === 422) {
-        description = 'Validation error — please check your file format matches the UCTP schema.';
+      const detail = axiosError?.response?.data?.detail;
+      let toastDescription = 'Failed to submit your algorithm results. Please try again.';
+      if (status === 422 && detail && typeof detail === 'object') {
+        // Backend returns structured validation errors
+        const schemaErrors = detail.errors || [];
+        const hint = detail.hint || '';
+        toastDescription = detail.message || 'UCTP schema validation failed';
+        if (schemaErrors.length > 0) {
+          toastDescription += ': ' + schemaErrors.slice(0, 3).join('; ');
+          if (schemaErrors.length > 3) {
+            toastDescription += ` (and ${schemaErrors.length - 3} more)`;
+          }
+        }
+        if (hint) {
+          toastDescription += '. ' + hint;
+        }
+      } else if (status === 422) {
+        toastDescription = typeof detail === 'string'
+          ? detail
+          : 'Validation error — please check your file format matches the UCTP schema.';
       } else if (status === 413) {
-        description = 'File too large — maximum upload size is 50MB.';
+        toastDescription = 'File too large — maximum upload size is 50MB.';
       } else if (!status) {
-        description = 'Network error — check your connection and try again.';
+        toastDescription = 'Network error — check your connection and try again.';
       }
       toast({
         title: 'Submission failed',
-        description,
+        description: toastDescription,
         variant: 'destructive',
       });
     }

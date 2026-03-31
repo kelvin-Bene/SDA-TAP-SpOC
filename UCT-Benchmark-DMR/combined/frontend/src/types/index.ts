@@ -221,11 +221,14 @@ export interface EOObservation {
 }
 
 // Dataset Types
+export type DatasetStatus = 'created' | 'generating' | 'available' | 'complete' | 'failed';
+
 export interface Dataset {
   id: string;
   name: string;
   regime: OrbitalRegime;
   tier: DataTier;
+  status: DatasetStatus;
   createdAt: string;
   objectCount: number;
   observationCount: number;
@@ -236,6 +239,7 @@ export interface Dataset {
   downloadUrl?: string;
   version?: number;
   parentId?: string;
+  errorMessage?: string;
 }
 
 export interface DatasetFilters {
@@ -355,8 +359,8 @@ export interface SubmissionResults {
   decResidualHistogram?: HistogramData;
   positionErrorHistogram?: HistogramData;
 
-  // Rank info
-  rank: number;
+  // Rank info (computed by backend based on F1-score within the same dataset)
+  rank?: number;
   previousRank?: number;
 }
 

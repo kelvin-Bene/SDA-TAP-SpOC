@@ -45,6 +45,7 @@ export function LeaderboardPage() {
     period: 'all',
     datasetId: 'all',
   });
+  const [activeTab, setActiveTab] = useState('rankings');
   const [sortColumn, setSortColumn] = useState<'f1Score' | 'precision' | 'recall' | 'positionRmsKm'>('f1Score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -261,7 +262,7 @@ export function LeaderboardPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="rankings" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-white/5 border border-white/10">
           <TabsTrigger value="rankings" className="data-[state=active]:bg-white/10">Rankings</TabsTrigger>
           <TabsTrigger value="trends" className="data-[state=active]:bg-white/10">Performance Trends</TabsTrigger>
@@ -269,7 +270,7 @@ export function LeaderboardPage() {
 
         {/* Rankings Tab */}
         <TabsContent value="rankings">
-          <div className="rounded-xl border border-white/10 bg-card overflow-hidden">
+          <div className="rounded-xl border border-white/10 bg-card overflow-hidden overflow-x-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

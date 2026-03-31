@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Database,
   Plus,
-  FolderOpen,
   Upload,
   FileText,
   Trophy,
@@ -18,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubmissions } from '@/hooks/useSubmissions';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -167,6 +167,36 @@ function NavItemComponent({ item }: { item: NavItem }) {
   );
 }
 
+function RecentActivitySection() {
+  const { data: submissions } = useSubmissions();
+  const recentCompleted = (submissions ?? [])
+    .filter((s) => s.status === 'completed')
+    .slice(0, 3);
+
+  if (recentCompleted.length === 0) return null;
+
+  return (
+    <div className="mt-8 space-y-3">
+      <h4 className="px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+        <Sparkles className="h-3 w-3" />
+        Recent Results
+      </h4>
+      <div className="space-y-1">
+        {recentCompleted.map((sub) => (
+          <Link
+            key={sub.id}
+            to={`/results/${sub.id}`}
+            className="flex items-center gap-3 rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200 group"
+          >
+            <FileText className="h-4 w-4 group-hover:text-cosmic-cyan transition-colors" />
+            <span className="truncate">{sub.algorithmName} {sub.version}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { isAuthenticated } = useAuthStore();
   const navItems = isAuthenticated ? authNavItems : publicNavItems;
@@ -240,29 +270,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
             )}
 
-            {/* Recent Activity */}
-            <div className="mt-8 space-y-3">
-              <h4 className="px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Sparkles className="h-3 w-3" />
-                Recent
-              </h4>
-              <div className="space-y-1">
-                <Link
-                  to="/results/1"
-                  className="flex items-center gap-3 rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200 group"
-                >
-                  <FileText className="h-4 w-4 group-hover:text-cosmic-cyan transition-colors" />
-                  <span className="truncate">MyUCTP v2.1 Results</span>
-                </Link>
-                <Link
-                  to="/datasets"
-                  className="flex items-center gap-3 rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200 group"
-                >
-                  <FolderOpen className="h-4 w-4 group-hover:text-cosmic-cyan transition-colors" />
-                  <span className="truncate">LEO-T2-2026-01-15</span>
-                </Link>
-              </div>
-            </div>
+            {/* Recent Activity — only when authenticated, populated from real data */}
+            {isAuthenticated && <RecentActivitySection />}
           </ScrollArea>
 
           {/* Footer */}

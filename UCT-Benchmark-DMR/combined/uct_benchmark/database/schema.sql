@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
+    error_message TEXT,                   -- User-facing error when status = 'failed'
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

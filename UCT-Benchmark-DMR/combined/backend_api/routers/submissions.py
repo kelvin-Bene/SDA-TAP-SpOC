@@ -102,35 +102,47 @@ def validate_uctp_output(data: Any) -> Tuple[bool, List[str]]:
     required = UCTP_TLE_REQUIRED_FIELDS if is_tle else UCTP_SV_REQUIRED_FIELDS
     format_name = "TLE" if is_tle else "state-vector"
 
+    # Common field name aliases that map to canonical UCTP field names
+    aliases_map = {
+        "sourcedData": ["grouped_ops", "sourced_data"],
+        "xpos": ["X", "x", "posX"],
+        "ypos": ["Y", "y", "posY"],
+        "zpos": ["Z", "z", "posZ"],
+        "xvel": ["VX", "vx", "velX", "Xdot"],
+        "yvel": ["VY", "vy", "velY", "Ydot"],
+        "zvel": ["VZ", "vz", "velZ", "Zdot"],
+    }
+
     for i, record in enumerate(data):
         if not isinstance(record, dict):
             errors.append(f"Record {i}: expected JSON object, got {type(record).__name__}")
             continue
 
-        # Check required fields
+        # Check required fields (also accepting known aliases)
         for field, expected_type in required.items():
-            if field not in record:
-                # Also check common aliases
-                aliases = {
-                    "sourcedData": ["grouped_ops", "sourced_data"],
-                    "xpos": ["X", "x", "posX"],
-                    "ypos": ["Y", "y", "posY"],
-                    "zpos": ["Z", "z", "posZ"],
-                    "xvel": ["VX", "vx", "velX", "Xdot"],
-                    "yvel": ["VY", "vy", "velY", "Ydot"],
-                    "zvel": ["VZ", "vz", "velZ", "Zdot"],
-                }
-                found_alias = False
-                for alias in aliases.get(field, []):
+            # Resolve the actual value: prefer canonical name, then try aliases
+            value = record.get(field)
+            resolved_name = field
+            if value is None and field not in record:
+                for alias in aliases_map.get(field, []):
                     if alias in record:
-                        found_alias = True
+                        value = record[alias]
+                        resolved_name = alias
                         break
-                if not found_alias:
+                else:
                     errors.append(f"Record {i}: missing required field '{field}'")
-            elif not isinstance(record[field], expected_type):
+                    continue
+
+            # Type-check the resolved value
+            if not isinstance(value, expected_type):
+                # Format expected type for readability
+                if isinstance(expected_type, tuple):
+                    type_label = "/".join(t.__name__ for t in expected_type)
+                else:
+                    type_label = expected_type.__name__
                 errors.append(
-                    f"Record {i}: field '{field}' expected {expected_type}, "
-                    f"got {type(record[field]).__name__}"
+                    f"Record {i}: field '{resolved_name}' expected {type_label}, "
+                    f"got {type(value).__name__}"
                 )
 
         # Validate covariance if present (21 lower-triangular elements)
@@ -177,6 +189,7 @@ def _row_to_submission_summary(row: tuple, columns: list) -> SubmissionSummary:
         score=row_dict.get("f1_score"),
         job_id=row_dict.get("job_id"),
         queue_position=None,  # Could calculate from pending submissions
+        rank=row_dict.get("rank"),
     )
 
 
@@ -200,12 +213,15 @@ async def list_submissions(
     Returns:
         List of submission summaries
     """
-    # Build query with optional filters and join for dataset name and score
+    # Build query with optional filters, join for dataset name, score, and rank.
+    # RANK() partitions by dataset so each submission is ranked against others
+    # on the same dataset, ordered by F1-score descending.
     query = """
         SELECT
             s.*,
             d.name as dataset_name,
-            sr.f1_score
+            sr.f1_score,
+            RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
         FROM submissions s
         LEFT JOIN datasets d ON s.dataset_id = d.id
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
@@ -490,13 +506,30 @@ async def upload_results(
 
         # Validate that the content is valid JSON
         try:
-            json.loads(contents)
+            parsed_data = json.loads(contents)
         except json.JSONDecodeError as e:
             logger.warning(f"Rejected re-upload with invalid JSON: {e}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid JSON file: {str(e)}",
             )
+
+        # Validate UCTP output schema
+        is_valid, schema_errors = validate_uctp_output(parsed_data)
+        if not is_valid:
+            logger.warning(f"UCTP schema validation failed on re-upload: {schema_errors[:5]}")
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "UCTP output does not match expected schema",
+                    "errors": schema_errors,
+                    "hint": (
+                        "Expected fields: sourcedData, epoch, xpos, ypos, zpos, "
+                        "xvel, yvel, zvel (state-vector) OR sourcedData, line1, line2 (TLE)"
+                    ),
+                },
+            )
+
         with open(file_path, "wb") as f:
             f.write(contents)
     except HTTPException:

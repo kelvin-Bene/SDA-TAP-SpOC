@@ -185,11 +185,24 @@ CREATE TABLE IF NOT EXISTS datasets (
     -- Parameters used (JSONB blob)
     generation_params JSONB,
 
+    -- Legacy code for lineage tracking
+    legacy_code VARCHAR(16),              -- e.g., "H50LEONEOPSSSS07"
+
+    -- Actual satellite IDs discovered during generation
+    actual_satellite_ids JSONB,
+
+    -- Performance metadata from generation run
+    performance_metadata JSONB,
+
+    -- Classification marking
+    classification_marking VARCHAR(50),
+
     -- Ownership
     user_id VARCHAR(36),
 
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
+    error_message TEXT,                   -- User-facing error when status = 'failed'
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -199,6 +212,8 @@ CREATE TABLE IF NOT EXISTS datasets (
     json_path VARCHAR(500),
     parquet_path VARCHAR(500)
 );
+
+CREATE INDEX IF NOT EXISTS idx_datasets_legacy_code ON datasets(legacy_code);
 
 -- Dataset-Observation junction table
 CREATE TABLE IF NOT EXISTS dataset_observations (

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { api } from '@/api/client';
 import type {
   OrbitalRegime,
@@ -316,10 +317,24 @@ export function DatasetGeneratorPage() {
       setGenerationProgress(jobStatus.progress);
       if (jobStatus.status === 'completed') {
         setIsGenerating(false);
-        navigate('/datasets/my-datasets');
+        // Extract dataset info from job result for the notification
+        const result = jobStatus.result as { dataset_id?: string } | undefined;
+        const datasetId = result?.dataset_id;
+        const datasetName = customName.trim() || `${config.regime}-${config.coverage}`;
+        toast({
+          title: 'Dataset generated',
+          description: `Your dataset "${datasetName}" was successfully generated!`,
+          action: datasetId ? (
+            <ToastAction altText="View dataset" onClick={() => navigate(`/datasets/${datasetId}`)}>
+              View Dataset
+            </ToastAction>
+          ) : undefined,
+        });
+        // Navigate to my-datasets with highlight param so the new row pulses
+        navigate(datasetId ? `/datasets/my-datasets?highlight=${datasetId}` : '/datasets/my-datasets');
       } else if (jobStatus.status === 'failed') {
         let errorMessage = jobStatus.error || 'Dataset generation failed. Please try different parameters.';
-        if (errorMessage.includes('No observation data returned')) {
+        if (errorMessage.includes('No observation data returned') || errorMessage.includes('No observations found')) {
           errorMessage = 'No observation data is available for the selected parameters. Try a different orbital regime, date range, or sensor type.';
         } else if (errorMessage.includes('Missing required environment variable') || errorMessage.includes('API credential')) {
           errorMessage = 'The dataset generation service is temporarily unavailable. Please try again later or contact support.';
@@ -333,7 +348,7 @@ export function DatasetGeneratorPage() {
         setJobId(null);
       }
     }
-  }, [jobStatus, navigate]);
+  }, [jobStatus, navigate, toast, customName, config.regime, config.coverage]);
 
   const updateConfig = <K extends keyof DatasetGenerationConfig>(
     key: K,
@@ -533,9 +548,11 @@ export function DatasetGeneratorPage() {
               <div>
                 <p className="font-medium text-destructive">UDL API Token Required</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  You need a UDL API token to generate datasets.{' '}
-                  <a href="/profile" className="underline font-medium text-primary">Set it in Profile Settings</a>.
+                  You need a UDL API token to generate datasets. Generation is disabled until a token is configured.
                 </p>
+                <Button variant="link" className="h-auto p-0 mt-1 text-primary" onClick={() => navigate('/profile')}>
+                  Go to Profile Settings &rarr;
+                </Button>
               </div>
             </div>
           )}
@@ -630,7 +647,18 @@ export function DatasetGeneratorPage() {
         </div>
 
         {/* Step Content */}
-        <Card>
+        <Card className={cn(hasUdlToken === false && 'relative')}>
+          {hasUdlToken === false && (
+            <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
+              <div className="text-center p-6">
+                <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                <p className="font-medium text-destructive">UDL API Token Required</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate('/profile')}>
+                  Go to Profile Settings
+                </Button>
+              </div>
+            </div>
+          )}
           {/* ============ LEGACY MODE STEPS ============ */}
           {mode === 'legacy' && codeInputMode === 'wizard' && (
             <>
@@ -658,10 +686,7 @@ export function DatasetGeneratorPage() {
                           )}
                         >
                           <RadioGroupItem value={value} />
-                          <div>
-                            <span className="font-mono text-lg mr-2">{value}</span>
-                            <span>{label}</span>
-                          </div>
+                          <span>{label}</span>
                         </Label>
                       ))}
                     </RadioGroup>
@@ -794,10 +819,7 @@ export function DatasetGeneratorPage() {
                           )}
                         >
                           <RadioGroupItem value={value} />
-                          <div>
-                            <span className="font-mono text-lg mr-2">{value}</span>
-                            <span>{label}</span>
-                          </div>
+                          <span>{label}</span>
                         </Label>
                       ))}
                     </RadioGroup>
@@ -1357,10 +1379,7 @@ export function DatasetGeneratorPage() {
                         )}
                       >
                         <RadioGroupItem value={opt.value} id={`sensor-type-${opt.value}`} />
-                        <div>
-                          <span className="font-mono mr-1">{opt.value}</span>
-                          <span>{opt.label}</span>
-                        </div>
+                        <span>{opt.label}</span>
                       </Label>
                     ))}
                   </RadioGroup>
@@ -1522,11 +1541,11 @@ export function DatasetGeneratorPage() {
                       <SelectValue placeholder="Select object type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="U">U - Unspecified (All objects)</SelectItem>
-                      <SelectItem value="H">H - HAMR (High Area-to-Mass Ratio)</SelectItem>
-                      <SelectItem value="C">C - Close (Physical proximity)</SelectItem>
-                      <SelectItem value="A">A - Apparent (Angular proximity)</SelectItem>
-                      <SelectItem value="N">N - Calibration satellites</SelectItem>
+                      <SelectItem value="U">Unspecified (All objects)</SelectItem>
+                      <SelectItem value="H">HAMR (High Area-to-Mass Ratio)</SelectItem>
+                      <SelectItem value="C">Close (Physical proximity)</SelectItem>
+                      <SelectItem value="A">Apparent (Angular proximity)</SelectItem>
+                      <SelectItem value="N">Calibration satellites</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1893,16 +1912,16 @@ export function DatasetGeneratorPage() {
 
                 <Separator />
 
-                {/* Advanced Louis's Spec Options */}
+                {/* Advanced Benchmark Options */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Label className="text-base font-medium">Louis's Benchmark Options</Label>
+                    <Label className="text-base font-medium">Advanced Benchmark Settings</Label>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p>Advanced options per Louis's Benchmarking Documentation for comprehensive evaluation.</p>
+                        <p>Advanced options for comprehensive benchmark evaluation and dataset customization.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>

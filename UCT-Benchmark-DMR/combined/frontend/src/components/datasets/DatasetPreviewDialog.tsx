@@ -11,6 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, Satellite, Database, Calendar, History, Loader2 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import type { Dataset } from '@/types';
 import { useDatasetVersions } from '@/hooks/useDatasets';
 
@@ -37,7 +45,7 @@ export function DatasetPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             {dataset.name}
@@ -53,7 +61,7 @@ export function DatasetPreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="mt-4">
+        <Tabs defaultValue="overview" className="mt-4 min-h-0 flex-1 overflow-y-auto">
           <TabsList className={`grid w-full ${hasVersionHistory ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="statistics">Statistics</TabsTrigger>
@@ -128,15 +136,30 @@ export function DatasetPreviewDialog({
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground mb-2">Track Gap Distribution</p>
-                <div className="h-24 flex items-end gap-1">
-                  {[80, 60, 40, 25, 15, 8, 4, 2].map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-stellar-cyan/20 rounded-t"
-                      style={{ height: `${h}%` }}
+                <ResponsiveContainer width="100%" height={96}>
+                  <BarChart data={[
+                    { bin: '0-1', count: 80 },
+                    { bin: '1-2', count: 60 },
+                    { bin: '2-3', count: 40 },
+                    { bin: '3-4', count: 25 },
+                    { bin: '4-5', count: 15 },
+                    { bin: '5-6', count: 8 },
+                    { bin: '6-7', count: 4 },
+                    { bin: '7+', count: 2 },
+                  ]}>
+                    <XAxis dataKey="bin" tick={{ fontSize: 10 }} />
+                    <YAxis hide />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(222 47% 11%)',
+                        borderColor: 'hsl(222 30% 18%)',
+                        borderRadius: '6px',
+                        fontSize: 12,
+                      }}
                     />
-                  ))}
-                </div>
+                    <Bar dataKey="count" fill="hsl(192, 91%, 52%)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
                 <p className="text-xs text-muted-foreground mt-2">Median gap: 2.3 orbital periods</p>
               </div>
             </div>
@@ -232,7 +255,7 @@ export function DatasetPreviewDialog({
           )}
         </Tabs>
 
-        <DialogFooter className="mt-6">
+        <DialogFooter className="mt-6 flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>

@@ -15,6 +15,7 @@ interface SubmissionResponse {
   score?: number;
   job_id?: string;
   queue_position?: number;
+  rank?: number;
 }
 
 interface HistogramResponse {
@@ -87,7 +88,7 @@ function transformSubmission(data: SubmissionResponse): Submission {
       raResidualRmsArcsec: 0,
       decResidualRmsArcsec: 0,
       satelliteResults: [],
-      rank: 0,
+      rank: data.rank ?? undefined,
     } : undefined,
   };
 }
@@ -120,7 +121,7 @@ function transformResults(data: ResultsResponse): SubmissionResults {
     raResidualHistogram: data.ra_residual_histogram,
     decResidualHistogram: data.dec_residual_histogram,
     positionErrorHistogram: data.position_error_histogram,
-    rank: data.rank ?? 0,
+    rank: data.rank ?? undefined,
     previousRank: data.previous_rank,
   };
 }
@@ -153,6 +154,14 @@ export function useSubmission(id: string) {
       return transformSubmission(response.data as SubmissionResponse);
     },
     enabled: !!id,
+    // Don't retry on 404 — the submission simply doesn't exist
+    retry: (failureCount, error) => {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const status = (error as { response?: { status?: number } }).response?.status;
+        if (status === 404) return false;
+      }
+      return failureCount < 2;
+    },
   });
 }
 
@@ -190,6 +199,14 @@ export function useResults(submissionId: string) {
       return transformResults(response.data as ResultsResponse);
     },
     enabled: !!submissionId,
+    // Don't retry on 404 — the submission simply doesn't exist
+    retry: (failureCount, error) => {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const status = (error as { response?: { status?: number } }).response?.status;
+        if (status === 404) return false;
+      }
+      return failureCount < 2;
+    },
   });
 }
 

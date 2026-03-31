@@ -135,6 +135,7 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         job_id=None,  # Could store this in generation_params
         version=int(row_dict.get("version") or 1),
         parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
+        error_message=row_dict.get("error_message"),
     )
 
 
@@ -334,20 +335,31 @@ async def get_dataset_versions(
     """
     id_int = validate_dataset_id(dataset_id)
 
-    # First get the target dataset to find its lineage
+    # First get the target dataset to find its lineage.
+    # Use code column for lineage matching; legacy_code may not exist in all DB backends.
     target = db.execute(
-        "SELECT id, legacy_code, parent_id, code FROM datasets WHERE id = ?", (id_int,)
+        "SELECT id, parent_id, code FROM datasets WHERE id = ?", (id_int,)
     ).fetchone()
 
     if target is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    target_legacy_code = target[1]
-    target_parent_id = target[2]
-    target_code = target[3]
+    target_parent_id = target[1]
+    target_code = target[2]
+
+    # Detect if legacy_code column exists (present in DuckDB but not always in PostgreSQL)
+    has_legacy_code = False
+    try:
+        probe = db.execute(
+            "SELECT legacy_code FROM datasets WHERE id = ? LIMIT 1", (id_int,)
+        ).fetchone()
+        has_legacy_code = True
+        target_legacy_code = probe[0] if probe else None
+    except Exception:
+        target_legacy_code = None
 
     # Find all related versions:
-    # 1. Same legacy_code (regenerated datasets)
+    # 1. Same legacy_code or code (regenerated datasets)
     # 2. Parent/child chain (versioned datasets)
     version_ids = {id_int}
 
@@ -367,10 +379,18 @@ async def get_dataset_versions(
     for child in children:
         version_ids.add(child[0])
 
-    # Also find by matching legacy_code if available
-    if target_legacy_code:
+    # Match by legacy_code if the column exists and has a value
+    if has_legacy_code and target_legacy_code:
         code_matches = db.execute(
             "SELECT id FROM datasets WHERE legacy_code = ?", (target_legacy_code,)
+        ).fetchall()
+        for match in code_matches:
+            version_ids.add(match[0])
+
+    # Also match by code column (works on all DB backends)
+    if target_code:
+        code_matches = db.execute(
+            "SELECT id FROM datasets WHERE code = ?", (target_code,)
         ).fetchall()
         for match in code_matches:
             version_ids.add(match[0])

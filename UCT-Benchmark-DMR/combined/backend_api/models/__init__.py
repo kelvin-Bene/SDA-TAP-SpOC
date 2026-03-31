@@ -402,6 +402,8 @@ class DatasetSummary(BaseModel):
     # Version tracking (per Louis's transcript.md requirement)
     version: int = 1
     parent_id: Optional[str] = None
+    # Error message for failed datasets
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -516,6 +518,7 @@ class SubmissionSummary(BaseModel):
     score: Optional[float] = None
     job_id: Optional[str] = None
     queue_position: Optional[int] = None
+    rank: Optional[int] = None
 
     class Config:
         from_attributes = True

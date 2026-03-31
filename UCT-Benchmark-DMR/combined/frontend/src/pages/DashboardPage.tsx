@@ -15,9 +15,9 @@ export function DashboardPage() {
   const processingSubtitle = stats?.processingCount
     ? `${stats.processingCount} processing`
     : 'none processing';
-  const f1Display = stats?.bestF1Score ? stats.bestF1Score.toFixed(4) : '--';
+  const f1Display = stats?.bestF1Score != null ? stats.bestF1Score.toFixed(4) : '--';
   const f1Subtitle = stats?.bestDatasetName || 'No submissions yet';
-  const improvementDisplay = stats?.improvementVsAverage
+  const improvementDisplay = stats?.improvementVsAverage != null
     ? `${stats.improvementVsAverage > 0 ? '+' : ''}${stats.improvementVsAverage}%`
     : '--';
 
@@ -85,7 +85,7 @@ export function DashboardPage() {
         <StatCard
           title="vs. Average"
           value={isLoading ? '\u2014' : improvementDisplay}
-          change={stats?.improvementVsAverage || 0}
+          change={stats?.improvementVsAverage ?? 0}
           changeLabel="above average"
           icon={<TrendingUp className="h-5 w-5" />}
           accentColor="green"

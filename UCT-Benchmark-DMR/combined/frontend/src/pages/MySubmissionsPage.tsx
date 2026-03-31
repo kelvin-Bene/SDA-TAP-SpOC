@@ -24,9 +24,10 @@ export function MySubmissionsPage() {
   const exportMutation = useExportResults();
 
   const completedCount = submissions.filter((s) => s.status === 'completed').length;
-  const pendingCount = submissions.filter((s) =>
+  const queuedCount = submissions.filter((s) =>
     ['queued', 'processing', 'validating'].includes(s.status)
   ).length;
+  const failedCount = submissions.filter((s) => s.status === 'failed').length;
 
   const handleExport = async (submission: Submission) => {
     try {
@@ -71,7 +72,7 @@ export function MySubmissionsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Submissions</CardTitle>
@@ -90,10 +91,18 @@ export function MySubmissionsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Queued</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-blue-600">{pendingCount}</p>
+            <p className="text-2xl font-bold text-blue-600">{queuedCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Failed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">{failedCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -123,6 +132,7 @@ export function MySubmissionsPage() {
               </Link>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -216,6 +226,7 @@ export function MySubmissionsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
