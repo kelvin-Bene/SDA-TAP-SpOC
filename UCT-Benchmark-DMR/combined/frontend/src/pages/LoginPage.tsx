@@ -170,6 +170,7 @@ export function LoginPage() {
 
               {/* SSO Button */}
               <Button
+                type="button"
                 onClick={handleDemoSSO}
                 className="w-full h-12 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity shadow-glow-cyan font-semibold text-base"
                 disabled={isLoading}
