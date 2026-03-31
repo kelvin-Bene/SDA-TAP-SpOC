@@ -12,6 +12,7 @@ COPY . .
 
 # API requests go through nginx proxy at /api/v1
 ENV VITE_API_BASE_URL=/api/v1
+ENV VITE_FEEDBACK_ENABLED=true
 
 RUN npm run build
 
