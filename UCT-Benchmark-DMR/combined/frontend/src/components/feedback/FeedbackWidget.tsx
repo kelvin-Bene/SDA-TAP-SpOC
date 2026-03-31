@@ -54,7 +54,8 @@ function FeedbackWidgetInner() {
     setCapturingScreenshot(true);
     try {
       const dataUrl = await toJpeg(document.body, {
-        quality: 0.5,
+        quality: 0.3,
+        pixelRatio: 0.5,
         backgroundColor: '#ffffff',
         // Exclude the dialog overlay from the screenshot
         filter: (node: HTMLElement) => {
