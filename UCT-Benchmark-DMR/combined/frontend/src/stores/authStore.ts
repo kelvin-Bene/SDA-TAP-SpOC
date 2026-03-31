@@ -51,7 +51,7 @@ function formatAuthError(error: AuthError): string {
   }
 }
 
-export const useAuthStore = create<AuthState>()((set, get) => ({
+export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   session: null,
   isAuthenticated: false,
