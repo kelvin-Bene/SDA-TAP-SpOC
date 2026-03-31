@@ -17,15 +17,23 @@ def _request_with_retry(
     headers: dict | None = None,
     params: dict | None = None,
     timeout: int = 10,
-    max_retries: int = 1,
+    max_retries: int = 2,
 ) -> requests.Response:
-    """Make an HTTP request with retry on timeout/connection errors."""
+    """Make an HTTP request with retry on timeout, connection errors, and 429 rate limits."""
     last_exc: Exception | None = None
     for attempt in range(1 + max_retries):
         try:
             resp = requests.request(
                 method, url, headers=headers, params=params, timeout=timeout,
             )
+            if resp.status_code == 429 and attempt < max_retries:
+                retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                wait = min(retry_after, 30)  # cap at 30 seconds
+                logger.debug(
+                    f"Rate limited (429). Retry {attempt + 1}/{max_retries} after {wait}s"
+                )
+                time.sleep(wait)
+                continue
             return resp
         except (requests.Timeout, requests.ConnectionError) as e:
             last_exc = e
@@ -52,7 +60,7 @@ def validate_udl_token(token: str) -> tuple[bool, str]:
             headers={"Authorization": "Basic " + token},
             params={"satNo": "25544"},
             timeout=10,
-            max_retries=1,
+            max_retries=2,
         )
         if resp.status_code == 200:
             return True, "Valid"
@@ -89,7 +97,7 @@ def validate_esa_token(token: str) -> tuple[bool, str]:
             },
             params={"filter": "in(satno,(25544))", "page[size]": "1"},
             timeout=10,
-            max_retries=1,
+            max_retries=2,
         )
         if resp.status_code == 200:
             return True, "Valid"

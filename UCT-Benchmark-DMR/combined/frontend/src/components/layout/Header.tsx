@@ -91,101 +91,115 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Right Side Actions */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hover:bg-white/5">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-gradient-to-r from-cosmic-cyan to-cosmic-blue border-0 animate-pulse-glow">
-                  2
-                </Badge>
-                <span className="sr-only">Notifications</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 glass border-white/10">
-              <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
-                <div className="font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-aurora-green" />
-                  Submission Complete
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  MyUCTP v2.1 evaluation finished. F1-Score: 0.923
-                </div>
-                <div className="text-xs text-muted-foreground">2 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
-                <div className="font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cosmic-cyan" />
-                  New Dataset Available
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  LEO-T2-2026-01-15 is ready for download
-                </div>
-                <div className="text-xs text-muted-foreground">5 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="text-center text-sm text-cosmic-cyan hover:text-cosmic-cyan focus:text-cosmic-cyan focus:bg-white/5 cursor-pointer justify-center">
-                View all notifications
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {user ? (
+            <>
+              {/* Notifications — only when authenticated */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative hover:bg-white/5">
+                    <Bell className="h-5 w-5" />
+                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-gradient-to-r from-cosmic-cyan to-cosmic-blue border-0 animate-pulse-glow">
+                      2
+                    </Badge>
+                    <span className="sr-only">Notifications</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 glass border-white/10">
+                  <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
+                    <div className="font-medium flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-aurora-green" />
+                      Submission Complete
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      MyUCTP v2.1 evaluation finished. F1-Score: 0.923
+                    </div>
+                    <div className="text-xs text-muted-foreground">2 hours ago</div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
+                    <div className="font-medium flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cosmic-cyan" />
+                      New Dataset Available
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      LEO-T2-2026-01-15 is ready for download
+                    </div>
+                    <div className="text-xs text-muted-foreground">5 hours ago</div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem className="text-center text-sm text-cosmic-cyan hover:text-cosmic-cyan focus:text-cosmic-cyan focus:bg-white/5 cursor-pointer justify-center">
+                    View all notifications
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/5 relative group">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cosmic-cyan/20 to-stellar-purple/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <User className="h-5 w-5 relative z-10" />
-                <span className="sr-only">User menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 glass border-white/10">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none font-display">{user?.username ?? 'User'}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.email ?? ''}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
-                <Link to="/profile" className="flex items-center">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
-                <Link to="/profile" className="flex items-center">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="focus:bg-white/5 cursor-pointer"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="mr-2 h-4 w-4" />
-                ) : (
-                  <Moon className="mr-2 h-4 w-4" />
-                )}
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem
-                onClick={() => {
-                  logout();
-                  navigate('/login');
-                }}
-                className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              {/* User Menu — only when authenticated */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/5 relative group">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cosmic-cyan/20 to-stellar-purple/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <User className="h-5 w-5 relative z-10" />
+                    <span className="sr-only">User menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 glass border-white/10">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none font-display">{user?.username ?? 'User'}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user?.email ?? ''}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+                    <Link to="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+                    <Link to="/profile" className="flex items-center">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="focus:bg-white/5 cursor-pointer"
+                  >
+                    {theme === 'dark' ? (
+                      <Sun className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Moon className="mr-2 h-4 w-4" />
+                    )}
+                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                    }}
+                    className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            /* Sign In button — shown when not authenticated */
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-cosmic-cyan/30 hover:bg-cosmic-cyan/10 hover:border-cosmic-cyan/50 transition-all duration-200"
+              onClick={() => navigate('/login')}
+            >
+              Sign In
+            </Button>
+          )}
         </div>
       </div>
     </header>

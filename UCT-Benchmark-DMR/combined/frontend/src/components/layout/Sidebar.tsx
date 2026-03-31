@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
+import { useAuthStore } from '@/stores/authStore';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -30,7 +31,27 @@ interface NavItem {
   children?: { title: string; href: string }[];
 }
 
-const navItems: NavItem[] = [
+// Public nav items — always visible
+const publicNavItems: NavItem[] = [
+  {
+    title: 'Datasets',
+    icon: Database,
+    href: '/datasets',
+  },
+  {
+    title: 'Leaderboard',
+    href: '/leaderboard',
+    icon: Trophy,
+  },
+  {
+    title: 'Documentation',
+    href: '/docs',
+    icon: BookOpen,
+  },
+];
+
+// Authenticated-only nav items
+const authNavItems: NavItem[] = [
   {
     title: 'Dashboard',
     href: '/',
@@ -147,6 +168,9 @@ function NavItemComponent({ item }: { item: NavItem }) {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { isAuthenticated } = useAuthStore();
+  const navItems = isAuthenticated ? authNavItems : publicNavItems;
+
   return (
     <>
       {/* Overlay for mobile */}
@@ -184,7 +208,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               ))}
             </nav>
 
-            {/* Quick Actions */}
+            {/* Quick Actions — only when authenticated */}
+            {isAuthenticated && (
             <div className="mt-8 space-y-3">
               <h4 className="px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <Zap className="h-3 w-3" />
@@ -213,6 +238,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </Button>
               </Link>
             </div>
+            )}
 
             {/* Recent Activity */}
             <div className="mt-8 space-y-3">

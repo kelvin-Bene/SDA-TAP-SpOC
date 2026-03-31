@@ -47,6 +47,15 @@ function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<LazyRoute><LoginPage /></LazyRoute>} />
+
+              {/* Public routes — no auth required */}
+              <Route path="/" element={<MainLayout />}>
+                <Route path="leaderboard" element={<LazyRoute><LeaderboardPage /></LazyRoute>} />
+                <Route path="datasets" element={<LazyRoute><DatasetBrowserPage /></LazyRoute>} />
+                <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
+              </Route>
+
+              {/* Authenticated routes — require login */}
               <Route
                 path="/"
                 element={
@@ -56,21 +65,17 @@ function App() {
                 }
               >
                 <Route index element={<LazyRoute><DashboardPage /></LazyRoute>} />
-                <Route path="datasets">
-                  <Route index element={<LazyRoute><DatasetBrowserPage /></LazyRoute>} />
-                  <Route path="generate" element={<LazyRoute><DatasetGeneratorPage /></LazyRoute>} />
-                  <Route path="my-datasets" element={<LazyRoute><MyDatasetsPage /></LazyRoute>} />
-                </Route>
+                <Route path="datasets/generate" element={<LazyRoute><DatasetGeneratorPage /></LazyRoute>} />
+                <Route path="datasets/my-datasets" element={<LazyRoute><MyDatasetsPage /></LazyRoute>} />
                 <Route path="submit">
                   <Route index element={<LazyRoute><SubmitPage /></LazyRoute>} />
                   <Route path="my-submissions" element={<LazyRoute><MySubmissionsPage /></LazyRoute>} />
                 </Route>
                 <Route path="results/:submissionId" element={<LazyRoute><ResultsPage /></LazyRoute>} />
-                <Route path="leaderboard" element={<LazyRoute><LeaderboardPage /></LazyRoute>} />
-                <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
                 <Route path="profile" element={<LazyRoute><ProfilePage /></LazyRoute>} />
-                <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
+
+              <Route path="*" element={<Navigate to="/leaderboard" replace />} />
             </Routes>
           </Suspense>
           <Toaster />

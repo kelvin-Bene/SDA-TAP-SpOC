@@ -122,8 +122,13 @@ export function useGenerateDataset() {
   return useMutation({
     mutationFn: async (config: DatasetGenerationConfig) => {
       // Transform frontend config to backend format
+      // Date inputs produce date-only strings like "2026-03-01". new Date() parses
+      // these as UTC midnight (start of day). For the end date, we want end-of-day
+      // so the user's selected last day is fully included in the query range.
       const startDate = new Date(config.startDate);
       const endDate = new Date(config.endDate);
+      // Shift end date to 23:59:59 UTC so the entire last day is included
+      endDate.setUTCHours(23, 59, 59, 0);
 
       // Validate dates
       if (isNaN(startDate.getTime())) {
