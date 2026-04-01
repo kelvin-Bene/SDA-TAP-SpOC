@@ -8,7 +8,7 @@ const isDemoMode = !supabase;
 const DEMO_USER: User = {
   id: 'demo-user',
   username: 'Demo User',
-  email: 'demo@spoc.mil',
+  email: 'demo@example.com',
   organization: 'SDA TAP Lab',
   role: 'admin',
   createdAt: new Date().toISOString(),

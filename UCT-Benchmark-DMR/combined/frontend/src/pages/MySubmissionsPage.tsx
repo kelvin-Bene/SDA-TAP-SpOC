@@ -37,7 +37,6 @@ export function MySubmissionsPage() {
 
       downloadBlob(blob, `results_${submission.id}.json`);
     } catch (err) {
-      console.error('Export failed:', err);
       toast({
         title: 'Export failed',
         description: 'Failed to export results. Please try again.',

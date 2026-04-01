@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { supabase } from '@/lib/supabase';
-import { getMockResponse } from './mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -21,7 +20,7 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${session.access_token}`;
       }
     } catch (error) {
-      console.error('Failed to get auth session for request:', error);
+      // Auth session retrieval failed; continue without token
     }
     return config;
   },
@@ -90,42 +89,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// ---------------------------------------------------------------------------
-// Demo-mode interceptor: when Supabase is null (no env vars) AND a request
-// fails with a network error (no backend), return realistic mock data so the
-// UI is fully populated for symposium demos.
-// ---------------------------------------------------------------------------
-const isDemoMode = !supabase;
-
-if (isDemoMode) {
-  apiClient.interceptors.response.use(
-    (response) => response,
-    (error) => {
-      // Only intercept network / connection errors (no response from server)
-      const isNetworkError = !error.response;
-      if (!isNetworkError) return Promise.reject(error);
-
-      const url = error.config?.url || '';
-      const method = error.config?.method || 'get';
-      const mock = getMockResponse(url, method);
-
-      if (mock) {
-        console.debug(`[Demo Mode] Serving mock data for ${method.toUpperCase()} ${url}`);
-        return Promise.resolve({
-          data: mock.data,
-          status: mock.status,
-          statusText: 'OK',
-          headers: {},
-          config: error.config,
-        });
-      }
-
-      // No mock available — let it fail normally
-      return Promise.reject(error);
-    }
-  );
-}
 
 // API helper functions
 // List endpoints use trailing slash (backend defines them as @router.get("/"))

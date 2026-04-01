@@ -191,7 +191,6 @@ export function SubmitPage() {
         updateStep('covariance', 'failed', 'Invalid covariance matrix format');
       }
     } catch (err) {
-      console.error('Validation error:', err);
       updateStep('format', 'failed', 'Error reading file');
     }
 
@@ -240,7 +239,6 @@ export function SubmitPage() {
       // Navigate to submissions page
       navigate('/submit/my-submissions');
     } catch (error: unknown) {
-      console.error('Submission failed:', error);
       // U6: Distinguish validation errors from network/server failures
       const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
       const status = axiosError?.response?.status;

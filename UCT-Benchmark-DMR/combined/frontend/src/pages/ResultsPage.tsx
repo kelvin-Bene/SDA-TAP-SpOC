@@ -56,7 +56,6 @@ export function ResultsPage() {
 
       downloadBlob(blob, `report_${submissionId}.pdf`);
     } catch (err) {
-      console.error('Report download failed:', err);
       toast({
         title: 'Report generation failed',
         description: 'Failed to generate evaluation report. Please try again.',
@@ -75,7 +74,6 @@ export function ResultsPage() {
 
       downloadBlob(blob, `results_${submissionId}.json`);
     } catch (err) {
-      console.error('Export failed:', err);
       toast({
         title: 'Export failed',
         description: 'Failed to export results. Please try again.',

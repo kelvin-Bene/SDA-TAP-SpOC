@@ -18,8 +18,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/components/theme-provider';
+import { useAuthStore } from '@/stores/authStore';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -27,6 +27,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const { user } = useAuthStore();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
@@ -93,39 +94,15 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative hover:bg-white/5">
                 <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-gradient-to-r from-cosmic-cyan to-cosmic-blue border-0 animate-pulse-glow">
-                  2
-                </Badge>
                 <span className="sr-only">Notifications</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 glass border-white/10">
               <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
-                <div className="font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-aurora-green" />
-                  Submission Complete
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  MyUCTP v2.1 evaluation finished. F1-Score: 0.923
-                </div>
-                <div className="text-xs text-muted-foreground">2 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
-                <div className="font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cosmic-cyan" />
-                  New Dataset Available
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  LEO-T2-2026-01-15 is ready for download
-                </div>
-                <div className="text-xs text-muted-foreground">5 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="text-center text-sm text-cosmic-cyan hover:text-cosmic-cyan focus:text-cosmic-cyan focus:bg-white/5 cursor-pointer justify-center">
-                View all notifications
-              </DropdownMenuItem>
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                No new notifications
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -141,8 +118,8 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuContent align="end" className="w-56 glass border-white/10">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none font-display">researcher</p>
-                  <p className="text-xs leading-none text-muted-foreground">researcher@aerospace.org</p>
+                  <p className="text-sm font-medium leading-none font-display">{user?.username || 'User'}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{user?.email || ''}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />

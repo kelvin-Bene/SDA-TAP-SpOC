@@ -115,11 +115,9 @@ export function useGenerateDataset() {
 
       // Validate dates
       if (isNaN(startDate.getTime())) {
-        console.error('Invalid start date!');
         throw new Error(`Invalid start date: ${config.startDate}`);
       }
       if (isNaN(endDate.getTime())) {
-        console.error('Invalid end date!');
         throw new Error(`Invalid end date: ${config.endDate}`);
       }
 

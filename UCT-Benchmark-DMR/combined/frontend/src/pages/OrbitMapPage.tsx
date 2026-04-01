@@ -244,7 +244,6 @@ export function OrbitMapPage() {
         viewerInstanceRef.current = { viewer, Cesium };
         if (!destroyed) setViewerReady(true);
       } catch (err: any) {
-        console.error('Cesium init error:', err);
         if (!destroyed) setError(err.message || 'Failed to initialize 3D viewer');
       }
     }
@@ -392,7 +391,7 @@ export function OrbitMapPage() {
           })),
         );
       } catch (err) {
-        console.error('Failed to fetch datasets:', err);
+        // fetch error handled silently
       } finally {
         if (!cancelled) setDatasetsLoading(false);
       }
@@ -422,7 +421,7 @@ export function OrbitMapPage() {
           prev.map((d) => (d.id === datasetId ? { ...d, satellites: sats, loaded: true } : d)),
         );
       } catch (err) {
-        console.error('Failed to load dataset satellites:', err);
+        // load error handled silently
       } finally {
         setDatasetDetailLoading(null);
       }
