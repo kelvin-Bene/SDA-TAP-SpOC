@@ -40,9 +40,8 @@ def simulateObs(
 
     import numpy as np
 
-    # B7: Set random seed for reproducible simulation
-    if seed is not None:
-        np.random.seed(seed)
+    # B7: Use per-call RNG for thread safety (np.random.seed is global state)
+    rng = np.random.default_rng(seed)
 
     # Import propagator functions
     from uct_benchmark.simulation.propagator import TLEpropagator, ephemerisPropagator
@@ -85,17 +84,17 @@ def simulateObs(
     for i in range(nSteps):
         tstring = datetimeList[i].astimezone(timezone.utc).isoformat()
         x, y, z = propagatedStates[i][0:3]  # Extract position from propagated state vector
-        x = float(x) + np.random.normal(0, positionNoise)
-        y = float(y) + np.random.normal(0, positionNoise)
-        z = float(z) + np.random.normal(0, positionNoise)
+        x = float(x) + rng.normal(0, positionNoise)
+        y = float(y) + rng.normal(0, positionNoise)
+        z = float(z) + rng.normal(0, positionNoise)
         r = np.linalg.norm([x, y, z])
         # Guard against division by zero when position vector norm is too small
         if r < 1e-10:
             continue
-        ra = (float(np.arctan2(y, x) % (2 * np.pi)) * 180.0 / np.pi) + np.random.normal(
+        ra = (float(np.arctan2(y, x) % (2 * np.pi)) * 180.0 / np.pi) + rng.normal(
             0, angularNoise
         )
-        dec = (float(np.arcsin(np.clip(z / r, -1.0, 1.0))) * 180.0 / np.pi) + np.random.normal(0, angularNoise)
+        dec = (float(np.arcsin(np.clip(z / r, -1.0, 1.0))) * 180.0 / np.pi) + rng.normal(0, angularNoise)
         rangeVal = np.linalg.norm([x, y, z])  # Range in meters
         # Pick a random sensor to simulate observations for (but keep constant for debugging purposes)
         # Sample sensor every group_size observations

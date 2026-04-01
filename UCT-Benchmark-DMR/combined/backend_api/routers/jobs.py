@@ -2,10 +2,11 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from backend_api.jobs import JobStatus, get_job_manager
+from backend_api.middleware.auth import AuthUser, get_current_user
 from backend_api.models import JobResponse, JobStatusEnum
 
 router = APIRouter()
@@ -47,9 +48,13 @@ async def list_jobs(
     job_type: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 20,
+    user: AuthUser = Depends(get_current_user),
 ):
     """
     List background jobs with optional filtering.
+
+    Requires authentication. Currently returns all jobs (admin-visible data);
+    per-user filtering will be added when jobs have a user_id column.
 
     Args:
         job_type: Filter by job type (dataset_generation, evaluation)
@@ -59,7 +64,8 @@ async def list_jobs(
     Returns:
         List of jobs matching the filters
     """
-    limit = max(1, min(limit, 500))
+    logger.info(f"User {user.id} ({user.email}) listing jobs (type={job_type}, status={status})")
+    limit = max(1, min(limit, 100))
 
     from backend_api.jobs import JobType
 

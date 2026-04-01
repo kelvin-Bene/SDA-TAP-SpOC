@@ -22,7 +22,7 @@ jobs:
 
       - name: Run backend tests (non-Orekit)
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: pytest tests/ -v --timeout=60 -k "not orekit and not simulation_full" --ignore=tests/e2e || true
+        run: pytest tests/ backend_api/tests/ -v --timeout=60 --cov=backend_api --cov=uct_benchmark --cov-report=term-missing --cov-fail-under=40 -k "not orekit and not simulation_full"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,12 +44,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm i -g @railway/cli
+        run: npm i -g @railway/cli@3.21.4
       - name: Deploy
         working-directory: ./UCT-Benchmark-DMR/combined
         run: railway up --service backend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+      - name: Verify backend deployment
+        if: ${{ secrets.PROD_BACKEND_URL != '' }}
+        run: |
+          echo "Waiting 30s for deployment to start..."
+          sleep 30
+          for i in $(seq 1 12); do
+            if curl -sf "${{ secrets.PROD_BACKEND_URL }}/health" > /dev/null 2>&1; then
+              echo "Backend health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/12 failed, waiting 15s..."
+            sleep 15
+          done
+          echo "ERROR: Backend health check failed after 3 minutes"
+          exit 1
 
   deploy-frontend:
     name: Deploy Frontend (production)
@@ -81,9 +96,24 @@ jobs:
           cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist/Dockerfile
           cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist/
       - name: Install Railway CLI
-        run: npm i -g @railway/cli
+        run: npm i -g @railway/cli@3.21.4
       - name: Deploy
         working-directory: ./deploy-dist
         run: railway up --service frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+      - name: Verify frontend deployment
+        if: ${{ secrets.PROD_FRONTEND_URL != '' }}
+        run: |
+          echo "Waiting 30s for deployment to start..."
+          sleep 30
+          for i in $(seq 1 12); do
+            if curl -sf "${{ secrets.PROD_FRONTEND_URL }}" > /dev/null 2>&1; then
+              echo "Frontend health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/12 failed, waiting 15s..."
+            sleep 15
+          done
+          echo "ERROR: Frontend health check failed after 3 minutes"
+          exit 1

@@ -90,15 +90,12 @@ export function useDatasets(filters?: DatasetFilters) {
       const response = await api.getDatasets(params);
       const datasets = response.data as DatasetResponse[];
 
-      // Transform and apply client-side filters
+      // Transform and apply client-side filters for fields the API doesn't support
       return datasets
         .map(transformDataset)
         .filter((d) => {
-          // Client-side search filter (supplements server-side search)
-          if (filters?.search) {
-            const term = filters.search.toLowerCase();
-            if (!d.name.toLowerCase().includes(term)) return false;
-          }
+          // Sensor filter is intentionally client-side — the API doesn't support
+          // sensor filtering as a query parameter, so we filter after fetching.
           if (filters?.sensor && filters.sensor !== 'all') {
             if (!d.sensorTypes.includes(filters.sensor)) return false;
           }

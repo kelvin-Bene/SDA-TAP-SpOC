@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles, Upload } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles, Upload, Info } from 'lucide-react';
+import { Tooltip as RankTooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn, formatDate } from '@/lib/utils';
 import {
   LineChart,
@@ -296,7 +297,17 @@ export function LeaderboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead scope="col" className="w-[80px]">Rank</TableHead>
+                    <TableHead scope="col" className="w-[80px]">
+                      <span className="flex items-center">
+                        Rank
+                        <TooltipProvider>
+                          <RankTooltip>
+                            <TooltipTrigger><Info className="h-3 w-3 ml-1 text-muted-foreground" /></TooltipTrigger>
+                            <TooltipContent>Rank is based on F1 score</TooltipContent>
+                          </RankTooltip>
+                        </TooltipProvider>
+                      </span>
+                    </TableHead>
                     <TableHead scope="col">Algorithm</TableHead>
                     <TableHead scope="col">Team</TableHead>
                     <TableHead

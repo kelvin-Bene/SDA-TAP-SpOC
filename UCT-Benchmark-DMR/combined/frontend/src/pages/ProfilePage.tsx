@@ -107,9 +107,9 @@ export function ProfilePage() {
         title: 'Profile Updated',
         description: 'Your profile information has been saved.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update profile:', error);
-      const detail = error?.response?.data?.detail;
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       if (typeof detail === 'object' && detail !== null && !Array.isArray(detail)) {
         // Per-field validation errors from token validation: {udl_token: "...", esa_token: "..."}
         const messages = Object.entries(detail).map(([k, v]) => `${k}: ${v}`).join('\n');
@@ -403,6 +403,9 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="relative">
+                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
+                <div className="opacity-50 pointer-events-none">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -448,6 +451,8 @@ export function ProfilePage() {
               <div className="flex justify-end">
                 <Button>Save Preferences</Button>
               </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -462,6 +467,9 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="relative">
+                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
+                <div className="opacity-50 pointer-events-none">
               {/* Change Password */}
               <form onSubmit={(e) => e.preventDefault()}>
                 <div className="space-y-4">
@@ -515,6 +523,8 @@ export function ProfilePage() {
                     </div>
                     <Badge variant="success">Active</Badge>
                   </div>
+                </div>
+              </div>
                 </div>
               </div>
             </CardContent>

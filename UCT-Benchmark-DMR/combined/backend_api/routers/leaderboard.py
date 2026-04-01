@@ -1,6 +1,6 @@
 """Leaderboard endpoints."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -148,11 +148,12 @@ async def get_leaderboard_history(
     Returns:
         Historical ranking data for trend visualization
     """
-    # S2/B1+S10: Clamp to safe int range — eliminates SQL injection since int
-    # cannot contain SQL metacharacters, and INTERVAL doesn't support parameterization
+    # S2/B1+S10: Clamp to safe int range, then compute cutoff in Python
+    # to avoid any f-string interpolation into SQL
     days = max(1, min(int(days), 365))
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    query = f"""
+    query = """
         SELECT
             DATE(s.completed_at) as date,
             s.algorithm_name,
@@ -160,9 +161,9 @@ async def get_leaderboard_history(
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.status = 'completed'
-          AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '{days} days'
+          AND s.completed_at >= ?
     """
-    params: list = []
+    params: list = [cutoff.isoformat()]
 
     if dataset_id:
         query += " AND s.dataset_id = ?"

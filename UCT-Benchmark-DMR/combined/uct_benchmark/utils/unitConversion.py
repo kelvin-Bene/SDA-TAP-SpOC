@@ -6,23 +6,30 @@ Created on Tue 10 June 2025
 """
 
 import numpy as np
-import orekit_jpype as orekit
 import pandas as pd
 from loguru import logger
-from orekit_jpype.pyhelpers import setup_orekit_curdir
 
-from uct_benchmark.utils.generateCov import generateCov
+# Lazy Orekit initialization -- only runs when this module is actually used,
+# not at import time. Prevents crashes on systems without Java/Orekit.
+_OREKIT_AVAILABLE = False
+try:
+    import orekit_jpype as orekit
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
+    from uct_benchmark.utils.generateCov import generateCov
 
-orekit.initVM()
-setup_orekit_curdir(from_pip_library=True)
-from org.hipparchus.geometry.euclidean.threed import Vector3D
-from org.hipparchus.linear import Array2DRowRealMatrix
-from org.orekit.bodies import CelestialBodyFactory
-from org.orekit.frames import FramesFactory, Predefined
-from org.orekit.orbits import CartesianOrbit, OrbitType, PositionAngleType
-from org.orekit.propagation import StateCovariance
-from org.orekit.time import AbsoluteDate, TimeScalesFactory
-from org.orekit.utils import PVCoordinates
+    orekit.initVM()
+    setup_orekit_curdir(from_pip_library=True)
+    from org.hipparchus.geometry.euclidean.threed import Vector3D
+    from org.hipparchus.linear import Array2DRowRealMatrix
+    from org.orekit.bodies import CelestialBodyFactory
+    from org.orekit.frames import FramesFactory, Predefined
+    from org.orekit.orbits import CartesianOrbit, OrbitType, PositionAngleType
+    from org.orekit.propagation import StateCovariance
+    from org.orekit.time import AbsoluteDate, TimeScalesFactory
+    from org.orekit.utils import PVCoordinates
+    _OREKIT_AVAILABLE = True
+except (ImportError, RuntimeError, Exception) as e:
+    logger.warning(f"Orekit not available in unitConversion: {e}. Frame conversion will not work.")
 
 
 def unitConversion(ref_orbit):

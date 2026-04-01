@@ -33,6 +33,13 @@ class PostgresAdapter(DatabaseAdapter):
     - Supabase connection pooler (Supavisor) with dotted usernames
     - Automatic retry on stale connections
     - Transaction management
+
+    Note: This adapter uses a single connection with automatic reconnection
+    on failure, not a true connection pool. The min_connections and
+    max_connections parameters are accepted for interface compatibility
+    but are not currently used for pooling. For high-concurrency
+    workloads, consider using an external pooler such as PgBouncer or
+    Supavisor.
     """
 
     def __init__(

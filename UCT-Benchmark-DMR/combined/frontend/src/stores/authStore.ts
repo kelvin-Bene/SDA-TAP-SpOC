@@ -22,15 +22,17 @@ interface AuthState {
 }
 
 function mapSupabaseUser(
-  supabaseUser: { id: string; email?: string; user_metadata?: Record<string, unknown>; created_at?: string }
+  supabaseUser: { id: string; email?: string; user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown>; created_at?: string }
 ): User {
   const metadata = supabaseUser.user_metadata ?? {};
+  // Only trust app_metadata for role (server-side only, not user-editable)
+  const appMetadata = supabaseUser.app_metadata ?? {};
   return {
     id: supabaseUser.id,
     username: (metadata.display_name as string) ?? (metadata.full_name as string) ?? supabaseUser.email?.split('@')[0] ?? 'user',
     email: supabaseUser.email ?? '',
     organization: (metadata.organization as string) ?? '',
-    role: (metadata.role as User['role']) ?? 'developer',
+    role: (appMetadata.role as User['role']) ?? 'developer',
     createdAt: supabaseUser.created_at ?? new Date().toISOString(),
     submissionCount: 0,
   };
@@ -48,6 +50,8 @@ function formatAuthError(error: AuthError): string {
       return error.message;
   }
 }
+
+let _authSubscription: { unsubscribe: () => void } | null = null;
 
 export const useAuthStore = create<AuthState>()((set, _get) => ({
   user: null,
@@ -80,8 +84,13 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         set({ isLoading: false, isAuthenticated: false });
       }
 
+      // Prevent duplicate listeners (e.g. during HMR)
+      if (_authSubscription) {
+        _authSubscription.unsubscribe();
+      }
+
       // Listen for auth state changes (sign in, sign out, token refresh)
-      supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
         if (newSession?.user) {
           const user = mapSupabaseUser(newSession.user);
           set({
@@ -101,6 +110,7 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
           });
         }
       });
+      _authSubscription = subscription;
     } catch (err) {
       console.error('Auth initialization failed:', err);
       set({ isLoading: false, isAuthenticated: false });

@@ -791,6 +791,12 @@ export function DatasetGeneratorPage() {
                         </Label>
                       ))}
                     </RadioGroup>
+                    {(legacyConfig.event && legacyConfig.event !== 'NE') && (
+                      <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        Event detection is not yet integrated into the pipeline. Selecting an event type records the intent but does not filter data by events.
+                      </p>
+                    )}
                   </CardContent>
                 </>
               )}
@@ -823,6 +829,12 @@ export function DatasetGeneratorPage() {
                         </Label>
                       ))}
                     </RadioGroup>
+                    {(legacyConfig.sensorType && legacyConfig.sensorType !== 'OP') && (
+                      <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        Only optical (EO) data is currently available from UDL. Non-optical sensor types will still generate optical observations.
+                      </p>
+                    )}
                   </CardContent>
                 </>
               )}
@@ -1383,6 +1395,12 @@ export function DatasetGeneratorPage() {
                       </Label>
                     ))}
                   </RadioGroup>
+                  {(config.sensorTypeCode && config.sensorTypeCode !== 'OP') && (
+                    <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Only optical (EO) data is currently available from UDL. Non-optical sensor types will still generate optical observations.
+                    </p>
+                  )}
                 </div>
 
                 <Separator />
@@ -1427,6 +1445,12 @@ export function DatasetGeneratorPage() {
                       </Label>
                     ))}
                   </RadioGroup>
+                  {(config.eventCode && config.eventCode !== 'NE') && (
+                    <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Event detection is not yet integrated into the pipeline. Selecting an event type records the intent but does not filter data by events.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </>

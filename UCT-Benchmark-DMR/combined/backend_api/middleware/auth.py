@@ -30,8 +30,6 @@ JWT_ALGORITHM = "HS256"
 security = HTTPBearer(auto_error=False)
 security_required = HTTPBearer(auto_error=True)
 
-# Flag: use production ES256 JWKS auth when SUPABASE_URL is available
-_use_production_auth = bool(SUPABASE_URL)
 
 
 class AuthUser:
@@ -66,18 +64,20 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
         HTTPException: If token is invalid or expired
     """
     if not SUPABASE_JWT_SECRET:
-        logger.warning(
-            "SUPABASE_JWT_SECRET not configured — auth enforcement disabled. "
-            "Set this env var in production."
+        # Only allow dev bypass when explicitly opted in
+        if os.getenv("ENVIRONMENT", "").lower() == "development":
+            logger.warning("Auth disabled — ENVIRONMENT=development. Never use in production.")
+            return {
+                "sub": "dev-user",
+                "email": "dev@localhost",
+                "role": "authenticated",
+                "app_metadata": {},
+                "user_metadata": {},
+            }
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication not configured. Set SUPABASE_URL or SUPABASE_JWT_SECRET.",
         )
-        # Return a minimal payload when auth is not configured (development mode)
-        return {
-            "sub": "dev-user",
-            "email": "dev@localhost",
-            "role": "authenticated",
-            "app_metadata": {},
-            "user_metadata": {},
-        }
 
     try:
         payload = jwt.decode(
@@ -140,7 +140,7 @@ async def get_current_user(
     """
     token = credentials.credentials
 
-    if _use_production_auth:
+    if bool(os.getenv("SUPABASE_URL", "")):
         # Delegate to production ES256 JWKS auth (with HS256 fallback built in)
         try:
             from backend_api.auth import _decode_jwt, _build_current_user
@@ -176,7 +176,7 @@ async def get_optional_user(
 
     token = credentials.credentials
 
-    if _use_production_auth:
+    if bool(os.getenv("SUPABASE_URL", "")):
         try:
             from backend_api.auth import _decode_jwt
             payload = _decode_jwt(token)

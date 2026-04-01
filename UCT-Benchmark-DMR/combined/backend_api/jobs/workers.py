@@ -73,11 +73,17 @@ def get_executor() -> ThreadPoolExecutor:
     return _executor
 
 
-def shutdown_executor() -> None:
-    """Shutdown the thread pool executor."""
+def shutdown_executor(wait: bool = True) -> None:
+    """Shutdown the thread pool executor.
+
+    Args:
+        wait: If True, wait for running futures to complete before returning.
+              Defaults to True to avoid losing in-progress jobs.
+    """
     global _executor
     if _executor is not None:
-        _executor.shutdown(wait=False)
+        logger.info(f"Shutting down thread pool executor (wait={wait})")
+        _executor.shutdown(wait=wait, cancel_futures=False)
         _executor = None
 
 
@@ -758,7 +764,7 @@ def run_evaluation_pipeline(
             except Exception as hist_err:
                 logger.debug(f"Histogram generation skipped: {hist_err}")
 
-        # Store results in database
+        # Store results in database (upsert to handle re-evaluation gracefully)
         db.execute(
             """
             INSERT INTO submission_results (
@@ -776,6 +782,19 @@ def run_evaluation_pipeline(
                 velocity_rms_km_s,
                 raw_results
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (submission_id) DO UPDATE SET
+                true_positives = EXCLUDED.true_positives,
+                true_negatives = EXCLUDED.true_negatives,
+                false_positives = EXCLUDED.false_positives,
+                false_negatives = EXCLUDED.false_negatives,
+                precision = EXCLUDED.precision,
+                recall = EXCLUDED.recall,
+                f1_score = EXCLUDED.f1_score,
+                specificity = EXCLUDED.specificity,
+                accuracy = EXCLUDED.accuracy,
+                position_rms_km = EXCLUDED.position_rms_km,
+                velocity_rms_km_s = EXCLUDED.velocity_rms_km_s,
+                raw_results = EXCLUDED.raw_results
             """,
             (
                 submission_id,

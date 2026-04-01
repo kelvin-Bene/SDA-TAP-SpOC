@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Satellite, Database, Calendar, History, Loader2 } from 'lucide-react';
+import { Download, Satellite, Database, Calendar, History, Loader2, AlertCircle } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
 import {
   BarChart,
@@ -120,6 +120,12 @@ export function DatasetPreviewDialog({
           </TabsContent>
 
           <TabsContent value="statistics" className="space-y-4 mt-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50 p-3 mb-4">
+              <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                Statistics shown are illustrative examples, not derived from this dataset.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground mb-2">Observation Density</p>

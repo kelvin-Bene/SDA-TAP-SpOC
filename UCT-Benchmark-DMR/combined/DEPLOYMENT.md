@@ -75,6 +75,32 @@ On push to `master` or `dev`:
 2. **Deploy Backend** — `railway up --service backend --environment <env>`
 3. **Deploy Frontend** — `npm run build` → `railway up --service frontend --environment <env>`
 
+## Database Migrations
+
+Migrations are managed with Alembic and only target PostgreSQL (not DuckDB).
+
+### First-time setup (existing database)
+```bash
+# Mark the existing database as up-to-date with the initial schema
+DATABASE_URL=postgresql://... alembic stamp head
+```
+
+### Running migrations
+```bash
+# Apply pending migrations
+DATABASE_URL=postgresql://... alembic upgrade head
+
+# Check current version
+DATABASE_URL=postgresql://... alembic current
+```
+
+### Creating new migrations
+```bash
+# After modifying schema_postgres.sql, create a migration
+DATABASE_URL=postgresql://... alembic revision -m "description of change"
+# Then edit the generated file to add upgrade/downgrade logic
+```
+
 ## Local Development
 
 ```bash

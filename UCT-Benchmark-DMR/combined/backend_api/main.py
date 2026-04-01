@@ -31,7 +31,7 @@ from .database import close_database, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
 from .middleware.auth import get_current_user
-from .middleware.logging import RequestLoggingMiddleware
+from .middleware.logging import RequestLoggingMiddleware, get_request_id
 from .middleware.rate_limit import limiter
 from .routers import auth as auth_router
 from .routers import datasets, feedback, jobs, leaderboard, results, submissions
@@ -53,7 +53,21 @@ def get_cors_origins() -> list[str]:
     """
     env_origins = os.getenv("CORS_ORIGINS")
     if env_origins:
-        return [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+        if "*" in origins:
+            logger.error(
+                "CORS_ORIGINS contains '*' which is incompatible with "
+                "allow_credentials=True. Falling back to defaults."
+            )
+            return [
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001",
+                "http://127.0.0.1:5173",
+            ]
+        return origins
 
     # Default development origins
     return [
@@ -90,6 +104,22 @@ async def lifespan(app: FastAPI):
 
     # Startup
     logger.info("Starting UCT Benchmark API...")
+
+    # Initialize Sentry error tracking (if configured)
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if sentry_dsn:
+        try:
+            import sentry_sdk
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                traces_sample_rate=0.1,
+                environment="production" if os.getenv("CORS_ORIGINS") else "development",
+            )
+            logger.info("Sentry error tracking initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Sentry: {e}")
+    else:
+        logger.debug("SENTRY_DSN not set — error tracking disabled")
 
     # Initialize database
     db = init_database()
@@ -130,11 +160,16 @@ async def lifespan(app: FastAPI):
     logger.info("Cleanup complete")
 
 
+_is_production = bool(os.getenv("CORS_ORIGINS"))
+
 app = FastAPI(
     title="UCT Benchmark API",
-    version="1.0.0",
+    version="2.0.0",
     description="Backend API for the UCT Benchmark platform",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
 
 # Rate limiting (slowapi) — attach limiter to app state and register error handler
@@ -149,7 +184,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+        # X-XSS-Protection intentionally omitted — it is deprecated and can
+        # introduce vulnerabilities.  CSP (configured in nginx) is the modern
+        # replacement.
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         # HSTS only in production (when CORS_ORIGINS is set to non-localhost)
@@ -185,10 +222,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "msg": err.get("msg"),
             "type": err.get("type"),
         })
-    return JSONResponse(
+    request_id = get_request_id()
+    response = JSONResponse(
         status_code=422,
         content={"detail": sanitized},
     )
+    if request_id:
+        response.headers["X-Request-ID"] = request_id
+    return response
 
 
 # Security headers middleware (S6) — added first so it wraps all responses
@@ -255,7 +296,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint. Returns 503 when database is unreachable."""
     from .database import get_db
 
     try:
@@ -268,10 +309,15 @@ async def health_check():
         logger.warning(f"Health check database error: {e}")
         db_status = "error"
 
-    return {
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "database": db_status,
-    }
+    is_healthy = db_status == "connected"
+    status_code = 200 if is_healthy else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "healthy" if is_healthy else "degraded",
+            "database": db_status,
+        },
+    )
 
 
 def create_test_app() -> FastAPI:

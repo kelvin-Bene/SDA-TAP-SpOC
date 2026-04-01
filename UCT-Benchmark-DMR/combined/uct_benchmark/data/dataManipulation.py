@@ -645,7 +645,7 @@ def compute_arc_coverage(mean_anomalies: np.ndarray) -> float:
 
     # Count arcs that are "covered" (gap < threshold)
     covered_arcs = gaps[gaps < arc_threshold]
-    total_covered = anomalies[-1] - anomalies[0] + sum(covered_arcs)
+    total_covered = sum(covered_arcs)
 
     # Normalize
     coverage = min(1.0, total_covered / (2 * np.pi))

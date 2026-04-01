@@ -132,7 +132,7 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
         size_bytes=estimated_size,
-        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf", "fusion"]],
         job_id=None,  # Could store this in generation_params
         version=int(row_dict.get("version") or 1),
         parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
@@ -300,7 +300,7 @@ async def get_dataset(
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
         size_bytes=estimated_size,
-        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf", "fusion"]],
         satellites=satellites,
         parameters=params,
         time_window_start=row_dict.get("time_window_start"),
@@ -526,17 +526,17 @@ async def create_dataset(
         logger.info(f"Non-ref observations enabled: ratio={dataset_request.non_ref_ratio}")
 
     # Add object type and event codes (per Louis's 16-character code spec)
-    generation_params["object_type_code"] = getattr(request, "object_type_code", "U")
-    generation_params["event_code"] = getattr(request, "event_code", "NE")
+    generation_params["object_type_code"] = dataset_request.object_type_code
+    generation_params["event_code"] = dataset_request.event_code
 
     # Add window selection option (per Louis's bisecting search spec)
-    generation_params["use_window_selection"] = getattr(request, "use_window_selection", False)
+    generation_params["use_window_selection"] = dataset_request.use_window_selection
     if generation_params["use_window_selection"]:
         logger.info("Window selection algorithm enabled")
 
     # Record target percentage and TrackTLE options for full provenance
-    generation_params["target_percentage"] = getattr(request, "target_percentage", "UN")
-    generation_params["output_tracktle"] = getattr(request, "output_tracktle", False)
+    generation_params["target_percentage"] = dataset_request.target_percentage
+    generation_params["output_tracktle"] = dataset_request.output_tracktle
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
@@ -572,15 +572,13 @@ async def create_dataset(
     except Exception as e:
         logger.debug(f"Version tracking lookup failed (non-critical): {e}")
 
-    # Use transaction to ensure atomicity of dataset creation
-    # If any step fails, rollback to prevent partial/corrupted records
+    # Single INSERT — auto-commit handles atomicity (no explicit transaction needed).
+    # Explicit BEGIN/COMMIT is avoided because it conflicts with connection pooling
+    # where each execute() may use a different connection from the pool.
     job = None
     dataset_id = None
 
     try:
-        # Start transaction
-        db.execute("BEGIN TRANSACTION")
-
         # Create dataset record in database using RETURNING to get the ID
         result = db.execute(
             """
@@ -603,12 +601,25 @@ async def create_dataset(
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job for dataset generation — pass tokens as args, NOT in metadata
+    except Exception as e:
+        logger.error(f"Failed to create dataset: {e}")
+
+        # Check for UNIQUE constraint violation (extremely unlikely with UUID, but handle it)
+        error_str = str(e).lower()
+        if "unique" in error_str or "duplicate" in error_str:
+            raise HTTPException(
+                status_code=409, detail="Dataset name conflict occurred. Please try again."
+            )
+
+        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+
+    # Submit background job AFTER commit so the worker can see the dataset row
+    try:
         job = submit_dataset_generation(
             dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token")
         )
 
-        # Update dataset with job_id
+        # Update dataset with job_id (outside transaction, non-critical)
         db.execute(
             """
             UPDATE datasets
@@ -620,37 +631,14 @@ async def create_dataset(
                 dataset_id,
             ),
         )
-
-        # Commit transaction
-        db.execute("COMMIT")
-
     except Exception as e:
-        # Rollback on any failure
-        try:
-            db.execute("ROLLBACK")
-        except Exception as rollback_error:
-            logger.warning(f"Rollback failed: {rollback_error}")
-
-        # Cancel the job if it was created
-        if job is not None:
-            try:
-                from backend_api.jobs import get_job_manager
-
-                job_manager = get_job_manager()
-                job_manager.fail_job(job.id, "Dataset creation failed, job cancelled")
-            except Exception as cancel_error:
-                logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
-
-        logger.error(f"Failed to create dataset: {e}")
-
-        # Check for UNIQUE constraint violation (extremely unlikely with UUID, but handle it)
-        error_str = str(e).lower()
-        if "unique" in error_str or "duplicate" in error_str:
-            raise HTTPException(
-                status_code=409, detail="Dataset name conflict occurred. Please try again."
-            )
-
-        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+        # Dataset row exists but job failed to start -- mark as failed
+        logger.error(f"Failed to submit generation job for dataset {dataset_id}: {e}")
+        db.execute(
+            "UPDATE datasets SET status = 'failed' WHERE id = ?",
+            (dataset_id,),
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to start dataset generation: {str(e)}")
 
     return DatasetSummary(
         id=str(dataset_id),
@@ -790,12 +778,18 @@ async def link_observations(dataset_id: str, user: CurrentUser = Depends(get_cur
     id_int = validate_dataset_id(dataset_id)
 
     # Get dataset info
-    dataset = db.execute(
-        "SELECT id, name, observation_count FROM datasets WHERE id = ?", (id_int,)
-    ).fetchone()
+    result = db.execute(
+        "SELECT id, name, observation_count, user_id FROM datasets WHERE id = ?", (id_int,)
+    )
+    dataset = result.fetchone()
 
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
+
+    dataset_dict = dict(zip([desc[0] for desc in result.description], dataset))
+    if dataset_dict.get("user_id") != user.id and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this dataset")
+
     obs_count = dataset[2] or 0
 
     # Check if already linked
@@ -809,20 +803,31 @@ async def link_observations(dataset_id: str, user: CurrentUser = Depends(get_cur
             "linked": existing_links,
         }
 
-    # Get recent observations that match the dataset's time window
-    # Since we don't have explicit time window, link the most recent observations
-    # up to the observation_count
+    # Get observations that were created during this dataset's generation window.
+    # We filter by created_at between the dataset's created_at and +1 hour to avoid
+    # accidentally linking observations from a completely different dataset.
     if obs_count <= 0:
         return {"message": "Dataset has no observations to link", "linked": 0}
 
-    # Get observation IDs from the observations table (most recent ones)
+    # Fetch dataset's created_at to scope the time window
+    ds_time_result = db.execute(
+        "SELECT created_at FROM datasets WHERE id = ?", (id_int,)
+    )
+    ds_time_row = ds_time_result.fetchone()
+    if ds_time_row is None or ds_time_row[0] is None:
+        return {"message": "Dataset has no created_at timestamp to scope observations", "linked": 0}
+
+    dataset_created_at = ds_time_row[0]
+
+    # Get observation IDs scoped to this dataset's generation time window
     result = db.execute(
         """
         SELECT id FROM observations
-        ORDER BY created_at DESC
+        WHERE created_at >= ? AND created_at <= ? + INTERVAL '1 hour'
+        ORDER BY created_at ASC
         LIMIT ?
         """,
-        (obs_count,),
+        (dataset_created_at, dataset_created_at, obs_count),
     )
     obs_ids = [row[0] for row in result.fetchall()]
 
@@ -865,11 +870,15 @@ async def update_dataset_coverage(
     if not 0 <= coverage <= 1:
         raise HTTPException(status_code=400, detail="Coverage must be between 0 and 1")
 
-    result = db.execute("SELECT id, name FROM datasets WHERE id = ?", (id_int,))
+    result = db.execute("SELECT id, name, user_id FROM datasets WHERE id = ?", (id_int,))
     row = result.fetchone()
 
     if row is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
+
+    row_dict = dict(zip([desc[0] for desc in result.description], row))
+    if row_dict.get("user_id") != user.id and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this dataset")
 
     db.execute(
         "UPDATE datasets SET avg_coverage = ? WHERE id = ?",
@@ -916,7 +925,9 @@ async def delete_dataset(
 
 
 @router.get("/{dataset_id}/download")
+@limiter.limit("10/minute")
 async def download_dataset(
+    request: Request,
     dataset_id: str,
     user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
@@ -945,6 +956,21 @@ async def download_dataset(
 
     if row_dict.get("status") not in ("available", "complete"):
         raise HTTPException(status_code=400, detail="Dataset is not available for download")
+
+    # Check observation count before loading to prevent OOM
+    count_result = db.execute(
+        "SELECT COUNT(*) FROM dataset_observations do_link "
+        "JOIN observations o ON do_link.observation_id = o.id "
+        "WHERE do_link.dataset_id = ?",
+        (id_int,),
+    ).fetchone()
+    obs_count = count_result[0] if count_result else 0
+    MAX_DOWNLOAD_ROWS = 500_000
+    if obs_count > MAX_DOWNLOAD_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Dataset too large for direct download ({obs_count:,} observations, max {MAX_DOWNLOAD_ROWS:,}). Contact admin for bulk export.",
+        )
 
     # Get observations
     obs_result = db.execute(
@@ -1170,6 +1196,29 @@ async def create_dataset_from_legacy_code(
 
     logger.info(f"Creating dataset from legacy code: {legacy_code}")
 
+    # Fetch and validate user's API tokens (same check as create_dataset)
+    tokens = get_user_tokens(db, user.id)
+    if tokens["udl_token"] is None:
+        raw = db.execute(
+            "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
+        ).fetchone()
+        if raw and raw[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="UDL API token required. Set it in Profile Settings.",
+        )
+
+    valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
+
+    if not tokens.get("esa_token"):
+        logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
+
     # Map regime to OrbitalRegime enum
     regime_map = {"LEO": OrbitalRegime.LEO, "MEO": OrbitalRegime.MEO, "GEO": OrbitalRegime.GEO, "HEO": OrbitalRegime.HEO}
     regime = regime_map.get(parsed.orbital_regime, OrbitalRegime.LEO)
@@ -1178,13 +1227,13 @@ async def create_dataset_from_legacy_code(
     tier_map = {"A": DataTier.T1, "S": DataTier.T2, "N": DataTier.T3}
     tier = tier_map.get(parsed.orbit_coverage, DataTier.T2)
 
-    # Use transaction for atomicity
+    # Individual statements use auto-commit — no explicit transaction needed.
+    # Explicit BEGIN/COMMIT is avoided because it conflicts with connection pooling
+    # where each execute() may use a different connection from the pool.
     job = None
     dataset_id = None
 
     try:
-        db.execute("BEGIN TRANSACTION")
-
         # Create dataset with legacy code fields
         result = db.execute(
             """
@@ -1216,23 +1265,18 @@ async def create_dataset_from_legacy_code(
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job
-        job = submit_dataset_generation(dataset_id, generation_params)
+        # Submit background job (pass validated tokens)
+        job = submit_dataset_generation(
+            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token")
+        )
 
-        # Update with job_id
+        # Update with job_id (separate auto-committed statement)
         db.execute(
             "UPDATE datasets SET generation_params = ? WHERE id = ?",
             (json.dumps({**generation_params, "job_id": job.id}), dataset_id),
         )
 
-        db.execute("COMMIT")
-
     except Exception as e:
-        try:
-            db.execute("ROLLBACK")
-        except Exception as rollback_error:
-            logger.warning(f"Rollback failed during legacy dataset creation: {rollback_error}")
-
         if job is not None:
             try:
                 from backend_api.jobs import get_job_manager
@@ -1345,7 +1389,7 @@ async def get_dataset_by_legacy_code(
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
         size_bytes=estimated_size,
-        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf", "fusion"]],
         satellites=satellites,
         parameters=params,
         time_window_start=row_dict.get("time_window_start"),

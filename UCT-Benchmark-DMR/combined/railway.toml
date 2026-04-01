@@ -1,3 +1,8 @@
+# Resource recommendations (set in Railway dashboard):
+#   Backend: 1GB RAM minimum (JVM + Orekit), 2GB recommended
+#   Frontend: 256MB RAM sufficient (nginx static serving)
+#   Set RAILWAY_MEMORY_LIMIT_MB=2048 in Railway env vars if available
+
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"

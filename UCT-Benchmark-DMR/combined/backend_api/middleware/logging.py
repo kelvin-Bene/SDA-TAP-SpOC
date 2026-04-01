@@ -33,7 +33,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # Generate or read request ID
-        req_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
+        req_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:12])
         request_id_var.set(req_id)
 
         # Skip logging for health checks to reduce noise

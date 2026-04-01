@@ -66,7 +66,7 @@ This document maps the dependencies between SDA TAP Lab and SpOC teams, identify
 
 **Purpose**: Enable SpOC to access stored observation and label data
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 
 **Requirements**:
 ```
@@ -82,12 +82,7 @@ Rate Limiting: Required
 Authentication: Required
 ```
 
-**Blocking SpOC Work**:
-- Dataset browser UI
-- Dataset generation from stored data
-- Real data integration tests
-
-**Workaround**: SpOC can develop with mock data until API available
+**Implementation**: Backend API provides dataset, submission, results, and leaderboard endpoints with Supabase JWT authentication and rate limiting via slowapi.
 
 ---
 
@@ -138,9 +133,9 @@ def create_datasets_from_codes(datasetCodeDataframe, udl_token=None, ...):
 
 **Purpose**: Define format for labelled data
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 
-**Required Definition**:
+**Definition**:
 ```json
 {
   "observation_id": "uuid",
@@ -157,9 +152,7 @@ def create_datasets_from_codes(datasetCodeDataframe, udl_token=None, ...):
 }
 ```
 
-**Blocking SpOC Work**:
-- Event-aware dataset filtering
-- Label-based evaluation (future)
+**Implementation**: Event schema defined in database schema with event_types and events tables. Event-observation junction table links observations to labelled events.
 
 ---
 
@@ -393,7 +386,7 @@ Name: Database Query API
 Owner: SDA TAP Lab
 Consumer: SpOC
 Version: 1.0 (proposed)
-Status: NOT STARTED
+Status: COMPLETE
 
 Endpoints:
   /observations:

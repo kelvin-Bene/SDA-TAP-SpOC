@@ -13,6 +13,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from backend_api.auth import CurrentUser, get_current_user
+from backend_api.middleware.audit import audit_log
 from backend_api.middleware.rate_limit import limiter
 from backend_api.database import get_db
 from backend_api.utils.crypto import decrypt_token, encrypt_token
@@ -202,6 +203,35 @@ async def update_me(
         f"UPDATE profiles SET {set_clause} WHERE id = ?",
         tuple(params),
     )
+
+    # Audit log the profile update
+    update_data = updates.model_dump(exclude_unset=True)
+    updated_fields = list(update_data.keys())
+    audit_log(
+        action="profile.update",
+        user_id=user.id,
+        resource_type="profile",
+        resource_id=user.id,
+        details=f"fields={updated_fields}",
+    )
+
+    # Audit log token changes specifically (security-sensitive)
+    if updates.udl_token is not None:
+        audit_log(
+            action="token.update",
+            user_id=user.id,
+            resource_type="udl_token",
+            resource_id=user.id,
+            details="UDL token updated",
+        )
+    if updates.esa_token is not None:
+        audit_log(
+            action="token.update",
+            user_id=user.id,
+            resource_type="esa_token",
+            resource_id=user.id,
+            details="ESA token updated",
+        )
 
     # Return the updated profile
     result = db.execute(

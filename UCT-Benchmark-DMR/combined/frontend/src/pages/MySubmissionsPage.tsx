@@ -6,7 +6,6 @@ import {
   Upload,
   Eye,
   Download,
-  Trash2,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
@@ -224,9 +223,6 @@ export function MySubmissionsPage() {
                             </Button>
                           </Link>
                         )}
-                        <Button variant="ghost" size="icon" className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1,13 +1,17 @@
 """Results retrieval endpoints."""
 
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 from loguru import logger
+
+from backend_api.middleware.rate_limit import limiter
 
 from backend_api.database import get_db
 from backend_api.models import (
@@ -78,8 +82,9 @@ async def list_results(
         query += " AND s.status = ?"
         params.append(status)
     if algorithm_name:
+        safe_name = algorithm_name.replace("%", "\\%").replace("_", "\\_")
         query += " AND s.algorithm_name ILIKE ?"
-        params.append(f"%{algorithm_name}%")
+        params.append(f"%{safe_name}%")
 
     query += " ORDER BY s.completed_at DESC, sr.f1_score DESC"
     query += " LIMIT ? OFFSET ?"
@@ -321,12 +326,35 @@ async def export_results(
     """
     from fastapi.responses import JSONResponse
 
-    # Get full results
+    # Get full results with explicit columns to avoid name collisions
     result = db.execute(
         """
         SELECT
-            s.*,
-            sr.*
+            s.id as submission_id,
+            s.dataset_id,
+            s.algorithm_name,
+            s.version,
+            s.description,
+            s.status,
+            s.created_at as submitted_at,
+            s.completed_at,
+            sr.id as result_id,
+            sr.f1_score,
+            sr.precision,
+            sr.recall,
+            sr.accuracy,
+            sr.specificity,
+            sr.true_positives,
+            sr.false_positives,
+            sr.true_negatives,
+            sr.false_negatives,
+            sr.position_rms_km,
+            sr.velocity_rms_km_s,
+            sr.mahalanobis_distance,
+            sr.ra_residual_rms_arcsec,
+            sr.dec_residual_rms_arcsec,
+            sr.raw_results,
+            sr.processing_time_seconds
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.id = ?
@@ -342,6 +370,7 @@ async def export_results(
     row_dict = dict(zip(columns, row))
 
     # Convert non-JSON-serializable types
+    import math
     from decimal import Decimal
 
     for key, value in row_dict.items():
@@ -349,6 +378,8 @@ async def export_results(
             row_dict[key] = value.isoformat()
         elif isinstance(value, Decimal):
             row_dict[key] = float(value)
+        elif isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            row_dict[key] = None
 
     if format == "json":
         return JSONResponse(
@@ -377,7 +408,9 @@ async def export_results(
 
 
 @router.get("/{submission_id}/report")
+@limiter.limit("5/minute")
 async def generate_report(
+    request: Request,
     submission_id: str,
     format: str = "pdf",
     db: DatabaseManager = Depends(get_db),
@@ -501,6 +534,7 @@ async def generate_report(
                     path=str(output_path),
                     media_type="application/pdf",
                     filename=f"report_{submission_id}.pdf",
+                    background=BackgroundTask(shutil.rmtree, output_dir, ignore_errors=True),
                 )
             else:
                 raise HTTPException(
@@ -527,6 +561,7 @@ async def generate_report(
                     path=str(output_path),
                     media_type="text/html",
                     filename=f"report_{submission_id}.html",
+                    background=BackgroundTask(shutil.rmtree, output_dir, ignore_errors=True),
                 )
             else:
                 raise HTTPException(

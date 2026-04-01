@@ -1,7 +1,7 @@
 # Frontend: Multi-stage build — Node for building, nginx for serving
 
 # Stage 1: Build
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 

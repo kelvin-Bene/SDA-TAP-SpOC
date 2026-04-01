@@ -7,8 +7,12 @@ COPY dist/ /usr/share/nginx/html/
 # Copy nginx config template (uses ${PORT} and ${BACKEND_URL} placeholders)
 COPY nginx.conf.template /etc/nginx/nginx.conf.template
 
-# Remove default nginx config
-RUN rm -f /etc/nginx/conf.d/default.conf
+# Remove default nginx config and prepare for non-root
+RUN rm -f /etc/nginx/conf.d/default.conf && \
+    chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && chown nginx:nginx /var/run/nginx.pid
+
+USER nginx
 
 # Railway provides PORT; BACKEND_URL must be set in Railway service variables
 # e.g. BACKEND_URL=http://backend.railway.internal:8000

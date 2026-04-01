@@ -12,6 +12,7 @@ from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_evaluation
+from backend_api.middleware.auth import AuthUser, get_current_user
 from backend_api.middleware.rate_limit import limiter
 from backend_api.models import (
     SubmissionDetail,
@@ -199,10 +200,11 @@ async def list_submissions(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
-    List all submissions with optional filtering.
+    List submissions for the current user, with optional filtering.
 
     Args:
         dataset_id: Filter by dataset ID
@@ -213,9 +215,14 @@ async def list_submissions(
     Returns:
         List of submission summaries
     """
+    # Clamp pagination
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
     # Build query with optional filters, join for dataset name, score, and rank.
     # RANK() partitions by dataset so each submission is ranked against others
     # on the same dataset, ordered by F1-score descending.
+    # Filter by user_id to prevent IDOR (users only see their own submissions).
     query = """
         SELECT
             s.*,
@@ -225,9 +232,9 @@ async def list_submissions(
         FROM submissions s
         LEFT JOIN datasets d ON s.dataset_id = d.id
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE 1=1
+        WHERE s.user_id = ?
     """
-    params = []
+    params: list = [user.id]
 
     if dataset_id:
         query += " AND s.dataset_id = ?"
@@ -250,6 +257,7 @@ async def list_submissions(
 @router.get("/{submission_id}", response_model=SubmissionDetail)
 async def get_submission(
     submission_id: str,
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -270,9 +278,9 @@ async def get_submission(
         FROM submissions s
         LEFT JOIN datasets d ON s.dataset_id = d.id
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE s.id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR s.user_id IS NULL)
         """,
-        (int(submission_id),),
+        (int(submission_id), user.id),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -281,6 +289,10 @@ async def get_submission(
         raise HTTPException(status_code=404, detail="Submission not found")
 
     row_dict = dict(zip(columns, row))
+
+    # Sanitize file_path to only return the filename, not internal server paths
+    raw_file_path = row_dict.get("file_path")
+    sanitized_file_path = Path(raw_file_path).name if raw_file_path else None
 
     return SubmissionDetail(
         id=str(row_dict["id"]),
@@ -293,7 +305,7 @@ async def get_submission(
         completed_at=row_dict.get("completed_at"),
         score=row_dict.get("f1_score"),
         job_id=row_dict.get("job_id"),
-        file_path=row_dict.get("file_path"),
+        file_path=sanitized_file_path,
         error_message=row_dict.get("error_message"),
     )
 
@@ -308,6 +320,7 @@ async def create_submission(
     description: Optional[str] = Form(default=None),
     classification_marking: Optional[str] = Form(default=None),
     file: UploadFile = File(...),
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -348,11 +361,14 @@ async def create_submission(
 
     # Save uploaded file and validate JSON
     file_id = str(uuid.uuid4())
-    file_extension = Path(file.filename).suffix if file.filename else ".json"
+    file_extension = Path(file.filename).suffix.lower() if file.filename else ".json"
+    if file_extension not in (".json",):
+        file_extension = ".json"
     file_path = UPLOADS_DIR / f"{file_id}{file_extension}"
 
     try:
-        contents = await file.read()
+        # Read only up to MAX+1 bytes to detect oversized uploads without OOM
+        contents = await file.read(MAX_UPLOAD_SIZE + 1)
 
         # Check file size
         if len(contents) > MAX_UPLOAD_SIZE:
@@ -405,8 +421,8 @@ async def create_submission(
             """
             INSERT INTO submissions (
                 dataset_id, algorithm_name, version, description,
-                classification_marking, file_path, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
+                classification_marking, file_path, status, user_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, CURRENT_TIMESTAMP)
             RETURNING id
             """,
             (
@@ -416,6 +432,7 @@ async def create_submission(
                 description,
                 classification_marking,
                 str(file_path),
+                user.id,
             ),
         )
         submission_id = result.fetchone()[0]
@@ -496,11 +513,14 @@ async def upload_results(
 
     # Save uploaded file and validate JSON
     file_id = str(uuid.uuid4())
-    file_extension = Path(file.filename).suffix if file.filename else ".json"
+    file_extension = Path(file.filename).suffix.lower() if file.filename else ".json"
+    if file_extension not in (".json",):
+        file_extension = ".json"
     file_path = UPLOADS_DIR / f"{file_id}{file_extension}"
 
     try:
-        contents = await file.read()
+        # Read only up to MAX+1 bytes to detect oversized uploads without OOM
+        contents = await file.read(MAX_UPLOAD_SIZE + 1)
 
         # Check file size
         if len(contents) > MAX_UPLOAD_SIZE:

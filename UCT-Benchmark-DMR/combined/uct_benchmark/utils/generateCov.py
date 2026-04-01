@@ -9,25 +9,34 @@ import ast
 
 from loguru import logger
 import numpy as np
-
-# Import Orekit
-import orekit_jpype as orekit
 import pandas as pd
-from orekit_jpype import JArray_double
-from orekit_jpype.pyhelpers import JArray_double2D, setup_orekit_curdir
-from org.orekit.bodies import CelestialBodyFactory
-from org.orekit.frames import FramesFactory
-from org.orekit.orbits import EquinoctialOrbit, PositionAngleType
-from org.orekit.time import AbsoluteDate, DateComponents, TimeComponents, TimeScalesFactory
-from org.orekit.utils import PVCoordinates
 
-orekit.initVM()
-setup_orekit_curdir(from_pip_library=True)
-FRAME = FramesFactory.getEME2000()
-earth = CelestialBodyFactory.getEarth()
-MU_EARTH = earth.getGM()
+# Lazy Orekit initialization -- prevents crashes on systems without Java/Orekit.
+_OREKIT_AVAILABLE = False
+FRAME = None
+MU_EARTH = None
 
-from org.hipparchus.geometry.euclidean.threed import Vector3D
+try:
+    import orekit_jpype as orekit
+    from orekit_jpype import JArray_double
+    from orekit_jpype.pyhelpers import JArray_double2D, setup_orekit_curdir
+
+    orekit.initVM()
+    setup_orekit_curdir(from_pip_library=True)
+
+    from org.orekit.bodies import CelestialBodyFactory
+    from org.orekit.frames import FramesFactory
+    from org.orekit.orbits import EquinoctialOrbit, PositionAngleType
+    from org.orekit.time import AbsoluteDate, DateComponents, TimeComponents, TimeScalesFactory
+    from org.orekit.utils import PVCoordinates
+    from org.hipparchus.geometry.euclidean.threed import Vector3D
+
+    FRAME = FramesFactory.getEME2000()
+    earth = CelestialBodyFactory.getEarth()
+    MU_EARTH = earth.getGM()
+    _OREKIT_AVAILABLE = True
+except (ImportError, RuntimeError, Exception) as e:
+    logger.warning(f"Orekit not available in generateCov: {e}. Covariance generation will not work.")
 
 
 def _safe_parse_array(x):

@@ -31,7 +31,7 @@ apiClient.interceptors.request.use(
 // U11: Token refresh mutex — prevents parallel 401 responses from triggering
 // multiple concurrent refresh attempts
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
 
 // Max retry counter to prevent infinite refresh loops
 let refreshFailureCount = 0;
@@ -40,12 +40,17 @@ const MAX_REFRESH_FAILURES = 3;
 const REFRESH_FAILURE_WINDOW_MS = 60000;
 
 function onRefreshed(token: string) {
-  refreshSubscribers.forEach(cb => cb(token));
+  refreshSubscribers.forEach(sub => sub.resolve(token));
   refreshSubscribers = [];
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+function onRefreshFailed(err: unknown) {
+  refreshSubscribers.forEach(sub => sub.reject(err));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(resolve: (token: string) => void, reject: (err: unknown) => void) {
+  refreshSubscribers.push({ resolve, reject });
 }
 
 // Response interceptor for error handling
@@ -70,12 +75,15 @@ apiClient.interceptors.response.use(
 
       if (isRefreshing) {
         // Another request is already refreshing — queue this one
-        return new Promise((resolve) => {
-          addRefreshSubscriber((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            originalRequest._retry = true;
-            resolve(apiClient(originalRequest));
-          });
+        return new Promise((resolve, reject) => {
+          addRefreshSubscriber(
+            (token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              originalRequest._retry = true;
+              resolve(apiClient(originalRequest));
+            },
+            reject,
+          );
         });
       }
 
@@ -87,6 +95,7 @@ apiClient.interceptors.response.use(
         if (refreshError || !data.session) {
           refreshFailureCount++;
           lastRefreshFailureTime = Date.now();
+          onRefreshFailed(error);
           await supabase.auth.signOut();
           window.location.href = '/login';
           return Promise.reject(error);
@@ -101,6 +110,7 @@ apiClient.interceptors.response.use(
       } catch {
         refreshFailureCount++;
         lastRefreshFailureTime = Date.now();
+        onRefreshFailed(error);
         await supabase.auth.signOut();
         window.location.href = '/login';
         return Promise.reject(error);

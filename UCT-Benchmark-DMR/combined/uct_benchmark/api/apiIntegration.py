@@ -908,18 +908,34 @@ def addManeuverFlags(obs_df: pd.DataFrame, token: str, hours_threshold: int = 24
     if "maneuverTime" in maneuvers.columns:
         maneuvers["maneuverTime"] = pd.to_datetime(maneuvers["maneuverTime"])
 
-        # Create threshold timedelta
+        # Vectorized merge_asof approach: O(n log n) instead of O(n*m) per-row apply
         threshold = pd.Timedelta(hours=hours_threshold)
 
-        # Check each observation against maneuvers
-        def is_near_maneuver(row):
-            sat_maneuvers = maneuvers[maneuvers["satNo"] == row["satNo"]]
-            if sat_maneuvers.empty:
-                return False
-            time_diffs = abs(sat_maneuvers["maneuverTime"] - row["obTime"])
-            return (time_diffs <= threshold).any()
+        # Sort both DataFrames by time for merge_asof
+        obs_sorted = obs_df.sort_values("obTime").reset_index()
+        man_sorted = (
+            maneuvers[["satNo", "maneuverTime"]]
+            .drop_duplicates()
+            .sort_values("maneuverTime")
+        )
 
-        obs_df["nearManeuver"] = obs_df.apply(is_near_maneuver, axis=1)
+        # Ensure satNo types match for the merge key
+        obs_sorted["satNo"] = obs_sorted["satNo"].astype(str)
+        man_sorted["satNo"] = man_sorted["satNo"].astype(str)
+
+        # Find nearest maneuver for each observation, matched by satellite
+        merged = pd.merge_asof(
+            obs_sorted,
+            man_sorted.rename(columns={"maneuverTime": "_man_time"}),
+            left_on="obTime",
+            right_on="_man_time",
+            by="satNo",
+            direction="nearest",
+            tolerance=threshold,
+        )
+
+        # Flag rows where a maneuver was found within the tolerance
+        obs_df["nearManeuver"] = merged.set_index("index")["_man_time"].notna().reindex(obs_df.index).fillna(False)
     else:
         obs_df["nearManeuver"] = False
 
@@ -1253,7 +1269,8 @@ def spacetrackQuery(token, params, request="satcat", controller="basicspacedata"
     requestLogin = "/ajaxauth/login"
     requestCmdAction = "/" + controller + "/query"
     requestFind = "/class/" + request
-    requestFind.join(f"/{k.upper()}/{v}" for k, v in params.items())
+    for k, v in params.items():
+        requestFind += f"/{k.upper()}/{v}"
 
     # Spacetrack requires lowercase
     if any(k.lower() == "format" for k in params):
@@ -1358,6 +1375,10 @@ def discoswebQuery(token, params, data="objects", version=2):
     if "data" not in body:
         raise ValueError(f"DiscoWeb response missing 'data' key; keys={list(body.keys())}")
     result = pd.DataFrame(body["data"])
+    # Evict oldest entries if cache is too large
+    if len(_discosweb_cache) >= 100:
+        oldest_key = next(iter(_discosweb_cache))
+        del _discosweb_cache[oldest_key]
     # Cache for future calls
     _discosweb_cache[cache_key] = result
     return result
@@ -1445,7 +1466,7 @@ def datetimeToUDL(time, micro=6):
 
     micro = min(micro, 6)
 
-    return time.strftime("%Y-%m-%dT%H:%M:%S.") + str(time.microsecond)[0:micro] + "Z"
+    return time.strftime("%Y-%m-%dT%H:%M:%S.") + str(time.microsecond).zfill(6)[0:micro] + "Z"
 
 
 def UDLToDatetime(time):
@@ -1462,7 +1483,8 @@ def UDLToDatetime(time):
         TypeError: If input types are incorrect.
     """
 
-    return datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
+    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
+    return dt.replace(tzinfo=datetime.timezone.utc)
 
 
 async def _asyncUDLQuery(token, service, params, count=False, history=False, max_retries=3):

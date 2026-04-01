@@ -34,6 +34,10 @@ COPY pyproject.toml README.md ./
 RUN apt-get update && apt-get remove -y python3-cryptography 2>/dev/null; rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir "."
 
+# Remove build-only dependencies to reduce image size
+RUN apt-get purge -y --auto-remove gcc python3.12-dev software-properties-common && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy application code
 COPY uct_benchmark/ ./uct_benchmark/
 COPY backend_api/ ./backend_api/
@@ -44,12 +48,17 @@ ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     JAVA_TOOL_OPTIONS="-Xmx256m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
 
-# Create uploads directory
-RUN mkdir -p /app/data/uploads
+# Create uploads directory and non-root user
+RUN mkdir -p /app/data/uploads && \
+    groupadd --system appuser && \
+    useradd --system --gid appuser --home /app appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 CMD ["python", "start.py"]

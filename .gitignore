@@ -71,4 +71,6 @@ UCT-Benchmark-DMR/combined/data/database/*
 !UCT-Benchmark-DMR/combined/data/database/uct_benchmark_sample.duckdb
 UCT-Benchmark-DMR/combined/orekit-data-main/
 validation/results/
-*.lock
+# Lock files for specific tools (NOT package lockfiles — those should be committed)
+uv.lock
+poetry.lock

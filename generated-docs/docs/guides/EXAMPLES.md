@@ -345,7 +345,7 @@ submission_data = {
 
 # Submit
 response = requests.post(
-    f"{API_URL}/api/submissions",
+    f"{API_URL}/api/v1/submissions",
     json=submission_data
 )
 
@@ -366,7 +366,7 @@ API_URL = "http://localhost:8000"
 
 # Get leaderboard for specific dataset
 response = requests.get(
-    f"{API_URL}/api/leaderboard",
+    f"{API_URL}/api/v1/leaderboard",
     params={"dataset_id": 1, "metric": "f1_score"}
 )
 

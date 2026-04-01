@@ -332,6 +332,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     status VARCHAR(20) DEFAULT 'queued',  -- queued, validating, processing, completed, failed
     job_id VARCHAR(100),                  -- References jobs(id)
     error_message TEXT,
+    user_id VARCHAR(255),                 -- Supabase user ID (for ownership checks)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP
 );
@@ -340,6 +341,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 SUBMISSIONS_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_submissions_dataset ON submissions(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions(user_id);
 """
 
 SUBMISSION_RESULTS_SEQUENCE = """

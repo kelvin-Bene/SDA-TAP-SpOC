@@ -77,10 +77,10 @@ export const api = {
   getCurrentUser: () => apiClient.get('/users/me'),
   updateProfile: (data) => apiClient.patch('/users/me', data),
 
-  // Auth
-  login: (credentials) => apiClient.post('/auth/login', credentials),
-  logout: () => apiClient.post('/auth/logout'),
-  refreshToken: () => apiClient.post('/auth/refresh'),
+  // Auth (session verification only - login/logout handled client-side via Supabase JS SDK)
+  verifySession: () => apiClient.post('/auth/verify'),
+  getProfile: () => apiClient.get('/auth/me'),
+  updateProfile: (data) => apiClient.patch('/auth/me', data),
 };
 ```
 
@@ -443,10 +443,7 @@ The frontend expects the backend to implement these endpoints:
 - `GET /api/v1/leaderboard` - Get rankings with optional filters
 
 ### Auth
-- `POST /api/v1/auth/login` - Login with email/password
-- `POST /api/v1/auth/logout` - Logout
-- `POST /api/v1/auth/refresh` - Refresh JWT token
-
-### Users
-- `GET /api/v1/users/me` - Get current user profile
-- `PATCH /api/v1/users/me` - Update profile
+Authentication is handled client-side via the Supabase JS SDK. The backend only verifies sessions and manages profiles:
+- `POST /api/v1/auth/verify` - Verify a Supabase session
+- `GET /api/v1/auth/me` - Get current user profile
+- `PATCH /api/v1/auth/me` - Update profile (including UDL/ESA tokens)

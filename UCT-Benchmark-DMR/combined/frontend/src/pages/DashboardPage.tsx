@@ -4,10 +4,12 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentSubmissions } from '@/components/dashboard/RecentSubmissions';
 import { LeaderboardSnapshot } from '@/components/dashboard/LeaderboardSnapshot';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 
 export function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats();
+  const { user } = useAuthStore();
 
   // Format values for display
   const rankDisplay = stats?.topRank ? `#${stats.topRank}` : '--';
@@ -35,7 +37,7 @@ export function DashboardPage() {
             Welcome back
           </div>
           <h1 className="text-4xl font-display font-bold tracking-tight mb-2">
-            Good to see you, <span className="text-gradient-cosmic">researcher</span>
+            Good to see you, <span className="text-gradient-cosmic">{user?.username || 'researcher'}</span>
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
             Track your algorithm performance, explore benchmark datasets, and climb the leaderboard.

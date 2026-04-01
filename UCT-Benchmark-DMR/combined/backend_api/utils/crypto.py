@@ -38,11 +38,17 @@ def _get_fernet():
 
 
 def encrypt_token(plaintext: str) -> str:
-    """Encrypt a token string. Returns plaintext unchanged if no key is configured."""
+    """Encrypt a token string. Refuses to store plaintext in production (postgres backend)."""
     if not plaintext:
         return plaintext
     f = _get_fernet()
     if f is None:
+        # In production (postgres), refuse to store tokens unencrypted
+        if os.getenv("DATABASE_BACKEND", "").lower() in ("postgres", "supabase"):
+            raise RuntimeError(
+                "ENCRYPTION_KEY must be set when using PostgreSQL. "
+                "Refusing to store API tokens in plaintext."
+            )
         return plaintext
     return f.encrypt(plaintext.encode()).decode()
 

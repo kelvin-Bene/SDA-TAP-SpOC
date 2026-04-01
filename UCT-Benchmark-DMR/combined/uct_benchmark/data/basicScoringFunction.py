@@ -5,18 +5,7 @@ Created on Wed Jul 23 2025
 @author: Louis Caves
 """
 
-import os
 from pathlib import Path
-
-# Set working directory to the parent of this script's directory (i.e., 'src/')
-os.chdir(Path(__file__).resolve().parent.parent)
-
-import sys
-
-sys.path.insert(0, str((Path(__file__).resolve().parent.parent)))
-
-# Function to incorporate scoring logic
-
 from typing import Dict, Tuple, Optional
 
 from loguru import logger
@@ -322,6 +311,12 @@ def basicScoring(datasetCode, allObs, satData):
     lowRatio = numLowObs / targetNumObj
     stdRatio = numStdObs / targetNumObj
     highRatio = (numStdObs + numhighObs) / targetNumObj
+
+    # Default initialization to prevent unbound references when
+    # targetObsCount falls through to the else branch.
+    countGood = False
+    T2Obs = False
+    T3Obs = False
 
     if targetObsCount == "A":
         countGood = (lowRatio > highPercentage) and (stdRatio > (1 - lowRatio))

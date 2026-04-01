@@ -4,6 +4,8 @@ import type { UserAction } from '@/types/feedback';
 const MAX_ACTIONS = 20;
 const MAX_CONSOLE_ERRORS = 5;
 
+let _historyPatched = false;
+
 export function useActionLogger() {
   const actionsRef = useRef<UserAction[]>([]);
   const consoleErrorsRef = useRef<string[]>([]);
@@ -71,18 +73,21 @@ export function useActionLogger() {
 
   // SPA navigation tracking via history.pushState/replaceState interception
   useEffect(() => {
-    const originalPushState = history.pushState.bind(history);
-    const originalReplaceState = history.replaceState.bind(history);
+    if (!_historyPatched) {
+      _historyPatched = true;
+      const originalPushState = history.pushState.bind(history);
+      const originalReplaceState = history.replaceState.bind(history);
 
-    history.pushState = function (...args: Parameters<typeof history.pushState>) {
-      originalPushState(...args);
-      addAction('navigate', `pushState -> ${args[2] ?? window.location.href}`);
-    };
+      history.pushState = function (...args: Parameters<typeof history.pushState>) {
+        originalPushState(...args);
+        addAction('navigate', `pushState -> ${args[2] ?? window.location.href}`);
+      };
 
-    history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
-      originalReplaceState(...args);
-      addAction('navigate', `replaceState -> ${args[2] ?? window.location.href}`);
-    };
+      history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
+        originalReplaceState(...args);
+        addAction('navigate', `replaceState -> ${args[2] ?? window.location.href}`);
+      };
+    }
 
     const handlePopState = () => {
       addAction('navigate', `popstate -> ${window.location.href}`);
@@ -91,8 +96,7 @@ export function useActionLogger() {
     window.addEventListener('popstate', handlePopState);
 
     return () => {
-      history.pushState = originalPushState;
-      history.replaceState = originalReplaceState;
+      // Don't restore originals -- singleton patch stays for app lifetime
       window.removeEventListener('popstate', handlePopState);
     };
   }, [addAction]);

@@ -55,6 +55,10 @@ class CurrentUser:
     email: str
     role: str
 
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
+
 
 def _extract_token(request: Request) -> Optional[str]:
     """
@@ -93,15 +97,24 @@ def _decode_jwt(token: str) -> dict:
     Raises:
         HTTPException: If the token is expired, invalid, or missing required claims.
     """
+    # Build issuer URL for verification
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    issuer = f"{supabase_url}/auth/v1" if supabase_url else None
+
     # First try ES256 via JWKS (current Supabase default)
     try:
         client = _get_jwks_client()
         signing_key = client.get_signing_key_from_jwt(token)
+        decode_opts = {
+            "algorithms": ["ES256"],
+            "audience": "authenticated",
+        }
+        if issuer:
+            decode_opts["issuer"] = issuer
         payload = jwt.decode(
             token,
             signing_key.key,
-            algorithms=["ES256"],
-            audience="authenticated",
+            **decode_opts,
         )
         return _validate_claims(payload)
     except jwt.ExpiredSignatureError:
@@ -117,16 +130,23 @@ def _decode_jwt(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
     except (jwt.InvalidTokenError, jwt.PyJWKClientError) as e:
-        # Fall back to HS256 if SUPABASE_JWT_SECRET is set (legacy support)
+        # Only fall back to HS256 if explicitly allowed (legacy support)
         hs256_secret = os.getenv("SUPABASE_JWT_SECRET")
-        if hs256_secret:
+        allow_hs256 = os.getenv("ALLOW_HS256_FALLBACK", "").lower() in ("true", "1", "yes")
+        if hs256_secret and allow_hs256:
             try:
+                hs256_opts = {
+                    "algorithms": ["HS256"],
+                    "audience": "authenticated",
+                }
+                if issuer:
+                    hs256_opts["issuer"] = issuer
                 payload = jwt.decode(
                     token,
                     hs256_secret,
-                    algorithms=["HS256"],
-                    audience="authenticated",
+                    **hs256_opts,
                 )
+                logger.debug("JWT verified via HS256 fallback")
                 return _validate_claims(payload)
             except jwt.InvalidTokenError:
                 pass  # Fall through to error below
@@ -164,15 +184,13 @@ def _build_current_user(payload: dict) -> CurrentUser:
     user_id = payload["sub"]
     email = payload.get("email", "")
 
-    # Check multiple locations for role (Supabase stores it in app_metadata)
+    # Only trust app_metadata for role (server-side only, not user-editable).
+    # Do NOT trust top-level "role" claim or user_metadata -- those can be
+    # modified by the client via supabase.auth.updateUser().
     role = "user"
     app_metadata = payload.get("app_metadata", {})
     if isinstance(app_metadata, dict) and "role" in app_metadata:
         role = app_metadata["role"]
-    elif "role" in payload:
-        role = payload["role"]
-    elif "user_role" in payload:
-        role = payload["user_role"]
 
     return CurrentUser(id=user_id, email=email, role=role)
 

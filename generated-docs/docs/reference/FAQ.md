@@ -8,7 +8,7 @@ Common questions and answers about the UCT Benchmark system.
 
 ### Q: What Python version do I need?
 
-**A:** Python 3.12 or later is recommended. Python 3.9-3.11 may work but are not officially tested.
+**A:** Python 3.12 or later is required (pyproject.toml specifies `requires-python = '>=3.12'`).
 
 ```bash
 python --version  # Check your version
@@ -175,16 +175,16 @@ npm install
 npm run dev
 ```
 
-### Q: Port 5173 is already in use
+### Q: Port 3000 is already in use
 
 **A:** Either stop the other process or use a different port:
 
 ```bash
 # Linux/macOS - find process
-lsof -i :5173
+lsof -i :3000
 
 # Windows - find process
-netstat -ano | findstr :5173
+netstat -ano | findstr :3000
 
 # Or use different port
 npm run dev -- --port 3001
@@ -195,7 +195,7 @@ npm run dev -- --port 3001
 **A:** Ensure:
 
 1. Backend is running on port 8000: `uvicorn backend_api.main:app --port 8000`
-2. No CORS issues (backend allows localhost:5173)
+2. No CORS issues (backend allows localhost:3000)
 3. Check browser console for specific errors
 
 ---

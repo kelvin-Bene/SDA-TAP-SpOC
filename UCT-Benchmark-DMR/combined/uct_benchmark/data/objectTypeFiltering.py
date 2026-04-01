@@ -183,12 +183,16 @@ def estimate_am_ratio_from_tle(
         return None
 
     # Very rough conversion: A/M ~ B* * constant
-    # This is approximate and should be replaced with actual physical data
+    # This is still an approximation; B* encodes drag and ballistic
+    # coefficient but assumes a simplified exponential atmosphere model.
     rho0 = 2.461e-5  # Reference atmospheric density at 120km (kg/m^3)
     Cd = 2.2  # Typical drag coefficient
+    R_EARTH_M = 6378137.0  # Earth radius in meters
 
-    # B* = Cd * A * rho0 / (2 * m) => A/M = 2 * B* / (Cd * rho0)
-    am_estimate = abs(2 * bstar / (Cd * rho0))
+    # B* from TLEs is in units of 1/Earth_radii; convert to SI (1/m)
+    # B* = Cd * A * rho0 / (2 * m * R_E)  =>  A/M = 2 * B*_SI / (Cd * rho0)
+    bstar_si = bstar / R_EARTH_M
+    am_estimate = abs(2 * bstar_si / (Cd * rho0))
 
     return am_estimate
 

@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, RenderOptions } from '@testing-library/react'
+import { render, renderHook as rtlRenderHook, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -39,9 +39,17 @@ function customRender(
   return render(ui, { wrapper: TestProviders, ...options })
 }
 
-// Re-export everything from testing library
+// Custom renderHook that includes providers (QueryClient, Router, Theme)
+function customRenderHook<Result, Props>(
+  hook: (props: Props) => Result,
+  options?: Omit<import('@testing-library/react').RenderHookOptions<Props>, 'wrapper'>,
+) {
+  return rtlRenderHook(hook, { wrapper: TestProviders, ...options })
+}
+
+// Re-export everything from testing library, then override render + renderHook
 export * from '@testing-library/react'
-export { customRender as render }
+export { customRender as render, customRenderHook as renderHook }
 
 // Mock data factories
 export function createMockDataset(overrides: Partial<any> = {}) {

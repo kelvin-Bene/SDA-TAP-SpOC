@@ -37,9 +37,13 @@ export function LoginPage() {
     setSuccessMessage(null);
     await login(email, password);
 
-    // If login succeeded (no error set after await), navigate
-    const currentError = useAuthStore.getState().error;
-    if (!currentError) {
+    // Wait briefly for onAuthStateChange to propagate
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const state = useAuthStore.getState();
+    if (state.error) {
+      return; // Error is already set in the store, LoginPage will show it
+    }
+    if (state.isAuthenticated) {
       navigate(from, { replace: true });
     }
   };
@@ -54,8 +58,8 @@ export function LoginPage() {
       return;
     }
 
-    if (password.length < 6) {
-      useAuthStore.setState({ error: 'Password must be at least 6 characters.' });
+    if (password.length < 8) {
+      useAuthStore.setState({ error: 'Password must be at least 8 characters.' });
       return;
     }
 
