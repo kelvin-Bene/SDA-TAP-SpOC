@@ -51,7 +51,8 @@ async def get_leaderboard(
             sr.f1_score,
             sr.precision,
             sr.recall,
-            sr.position_rms_km
+            sr.position_rms_km,
+            s.classification_marking
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         JOIN datasets d ON s.dataset_id = d.id
@@ -93,7 +94,7 @@ async def get_leaderboard(
             LeaderboardEntry(
                 rank=rank,
                 algorithm_name=row_dict["algorithm_name"],
-                team=None,  # Would need user/team table
+                team=row_dict.get("classification_marking"),
                 version=row_dict.get("version", "1.0"),
                 f1_score=float(row_dict.get("f1_score") or 0),
                 precision=float(row_dict.get("precision") or 0),

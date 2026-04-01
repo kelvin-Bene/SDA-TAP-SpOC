@@ -175,10 +175,14 @@ def _seed_submissions(db, dataset_ids: list[int]) -> list[int]:
     submission_ids: list[int] = []
     now = datetime.now(timezone.utc)
 
+    # Vary processing times for realism (25 min to 3.5 hours)
+    processing_minutes = [47, 128, 35, 195, 82, 210, 55, 150]
+
     for i, sub in enumerate(MOCK_SUBMISSIONS):
         dataset_id = dataset_ids[sub["dataset_idx"]]
         created_at = (now - timedelta(days=30 - i * 3)).isoformat()
-        completed_at = (now - timedelta(days=30 - i * 3, hours=-1)).isoformat()
+        proc_time = processing_minutes[i % len(processing_minutes)]
+        completed_at = (now - timedelta(days=30 - i * 3) + timedelta(minutes=proc_time)).isoformat()
 
         db.execute(
             """
