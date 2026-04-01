@@ -278,9 +278,19 @@ def seed_if_empty(db) -> None:
             db.adapter.convert_placeholders("SELECT COUNT(*) FROM datasets"),
             (),
         )
-        if row and row[0] > 0:
+        # Check if seed completed fully (submissions exist = seed finished)
+        sub_row = db.execute("SELECT COUNT(*) FROM submissions").fetchone()
+        if row and row[0] > 0 and sub_row and sub_row[0] > 0:
             logger.info("Demo data already present, skipping seed")
             return
+        # Partial seed detected — clean up and re-seed
+        if row and row[0] > 0:
+            logger.info("Partial seed detected — cleaning up for re-seed...")
+            for tbl in ["submission_results", "submissions", "dataset_observations", "observations", "datasets"]:
+                try:
+                    db.execute(f"DELETE FROM {tbl}")
+                except Exception:
+                    pass
     except Exception as e:
         logger.warning(f"Could not check datasets table (may not exist yet): {e}")
         return
