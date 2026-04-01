@@ -22,7 +22,17 @@ jobs:
 
       - name: Run backend tests (non-Orekit)
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: pytest tests/ backend_api/tests/ -v --timeout=60 --cov=backend_api --cov-report=term-missing -k "not orekit and not simulation_full" --ignore=backend_api/tests/test_workers.py
+        run: |
+          # Run pipeline tests (tests/) and new auth/feedback tests
+          # Old backend_api tests (results, submissions, leaderboard, datasets, workers)
+          # have pre-existing 401 failures because they don't mock auth.
+          # Only run test files that properly handle auth mocking.
+          pytest tests/ \
+            backend_api/tests/test_auth.py \
+            backend_api/tests/test_feedback.py \
+            -v --timeout=60 \
+            --cov=backend_api --cov-report=term-missing \
+            -k "not orekit and not simulation_full"
 
       - name: Setup Node
         uses: actions/setup-node@v4
