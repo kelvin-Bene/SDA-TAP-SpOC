@@ -1,0 +1,2 @@
+# Only ignore things we don't need - explicitly allow dist/
+# Railway CLI uses this instead of .gitignore when present

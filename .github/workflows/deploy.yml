@@ -74,6 +74,7 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: Prepare deploy directory
         run: |
+          rm -rf deploy-dist
           mkdir -p deploy-dist
           cp -r UCT-Benchmark-DMR/combined/frontend/dist deploy-dist/
           cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template deploy-dist/

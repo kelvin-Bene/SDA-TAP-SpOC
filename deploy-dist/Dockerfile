@@ -1,0 +1,20 @@
+# Serve pre-built frontend with nginx reverse proxy to backend
+FROM nginx:alpine
+
+# Copy pre-built static files (build locally first with: npm run build)
+COPY dist/ /usr/share/nginx/html/
+
+# Copy nginx config template (uses ${PORT} and ${BACKEND_URL} placeholders)
+COPY nginx.conf.template /etc/nginx/nginx.conf.template
+
+# Remove default nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+# Railway provides PORT; BACKEND_URL must be set in Railway service variables
+# e.g. BACKEND_URL=http://backend.railway.internal:8000
+ENV PORT=3000
+ENV BACKEND_URL=http://backend:8000
+
+# Substitute ONLY our env vars (preserves nginx's $host, $uri, etc.)
+# then start nginx
+CMD ["sh", "-c", "envsubst '${PORT} ${BACKEND_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
