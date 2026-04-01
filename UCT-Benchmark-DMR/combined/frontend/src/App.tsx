@@ -50,35 +50,24 @@ function App() {
             <Routes>
               <Route path="/login" element={<LazyRoute><LoginPage /></LazyRoute>} />
 
-              {/* Public routes — no auth required */}
+              {/* Single layout route — auth enforced per-route */}
               <Route path="/" element={<MainLayout />}>
+                {/* Public routes — no auth required */}
                 <Route path="leaderboard" element={<LazyRoute><LeaderboardPage /></LazyRoute>} />
                 <Route path="datasets" element={<LazyRoute><DatasetBrowserPage /></LazyRoute>} />
                 <Route path="datasets/:id" element={<LazyRoute><DatasetDetailPage /></LazyRoute>} />
                 <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
-              </Route>
 
-              {/* Authenticated routes — require login */}
-              <Route
-                path="/"
-                element={
-                  <AuthGuard>
-                    <MainLayout />
-                  </AuthGuard>
-                }
-              >
-                <Route index element={<LazyRoute><DashboardPage /></LazyRoute>} />
-                <Route path="datasets/generate" element={<LazyRoute><DatasetGeneratorPage /></LazyRoute>} />
-                <Route path="datasets/my-datasets" element={<LazyRoute><MyDatasetsPage /></LazyRoute>} />
-                <Route path="submit">
-                  <Route index element={<LazyRoute><SubmitPage /></LazyRoute>} />
-                  <Route path="my-submissions" element={<LazyRoute><MySubmissionsPage /></LazyRoute>} />
-                </Route>
-                <Route path="results/:submissionId" element={<LazyRoute><ResultsPage /></LazyRoute>} />
-                <Route path="profile" element={<LazyRoute><ProfilePage /></LazyRoute>} />
-              </Route>
+                {/* Authenticated routes — each individually guarded */}
+                <Route index element={<AuthGuard><LazyRoute><DashboardPage /></LazyRoute></AuthGuard>} />
+                <Route path="datasets/generate" element={<AuthGuard><LazyRoute><DatasetGeneratorPage /></LazyRoute></AuthGuard>} />
+                <Route path="datasets/my-datasets" element={<AuthGuard><LazyRoute><MyDatasetsPage /></LazyRoute></AuthGuard>} />
+                <Route path="submit" element={<AuthGuard><LazyRoute><SubmitPage /></LazyRoute></AuthGuard>} />
+                <Route path="submit/my-submissions" element={<AuthGuard><LazyRoute><MySubmissionsPage /></LazyRoute></AuthGuard>} />
+                <Route path="results/:submissionId" element={<AuthGuard><LazyRoute><ResultsPage /></LazyRoute></AuthGuard>} />
+                <Route path="profile" element={<AuthGuard><LazyRoute><ProfilePage /></LazyRoute></AuthGuard>} />
 
-              <Route path="*" element={<MainLayout />}>
+                {/* Catch-all */}
                 <Route path="*" element={<LazyRoute><NotFoundPage /></LazyRoute>} />
               </Route>
             </Routes>
