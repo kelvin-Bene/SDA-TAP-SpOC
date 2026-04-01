@@ -10,8 +10,19 @@ RUN npm ci
 
 COPY . .
 
-# API requests go through nginx proxy at /api/v1
-ENV VITE_API_BASE_URL=/api/v1
+# Vite embeds VITE_* env vars at build time, so we pass them as build args
+# Railway automatically converts env vars to build args for Docker builds
+ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_CESIUM_ION_TOKEN
+ARG VITE_FEEDBACK_ENABLED
+
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_CESIUM_ION_TOKEN=$VITE_CESIUM_ION_TOKEN
+ENV VITE_FEEDBACK_ENABLED=$VITE_FEEDBACK_ENABLED
 
 RUN npm run build
 
