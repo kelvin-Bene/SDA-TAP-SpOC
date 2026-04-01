@@ -51,12 +51,14 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
       - name: Verify backend deployment
-        if: ${{ secrets.PROD_BACKEND_URL != '' }}
+        env:
+          BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+        if: env.BACKEND_URL != ''
         run: |
           echo "Waiting 30s for deployment to start..."
           sleep 30
           for i in $(seq 1 12); do
-            if curl -sf "${{ secrets.PROD_BACKEND_URL }}/health" > /dev/null 2>&1; then
+            if curl -sf "${BACKEND_URL}/health" > /dev/null 2>&1; then
               echo "Backend health check passed on attempt $i"
               exit 0
             fi
@@ -103,12 +105,14 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
       - name: Verify frontend deployment
-        if: ${{ secrets.PROD_FRONTEND_URL != '' }}
+        env:
+          FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
+        if: env.FRONTEND_URL != ''
         run: |
           echo "Waiting 30s for deployment to start..."
           sleep 30
           for i in $(seq 1 12); do
-            if curl -sf "${{ secrets.PROD_FRONTEND_URL }}" > /dev/null 2>&1; then
+            if curl -sf "${FRONTEND_URL}" > /dev/null 2>&1; then
               echo "Frontend health check passed on attempt $i"
               exit 0
             fi
