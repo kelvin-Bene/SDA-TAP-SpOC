@@ -9,9 +9,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from loguru import logger
+from pydantic import BaseModel
 
 from backend_api.database import get_db
-from backend_api.jobs.workers import submit_evaluation
+from backend_api.jobs.workers import submit_demo_evaluation, submit_evaluation
+from backend_api.middleware.auth import AuthUser, get_current_user
 from backend_api.middleware.rate_limit import limiter
 from backend_api.models import (
     SubmissionDetail,
@@ -534,4 +536,87 @@ async def upload_results(
         "status": "uploaded",
         "message": "Results file received, processing started",
         "job_id": job.id,
+    }
+
+
+# =============================================================================
+# Demo Evaluation Endpoint (Symposium Demo)
+# =============================================================================
+
+
+class DemoEvaluateRequest(BaseModel):
+    dataset_id: int
+    algorithm_name: str = "My Algorithm"
+    version: str = "1.0"
+
+
+@router.post("/demo-evaluate")
+async def demo_evaluate(
+    request: DemoEvaluateRequest,
+    user: AuthUser = Depends(get_current_user),
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Run a demo UCTP evaluation against a dataset.
+
+    Generates realistic evaluation results without requiring a file upload.
+    Intended for symposium demonstrations.
+
+    Args:
+        request: Dataset ID, algorithm name, and version
+        user: Authenticated user (from JWT)
+
+    Returns:
+        job_id and submission_id for tracking progress
+    """
+    # Verify dataset exists and is available
+    dataset = db.execute(
+        "SELECT id, status FROM datasets WHERE id = ?", (request.dataset_id,)
+    ).fetchone()
+
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    if dataset[1] != "available":
+        raise HTTPException(
+            status_code=400, detail="Dataset is not available for evaluation"
+        )
+
+    # Get user display name from JWT metadata
+    user_display_name = user.user_metadata.get("display_name", "Anonymous")
+
+    # Create submission record
+    result = db.execute(
+        """
+        INSERT INTO submissions (
+            dataset_id, algorithm_name, version, description,
+            status, created_at
+        ) VALUES (?, ?, ?, ?, 'processing', CURRENT_TIMESTAMP)
+        RETURNING id
+        """,
+        (
+            request.dataset_id,
+            request.algorithm_name,
+            request.version,
+            f"Demo evaluation by {user_display_name}",
+        ),
+    )
+    submission_id = result.fetchone()[0]
+
+    # Submit demo evaluation job
+    job = submit_demo_evaluation(
+        submission_id=submission_id,
+        dataset_id=request.dataset_id,
+        user_display_name=user_display_name,
+    )
+
+    # Update submission with job_id
+    db.execute(
+        "UPDATE submissions SET job_id = ? WHERE id = ?",
+        (job.id, submission_id),
+    )
+
+    return {
+        "job_id": job.id,
+        "submission_id": submission_id,
     }

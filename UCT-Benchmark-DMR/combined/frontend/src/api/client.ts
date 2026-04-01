@@ -136,6 +136,10 @@ export const api = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
+  // Demo evaluation
+  demoEvaluate: (data: { dataset_id: number; algorithm_name: string; version: string }) =>
+    apiClient.post('/submissions/demo-evaluate', data),
+
   // Results
   getResults: (submissionId: string) =>
     apiClient.get(`/results/${submissionId}`),

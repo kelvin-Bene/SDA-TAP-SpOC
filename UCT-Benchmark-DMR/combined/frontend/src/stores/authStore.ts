@@ -28,6 +28,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   loginWithOAuth: (provider: Provider) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
+  joinAsGuest: (callsign: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   clearError: () => void;
@@ -183,6 +184,33 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
       set({ isLoading: false, error: null });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      set({ isLoading: false, error: message });
+    }
+  },
+
+  joinAsGuest: async (callsign: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      if (isDemoMode) {
+        // Fallback when Supabase not configured
+        set({
+          user: { ...DEMO_USER, id: `guest-${Date.now()}`, username: callsign },
+          isAuthenticated: true,
+          isAdmin: false,
+          isLoading: false,
+        });
+        return;
+      }
+      const { data: _data, error } = await supabase!.auth.signInAnonymously({
+        options: { data: { display_name: callsign } },
+      });
+      if (error) {
+        set({ isLoading: false, error: error.message });
+        return;
+      }
+      // onAuthStateChange listener will handle setting user state
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to join';
       set({ isLoading: false, error: message });
     }
   },

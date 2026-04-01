@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Download, Database, Satellite, Calendar } from 'lucide-react';
+import { Eye, Download, Database, Satellite, Calendar, Zap } from 'lucide-react';
 import { formatFileSize, formatDate, cn } from '@/lib/utils';
 import type { Dataset, OrbitalRegime, DataTier } from '@/types';
 
@@ -8,6 +8,7 @@ interface DatasetCardProps {
   dataset: Dataset;
   onPreview?: (dataset: Dataset) => void;
   onDownload?: (dataset: Dataset) => void;
+  onRunUCTP?: (dataset: Dataset) => void;
 }
 
 const regimeStyles: Record<OrbitalRegime, { color: string; bgColor: string; borderColor: string; glowColor: string }> = {
@@ -94,7 +95,7 @@ const tierStyles: Record<DataTier, { color: string; bgColor: string; borderColor
   },
 };
 
-export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps) {
+export function DatasetCard({ dataset, onPreview, onDownload, onRunUCTP }: DatasetCardProps) {
   const regime = regimeStyles[dataset.regime];
   const tier = tierStyles[dataset.tier];
 
@@ -236,6 +237,19 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
           <Download className="h-4 w-4" />
           Download
         </Button>
+        {onRunUCTP && (
+          <Button
+            size="sm"
+            className={cn(
+              'flex-1 gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 transition-opacity text-white'
+            )}
+            onClick={() => onRunUCTP(dataset)}
+            aria-label="Run UCTP evaluation"
+          >
+            <Zap className="h-4 w-4" />
+            Run UCTP
+          </Button>
+        )}
       </div>
     </div>
   );

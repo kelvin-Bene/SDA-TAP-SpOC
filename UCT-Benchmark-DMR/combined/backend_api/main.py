@@ -104,6 +104,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"PostgreSQL connection test FAILED: {e}")
 
+    # Seed demo data if the database is empty
+    try:
+        from backend_api.seed_demo_data import seed_if_empty
+        seed_if_empty(db)
+    except Exception as e:
+        logger.error(f"Demo data seeding failed (non-fatal): {e}")
+
     # Verify critical modules are importable
     try:
         import uct_benchmark.data.dataManipulation  # noqa: F401

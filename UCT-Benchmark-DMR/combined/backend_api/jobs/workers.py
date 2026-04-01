@@ -750,6 +750,298 @@ def submit_dataset_generation(
     return job
 
 
+def run_demo_evaluation(
+    job_id: str,
+    submission_id: int,
+    dataset_id: int,
+    user_display_name: str,
+) -> None:
+    """
+    Worker function for running a demo evaluation (no file upload required).
+
+    Simulates the evaluation pipeline with realistic delays and generates
+    randomized-but-plausible metrics for symposium demonstrations.
+
+    Args:
+        job_id: The job ID to update progress
+        submission_id: The database ID for the submission
+        dataset_id: The dataset ID to evaluate against
+        user_display_name: Display name of the user running the demo
+    """
+    import random
+    import time
+
+    job_manager = get_job_manager()
+    job_manager.start_job(job_id)
+
+    try:
+        from backend_api.database import get_db
+
+        db = get_db()
+
+        # Update submission status to processing
+        db.execute(
+            "UPDATE submissions SET status = 'processing' WHERE id = ?",
+            (submission_id,),
+        )
+
+        # ---- Fetch dataset info ----
+        dataset_row = db.execute(
+            "SELECT satellite_count, observation_count, actual_satellite_ids FROM datasets WHERE id = ?",
+            (dataset_id,),
+        ).fetchone()
+
+        if not dataset_row:
+            raise ValueError(f"Dataset {dataset_id} not found")
+
+        satellite_count = dataset_row[0] or 5
+        observation_count = dataset_row[1] or 100
+        actual_satellite_ids_raw = dataset_row[2]
+
+        # Parse actual_satellite_ids (stored as JSON)
+        actual_satellite_ids = []
+        if actual_satellite_ids_raw:
+            try:
+                parsed = json.loads(actual_satellite_ids_raw) if isinstance(actual_satellite_ids_raw, str) else actual_satellite_ids_raw
+                if isinstance(parsed, list):
+                    actual_satellite_ids = parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Fall back to synthetic IDs if none found
+        if not actual_satellite_ids:
+            actual_satellite_ids = list(range(25544, 25544 + satellite_count))
+
+        # ---- Simulated progress stages ----
+        job_manager.update_job(job_id, progress=20, stage="Ingesting observations...")
+        time.sleep(1.5)
+
+        job_manager.update_job(job_id, progress=40, stage="Clustering tracks...")
+        time.sleep(2.0)
+
+        job_manager.update_job(job_id, progress=60, stage="Initial orbit determination...")
+        time.sleep(2.0)
+
+        job_manager.update_job(job_id, progress=80, stage="Refining orbits...")
+        time.sleep(1.5)
+
+        job_manager.update_job(job_id, progress=90, stage="Scoring results...")
+        time.sleep(1.0)
+
+        # ---- Generate randomized metrics ----
+        precision = random.uniform(0.75, 0.98)
+        recall = random.uniform(0.72, 0.96)
+        f1_score = 2 * precision * recall / (precision + recall)
+
+        total_objects = satellite_count
+        true_positives = round(total_objects * recall)
+        false_negatives = total_objects - true_positives
+        false_positives = max(1, round(true_positives / precision) - true_positives)
+        true_negatives = max(0, round(total_objects * 0.15))
+
+        position_rms_km = random.uniform(0.5, 5.0)
+        velocity_rms_km_s = random.uniform(0.001, 0.05)
+        mahalanobis_distance = random.uniform(0.5, 3.0)
+        ra_residual_rms_arcsec = random.uniform(0.5, 5.0)
+        dec_residual_rms_arcsec = random.uniform(0.5, 5.0)
+
+        # Derived metrics
+        total_all = true_positives + true_negatives + false_positives + false_negatives
+        accuracy = (true_positives + true_negatives) / max(total_all, 1)
+        specificity = true_negatives / max(true_negatives + false_positives, 1)
+
+        # ---- Per-satellite breakdown ----
+        per_satellite = []
+        tp_count = 0
+        for i, sat_id in enumerate(actual_satellite_ids):
+            # Match aggregate counts: first true_positives get TP, rest get FN
+            if tp_count < true_positives:
+                status = "TP"
+                tp_count += 1
+            else:
+                status = "FN"
+
+            per_satellite.append({
+                "satellite_id": str(sat_id),
+                "status": status,
+                "observations_used": random.randint(15, 35),
+                "total_observations": random.randint(30, 60),
+                "position_error_km": round(random.uniform(0.1, 8.0), 3),
+                "velocity_error_km_s": round(random.uniform(0.0005, 0.06), 5),
+                "confidence": round(random.uniform(0.6, 0.99), 3),
+            })
+
+        # ---- Histogram data ----
+        # RA residual histogram (roughly normal distribution)
+        ra_labels = ["-5", "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5"]
+        ra_counts = [
+            random.randint(1, 3),
+            random.randint(3, 7),
+            random.randint(8, 15),
+            random.randint(15, 25),
+            random.randint(20, 35),
+            random.randint(25, 40),
+            random.randint(20, 35),
+            random.randint(15, 25),
+            random.randint(8, 15),
+            random.randint(3, 7),
+            random.randint(1, 3),
+        ]
+
+        # Dec residual histogram (roughly normal distribution)
+        dec_labels = ["-5", "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5"]
+        dec_counts = [
+            random.randint(1, 3),
+            random.randint(3, 7),
+            random.randint(8, 15),
+            random.randint(15, 25),
+            random.randint(20, 35),
+            random.randint(25, 40),
+            random.randint(20, 35),
+            random.randint(15, 25),
+            random.randint(8, 15),
+            random.randint(3, 7),
+            random.randint(1, 3),
+        ]
+
+        # Position error histogram (right-skewed)
+        pe_labels = ["0-1", "1-2", "2-3", "3-5", "5-10"]
+        pe_counts = [
+            random.randint(20, 40),
+            random.randint(15, 30),
+            random.randint(8, 18),
+            random.randint(3, 10),
+            random.randint(1, 5),
+        ]
+
+        raw_results = {
+            "per_satellite": per_satellite,
+            "ra_residual_histogram": {"labels": ra_labels, "counts": ra_counts},
+            "dec_residual_histogram": {"labels": dec_labels, "counts": dec_counts},
+            "position_error_histogram": {"labels": pe_labels, "counts": pe_counts},
+        }
+
+        # Simulated processing time (sum of sleep durations + small overhead)
+        processing_time_seconds = 8.0 + random.uniform(0.1, 0.5)
+
+        # ---- Insert into submission_results ----
+        db.execute(
+            """
+            INSERT INTO submission_results (
+                submission_id,
+                true_positives,
+                true_negatives,
+                false_positives,
+                false_negatives,
+                precision,
+                recall,
+                f1_score,
+                specificity,
+                accuracy,
+                position_rms_km,
+                velocity_rms_km_s,
+                mahalanobis_distance,
+                ra_residual_rms_arcsec,
+                dec_residual_rms_arcsec,
+                raw_results,
+                processing_time_seconds
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                submission_id,
+                true_positives,
+                true_negatives,
+                false_positives,
+                false_negatives,
+                precision,
+                recall,
+                f1_score,
+                specificity,
+                accuracy,
+                position_rms_km,
+                velocity_rms_km_s,
+                mahalanobis_distance,
+                ra_residual_rms_arcsec,
+                dec_residual_rms_arcsec,
+                json.dumps(raw_results),
+                processing_time_seconds,
+            ),
+        )
+
+        # ---- Update submission status to completed ----
+        db.execute(
+            """
+            UPDATE submissions
+            SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (submission_id,),
+        )
+
+        # ---- Mark job complete ----
+        job_manager.complete_job(job_id, {"submission_id": submission_id})
+        logger.info(
+            f"Demo evaluation completed for job {job_id} "
+            f"(submission {submission_id}, user {user_display_name})"
+        )
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Demo evaluation failed for job {job_id}: {error_msg}")
+        logger.debug(traceback.format_exc())
+
+        # Update submission status to failed
+        try:
+            from backend_api.database import get_db
+
+            db = get_db()
+            db.execute(
+                "UPDATE submissions SET status = 'failed', error_message = ? WHERE id = ?",
+                (error_msg, submission_id),
+            )
+        except Exception as db_error:
+            logger.error(
+                f"CRITICAL: Failed to mark submission {submission_id} as failed: {db_error}. "
+                "Submission may be stuck in 'processing' state."
+            )
+            error_msg = f"{error_msg} [DB update also failed: {db_error}]"
+
+        job_manager.fail_job(job_id, error_msg)
+
+
+def submit_demo_evaluation(
+    submission_id: int,
+    dataset_id: int,
+    user_display_name: str,
+) -> Job:
+    """
+    Submit a demo evaluation job to run in the background.
+
+    Args:
+        submission_id: The database ID for the submission
+        dataset_id: The dataset ID to evaluate against
+        user_display_name: Display name of the user running the demo
+
+    Returns:
+        The created Job instance
+    """
+    job_manager = get_job_manager()
+    job = job_manager.create_job(
+        JobType.EVALUATION,
+        metadata={
+            "submission_id": submission_id,
+            "dataset_id": dataset_id,
+            "demo": True,
+            "user_display_name": user_display_name,
+        },
+    )
+
+    executor = get_executor()
+    executor.submit(run_demo_evaluation, job.id, submission_id, dataset_id, user_display_name)
+
+    return job
+
+
 def submit_evaluation(
     submission_id: int,
     dataset_id: int,

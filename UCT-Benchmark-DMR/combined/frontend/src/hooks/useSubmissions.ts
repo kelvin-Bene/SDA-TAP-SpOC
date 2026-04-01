@@ -214,6 +214,21 @@ export function useSubmissionStatus(submissionId: string | null) {
   });
 }
 
+// Hook for demo evaluation (symposium demo mode)
+export function useDemoEvaluate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { dataset_id: number; algorithm_name: string; version: string }) => {
+      const response = await api.demoEvaluate(data);
+      return response.data as { job_id: string; submission_id: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+    },
+  });
+}
+
 // Hook for detailed metrics
 interface DetailedMetrics {
   submission_id: string;
