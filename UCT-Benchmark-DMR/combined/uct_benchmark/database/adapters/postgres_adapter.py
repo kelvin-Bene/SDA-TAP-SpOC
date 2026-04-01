@@ -115,10 +115,13 @@ class PostgresAdapter(DatabaseAdapter):
             kwargs["ssl_context"] = self._ssl_context
         conn = pg8000.connect(**kwargs)
         # Set timeout on this connection's socket only (not globally)
-        if hasattr(conn, '_sock') and conn._sock:
-            conn._sock.settimeout(60)
-        elif hasattr(conn, '_usock') and conn._usock:
-            conn._usock.settimeout(60)
+        try:
+            if hasattr(conn, '_sock') and hasattr(conn._sock, 'settimeout'):
+                conn._sock.settimeout(60)
+            elif hasattr(conn, '_usock') and hasattr(conn._usock, 'settimeout'):
+                conn._usock.settimeout(60)
+        except (AttributeError, OSError):
+            pass  # Pooled connections may not support settimeout
         return conn
 
     def connect(self) -> None:
