@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -1032,6 +1033,19 @@ async def download_dataset(
         },
         "observations": observations,
     }
+
+    # Convert Decimal values (returned by PostgreSQL for numeric columns) to float
+    # so the default JSON serializer can handle them.
+    def _convert_decimals(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {k: _convert_decimals(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [_convert_decimals(i) for i in obj]
+        elif isinstance(obj, Decimal):
+            return float(obj)
+        return obj
+
+    export_data = _convert_decimals(export_data)
 
     return JSONResponse(
         content=export_data,
