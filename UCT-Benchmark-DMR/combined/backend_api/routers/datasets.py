@@ -1034,18 +1034,22 @@ async def download_dataset(
         "observations": observations,
     }
 
-    # Convert Decimal values (returned by PostgreSQL for numeric columns) to float
-    # so the default JSON serializer can handle them.
-    def _convert_decimals(obj: Any) -> Any:
+    # Convert non-serializable types (Decimal, datetime) returned by PostgreSQL
+    from datetime import datetime as _dt, date as _date
+    def _make_serializable(obj: Any) -> Any:
         if isinstance(obj, dict):
-            return {k: _convert_decimals(v) for k, v in obj.items()}
+            return {k: _make_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
-            return [_convert_decimals(i) for i in obj]
+            return [_make_serializable(i) for i in obj]
         elif isinstance(obj, Decimal):
             return float(obj)
+        elif isinstance(obj, _dt):
+            return obj.isoformat()
+        elif isinstance(obj, _date):
+            return obj.isoformat()
         return obj
 
-    export_data = _convert_decimals(export_data)
+    export_data = _make_serializable(export_data)
 
     return JSONResponse(
         content=export_data,
