@@ -30,7 +30,7 @@ function transformLeaderboardEntry(data: LeaderboardEntryResponse): LeaderboardE
   return {
     rank: data.rank,
     algorithmName: data.algorithm_name,
-    team: data.team || 'Unknown',
+    team: data.team || 'Independent',
     version: data.version,
     f1Score: data.f1_score,
     precision: data.precision,
