@@ -47,8 +47,10 @@ dev = [
     "pytest-cov",
     "pytest-asyncio",
     "pytest-timeout",
+    "pytest-mock",
     "ruff>=0.14.0",
     "httpx",
+    "duckdb>=1.0.0",
     "testcontainers[postgres]>=4.0.0",
 ]
 docs = [
