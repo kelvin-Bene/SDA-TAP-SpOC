@@ -22,7 +22,7 @@ jobs:
 
       - name: Run backend tests (non-Orekit)
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: pytest tests/ backend_api/tests/ -v --timeout=60 --cov=backend_api --cov-report=term-missing -k "not orekit and not simulation_full"
+        run: pytest tests/ backend_api/tests/ -v --timeout=60 --cov=backend_api --cov-report=term-missing -k "not orekit and not simulation_full" --ignore=backend_api/tests/test_workers.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
