@@ -737,7 +737,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
         VALUES (%s, %s, CURRENT_TIMESTAMP)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
         """,
-        (SCHEMA_VERSION,),
+        ('version', SCHEMA_VERSION),
     )
 
 
