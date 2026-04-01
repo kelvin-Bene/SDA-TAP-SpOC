@@ -25,6 +25,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+_SENSITIVE_FIELDS = {"password", "token", "secret", "api_key", "screenshot_base64"}
+
 from .database import close_database, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
@@ -163,7 +165,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Log details server-side but return sanitized error to client (S7)."""
     body = await request.body()
     logger.error(f"Validation error for {request.method} {request.url}")
-    logger.error(f"Request body: {body.decode()}")
+    # Sanitize request body: redact sensitive fields, fallback to byte length
+    try:
+        body_json = json.loads(body)
+        if isinstance(body_json, dict):
+            for key in body_json:
+                if any(sf in key.lower() for sf in _SENSITIVE_FIELDS):
+                    body_json[key] = "***REDACTED***"
+        logger.error(f"Request body: {json.dumps(body_json)}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        logger.error(f"Request body: <{len(body)} bytes, non-JSON>")
     logger.error(f"Validation errors: {json.dumps(exc.errors(), indent=2, default=str)}")
 
     # Sanitize: only return field names and error types, not raw input values

@@ -33,6 +33,12 @@ apiClient.interceptors.request.use(
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
 
+// Max retry counter to prevent infinite refresh loops
+let refreshFailureCount = 0;
+let lastRefreshFailureTime = 0;
+const MAX_REFRESH_FAILURES = 3;
+const REFRESH_FAILURE_WINDOW_MS = 60000;
+
 function onRefreshed(token: string) {
   refreshSubscribers.forEach(cb => cb(token));
   refreshSubscribers = [];
@@ -49,6 +55,19 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Reset failure counter if outside the time window
+      const now = Date.now();
+      if (now - lastRefreshFailureTime > REFRESH_FAILURE_WINDOW_MS) {
+        refreshFailureCount = 0;
+      }
+
+      // If too many recent refresh failures, sign out immediately
+      if (refreshFailureCount >= MAX_REFRESH_FAILURES) {
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Another request is already refreshing — queue this one
         return new Promise((resolve) => {
@@ -66,16 +85,22 @@ apiClient.interceptors.response.use(
       try {
         const { data, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !data.session) {
+          refreshFailureCount++;
+          lastRefreshFailureTime = Date.now();
           await supabase.auth.signOut();
           window.location.href = '/login';
           return Promise.reject(error);
         }
 
+        // Reset counter on successful refresh
+        refreshFailureCount = 0;
         const newToken = data.session.access_token;
         onRefreshed(newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch {
+        refreshFailureCount++;
+        lastRefreshFailureTime = Date.now();
         await supabase.auth.signOut();
         window.location.href = '/login';
         return Promise.reject(error);

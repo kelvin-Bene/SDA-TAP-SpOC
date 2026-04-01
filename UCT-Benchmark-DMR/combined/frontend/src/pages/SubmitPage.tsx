@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ interface ValidationStep {
 
 export function SubmitPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [datasetId, setDatasetId] = useState('');
   const [algorithmName, setAlgorithmName] = useState('');
@@ -44,6 +45,16 @@ export function SubmitPage() {
   const [description, setDescription] = useState('');
   const [organization, setOrganization] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  // Prefill form from URL search params (e.g. re-submit from failed submission)
+  useEffect(() => {
+    const prefillDataset = searchParams.get('dataset');
+    const prefillAlgorithm = searchParams.get('algorithm');
+    const prefillVersion = searchParams.get('version');
+    if (prefillDataset) setDatasetId(prefillDataset);
+    if (prefillAlgorithm) setAlgorithmName(prefillAlgorithm);
+    if (prefillVersion) setVersion(prefillVersion);
+  }, [searchParams]);
   const [isValidating, setIsValidating] = useState(false);
   const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
     { id: 'format', label: 'File format (valid JSON)', status: 'pending' },

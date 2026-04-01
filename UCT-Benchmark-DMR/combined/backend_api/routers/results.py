@@ -127,7 +127,8 @@ async def get_results(
             sr.ra_residual_rms_arcsec,
             sr.dec_residual_rms_arcsec,
             sr.raw_results,
-            sr.processing_time_seconds
+            sr.processing_time_seconds,
+            RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.id = ?
@@ -174,20 +175,8 @@ async def get_results(
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"Failed to parse raw_results JSON for submission {submission_id}: {e}")
 
-    # Calculate rank (optional - based on F1 score for same dataset)
-    rank = None
-    if row_dict.get("f1_score") is not None:
-        rank_result = db.execute(
-            """
-            SELECT COUNT(*) + 1
-            FROM submission_results sr2
-            JOIN submissions s2 ON sr2.submission_id = s2.id
-            WHERE s2.dataset_id = (SELECT dataset_id FROM submissions WHERE id = ?)
-              AND sr2.f1_score > ?
-            """,
-            (int(submission_id), row_dict["f1_score"]),
-        ).fetchone()
-        rank = rank_result[0] if rank_result else None
+    # Extract rank from the window function in the main query
+    rank = row_dict.get("rank")
 
     return SubmissionResults(
         submission_id=str(row_dict["id"]),

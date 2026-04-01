@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -9,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles, Upload } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import {
   LineChart,
@@ -280,42 +282,52 @@ export function LeaderboardPage() {
                 Failed to load leaderboard data
               </div>
             ) : sortedLeaderboard.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-12 space-y-4">
                 <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No submissions yet. Be the first to submit!</p>
+                <Link to="/submit">
+                  <Button className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Submit Algorithm
+                  </Button>
+                </Link>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="w-[80px]">Rank</TableHead>
-                    <TableHead>Algorithm</TableHead>
-                    <TableHead>Team</TableHead>
+                    <TableHead scope="col" className="w-[80px]">Rank</TableHead>
+                    <TableHead scope="col">Algorithm</TableHead>
+                    <TableHead scope="col">Team</TableHead>
                     <TableHead
+                      scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
                       onClick={() => handleSort('f1Score')}
                     >
                       F1-Score <SortIndicator column="f1Score" />
                     </TableHead>
                     <TableHead
+                      scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
                       onClick={() => handleSort('precision')}
                     >
                       Precision <SortIndicator column="precision" />
                     </TableHead>
                     <TableHead
+                      scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
                       onClick={() => handleSort('recall')}
                     >
                       Recall <SortIndicator column="recall" />
                     </TableHead>
                     <TableHead
-                      className="cursor-pointer hover:text-foreground transition-colors"
+                      scope="col"
+                      className="hidden sm:table-cell cursor-pointer hover:text-foreground transition-colors"
                       onClick={() => handleSort('positionRmsKm')}
                     >
                       Pos RMS (km) <SortIndicator column="positionRmsKm" />
                     </TableHead>
-                    <TableHead>Submitted</TableHead>
+                    <TableHead scope="col" className="hidden sm:table-cell">Submitted</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -359,10 +371,10 @@ export function LeaderboardPage() {
                       <TableCell>
                         <span className="font-mono">{(entry.recall * 100).toFixed(1)}%</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <span className="font-mono">{entry.positionRmsKm.toFixed(2)}</span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                         {formatDate(entry.submittedAt)}
                       </TableCell>
                     </TableRow>

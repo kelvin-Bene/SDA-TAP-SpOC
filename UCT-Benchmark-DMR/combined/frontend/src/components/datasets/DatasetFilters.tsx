@@ -55,8 +55,8 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
     <Card>
       <CardContent className="pt-6 space-y-4">
         {/* Search and Sort Row */}
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-2 flex-1 min-w-[200px] max-w-[400px]">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-4">
+          <div className="w-full sm:w-auto space-y-2 flex-1 min-w-[200px] max-w-[400px]">
             <Label htmlFor="search-filter">Search</Label>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -69,7 +69,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
               />
             </div>
           </div>
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="sort-filter">Sort By</Label>
             <Select
               value={filters.sortBy || 'created_at'}
@@ -104,9 +104,9 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
         </div>
 
         {/* Filter Dropdowns Row */}
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-4">
           {/* Regime Filter */}
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="regime-filter">Orbital Regime</Label>
             <Select
               value={filters.regime || 'all'}
@@ -128,7 +128,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Tier Filter */}
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="tier-filter">Data Tier</Label>
             <Select
               value={filters.tier || 'all'}
@@ -150,7 +150,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Sensor Filter */}
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="sensor-filter">Sensor Type</Label>
             <Select
               value={filters.sensor || 'all'}
@@ -172,7 +172,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Object Count Range */}
-          <div className="space-y-2 min-w-[200px] flex-1 max-w-[300px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[200px] flex-1 max-w-[300px]">
             <Label>Object Count: {filters.objectCountRange?.min ?? 0} - {filters.objectCountRange?.max ?? 200}</Label>
             <Slider
               defaultValue={[filters.objectCountRange?.min ?? 0, filters.objectCountRange?.max ?? 200]}

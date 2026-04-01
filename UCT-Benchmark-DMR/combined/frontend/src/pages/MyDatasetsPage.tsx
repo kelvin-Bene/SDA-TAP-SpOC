@@ -28,7 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
-  const { data: datasets, isLoading, error } = useDatasets();
+  const { data: datasets, isLoading, error, refetch } = useDatasets();
   const deleteDataset = useDeleteDataset();
   const downloadMutation = useDownloadDataset();
   const isAdmin = useAuthStore((s) => s.isAdmin);
@@ -48,6 +48,7 @@ export function MyDatasetsPage() {
     const id = searchParams.get('highlight');
     if (id) {
       setHighlightId(id);
+      refetch();
       // Remove the param from the URL so it doesn't persist on refresh
       searchParams.delete('highlight');
       setSearchParams(searchParams, { replace: true });
@@ -55,7 +56,7 @@ export function MyDatasetsPage() {
       const timer = setTimeout(() => setHighlightId(null), 4000);
       return () => clearTimeout(timer);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, refetch]);
 
   const handleShowVersions = async (dataset: Dataset) => {
     setVersionDataset(dataset);
@@ -206,15 +207,15 @@ export function MyDatasetsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Regime</TableHead>
-                  <TableHead>Tier</TableHead>
-                  <TableHead>Objects</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead scope="col">Name</TableHead>
+                  <TableHead scope="col">Status</TableHead>
+                  <TableHead scope="col">Version</TableHead>
+                  <TableHead scope="col">Regime</TableHead>
+                  <TableHead scope="col">Tier</TableHead>
+                  <TableHead scope="col">Objects</TableHead>
+                  <TableHead scope="col">Size</TableHead>
+                  <TableHead scope="col">Created</TableHead>
+                  <TableHead scope="col" className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

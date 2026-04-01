@@ -8,11 +8,12 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from backend_api.auth import CurrentUser, get_current_user
+from backend_api.middleware.rate_limit import limiter
 from backend_api.database import get_db
 from backend_api.utils.crypto import decrypt_token, encrypt_token
 from backend_api.utils.token_validation import validate_esa_token, validate_udl_token
@@ -143,7 +144,9 @@ async def get_me(
 
 
 @router.patch("/me", response_model=UserProfile)
+@limiter.limit("10/minute")
 async def update_me(
+    request: Request,
     updates: ProfileUpdate,
     user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),

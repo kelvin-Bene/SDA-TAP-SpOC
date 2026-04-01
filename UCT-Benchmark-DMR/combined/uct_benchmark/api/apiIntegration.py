@@ -1039,7 +1039,7 @@ def UDLQuery(token, service, params, count=False, history=False):
     max_retries = 2
     for attempt in range(1 + max_retries):
         try:
-            resp = requests.get(url, headers={"Authorization": basicAuth}, params=params)
+            resp = requests.get(url, headers={"Authorization": basicAuth}, params=params, timeout=30)
             elapsed = time.perf_counter() - start_time
 
             # Retry on 429 rate limit
@@ -1336,6 +1336,7 @@ def discoswebQuery(token, params, data="objects", version=2):
         f"{URL}/api/{data}",
         headers=auth,
         params={"filter": params},
+        timeout=30,
     )
 
     if resp.status_code != 200:
@@ -1350,7 +1351,13 @@ def discoswebQuery(token, params, data="objects", version=2):
                 + str(resp.status_code)
                 + "); double-check login info and query parameters.",
             )
-    result = pd.DataFrame(resp.json()["data"])
+    try:
+        body = resp.json()
+    except ValueError as e:
+        raise ValueError(f"DiscoWeb response is not valid JSON: {e}")
+    if "data" not in body:
+        raise ValueError(f"DiscoWeb response missing 'data' key; keys={list(body.keys())}")
+    result = pd.DataFrame(body["data"])
     # Cache for future calls
     _discosweb_cache[cache_key] = result
     return result
@@ -1405,6 +1412,7 @@ def celestrakQuery(params, table="gp"):
     resp = requests.get(
         URL,
         params=params,
+        timeout=30,
     )
 
     if resp.status_code != 200:
@@ -1551,15 +1559,30 @@ async def _batchUDLQuery(
 
     # Filter out exceptions and log them
     valid_results = []
+    fail_count = 0
     for i, result in enumerate(results):
         if isinstance(result, Exception):
             logger.warning(f"Query {i} failed: {result}")
+            fail_count += 1
         else:
             valid_results.append(result)
+
+    total = len(results)
+    success_count = len(valid_results)
+    logger.info(f"Batch query results: {success_count}/{total} succeeded, {fail_count}/{total} failed")
 
     if not valid_results:
         raise RuntimeError("All batch queries failed")
 
+    success_rate = success_count / total if total > 0 else 0
+    if success_rate < 0.5:
+        raise RuntimeError(
+            f"Batch query failure rate too high: {fail_count}/{total} failed "
+            f"(success rate {success_rate:.1%} < 50% threshold)"
+        )
+
+    if not valid_results:
+        return pd.DataFrame()
     return sum(valid_results) if count else pd.concat(valid_results, ignore_index=True)
 
 

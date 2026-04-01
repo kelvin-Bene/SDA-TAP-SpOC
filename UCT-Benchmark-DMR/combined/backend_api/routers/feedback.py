@@ -100,6 +100,13 @@ async def submit_feedback(
             detail="Description must not be empty after sanitization.",
         )
 
+    # Screenshot size defense-in-depth (max ~5MB base64)
+    if body.screenshot_base64 and len(body.screenshot_base64) > 5_000_000:
+        raise HTTPException(
+            status_code=400,
+            detail="Screenshot too large (max 5MB)",
+        )
+
     # Screenshot handling: store base64 as-is for now (storage integration later)
     screenshot_url: Optional[str] = None
     if body.screenshot_base64:

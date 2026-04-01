@@ -187,6 +187,9 @@ export function useCreateSubmission() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-statistics'] });
     },
   });
 }
@@ -199,6 +202,7 @@ export function useResults(submissionId: string) {
       return transformResults(response.data as ResultsResponse);
     },
     enabled: !!submissionId,
+    refetchOnMount: true,
     // Don't retry on 404 — the submission simply doesn't exist
     retry: (failureCount, error) => {
       if (error && typeof error === 'object' && 'response' in error) {

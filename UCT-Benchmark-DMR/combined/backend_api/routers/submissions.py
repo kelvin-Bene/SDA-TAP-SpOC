@@ -400,24 +400,30 @@ async def create_submission(
         raise HTTPException(status_code=500, detail="Failed to save uploaded file")
 
     # Create submission record using RETURNING to get the ID
-    result = db.execute(
-        """
-        INSERT INTO submissions (
-            dataset_id, algorithm_name, version, description,
-            classification_marking, file_path, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
-        RETURNING id
-        """,
-        (
-            int(dataset_id),
-            algorithm_name,
-            version,
-            description,
-            classification_marking,
-            str(file_path),
-        ),
-    )
-    submission_id = result.fetchone()[0]
+    try:
+        result = db.execute(
+            """
+            INSERT INTO submissions (
+                dataset_id, algorithm_name, version, description,
+                classification_marking, file_path, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
+            RETURNING id
+            """,
+            (
+                int(dataset_id),
+                algorithm_name,
+                version,
+                description,
+                classification_marking,
+                str(file_path),
+            ),
+        )
+        submission_id = result.fetchone()[0]
+    except Exception as e:
+        # Clean up the uploaded file if DB insert fails
+        file_path.unlink(missing_ok=True)
+        logger.error(f"Failed to insert submission record: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create submission record")
 
     # S17: Log file hash for audit trail
     logger.info(f"Submission {submission_id}: file_hash=sha256:{file_hash}")

@@ -132,14 +132,24 @@ export function DatasetBrowserPage() {
       </div>
 
       {/* Error State */}
-      {error && (
-        <div className="text-center py-12">
-          <p className="text-destructive mb-2">Failed to load datasets.</p>
-          <Button variant="outline" onClick={() => refetch()}>
-            Try Again
-          </Button>
-        </div>
-      )}
+      {error && (() => {
+        const axiosErr = error as { response?: { status?: number } };
+        const status = axiosErr?.response?.status;
+        let errorMessage = 'Failed to load datasets. Please check your connection and try again.';
+        if (status === 401 || status === 403) {
+          errorMessage = 'You are not authorized to view datasets. Please log in again.';
+        } else if (status && status >= 500) {
+          errorMessage = 'The server encountered an error. Please try again later.';
+        }
+        return (
+          <div className="text-center py-12">
+            <p className="text-destructive mb-2">{errorMessage}</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Loading State */}
       {isLoading && (

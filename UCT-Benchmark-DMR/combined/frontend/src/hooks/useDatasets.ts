@@ -244,6 +244,7 @@ export function useGenerateDataset() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
   });
 }

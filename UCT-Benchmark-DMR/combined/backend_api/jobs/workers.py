@@ -164,7 +164,7 @@ def run_dataset_generation(
                 f"Auto-selected {len(satellites)} {regime} satellites: {satellites}"
             )
 
-        timeframe = config.get("timeframe", 7)
+        timeframe = min(int(config.get("timeframe", 7)), 365)
         timeunit = config.get("timeunit", "days")
 
         # Parse start_date and end_date if provided
@@ -457,6 +457,14 @@ def run_dataset_generation(
                     "createdAt": "created_at",
                 }
             )
+            # Filter out rows with all-NaN coordinates before DB insert
+            coord_cols = [c for c in ["ra", "declination", "geo_lat", "geo_lon", "geo_alt", "geo_range"] if c in obs_for_db.columns]
+            if coord_cols:
+                before_count = len(obs_for_db)
+                obs_for_db = obs_for_db.dropna(subset=coord_cols, how="all")
+                dropped = before_count - len(obs_for_db)
+                if dropped > 0:
+                    logger.warning(f"Dropped {dropped} observations with all-NaN coordinates before DB insert")
             inserted = db.observations.bulk_insert(obs_for_db)
             logger.info(f"Persisted {inserted} observations to production DB for dataset {dataset_id}")
 
@@ -483,9 +491,18 @@ def run_dataset_generation(
                         except (ValueError, TypeError):
                             track_id = None
                     track_assignments[row["id"]] = track_id
-            # Don't catch exceptions here - linking failure should fail the entire job
-            # A dataset without linked observations is corrupted and unusable
-            db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+            # Wrap linking in try/except: if linking fails, clean up orphaned observations
+            try:
+                db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+            except Exception as link_err:
+                logger.error(f"Failed to link observations to dataset {dataset_id}: {link_err}. Rolling back inserted observations.")
+                try:
+                    placeholders = ",".join(["%s"] * len(obs_ids))
+                    db.execute(f"DELETE FROM observations WHERE id IN ({placeholders})", tuple(obs_ids))
+                    logger.info(f"Rolled back {len(obs_ids)} orphaned observations for dataset {dataset_id}")
+                except Exception as cleanup_err:
+                    logger.error(f"CRITICAL: Failed to clean up orphaned observations for dataset {dataset_id}: {cleanup_err}")
+                raise
             logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
         else:
             # If we have no observations to link, this is also an error
@@ -527,7 +544,7 @@ def run_dataset_generation(
             try:
                 db._connection.rollback()
             except Exception as rollback_error:
-                logger.debug(f"Rollback not needed or failed: {rollback_error}")
+                logger.error(f"Rollback not needed or failed: {rollback_error}")
             db.execute(
                 "UPDATE datasets SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (error_msg, dataset_id),

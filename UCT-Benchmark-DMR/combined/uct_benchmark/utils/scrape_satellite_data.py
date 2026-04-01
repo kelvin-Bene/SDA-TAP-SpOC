@@ -115,6 +115,7 @@ def discoswebQuery(token, params, data="objects", version=2):
             f"{base_url}/api/{data}",
             headers=auth,
             params={"filter": params},
+            timeout=30,
         )
 
         if resp.status_code == 429 and attempt < max_retries:
@@ -135,7 +136,13 @@ def discoswebQuery(token, params, data="objects", version=2):
                     f"Query failed for unknown reason ({resp.status_code}); "
                     "double-check login info and query parameters.",
                 )
-        return pd.DataFrame(resp.json()["data"])
+        try:
+            body = resp.json()
+        except ValueError as e:
+            raise ValueError(f"DiscoWeb response is not valid JSON: {e}")
+        if "data" not in body:
+            raise ValueError(f"DiscoWeb response missing 'data' key; keys={list(body.keys())}")
+        return pd.DataFrame(body["data"])
 
 
 def scrape_udl_data():
@@ -162,7 +169,7 @@ def scrape_udl_data():
         try:
             max_retries = 2
             for attempt in range(1 + max_retries):
-                resp = requests.get(url, headers={"Authorization": basic_auth})
+                resp = requests.get(url, headers={"Authorization": basic_auth}, timeout=30)
                 if resp.status_code == 429 and attempt < max_retries:
                     retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
                     wait = min(retry_after, 30)
@@ -189,7 +196,7 @@ def scrape_esa_data():
     esa_token = os.environ.get("ESA_TOKEN")
 
     if not esa_token:
-        logger.warning("Using placeholder ESA token. Replace with actual token.")
+        raise ValueError("ESA_TOKEN environment variable is not set. Cannot query ESA DiscoWeb API without a valid token.")
 
     max_iterations = int(np.ceil(MAX_SATELLITES / BATCH_SIZE))
     esa_data_frames = []

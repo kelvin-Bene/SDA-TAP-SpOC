@@ -136,13 +136,13 @@ export function MySubmissionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Algorithm</TableHead>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>F1-Score</TableHead>
-                  <TableHead>Rank</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead scope="col">Algorithm</TableHead>
+                  <TableHead scope="col">Dataset</TableHead>
+                  <TableHead scope="col">Status</TableHead>
+                  <TableHead scope="col">F1-Score</TableHead>
+                  <TableHead scope="col">Rank</TableHead>
+                  <TableHead scope="col">Submitted</TableHead>
+                  <TableHead scope="col" className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -217,6 +217,13 @@ export function MySubmissionsPage() {
                         >
                           <Download className="h-4 w-4" />
                         </Button>
+                        {submission.status === 'failed' && (
+                          <Link to={`/submit?dataset=${encodeURIComponent(submission.datasetId)}&algorithm=${encodeURIComponent(submission.algorithmName)}&version=${encodeURIComponent(submission.version)}`}>
+                            <Button variant="ghost" size="icon" title="Re-submit with same parameters">
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        )}
                         <Button variant="ghost" size="icon" className="text-destructive">
                           <Trash2 className="h-4 w-4" />
                         </Button>

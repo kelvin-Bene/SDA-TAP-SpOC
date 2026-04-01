@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2, Upload } from 'lucide-react';
 import { getStatusBadge } from '@/lib/statusUtils';
 import { useSubmissions } from '@/hooks/useSubmissions';
 
@@ -30,8 +30,14 @@ export function RecentSubmissions() {
             <p>Unable to load submissions</p>
           </div>
         ) : recentSubmissions.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground space-y-3">
             <p>No submissions yet</p>
+            <Link to="/submit">
+              <Button variant="outline" className="gap-2">
+                <Upload className="h-4 w-4" />
+                Submit your first algorithm
+              </Button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">

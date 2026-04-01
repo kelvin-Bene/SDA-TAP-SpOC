@@ -203,6 +203,9 @@ async def list_datasets(
         query += " AND tier = ?"
         params.append(tier)
 
+    if search and len(search) > 200:
+        raise HTTPException(status_code=400, detail="Search query too long (max 200 characters)")
+
     if search:
         query += " AND (LOWER(name) LIKE ? OR LOWER(COALESCE(code, '')) LIKE ?)"
         search_term = f"%{search.lower()}%"
@@ -320,6 +323,8 @@ async def get_dataset(
 @router.get("/{dataset_id}/versions", response_model=List[DatasetSummary])
 async def get_dataset_versions(
     dataset_id: str,
+    limit: int = 50,
+    offset: int = 0,
     current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
@@ -337,6 +342,9 @@ async def get_dataset_versions(
     Returns:
         List of dataset summaries representing all versions
     """
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
     id_int = validate_dataset_id(dataset_id)
 
     # First get the target dataset to find its lineage.
@@ -402,8 +410,8 @@ async def get_dataset_versions(
     # Query all version datasets
     placeholders = ",".join(["?" for _ in version_ids])
     result = db.execute(
-        f"SELECT * FROM datasets WHERE id IN ({placeholders}) ORDER BY version DESC, created_at DESC",
-        tuple(version_ids),
+        f"SELECT * FROM datasets WHERE id IN ({placeholders}) ORDER BY version DESC, created_at DESC LIMIT ? OFFSET ?",
+        tuple(version_ids) + (limit, offset),
     )
     columns = [desc[0] for desc in result.description]
     rows = result.fetchall()

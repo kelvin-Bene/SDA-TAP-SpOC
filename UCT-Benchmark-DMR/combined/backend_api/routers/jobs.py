@@ -59,6 +59,8 @@ async def list_jobs(
     Returns:
         List of jobs matching the filters
     """
+    limit = max(1, min(limit, 500))
+
     from backend_api.jobs import JobType
 
     job_manager = get_job_manager()

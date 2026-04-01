@@ -417,6 +417,7 @@ export function ResultsPage() {
               </CardHeader>
               <CardContent>
                 {positionErrorData ? (
+                  <div className="min-w-[250px]">
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={positionErrorData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -426,6 +427,7 @@ export function ResultsPage() {
                       <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center h-[200px] text-muted-foreground">
                     No position error histogram data available
@@ -447,6 +449,7 @@ export function ResultsPage() {
               <CardContent>
                 {residualData ? (
                   <>
+                    <div className="min-w-[250px]">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={residualData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -456,6 +459,7 @@ export function ResultsPage() {
                         <Bar dataKey="ra" fill="#06B6D4" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                    </div>
                     <p className="text-sm text-muted-foreground mt-2 text-center">
                       RMS: {results.raResidualRmsArcsec?.toFixed(2) || '-'} arcsec
                     </p>
@@ -476,6 +480,7 @@ export function ResultsPage() {
               <CardContent>
                 {residualData ? (
                   <>
+                    <div className="min-w-[250px]">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={residualData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -485,6 +490,7 @@ export function ResultsPage() {
                         <Bar dataKey="dec" fill="#10B981" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                    </div>
                     <p className="text-sm text-muted-foreground mt-2 text-center">
                       RMS: {results.decResidualRmsArcsec?.toFixed(2) || '-'} arcsec
                     </p>

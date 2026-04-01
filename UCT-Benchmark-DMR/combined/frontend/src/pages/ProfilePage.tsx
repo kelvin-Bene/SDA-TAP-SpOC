@@ -44,13 +44,16 @@ export function ProfilePage() {
 
   // Fetch profile from backend to get masked token values
   useEffect(() => {
+    let cancelled = false;
     api.getCurrentUser().then((res) => {
+      if (cancelled) return;
       const profile = res.data;
       if (profile.udl_token) setUdlTokenMask(profile.udl_token);
       if (profile.esa_token) setEsaTokenMask(profile.esa_token);
     }).catch(() => {
       // Ignore -- profile may not exist yet
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Fetch real stats from API
