@@ -153,7 +153,8 @@ def _generate_observations_for_satellite(sat_no: int, count: int):
     # Group into tracks (3-6 obs each)
     idx = 0
     while idx < count:
-        track_size = random.randint(3, min(6, count - idx))
+        remaining = count - idx
+        track_size = random.randint(min(3, remaining), min(6, remaining))
         track_id = str(uuid.uuid4())
         sensor = random.choice(SENSOR_NAMES)
 
