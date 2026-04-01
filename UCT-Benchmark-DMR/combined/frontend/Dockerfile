@@ -10,19 +10,17 @@ RUN npm ci
 
 COPY . .
 
-# Vite embeds VITE_* env vars at build time, so we pass them as build args
-# Railway automatically converts env vars to build args for Docker builds
+# Vite embeds VITE_* env vars at build time
+# Railway passes env vars as Docker build args automatically
 ARG VITE_API_BASE_URL=/api/v1
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_CESIUM_ION_TOKEN
 ARG VITE_FEEDBACK_ENABLED
 
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-ENV VITE_CESIUM_ION_TOKEN=$VITE_CESIUM_ION_TOKEN
-ENV VITE_FEEDBACK_ENABLED=$VITE_FEEDBACK_ENABLED
+# Write .env file so Vite picks them up during build
+RUN printf "VITE_API_BASE_URL=%s\nVITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\nVITE_CESIUM_ION_TOKEN=%s\nVITE_FEEDBACK_ENABLED=%s\n" \
+  "$VITE_API_BASE_URL" "$VITE_SUPABASE_URL" "$VITE_SUPABASE_ANON_KEY" "$VITE_CESIUM_ION_TOKEN" "$VITE_FEEDBACK_ENABLED" > .env
 
 RUN npm run build
 
