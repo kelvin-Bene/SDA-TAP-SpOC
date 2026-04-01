@@ -21,14 +21,15 @@ __pycache__/
 # Node
 node_modules/
 
-# Data (mounted as volumes in production)
-data/
+# Data uploads directory (mounted as volume in production)
+# Use /data/ (leading slash) to match only root-level data/, not uct_benchmark/data/ source code
+/data/
 
-# Tests and docs
-tests/e2e/test-results
-provided-materials
-docs
-validation
+# Tests and docs (anchored to root with / to avoid matching source code subdirectories)
+/tests/
+/provided-materials/
+/docs/
+/validation/
 *.md
 !README.md
 
