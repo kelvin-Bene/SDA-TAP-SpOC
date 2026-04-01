@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm i -g @railway/cli@3.21.4
+        run: npm i -g @railway/cli@4.36.0
       - name: Deploy
         working-directory: ./UCT-Benchmark-DMR/combined
         run: railway up --service backend --detach
@@ -107,7 +107,7 @@ jobs:
           cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist/Dockerfile
           cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist/
       - name: Install Railway CLI
-        run: npm i -g @railway/cli@3.21.4
+        run: npm i -g @railway/cli@4.36.0
       - name: Deploy
         working-directory: ./deploy-dist
         run: railway up --service frontend --detach
