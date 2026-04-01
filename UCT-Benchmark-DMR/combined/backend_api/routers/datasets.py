@@ -1034,7 +1034,8 @@ async def download_dataset(
         "observations": observations,
     }
 
-    # Convert non-serializable types (Decimal, datetime) returned by PostgreSQL
+    # Convert non-serializable types returned by PostgreSQL
+    import math
     from datetime import datetime as _dt, date as _date
     def _make_serializable(obj: Any) -> Any:
         if isinstance(obj, dict):
@@ -1042,7 +1043,10 @@ async def download_dataset(
         elif isinstance(obj, list):
             return [_make_serializable(i) for i in obj]
         elif isinstance(obj, Decimal):
-            return float(obj)
+            f = float(obj)
+            return None if math.isnan(f) or math.isinf(f) else f
+        elif isinstance(obj, float):
+            return None if math.isnan(obj) or math.isinf(obj) else obj
         elif isinstance(obj, _dt):
             return obj.isoformat()
         elif isinstance(obj, _date):
