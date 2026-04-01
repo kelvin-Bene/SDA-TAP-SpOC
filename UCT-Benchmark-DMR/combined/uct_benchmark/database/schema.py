@@ -661,20 +661,11 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
 
 
 def _initialize_postgres_schema(db: "DatabaseManager") -> None:
-    """Initialize schema using PostgreSQL-specific SQL from schema file."""
-    schema_file = Path(__file__).parent / "schema_postgres.sql"
-
-    if schema_file.exists():
-        # Read and execute the SQL file
-        schema_sql = schema_file.read_text()
-        # Split on semicolons and execute each statement
-        statements = [s.strip() for s in schema_sql.split(";") if s.strip()]
-        for statement in statements:
-            if statement and not statement.startswith("--"):
-                db.execute(statement)
-    else:
-        # Fall back to converting DuckDB schema
-        _initialize_postgres_schema_fallback(db)
+    """Initialize schema using individual SQL constants (reliable statement ordering)."""
+    # Always use the fallback method which executes statements individually
+    # in correct dependency order. The schema_postgres.sql file has issues with
+    # semicolon splitting that causes CREATE TABLE statements to be lost.
+    _initialize_postgres_schema_fallback(db)
 
 
 def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
