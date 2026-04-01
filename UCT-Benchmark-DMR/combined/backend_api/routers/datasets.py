@@ -43,7 +43,7 @@ router = APIRouter()
 
 
 @router.get("/config")
-async def get_dataset_config():
+async def get_dataset_config(current_user: CurrentUser = Depends(get_current_user)):
     """
     Return dataset configuration values from backend settings.
 
@@ -150,6 +150,7 @@ async def list_datasets(
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     order: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -224,6 +225,7 @@ async def list_datasets(
 @router.get("/{dataset_id}", response_model=DatasetDetail)
 async def get_dataset(
     dataset_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -318,6 +320,7 @@ async def get_dataset(
 @router.get("/{dataset_id}/versions", response_model=List[DatasetSummary])
 async def get_dataset_versions(
     dataset_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -407,18 +410,6 @@ async def get_dataset_versions(
 
     return [_row_to_dataset_summary(row, columns) for row in rows]
 
-
-@router.post("/debug")
-async def debug_request(request: Request, user: CurrentUser = Depends(get_current_user)):
-    """Debug endpoint to log raw request body."""
-    body = await request.body()
-    try:
-        data = json.loads(body)
-        logger.info(f"Debug endpoint received: {json.dumps(data, indent=2, default=str)}")
-        return {"received": data}
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON: {e}")
-        return {"error": str(e), "raw": body.decode()}
 
 
 @router.post("/", response_model=DatasetSummary, status_code=201)
@@ -675,6 +666,7 @@ async def get_dataset_observations(
     dataset_id: str,
     limit: int = 100,
     offset: int = 0,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -1266,6 +1258,7 @@ async def create_dataset_from_legacy_code(
 @router.get("/code/{legacy_code}", response_model=DatasetDetail)
 async def get_dataset_by_legacy_code(
     legacy_code: str,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -1375,7 +1368,7 @@ async def get_dataset_by_legacy_code(
 
 
 @router.get("/validate/{code}", response_model=LegacyCodeValidation)
-async def validate_code(code: str):
+async def validate_code(code: str, current_user: CurrentUser = Depends(get_current_user)):
     """
     Validate a dataset code in either legacy or enhanced format.
 

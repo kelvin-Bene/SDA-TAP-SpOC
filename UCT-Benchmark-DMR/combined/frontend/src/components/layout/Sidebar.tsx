@@ -31,18 +31,8 @@ interface NavItem {
   children?: { title: string; href: string }[];
 }
 
-// Public nav items — always visible
+// Public nav items — always visible (only non-data pages)
 const publicNavItems: NavItem[] = [
-  {
-    title: 'Datasets',
-    icon: Database,
-    href: '/datasets',
-  },
-  {
-    title: 'Leaderboard',
-    href: '/leaderboard',
-    icon: Trophy,
-  },
   {
     title: 'Documentation',
     href: '/docs',

@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
+from backend_api.auth import CurrentUser, get_current_user
 from backend_api.database import get_db
 from backend_api.models import LeaderboardEntry, LeaderboardResponse
 from uct_benchmark.database.connection import DatabaseManager
@@ -19,6 +20,7 @@ async def get_leaderboard(
     tier: Optional[str] = None,
     period: Optional[str] = None,  # all, month, week
     limit: int = 50,  # S10: clamped below
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -133,6 +135,7 @@ async def get_leaderboard(
 async def get_leaderboard_history(
     dataset_id: Optional[str] = None,
     days: int = 30,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -192,6 +195,7 @@ async def get_leaderboard_history(
 @router.get("/statistics")
 async def get_leaderboard_statistics(
     dataset_id: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """

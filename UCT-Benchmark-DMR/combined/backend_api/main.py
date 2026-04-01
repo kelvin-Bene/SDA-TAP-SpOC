@@ -204,12 +204,14 @@ app.add_middleware(
 # 3-tier auth: public routers have no global auth dep; authenticated routers require JWT (S1)
 _auth_deps = [Depends(get_current_user)]
 
-# Public routers — no global auth dependency (individual write endpoints protect themselves)
+# Data routers — require valid Supabase JWT (private data, no unauthenticated access)
 app.include_router(
     datasets.router, prefix="/api/v1/datasets", tags=["Datasets"],
+    dependencies=_auth_deps,
 )
 app.include_router(
     leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"],
+    dependencies=_auth_deps,
 )
 
 # Authenticated routers — require valid Supabase JWT for all endpoints

@@ -53,12 +53,12 @@ function App() {
               {/* Single layout route — auth enforced per-route */}
               <Route path="/" element={<MainLayout />}>
                 {/* Public routes — no auth required */}
-                <Route path="leaderboard" element={<LazyRoute><LeaderboardPage /></LazyRoute>} />
-                <Route path="datasets" element={<LazyRoute><DatasetBrowserPage /></LazyRoute>} />
-                <Route path="datasets/:id" element={<LazyRoute><DatasetDetailPage /></LazyRoute>} />
                 <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
 
                 {/* Authenticated routes — each individually guarded */}
+                <Route path="leaderboard" element={<AuthGuard><LazyRoute><LeaderboardPage /></LazyRoute></AuthGuard>} />
+                <Route path="datasets" element={<AuthGuard><LazyRoute><DatasetBrowserPage /></LazyRoute></AuthGuard>} />
+                <Route path="datasets/:id" element={<AuthGuard><LazyRoute><DatasetDetailPage /></LazyRoute></AuthGuard>} />
                 <Route index element={<AuthGuard><LazyRoute><DashboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/generate" element={<AuthGuard><LazyRoute><DatasetGeneratorPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/my-datasets" element={<AuthGuard><LazyRoute><MyDatasetsPage /></LazyRoute></AuthGuard>} />

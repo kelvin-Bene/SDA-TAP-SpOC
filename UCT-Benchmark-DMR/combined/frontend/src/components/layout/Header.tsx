@@ -72,9 +72,13 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Primary Navigation */}
         <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
           {[
-            { to: '/datasets', label: 'Datasets' },
-            { to: '/submit', label: 'Submit' },
-            { to: '/leaderboard', label: 'Leaderboard' },
+            ...(user
+              ? [
+                  { to: '/datasets', label: 'Datasets' },
+                  { to: '/submit', label: 'Submit' },
+                  { to: '/leaderboard', label: 'Leaderboard' },
+                ]
+              : []),
             { to: '/docs', label: 'Docs' },
           ].map((link) => (
             <Link
