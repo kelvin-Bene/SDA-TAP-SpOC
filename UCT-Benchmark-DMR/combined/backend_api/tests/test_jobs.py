@@ -55,7 +55,8 @@ def client_with_jobs(mock_job_manager):
     from uct_benchmark.database.connection import DatabaseManager
 
     # Create a minimal in-memory database for the app lifespan
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
@@ -90,7 +91,8 @@ def client_empty_jobs():
     empty_manager = JobManager()
 
     # Create a minimal in-memory database for the app lifespan
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
@@ -129,7 +131,8 @@ def create_test_client_with_job_manager(job_manager):
     from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
@@ -384,9 +387,8 @@ class TestListJobs:
         response = client_with_jobs.get("/api/v1/jobs/?status=invalid_status")
 
         assert response.status_code == 400
-        # Should return all jobs since invalid filter is ignored
         data = response.json()
-        assert len(data) == 4
+        assert "detail" in data
 
 
 # =============================================================================
@@ -550,7 +552,8 @@ def client_regular_user(job_manager_with_ownership):
     from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
@@ -582,7 +585,8 @@ def client_admin_ownership(job_manager_with_ownership):
     from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db

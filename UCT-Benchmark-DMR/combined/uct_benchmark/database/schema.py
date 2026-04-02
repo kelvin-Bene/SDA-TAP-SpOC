@@ -383,6 +383,9 @@ CREATE TABLE IF NOT EXISTS submission_results (
     -- Raw results (JSON blob with full breakdown)
     raw_results JSON,
 
+    -- Composite score (weighted combination of metrics)
+    composite_score DECIMAL(10,6),
+
     -- Processing info
     processing_time_seconds DECIMAL(12,3),
 

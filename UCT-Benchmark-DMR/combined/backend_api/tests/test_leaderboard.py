@@ -14,7 +14,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend_api.auth import CurrentUser
+from backend_api.auth import get_current_user as prod_get_current_user
+from backend_api.middleware.auth import get_current_user as mw_get_current_user
 from uct_benchmark.database.connection import DatabaseManager
+
+# Mock authenticated user for dependency overrides
+_mock_user = CurrentUser(id="test-user-id", email="test@example.com", role="admin")
 
 # =============================================================================
 # FIXTURES
@@ -28,7 +34,8 @@ def db_with_leaderboard_data():
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "test_leaderboard.duckdb"
 
-    db = DatabaseManager(db_path=db_path)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    db = DatabaseManager(db_path=db_path, backend="duckdb")
     db.initialize()
 
     # Create sample datasets with different regimes and tiers
@@ -111,6 +118,9 @@ def client_with_leaderboard(db_with_leaderboard_data) -> TestClient:
 
     from backend_api.main import app
 
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
+
     with patch("backend_api.main.init_database", return_value=db):
         with patch("backend_api.main.close_database"):
             with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
@@ -118,6 +128,8 @@ def client_with_leaderboard(db_with_leaderboard_data) -> TestClient:
                     with TestClient(app) as client:
                         yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
 
 
@@ -127,7 +139,8 @@ def empty_db():
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "test_empty.duckdb"
 
-    db = DatabaseManager(db_path=db_path)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    db = DatabaseManager(db_path=db_path, backend="duckdb")
     db.initialize()
 
     yield db, temp_dir
@@ -148,6 +161,9 @@ def client_empty(empty_db) -> TestClient:
 
     from backend_api.main import app
 
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
+
     with patch("backend_api.main.init_database", return_value=db):
         with patch("backend_api.main.close_database"):
             with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
@@ -155,6 +171,8 @@ def client_empty(empty_db) -> TestClient:
                     with TestClient(app) as client:
                         yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
 
 
