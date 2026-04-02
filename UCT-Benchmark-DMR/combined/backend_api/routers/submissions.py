@@ -277,7 +277,6 @@ async def get_submission(
         completed_at=row_dict.get("completed_at"),
         score=row_dict.get("f1_score"),
         job_id=row_dict.get("job_id"),
-        file_path=row_dict.get("file_path"),
         error_message=row_dict.get("error_message"),
     )
 

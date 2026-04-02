@@ -352,6 +352,9 @@ async def export_results(
 
     row_dict = dict(zip(columns, row))
 
+    # Strip internal server paths from response
+    row_dict.pop("file_path", None)
+
     # Convert non-JSON-serializable types
     from decimal import Decimal
 

@@ -3,6 +3,7 @@
 import json
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -261,6 +262,10 @@ async def get_dataset(
             performance_metadata = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, TypeError):
             pass
+
+    # Fallback: use actual_satellite_ids when generation_params lacks satIDs
+    if not satellites and actual_satellite_ids:
+        satellites = actual_satellite_ids
 
     return DatasetDetail(
         id=str(row_dict["id"]),
@@ -1045,13 +1050,12 @@ async def download_dataset(
     observations = []
     for obs_row in obs_rows:
         obs_dict = dict(zip(obs_columns, obs_row))
-        # Convert datetime to string for JSON
-        if obs_dict.get("ob_time"):
-            obs_dict["ob_time"] = (
-                obs_dict["ob_time"].isoformat()
-                if hasattr(obs_dict["ob_time"], "isoformat")
-                else str(obs_dict["ob_time"])
-            )
+        # Convert non-JSON-serializable types (Decimal, datetime) to primitives
+        for key, value in list(obs_dict.items()):
+            if hasattr(value, "isoformat"):
+                obs_dict[key] = value.isoformat()
+            elif isinstance(value, Decimal):
+                obs_dict[key] = float(value)
         # Rename DB columns to doc-matching camelCase names
         obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
         observations.append(obs_dict)
@@ -1345,6 +1349,10 @@ async def get_dataset_by_legacy_code(
             performance_metadata = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, TypeError):
             pass
+
+    # Fallback: use actual_satellite_ids when generation_params lacks satIDs
+    if not satellites and actual_satellite_ids:
+        satellites = actual_satellite_ids
 
     return DatasetDetail(
         id=str(row_dict["id"]),

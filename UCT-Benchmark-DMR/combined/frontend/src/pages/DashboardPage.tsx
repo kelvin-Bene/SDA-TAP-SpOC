@@ -67,7 +67,7 @@ export function DashboardPage() {
         <StatCard
           title="Top Rank"
           value={isLoading ? '\u2014' : rankDisplay}
-          subtitle={stats?.topAlgorithmName || 'Loading...'}
+          subtitle={isLoading ? 'Loading...' : (stats?.topAlgorithmName || 'No submissions yet')}
           icon={<Trophy className="h-5 w-5" />}
           accentColor="cyan"
         />

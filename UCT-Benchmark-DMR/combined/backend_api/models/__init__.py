@@ -540,7 +540,6 @@ class SubmissionSummary(BaseModel):
 class SubmissionDetail(SubmissionSummary):
     """Detailed response for a single submission."""
 
-    file_path: Optional[str] = None
     error_message: Optional[str] = None
 
 
