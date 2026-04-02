@@ -8,6 +8,8 @@ Note: Dataset ID is now passed to generateDataset to avoid duplicate creation.
 """
 
 import json
+import os
+import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Optional
@@ -16,6 +18,47 @@ from loguru import logger
 
 from . import Job, JobType, get_job_manager
 from .progress import DatasetStage, create_job_progress_callback
+
+
+def compute_composite_score(
+    f1_score: Optional[float],
+    position_rms_km: Optional[float],
+    ra_residual_rms: Optional[float],
+    dec_residual_rms: Optional[float],
+) -> float:
+    """Compute weighted composite score from binary, state, and residual metrics.
+
+    Falls back to F1-only when state/residual metrics are unavailable (no Orekit).
+    Weights are configurable via environment variables.
+    """
+    w1 = float(os.getenv("COMPOSITE_WEIGHT_BINARY", "0.4"))
+    w2 = float(os.getenv("COMPOSITE_WEIGHT_STATE", "0.3"))
+    w3 = float(os.getenv("COMPOSITE_WEIGHT_RESIDUAL", "0.3"))
+
+    binary_component = f1_score or 0.0
+
+    # Normalize position RMS: lower is better, cap at 100km
+    state_component = None
+    if position_rms_km is not None and position_rms_km >= 0:
+        state_component = max(0.0, 1.0 - (position_rms_km / 100.0))
+
+    # Normalize residual RMS: lower is better, cap at 100 arcsec
+    residual_component = None
+    if ra_residual_rms is not None and dec_residual_rms is not None:
+        avg_residual = (ra_residual_rms + dec_residual_rms) / 2.0
+        residual_component = max(0.0, 1.0 - (avg_residual / 100.0))
+
+    # Fallback: if state/residual unavailable, redistribute weights
+    if state_component is None and residual_component is None:
+        return binary_component  # F1-only (binary evaluation)
+    elif state_component is None:
+        total_weight = w1 + w3
+        return (w1 * binary_component + w3 * residual_component) / total_weight
+    elif residual_component is None:
+        total_weight = w1 + w2
+        return (w1 * binary_component + w2 * state_component) / total_weight
+    else:
+        return w1 * binary_component + w2 * state_component + w3 * residual_component
 
 # Regime-specific satellite NORAD IDs for auto-selection.
 # LEO satellites are loaded at runtime from settings.satIDs (the calibration list).
@@ -61,15 +104,19 @@ def _parse_timestamp(value: Any) -> Any:
         return None
 
 
-# Global thread pool for background tasks
+# Global thread pool for background tasks (thread-safe initialization)
 _executor: Optional[ThreadPoolExecutor] = None
+_executor_lock = threading.Lock()
 
 
 def get_executor() -> ThreadPoolExecutor:
-    """Get or create the global thread pool executor."""
+    """Get or create the global thread pool executor (thread-safe)."""
     global _executor
-    if _executor is None:
-        _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="worker")
+    if _executor is not None:
+        return _executor
+    with _executor_lock:
+        if _executor is None:
+            _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="worker")
     return _executor
 
 
@@ -81,10 +128,11 @@ def shutdown_executor(wait: bool = True) -> None:
               Defaults to True to avoid losing in-progress jobs.
     """
     global _executor
-    if _executor is not None:
-        logger.info(f"Shutting down thread pool executor (wait={wait})")
-        _executor.shutdown(wait=wait, cancel_futures=False)
-        _executor = None
+    with _executor_lock:
+        if _executor is not None:
+            logger.info(f"Shutting down thread pool executor (wait={wait})")
+            _executor.shutdown(wait=wait, cancel_futures=False)
+            _executor = None
 
 
 def run_dataset_generation(
@@ -503,7 +551,7 @@ def run_dataset_generation(
             except Exception as link_err:
                 logger.error(f"Failed to link observations to dataset {dataset_id}: {link_err}. Rolling back inserted observations.")
                 try:
-                    placeholders = ",".join(["%s"] * len(obs_ids))
+                    placeholders = ",".join(["?"] * len(obs_ids))
                     db.execute(f"DELETE FROM observations WHERE id IN ({placeholders})", tuple(obs_ids))
                     logger.info(f"Rolled back {len(obs_ids)} orphaned observations for dataset {dataset_id}")
                 except Exception as cleanup_err:
@@ -548,9 +596,9 @@ def run_dataset_generation(
             db = get_db()
             # Rollback any failed transaction state before executing update
             try:
-                db._connection.rollback()
+                db.execute("ROLLBACK")
             except Exception as rollback_error:
-                logger.error(f"Rollback not needed or failed: {rollback_error}")
+                logger.debug(f"Rollback not needed or failed (expected if not in transaction): {rollback_error}")
             db.execute(
                 "UPDATE datasets SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (error_msg, dataset_id),
@@ -866,6 +914,7 @@ def submit_dataset_generation(
     config: Dict[str, Any],
     udl_token: str,
     esa_token: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Job:
     """
     Submit a dataset generation job to run in the background.
@@ -875,6 +924,7 @@ def submit_dataset_generation(
         config: Dataset generation configuration
         udl_token: User's UDL API token (passed as arg, never stored in job metadata)
         esa_token: User's ESA API token (optional)
+        user_id: Owner user ID for job ownership tracking
 
     Returns:
         The created Job instance
@@ -882,7 +932,7 @@ def submit_dataset_generation(
     job_manager = get_job_manager()
     job = job_manager.create_job(
         JobType.DATASET_GENERATION,
-        metadata={"dataset_id": dataset_id, "config": config},
+        metadata={"dataset_id": dataset_id, "config": config, "user_id": user_id},
     )
 
     executor = get_executor()
@@ -895,6 +945,7 @@ def submit_evaluation(
     submission_id: int,
     dataset_id: int,
     file_path: str,
+    user_id: Optional[str] = None,
 ) -> Job:
     """
     Submit an evaluation job to run in the background.
@@ -903,6 +954,7 @@ def submit_evaluation(
         submission_id: The database ID for the submission
         dataset_id: The dataset ID to evaluate against
         file_path: Path to the uploaded results file
+        user_id: Owner user ID for job ownership tracking
 
     Returns:
         The created Job instance
@@ -914,6 +966,7 @@ def submit_evaluation(
             "submission_id": submission_id,
             "dataset_id": dataset_id,
             "file_path": file_path,
+            "user_id": user_id,
         },
     )
 

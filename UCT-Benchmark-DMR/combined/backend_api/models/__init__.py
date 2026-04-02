@@ -672,6 +672,7 @@ class LeaderboardEntry(BaseModel):
     precision: float
     recall: float
     position_rms_km: float
+    composite_score: Optional[float] = None
     submission_id: str
     submitted_at: datetime
     is_current_user: bool = False

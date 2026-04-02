@@ -296,27 +296,40 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint. Returns 503 when database is unreachable."""
+    """Health check endpoint with component status."""
     from .database import get_db
+    import shutil
 
+    components = {}
+
+    # Database
     try:
         db = get_db()
-        # Quick database check
         db.execute("SELECT 1").fetchone()
-        db_status = "connected"
+        components["database"] = "connected"
     except Exception as e:
-        # Log the actual error for debugging, but don't expose details to clients
         logger.warning(f"Health check database error: {e}")
-        db_status = "error"
+        components["database"] = "error"
 
-    is_healthy = db_status == "connected"
-    status_code = 200 if is_healthy else 503
+    # Disk space
+    try:
+        usage = shutil.disk_usage("/")
+        free_mb = usage.free / (1024 * 1024)
+        components["disk_space"] = "ok" if free_mb > 100 else "low"
+    except Exception:
+        components["disk_space"] = "unknown"
+
+    # Orekit (Java) availability for state/residual metrics
+    try:
+        import orekit  # noqa: F401
+        components["orekit"] = "available"
+    except ImportError:
+        components["orekit"] = "unavailable"
+
+    is_healthy = components.get("database") == "connected"
     return JSONResponse(
-        status_code=status_code,
-        content={
-            "status": "healthy" if is_healthy else "degraded",
-            "database": db_status,
-        },
+        status_code=200 if is_healthy else 503,
+        content={"status": "healthy" if is_healthy else "degraded", "components": components},
     )
 
 

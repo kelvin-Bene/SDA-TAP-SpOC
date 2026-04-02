@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
 from loguru import logger
 
+from backend_api.middleware.auth import AuthUser, get_current_user
 from backend_api.middleware.rate_limit import limiter
 
 from backend_api.database import get_db
@@ -51,9 +52,13 @@ async def list_results(
     algorithm_name: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """List all submission results with optional filtering."""
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
     query = """
         SELECT
             s.id as submission_id,
@@ -75,6 +80,10 @@ async def list_results(
     """
     params = []
 
+    if not user.is_admin:
+        query += " AND s.user_id = ?"
+        params.append(user.id)
+
     if dataset_id:
         query += " AND s.dataset_id = ?"
         params.append(int(dataset_id))
@@ -83,7 +92,7 @@ async def list_results(
         params.append(status)
     if algorithm_name:
         safe_name = algorithm_name.replace("%", "\\%").replace("_", "\\_")
-        query += " AND s.algorithm_name ILIKE ?"
+        query += " AND LOWER(s.algorithm_name) LIKE LOWER(?)"
         params.append(f"%{safe_name}%")
 
     query += " ORDER BY s.completed_at DESC, sr.f1_score DESC"
@@ -100,6 +109,7 @@ async def list_results(
 @router.get("/{submission_id}", response_model=SubmissionResults)
 async def get_results(
     submission_id: str,
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -136,9 +146,9 @@ async def get_results(
             RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE s.id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id),),
+        (int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -212,6 +222,7 @@ async def get_results(
 @router.get("/{submission_id}/metrics")
 async def get_detailed_metrics(
     submission_id: str,
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -223,9 +234,10 @@ async def get_detailed_metrics(
     Returns:
         Per-satellite and per-track metrics breakdown
     """
-    # Verify submission exists
+    # Verify submission exists and user owns it
     submission = db.execute(
-        "SELECT id, status FROM submissions WHERE id = ?", (int(submission_id),)
+        "SELECT id, status FROM submissions WHERE id = ? AND (user_id = ? OR ? = TRUE)",
+        (int(submission_id), user.id, user.is_admin),
     ).fetchone()
 
     if submission is None:
@@ -261,6 +273,7 @@ async def get_detailed_metrics(
 @router.get("/{submission_id}/visualization")
 async def get_visualization_data(
     submission_id: str,
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -272,9 +285,10 @@ async def get_visualization_data(
     Returns:
         Data formatted for orbit plots, error distributions, and temporal analysis
     """
-    # Verify submission exists
+    # Verify submission exists and user owns it
     submission = db.execute(
-        "SELECT id, status FROM submissions WHERE id = ?", (int(submission_id),)
+        "SELECT id, status FROM submissions WHERE id = ? AND (user_id = ? OR ? = TRUE)",
+        (int(submission_id), user.id, user.is_admin),
     ).fetchone()
 
     if submission is None:
@@ -312,6 +326,7 @@ async def get_visualization_data(
 async def export_results(
     submission_id: str,
     format: str = "json",
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -357,9 +372,9 @@ async def export_results(
             sr.processing_time_seconds
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE s.id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id),),
+        (int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -413,6 +428,7 @@ async def generate_report(
     request: Request,
     submission_id: str,
     format: str = "pdf",
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -443,9 +459,9 @@ async def generate_report(
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         LEFT JOIN datasets d ON s.dataset_id = d.id
-        WHERE s.id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id),),
+        (int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()

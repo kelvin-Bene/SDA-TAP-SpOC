@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -40,6 +41,29 @@ from uct_benchmark.config.dataset_schema import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
+
+_last_cleanup_time: float = 0.0
+_CLEANUP_INTERVAL = 300  # Run cleanup at most every 5 minutes
+
+
+def _maybe_cleanup_stuck_datasets(db) -> None:
+    """Mark datasets stuck in 'generating' for >15 min as failed. Rate-limited."""
+    global _last_cleanup_time
+    now = time.monotonic()
+    if now - _last_cleanup_time < _CLEANUP_INTERVAL:
+        return
+    _last_cleanup_time = now
+    try:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
+        db.execute(
+            """UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+               WHERE status = 'generating'
+                 AND created_at < ?""",
+            (cutoff,),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to clean up stuck datasets: {e}")
 
 
 @router.get("/config")
@@ -150,6 +174,7 @@ async def list_datasets(
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     order: Optional[str] = None,
+    mine: Optional[bool] = None,
     current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
@@ -165,6 +190,7 @@ async def list_datasets(
         search: Text search on dataset name and code
         sort_by: Column to sort by (name, created_at, satellite_count, observation_count)
         order: Sort order (asc, desc)
+        mine: If true, only return datasets owned by the current user
 
     Returns:
         List of dataset summaries
@@ -173,23 +199,15 @@ async def list_datasets(
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
 
-    # Auto-recover stuck datasets: mark any dataset that's been "generating"
-    # for more than 15 minutes as "failed" (indicates worker crash/timeout)
-    try:
-        db.execute(
-            """
-            UPDATE datasets
-            SET status = 'failed', updated_at = CURRENT_TIMESTAMP
-            WHERE status = 'generating'
-              AND created_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
-            """,
-        )
-    except Exception as e:
-        logger.warning(f"Failed to clean up stuck datasets: {e}")
+    _maybe_cleanup_stuck_datasets(db)
 
     # Build query with optional filters
     query = "SELECT * FROM datasets WHERE 1=1"
     params = []
+
+    if mine and current_user:
+        query += " AND user_id = ?"
+        params.append(current_user.id)
 
     if status:
         query += " AND status = ?"
@@ -611,12 +629,13 @@ async def create_dataset(
                 status_code=409, detail="Dataset name conflict occurred. Please try again."
             )
 
-        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create dataset. Please try again.")
 
     # Submit background job AFTER commit so the worker can see the dataset row
     try:
         job = submit_dataset_generation(
-            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token")
+            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
+            user_id=current_user.id,
         )
 
         # Update dataset with job_id (outside transaction, non-critical)
@@ -1267,7 +1286,8 @@ async def create_dataset_from_legacy_code(
 
         # Submit background job (pass validated tokens)
         job = submit_dataset_generation(
-            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token")
+            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
+            user_id=current_user.id,
         )
 
         # Update with job_id (separate auto-committed statement)
