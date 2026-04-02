@@ -155,9 +155,9 @@ def basicScoring(datasetCode, allObs, satData):
         except Exception:
             a = np.nan
 
-        if a < 7871:
+        if a <= config.semiMajorAxis_LEO:
             regime = "LEO"
-        elif a > 40000:
+        elif a >= config.semiMajorAxis_GEO:
             regime = "GEO"
         elif np.isnan(a):
             regime = "N/A"

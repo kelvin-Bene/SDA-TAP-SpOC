@@ -156,14 +156,16 @@ export function SubmitPage() {
         : ['sourcedData', 'epoch', 'xpos', 'ypos', 'zpos', 'xvel', 'yvel', 'zvel'];
 
       // Also accept common aliases for state-vector field names
+      // Must stay in sync with uct_benchmark/utils/field_mapping.py FIELD_ALIASES
       const fieldAliases: Record<string, string[]> = {
-        sourcedData: ['grouped_ops', 'sourced_data'],
-        xpos: ['X', 'x', 'posX'],
-        ypos: ['Y', 'y', 'posY'],
-        zpos: ['Z', 'z', 'posZ'],
-        xvel: ['VX', 'vx', 'velX', 'Xdot'],
-        yvel: ['VY', 'vy', 'velY', 'Ydot'],
-        zvel: ['VZ', 'vz', 'velZ', 'Zdot'],
+        sourcedData: ['grouped_ops', 'sourced_data', 'grouped_observations', 'obs_ids', 'observation_ids'],
+        epoch: ['Epoch', 'time', 'datetime', 'timestamp'],
+        xpos: ['X', 'x', 'posX', 'x_pos', 'pos_x', 'position_x'],
+        ypos: ['Y', 'y', 'posY', 'y_pos', 'pos_y', 'position_y'],
+        zpos: ['Z', 'z', 'posZ', 'z_pos', 'pos_z', 'position_z'],
+        xvel: ['VX', 'vx', 'velX', 'Xdot', 'x_vel', 'vel_x', 'velocity_x', 'xdot', 'x_dot'],
+        yvel: ['VY', 'vy', 'velY', 'Ydot', 'y_vel', 'vel_y', 'velocity_y', 'ydot', 'y_dot'],
+        zvel: ['VZ', 'vz', 'velZ', 'Zdot', 'z_vel', 'vel_z', 'velocity_z', 'zdot', 'z_dot'],
       };
 
       const missingFields: string[] = [];

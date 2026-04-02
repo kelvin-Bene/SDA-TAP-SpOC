@@ -1033,12 +1033,13 @@ def add_non_reference_observations(
         non_ref_truth = pd.DataFrame(columns=["id", "source_norad_id", "is_non_reference"])
         return ref_obs_df.copy(), non_ref_truth
 
-    # Calculate target count for non-reference observations
-    ref_count = len(ref_obs_df)
-    target_non_ref_count = int(ref_count * non_ref_ratio)
+    # Per SSOT: "2 non-reference observations per satellite" -- the number of
+    # non-reference satellites matches the number of reference satellites, and
+    # each gets exactly NON_REF_OBS_PER_SATELLITE observations (default 2).
+    ref_sat_count = ref_obs_df["satNo"].nunique()
 
-    if target_non_ref_count <= 0:
-        logger.info("Non-ref ratio results in 0 non-reference observations")
+    if ref_sat_count <= 0:
+        logger.info("No reference satellites; skipping non-reference observation selection")
         non_ref_truth = pd.DataFrame(columns=["id", "source_norad_id", "is_non_reference"])
         return ref_obs_df.copy(), non_ref_truth
 
@@ -1062,10 +1063,13 @@ def add_non_reference_observations(
     # observations per non-reference satellite to make IOD impossible
     non_ref_satellites = non_ref_obs["satNo"].unique()
 
-    # Calculate how many satellites we need to sample from to achieve target count
-    # Each satellite contributes exactly observations_per_satellite observations
-    target_non_ref_sats = max(1, target_non_ref_count // observations_per_satellite)
-    target_non_ref_sats = min(target_non_ref_sats, len(non_ref_satellites))
+    # Per SSOT: one non-reference satellite per reference satellite,
+    # each with exactly NON_REF_OBS_PER_SATELLITE (2) observations
+    target_non_ref_sats = min(ref_sat_count, len(non_ref_satellites))
+    logger.info(
+        f"Targeting {target_non_ref_sats} non-ref satellites "
+        f"({observations_per_satellite} obs each) to match {ref_sat_count} reference satellites"
+    )
 
     # Randomly select which non-reference satellites to include
     selected_sats = rng.choice(non_ref_satellites, target_non_ref_sats, replace=False)

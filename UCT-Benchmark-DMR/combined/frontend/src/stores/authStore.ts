@@ -32,7 +32,7 @@ function mapSupabaseUser(
     username: (metadata.display_name as string) ?? (metadata.full_name as string) ?? supabaseUser.email?.split('@')[0] ?? 'user',
     email: supabaseUser.email ?? '',
     organization: (metadata.organization as string) ?? '',
-    role: (appMetadata.role as User['role']) ?? 'developer',
+    role: (appMetadata.role as User['role']) ?? 'authenticated',
     createdAt: supabaseUser.created_at ?? new Date().toISOString(),
     submissionCount: 0,
   };

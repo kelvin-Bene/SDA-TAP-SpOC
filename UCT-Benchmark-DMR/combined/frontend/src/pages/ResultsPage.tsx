@@ -107,6 +107,25 @@ export function ResultsPage() {
     }
   };
 
+  const handleExportCsv = async () => {
+    if (!submissionId) return;
+    try {
+      const blob = await exportMutation.mutateAsync({
+        submissionId,
+        format: 'csv',
+      });
+
+      downloadBlob(blob, `results_${submissionId}.csv`);
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export CSV. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -202,13 +221,21 @@ export function ResultsPage() {
             )}
             Download Report
           </Button>
+          <Button variant="outline" className="gap-2" onClick={handleExportCsv} disabled={exportMutation.isPending}>
+            {exportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            CSV
+          </Button>
           <Button className="gap-2" onClick={handleExport} disabled={exportMutation.isPending}>
             {exportMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export Results
+            Export JSON
           </Button>
         </div>
       </div>
@@ -321,11 +348,18 @@ export function ResultsPage() {
                     <p className="text-2xl font-bold text-orange-600">{results.falsePositives}</p>
                     <p className="text-xs text-muted-foreground">False Positive</p>
                   </div>
-                  <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-4">
-                    <p className="text-2xl font-bold text-muted-foreground">—</p>
+                  <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-4">
+                    <p className="text-2xl font-bold text-blue-600">
+                      {results.trueNegatives != null ? results.trueNegatives : 'N/A'}
+                    </p>
                     <p className="text-xs text-muted-foreground">True Negative</p>
                   </div>
                 </div>
+                {results.trueNegatives != null && results.trueNegatives > 0 && (
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Total non-reference observations: {(results.trueNegatives ?? 0) + (results.falsePositives ?? 0)}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -372,6 +406,34 @@ export function ResultsPage() {
                     />
                   </div>
                 </div>
+                {results.accuracy != null && results.accuracy > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Accuracy</span>
+                      <span className="font-mono font-semibold">{((results.accuracy ?? 0) * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-green-500 rounded-full"
+                        style={{ width: `${(results.accuracy ?? 0) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {results.specificity != null && results.specificity > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Specificity</span>
+                      <span className="font-mono font-semibold">{((results.specificity ?? 0) * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-violet-500 rounded-full"
+                        style={{ width: `${(results.specificity ?? 0) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

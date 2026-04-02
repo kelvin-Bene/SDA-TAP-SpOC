@@ -189,7 +189,7 @@ def _build_current_user(payload: dict) -> CurrentUser:
     # Only trust app_metadata for role (server-side only, not user-editable).
     # Do NOT trust top-level "role" claim or user_metadata -- those can be
     # modified by the client via supabase.auth.updateUser().
-    role = "user"
+    role = "authenticated"
     app_metadata = payload.get("app_metadata", {})
     if isinstance(app_metadata, dict) and "role" in app_metadata:
         role = app_metadata["role"]

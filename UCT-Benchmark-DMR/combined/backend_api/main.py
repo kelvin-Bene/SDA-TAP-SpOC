@@ -23,8 +23,15 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import sys
+
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
+
+# Configurable log level via LOG_LEVEL env var (default: INFO)
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logger.remove()
+logger.add(sys.stderr, level=_log_level)
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded

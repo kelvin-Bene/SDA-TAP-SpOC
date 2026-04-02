@@ -76,6 +76,16 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
         HTTPException: If token is invalid or expired
     """
     if not SUPABASE_JWT_SECRET:
+        # DEMO_MODE: return a read-only demo user without any auth
+        if os.getenv("DEMO_MODE", "").lower() == "true":
+            logger.info("DEMO_MODE active — returning demo user (read-only)")
+            return {
+                "sub": "demo-user",
+                "email": "demo@uct-benchmark.example",
+                "role": "authenticated",
+                "app_metadata": {},
+                "user_metadata": {"display_name": "Demo User"},
+            }
         # Only allow dev bypass when explicitly opted in
         if os.getenv("ENVIRONMENT", "").lower() == "development":
             # Safety: refuse dev bypass if a real SUPABASE_URL is configured

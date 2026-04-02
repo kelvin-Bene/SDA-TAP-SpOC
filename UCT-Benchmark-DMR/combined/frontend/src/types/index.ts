@@ -409,7 +409,7 @@ export interface User {
   username: string;
   email: string;
   organization: string;
-  role: 'developer' | 'evaluator' | 'admin';
+  role: 'authenticated' | 'evaluator' | 'admin';
   createdAt: string;
   bestRank?: number;
   submissionCount: number;

@@ -143,8 +143,8 @@ def TLEGeneration(ref_obs, ref_sv):
     df_output = pd.DataFrame(
         columns=[
             "NORAD_ID",
-            "TLE1",
-            "TLE2",
+            "line1",
+            "line2",
             "meanMotion",
             "semiMajorAxis",
             "eccentricity",
@@ -170,8 +170,8 @@ def TLEGeneration(ref_obs, ref_sv):
             # No state found
             df_output.loc[j, "origObjectId"] = None
             df_output.loc[j, "NORAD_ID"] = IODresult[0]
-            df_output.loc[j, "TLE1"] = None
-            df_output.loc[j, "TLE2"] = None
+            df_output.loc[j, "line1"] = None
+            df_output.loc[j, "line2"] = None
             df_output.loc[j, "meanMotion"] = None
             df_output.loc[j, "semiMajorAxis"] = None
             df_output.loc[j, "eccentricity"] = None
@@ -227,8 +227,8 @@ def TLEGeneration(ref_obs, ref_sv):
             logger.debug("Skipping Window.")
             df_output.loc[j, "origObjectId"] = None
             df_output.loc[j, "NORAD_ID"] = IODresult[0]
-            df_output.loc[j, "TLE1"] = None
-            df_output.loc[j, "TLE2"] = None
+            df_output.loc[j, "line1"] = None
+            df_output.loc[j, "line2"] = None
             df_output.loc[j, "meanMotion"] = None
             df_output.loc[j, "semiMajorAxis"] = None
             df_output.loc[j, "eccentricity"] = None
@@ -281,8 +281,8 @@ def TLEGeneration(ref_obs, ref_sv):
             IODstates1["stateID"].tail(1)
         )
         df_output.loc[j, "NORAD_ID"] = IODresult[0]
-        df_output.loc[j, "TLE1"] = TLE.getLine1(TLE_Batch)
-        df_output.loc[j, "TLE2"] = TLE.getLine2(TLE_Batch)
+        df_output.loc[j, "line1"] = TLE.getLine1(TLE_Batch)
+        df_output.loc[j, "line2"] = TLE.getLine2(TLE_Batch)
         df_output.loc[j, "meanMotion"] = TLE.getMeanMotion(TLE_Batch)
         df_output.loc[j, "semiMajorAxis"] = TLE.computeSemiMajorAxis(TLE_Batch)
         df_output.loc[j, "eccentricity"] = TLE.getE(TLE_Batch)
