@@ -57,7 +57,7 @@ async def list_results(
     db: DatabaseManager = Depends(get_db),
 ):
     """List all submission results with optional filtering."""
-    limit = max(1, min(limit, 500))
+    limit = max(0, min(limit, 500))
     offset = max(0, offset)
 
     query = """
@@ -122,9 +122,20 @@ async def get_results(
     Returns:
         Complete results including binary metrics, state metrics, and per-satellite breakdown
     """
-    # Get submission and results
+    # Get submission and results.
+    # Rank is computed via a subquery over all completed submissions in the same
+    # dataset so that RANK() OVER sees more than one row.  Submissions without
+    # results (still processing) are included via LEFT JOIN and receive a NULL rank.
     result = db.execute(
         """
+        WITH dataset_ranks AS (
+            SELECT
+                s.id,
+                RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
+            FROM submissions s
+            INNER JOIN submission_results sr ON s.id = sr.submission_id
+            WHERE s.dataset_id = (SELECT dataset_id FROM submissions WHERE id = ?)
+        )
         SELECT
             s.id,
             s.dataset_id,
@@ -144,12 +155,13 @@ async def get_results(
             sr.dec_residual_rms_arcsec,
             sr.raw_results,
             sr.processing_time_seconds,
-            RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
+            dr.rank
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
+        LEFT JOIN dataset_ranks dr ON s.id = dr.id
         WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id), user.id, user.is_admin),
+        (int(submission_id), int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()

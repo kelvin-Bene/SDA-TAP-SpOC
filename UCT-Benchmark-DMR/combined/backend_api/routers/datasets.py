@@ -632,7 +632,7 @@ async def create_dataset(
     try:
         job = submit_dataset_generation(
             dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
-            user_id=current_user.id,
+            user_id=user.id,
         )
 
         # Update dataset with job_id (outside transaction, non-critical)
@@ -1303,7 +1303,7 @@ async def create_dataset_from_legacy_code(
         # Submit background job (pass validated tokens)
         job = submit_dataset_generation(
             dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
-            user_id=current_user.id,
+            user_id=user.id,
         )
 
         # Update with job_id (separate auto-committed statement)

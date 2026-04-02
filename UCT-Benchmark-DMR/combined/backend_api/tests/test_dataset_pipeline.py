@@ -9,6 +9,7 @@ import os
 
 # Import the FastAPI app
 import sys
+from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,8 +17,11 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+from backend_api.auth import CurrentUser
+from backend_api.auth import get_current_user as prod_get_current_user
 from backend_api.database import get_db
-from backend_api.main import app
+from backend_api.main import create_test_app, reset_test_mode
+from backend_api.middleware.auth import get_current_user as mw_get_current_user
 from backend_api.models import (
     DatasetCreate,
     DataTier,
@@ -43,12 +47,33 @@ def mock_db():
 
 @pytest.fixture
 def client(mock_db):
-    """Create a test client for the FastAPI app with mocked database."""
-    # Override the database dependency
-    app.dependency_overrides[get_db] = lambda: mock_db
-    yield TestClient(app)
+    """Create a test client for the FastAPI app with mocked database and auth."""
+    mock_user = CurrentUser(id="test-user-id", email="test@example.com", role="user")
+    test_app = create_test_app()
+    test_app.dependency_overrides[get_db] = lambda: mock_db
+    test_app.dependency_overrides[mw_get_current_user] = lambda: mock_user
+    test_app.dependency_overrides[prod_get_current_user] = lambda: mock_user
+
+    # Patch token helpers so the mock DB's generic return values don't cause
+    # type errors inside get_user_tokens / validate_udl_token.
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "backend_api.routers.datasets.get_user_tokens",
+                return_value={"udl_token": "mock-udl-token", "esa_token": "mock-esa-token"},
+            )
+        )
+        stack.enter_context(
+            patch(
+                "backend_api.routers.datasets.validate_udl_token",
+                return_value=(True, None),
+            )
+        )
+        yield TestClient(test_app)
+
     # Clear overrides after test
-    app.dependency_overrides.clear()
+    test_app.dependency_overrides.clear()
+    reset_test_mode()
 
 
 @pytest.fixture
@@ -179,7 +204,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=base_dataset_request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         data = response.json()
         assert data["name"] == "test-dataset"
         assert data["regime"] == "LEO"
@@ -204,7 +229,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         # Verify the generation params include downsampling
         call_args = mock_submit.call_args
         config = call_args[0][1]
@@ -232,7 +257,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         call_args = mock_submit.call_args
         config = call_args[0][1]
         assert "simulation" in config
@@ -259,7 +284,7 @@ class TestDatasetCreateEndpoint:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         call_args = mock_submit.call_args
         config = call_args[0][1]
         assert "downsampling" in config
@@ -378,7 +403,7 @@ class TestBackwardCompatibility:
 
         response = client.post("/api/v1/datasets/", json=request)
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         data = response.json()
         assert data["regime"] == "LEO"
 
