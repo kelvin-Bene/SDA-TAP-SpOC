@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
@@ -13,4 +13,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create a real client when configured, or a placeholder that won't crash the app
+let supabase: SupabaseClient;
+try {
+  supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder-key');
+} catch {
+  // Fallback: create with placeholder so the app can render without Supabase
+  supabase = createClient('https://placeholder.supabase.co', 'placeholder-key');
+}
+
+export { supabase }
