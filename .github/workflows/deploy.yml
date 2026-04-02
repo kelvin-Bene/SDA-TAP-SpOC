@@ -60,7 +60,7 @@ jobs:
 
       - name: Run frontend unit tests
         working-directory: ./UCT-Benchmark-DMR/combined/frontend
-        run: npx vitest run --reporter=verbose --coverage
+        run: npx vitest run --reporter=verbose
 
   deploy-backend:
     name: Deploy Backend (production)
