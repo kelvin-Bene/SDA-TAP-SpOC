@@ -4,6 +4,7 @@ Validate UDL and ESA API tokens by making lightweight test requests.
 These are sync functions — call from async FastAPI handlers via asyncio.to_thread().
 """
 
+import os
 import time
 
 import requests
@@ -113,3 +114,31 @@ def validate_esa_token(token: str) -> tuple[bool, str]:
     except Exception as e:
         logger.debug(f"ESA token validation error: {e}")
         return False, f"ESA validation error: {type(e).__name__}"
+
+
+# ============================================================
+# Stub validators for services without full connectivity tests
+# ============================================================
+
+
+def validate_spacetrack_credentials(username: str, password: str) -> tuple[bool, str]:
+    """Validate Space-Track credentials (stub -- full implementation pending)."""
+    return (True, "Space-Track validation not yet implemented")
+
+
+def validate_satnogs_token(token: str) -> tuple[bool, str]:
+    """Validate a SatNOGS API token (stub -- full implementation pending)."""
+    return (True, "SatNOGS validation not yet implemented")
+
+
+def validate_celestrak_token(token: str) -> tuple[bool, str]:
+    """Validate a CelesTrak API token (stub -- full implementation pending)."""
+    return (True, "CelesTrak validation not yet implemented")
+
+
+def validate_orekit_path(path: str) -> tuple[bool, str]:
+    """Validate that the Orekit data directory exists and is accessible."""
+    return (
+        os.path.isdir(path),
+        "Valid path" if os.path.isdir(path) else f"Directory not found: {path}",
+    )

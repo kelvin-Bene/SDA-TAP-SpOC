@@ -316,15 +316,44 @@ def _get_or_create_profile(db: DatabaseManager, user: CurrentUser) -> dict:
 
 
 def get_user_tokens(db: DatabaseManager, user_id: str) -> dict:
-    """Fetch and decrypt a user's API tokens from the profiles table."""
-    result = db.execute(
-        "SELECT udl_token, esa_token FROM profiles WHERE id = ?",
-        (user_id,),
-    )
-    row = result.fetchone()
-    if not row:
-        return {"udl_token": None, "esa_token": None}
-    return {
-        "udl_token": decrypt_token(row[0]) if row[0] else None,
-        "esa_token": decrypt_token(row[1]) if row[1] else None,
-    }
+    """Fetch and decrypt a user's API tokens.
+
+    Resolution order for each service:
+      1. credentials table (encrypted, per-user) via CredentialService.resolve
+      2. profiles table (legacy storage, encrypted)
+      3. None
+    """
+    from backend_api.services.credential_service import CredentialService
+
+    tokens: dict = {"udl_token": None, "esa_token": None}
+
+    # Try credentials table first for UDL
+    try:
+        udl_val = CredentialService.resolve(db, user_id, "udl")
+        if udl_val:
+            tokens["udl_token"] = udl_val
+    except Exception as e:
+        logger.debug(f"Credential resolve failed for udl: {e}")
+
+    # Try credentials table first for ESA
+    try:
+        esa_val = CredentialService.resolve(db, user_id, "esa")
+        if esa_val:
+            tokens["esa_token"] = esa_val
+    except Exception as e:
+        logger.debug(f"Credential resolve failed for esa: {e}")
+
+    # Fall back to profiles table for any that are still None
+    if tokens["udl_token"] is None or tokens["esa_token"] is None:
+        result = db.execute(
+            "SELECT udl_token, esa_token FROM profiles WHERE id = ?",
+            (user_id,),
+        )
+        row = result.fetchone()
+        if row:
+            if tokens["udl_token"] is None and row[0]:
+                tokens["udl_token"] = decrypt_token(row[0])
+            if tokens["esa_token"] is None and row[1]:
+                tokens["esa_token"] = decrypt_token(row[1])
+
+    return tokens

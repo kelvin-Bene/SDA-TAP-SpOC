@@ -38,7 +38,7 @@ from .middleware.auth import get_current_user
 from .middleware.logging import RequestLoggingMiddleware, get_request_id
 from .middleware.rate_limit import limiter
 from .routers import auth as auth_router
-from .routers import datasets, feedback, jobs, leaderboard, results, submissions
+from .routers import credentials, datasets, events, feedback, jobs, leaderboard, results, submissions
 
 # Module-level flag to skip lifespan initialization during testing
 # Set to True when using create_test_app() to prevent double database initialization
@@ -291,6 +291,14 @@ app.include_router(
 )
 app.include_router(
     jobs.router, prefix="/api/v1/jobs", tags=["Jobs"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    credentials.router, prefix="/api/v1/credentials", tags=["Credentials"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    events.router, prefix="/api/v1/events", tags=["Events"],
     dependencies=_auth_deps,
 )
 

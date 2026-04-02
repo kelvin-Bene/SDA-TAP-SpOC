@@ -7,7 +7,8 @@ import {
   Settings,
   Moon,
   Sun,
-  Orbit,
+  Monitor,
+  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +18,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/components/theme-provider';
 import { useAuthStore } from '@/stores/authStore';
@@ -46,18 +52,24 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 mr-8 group">
-          {/* Animated orbital logo */}
-          <div className="relative w-10 h-10 flex items-center justify-center">
-            {/* Outer orbit ring */}
-            <div className="absolute inset-0 border border-cosmic-cyan/30 rounded-full animate-orbit-slow" />
-            {/* Inner orbit ring */}
-            <div className="absolute inset-1 border border-stellar-purple/20 rounded-full animate-orbit-reverse" />
-            {/* Center icon */}
-            <div className="relative z-10 w-6 h-6 rounded-full bg-gradient-to-br from-cosmic-cyan to-cosmic-blue flex items-center justify-center shadow-glow-cyan group-hover:shadow-glow-lg transition-shadow duration-300">
-              <Orbit className="h-3.5 w-3.5 text-white" />
-            </div>
-            {/* Orbiting dot */}
-            <div className="absolute w-2 h-2 rounded-full bg-cosmic-cyan shadow-glow-cyan animate-orbit" style={{ top: '0', left: '50%', marginLeft: '-4px' }} />
+          {/* SVG orbital globe logo */}
+          <div className="relative w-10 h-10 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+            <svg viewBox="0 0 40 40" className="h-9 w-9 drop-shadow-[0_0_8px_hsl(var(--cosmic-cyan)/0.4)]">
+              {/* Globe outline */}
+              <circle cx="20" cy="20" r="16" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="1.5" opacity="0.9" />
+              {/* Equator */}
+              <ellipse cx="20" cy="20" rx="16" ry="5" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="0.8" opacity="0.4" />
+              {/* Orbit path 1 */}
+              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="1" opacity="0.6" transform="rotate(-30 20 20)" />
+              {/* Orbit path 2 */}
+              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--stellar-purple))" strokeWidth="1" opacity="0.5" transform="rotate(45 20 20)" />
+              {/* Orbit path 3 */}
+              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--cosmic-blue))" strokeWidth="1" opacity="0.5" transform="rotate(90 20 20)" />
+              {/* Satellite dot */}
+              <circle cx="36" cy="20" r="2" fill="hsl(var(--cosmic-cyan))" className="animate-orbit" style={{ transformOrigin: '20px 20px' }}>
+                <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+              </circle>
+            </svg>
           </div>
           <div className="hidden sm:block">
             <span className="font-display font-bold text-lg tracking-tight">
@@ -141,23 +153,31 @@ export function Header({ onMenuClick }: HeaderProps) {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
-                    <Link to="/profile" className="flex items-center">
+                    <Link to="/settings" className="flex items-center">
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className="focus:bg-white/5 cursor-pointer"
-                  >
-                    {theme === 'dark' ? (
-                      <Sun className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Moon className="mr-2 h-4 w-4" />
-                    )}
-                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">
+                      <Palette className="mr-2 h-4 w-4" />
+                      Theme
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="glass border-white/10">
+                      <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
+                        <DropdownMenuRadioItem value="light" className="focus:bg-white/5 cursor-pointer">
+                          <Sun className="mr-2 h-4 w-4" /> Light
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="dark" className="focus:bg-white/5 cursor-pointer">
+                          <Moon className="mr-2 h-4 w-4" /> Dark
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="system" className="focus:bg-white/5 cursor-pointer">
+                          <Monitor className="mr-2 h-4 w-4" /> System
+                        </DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={() => {

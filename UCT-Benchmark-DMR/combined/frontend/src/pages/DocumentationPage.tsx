@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Code, FileJson, BarChart3, Rocket } from 'lucide-react';
+import { Code, FileJson, BarChart3, Rocket, Workflow } from 'lucide-react';
+import { PipelineVisualizer } from '@/components/pipeline/PipelineVisualizer';
 
 export function DocumentationPage() {
   return (
@@ -31,6 +32,10 @@ export function DocumentationPage() {
           <TabsTrigger value="metrics" className="gap-2">
             <BarChart3 className="h-4 w-4" />
             Evaluation Metrics
+          </TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-2">
+            <Workflow className="h-4 w-4" />
+            Pipeline
           </TabsTrigger>
         </TabsList>
 
@@ -275,6 +280,32 @@ export function DocumentationPage() {
               <p>
                 Algorithms are ranked primarily by F1-Score. In case of ties, position RMS is used
                 as a secondary criterion (lower is better).
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Pipeline */}
+        <TabsContent value="pipeline">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Workflow className="h-5 w-5" />
+                Processing Pipeline
+              </CardTitle>
+              <CardDescription>
+                Visual overview of the UCT processing stages
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                The UCT processing pipeline follows five stages:
+              </p>
+              <PipelineVisualizer />
+              <p className="text-sm text-muted-foreground">
+                Click the info icon on each stage to learn more about what it does.
+                When running a benchmark, each stage lights up as the pipeline progresses
+                from raw observations to final track associations and state estimates.
               </p>
             </CardContent>
           </Card>

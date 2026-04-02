@@ -224,4 +224,36 @@ export const api = {
 
   refreshToken: () =>
     apiClient.post('/auth/refresh'),
+
+  // Credentials
+  getCredentials: () =>
+    apiClient.get('/credentials/'),
+
+  getCredential: (serviceName: string) =>
+    apiClient.get(`/credentials/${serviceName}`),
+
+  saveCredential: (serviceName: string, data: { primary: string; secondary?: string }) =>
+    apiClient.put(`/credentials/${serviceName}`, data),
+
+  deleteCredential: (serviceName: string) =>
+    apiClient.delete(`/credentials/${serviceName}`),
+
+  testCredential: (serviceName: string) =>
+    apiClient.post(`/credentials/${serviceName}/test`),
+
+  // Events
+  getEvents: (params?: Record<string, string>) =>
+    apiClient.get('/events/', { params }),
+
+  getEvent: (id: string) =>
+    apiClient.get(`/events/${id}`),
+
+  getEventTypes: () =>
+    apiClient.get('/events/types'),
+
+  detectEvents: (config: unknown) =>
+    apiClient.post('/events/detect', config),
+
+  deleteEvent: (id: string) =>
+    apiClient.delete(`/events/${id}`),
 };

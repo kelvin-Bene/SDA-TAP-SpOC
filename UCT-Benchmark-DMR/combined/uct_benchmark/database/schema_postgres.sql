@@ -400,11 +400,22 @@ CREATE TABLE IF NOT EXISTS events (
     source VARCHAR(100),
     external_id VARCHAR(100),
 
+    -- Detector configuration (JSON string of parameters used)
+    detection_config TEXT,
+
+    -- Optional link to a dataset
+    dataset_id INTEGER,                   -- References datasets(id)
+
     -- Metadata
     labelled_by VARCHAR(100),
     labelled_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     notes TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_events_dataset ON events(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type_id);
+CREATE INDEX IF NOT EXISTS idx_events_primary_sat ON events(primary_sat_no);
+CREATE INDEX IF NOT EXISTS idx_events_time ON events(event_time_start);
 
 CREATE TABLE IF NOT EXISTS event_observations (
     event_id INTEGER,                     -- References events(id)
@@ -517,7 +528,26 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 
+-- ============================================================
+-- CREDENTIALS TABLE (encrypted per-user API credentials)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS credentials (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    service_name VARCHAR(50) NOT NULL,
+    encrypted_primary TEXT,
+    encrypted_secondary TEXT,
+    is_valid BOOLEAN,
+    validation_status VARCHAR(20) DEFAULT 'untested',
+    last_tested_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, service_name)
+);
+CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials(user_id);
+
 -- Set schema version
 INSERT INTO _schema_metadata (key, value, updated_at)
-VALUES ('version', '1.6.0', CURRENT_TIMESTAMP)
+VALUES ('version', '1.7.0', CURRENT_TIMESTAMP)
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;

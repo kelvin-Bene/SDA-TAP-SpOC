@@ -29,6 +29,7 @@ class JobType(str, Enum):
 
     DATASET_GENERATION = "dataset_generation"
     EVALUATION = "evaluation"
+    EVENT_DETECTION = "event_detection"
 
 
 @dataclass

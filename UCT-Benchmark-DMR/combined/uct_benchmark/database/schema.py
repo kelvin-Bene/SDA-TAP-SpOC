@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.6.0"
+SCHEMA_VERSION = "1.8.0"
 
 
 def _parse_version(v: str) -> tuple:
@@ -464,11 +464,24 @@ CREATE TABLE IF NOT EXISTS events (
     source VARCHAR(100),
     external_id VARCHAR(100),
 
+    -- Detector configuration (JSON string of parameters used)
+    detection_config TEXT,
+
+    -- Optional link to a dataset
+    dataset_id INTEGER,                   -- References datasets(id)
+
     -- Metadata
     labelled_by VARCHAR(100),
     labelled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT
 );
+"""
+
+EVENTS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_events_dataset ON events(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type_id);
+CREATE INDEX IF NOT EXISTS idx_events_primary_sat ON events(primary_sat_no);
+CREATE INDEX IF NOT EXISTS idx_events_time ON events(event_time_start);
 """
 
 EVENT_OBSERVATIONS_TABLE = """
@@ -590,6 +603,30 @@ CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 """
 
 # ============================================================
+# CREDENTIALS TABLE (encrypted per-user API credentials)
+# ============================================================
+
+CREDENTIALS_TABLE = """
+CREATE TABLE IF NOT EXISTS credentials (
+    id INTEGER PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    service_name VARCHAR(50) NOT NULL,
+    encrypted_primary TEXT,
+    encrypted_secondary TEXT,
+    is_valid BOOLEAN,
+    validation_status VARCHAR(20) DEFAULT 'untested',
+    last_tested_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, service_name)
+);
+"""
+
+CREDENTIALS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials(user_id);
+"""
+
+# ============================================================
 # SCHEMA VERSION TRACKING
 # ============================================================
 
@@ -708,6 +745,7 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     # Event tables
     db.execute(EVENT_TYPES_TABLE)
     db.execute(EVENTS_TABLE)
+    db.execute(EVENTS_INDEXES)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
     # Non-reference observations table (for True Negatives)
@@ -726,12 +764,18 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(PROFILES_TABLE)
     db.execute(PROFILES_INDEXES)
 
+    # Credentials table (encrypted per-user API credentials)
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
     _migrate_to_1_6_0(db)
+    _migrate_to_1_7_0(db)
+    _migrate_to_1_8_0(db)
 
     # Seed default event types
     _seed_event_types(db)
@@ -766,6 +810,8 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
         _migrate_to_1_4_0(db)
         _migrate_to_1_5_0(db)
         _migrate_to_1_6_0(db)
+        _migrate_to_1_7_0(db)
+        _migrate_to_1_8_0(db)
 
         # Seed default event types
         _seed_event_types_postgres(db)
@@ -830,6 +876,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     # Event tables
     db.execute(EVENT_TYPES_TABLE)
     db.execute(EVENTS_TABLE)
+    db.execute(EVENTS_INDEXES)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
     # Non-reference observations table (for True Negatives)
@@ -848,12 +895,17 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(PROFILES_TABLE)
     db.execute(PROFILES_INDEXES)
 
+    # Credentials table (encrypted per-user API credentials)
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
     _migrate_to_1_6_0(db)
+    _migrate_to_1_7_0(db)
 
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
@@ -872,6 +924,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
+        "credentials",
         "profiles",
         "breakup_events",
         "non_reference_observations",
@@ -983,6 +1036,28 @@ def _migrate_to_1_6_0(db: "DatabaseManager") -> None:
         pass  # Column already exists
 
 
+def _migrate_to_1_7_0(db: "DatabaseManager") -> None:
+    """Add credentials table for encrypted per-user API credential storage."""
+    # CREATE TABLE IF NOT EXISTS is idempotent
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEXES)
+
+
+def _migrate_to_1_8_0(db: "DatabaseManager") -> None:
+    """Add detection_config and dataset_id columns to events table for labelling system."""
+    try:
+        db.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS detection_config TEXT")
+    except Exception:
+        pass  # Column already exists
+    try:
+        db.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS dataset_id INTEGER")
+    except Exception:
+        pass  # Column already exists
+
+    # Add indexes (idempotent)
+    db.execute(EVENTS_INDEXES)
+
+
 def _seed_event_types(db: "DatabaseManager") -> None:
     """Seed default event types if they don't exist (DuckDB)."""
     for idx, (name, description) in enumerate(DEFAULT_EVENT_TYPES, start=1):
@@ -1041,6 +1116,7 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "breakup_events",
         "feedback",
         "profiles",
+        "credentials",
         "_schema_metadata",
     ]
 

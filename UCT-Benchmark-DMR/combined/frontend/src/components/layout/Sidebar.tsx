@@ -7,6 +7,7 @@ import {
   FileText,
   Trophy,
   BookOpen,
+  Settings,
   X,
   ChevronDown,
   Sparkles,
@@ -68,6 +69,11 @@ const authNavItems: NavItem[] = [
     title: 'Leaderboard',
     href: '/leaderboard',
     icon: Trophy,
+  },
+  {
+    title: 'Settings',
+    href: '/settings',
+    icon: Settings,
   },
 ];
 

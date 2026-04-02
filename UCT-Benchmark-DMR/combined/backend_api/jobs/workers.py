@@ -985,3 +985,176 @@ def submit_evaluation(
     executor.submit(run_evaluation_pipeline, job.id, submission_id, dataset_id, file_path)
 
     return job
+
+
+# ============================================================
+# Event Detection Worker
+# ============================================================
+
+
+def run_event_detection(
+    job_id: str,
+    sat_nos: list,
+    time_window_start: "datetime",
+    time_window_end: "datetime",
+    detector_types: list,
+) -> None:
+    """
+    Worker function for event detection.
+
+    Runs in a background thread. Instantiates the requested detectors,
+    runs the LabellingPipeline, persists results, and updates job progress.
+
+    Args:
+        job_id: The job ID to update progress
+        sat_nos: List of NORAD IDs to analyze
+        time_window_start: Start of analysis window
+        time_window_end: End of analysis window
+        detector_types: List of detector type strings (launch, maneuver, proximity, breakup)
+    """
+    from datetime import datetime
+
+    job_manager = get_job_manager()
+    job_manager.start_job(job_id)
+
+    try:
+        from backend_api.database import get_db
+        from uct_benchmark.database.repository import ObservationRepository
+        from uct_benchmark.labelling.pipeline import LabellingPipeline
+        from uct_benchmark.labelling.launch_detection import LaunchDetector
+        from uct_benchmark.labelling.maneuver_detection import ManeuverDetector
+        from uct_benchmark.labelling.proximity_detection import ProximityDetector
+        from uct_benchmark.labelling.breakup_detection import BreakupDetector
+
+        db = get_db()
+        if db is None:
+            raise RuntimeError("Database not available")
+
+        job_manager.update_job(job_id, progress=10, stage="Fetching observations")
+
+        # Fetch observations for the specified satellites and time window
+        obs_repo = ObservationRepository(db)
+        observations_df = obs_repo.get_by_time_window(
+            start_time=time_window_start,
+            end_time=time_window_end,
+        )
+
+        # Filter to requested satellites if specified
+        if sat_nos:
+            observations_df = observations_df[observations_df["sat_no"].isin(sat_nos)]
+
+        if observations_df.empty:
+            job_manager.complete_job(job_id, result={
+                "events_detected": 0,
+                "message": "No observations found for the specified parameters",
+            })
+            return
+
+        job_manager.update_job(
+            job_id, progress=25,
+            stage=f"Initializing detectors ({len(observations_df)} observations)",
+        )
+
+        # Build detector list based on requested types
+        detector_map = {
+            "launch": LaunchDetector,
+            "maneuver": ManeuverDetector,
+            "proximity": ProximityDetector,
+            "breakup": BreakupDetector,
+        }
+        detectors = []
+        for dt in detector_types:
+            cls = detector_map.get(dt)
+            if cls:
+                detectors.append(cls())
+
+        if not detectors:
+            raise ValueError(f"No valid detectors for types: {detector_types}")
+
+        job_manager.update_job(
+            job_id, progress=40,
+            stage=f"Running {len(detectors)} detectors",
+        )
+
+        # Run the pipeline
+        pipeline = LabellingPipeline(
+            detectors=detectors,
+            dataset_id=f"detection_job_{job_id}",
+        )
+
+        time_window = (time_window_start, time_window_end)
+        labelled_dataset = pipeline.run(observations_df, time_window)
+
+        job_manager.update_job(
+            job_id, progress=80,
+            stage=f"Persisting {len(labelled_dataset.event_labels)} events",
+        )
+
+        # Persist to database
+        created_count = pipeline.persist(labelled_dataset, db)
+
+        summary = labelled_dataset.summary()
+        job_manager.complete_job(job_id, result={
+            "events_detected": summary["total_events"],
+            "events_persisted": created_count,
+            "events_by_type": summary["events_by_type"],
+            "events_by_confidence": summary["events_by_confidence"],
+            "observations_analyzed": len(observations_df),
+            "satellites_analyzed": observations_df["sat_no"].nunique(),
+        })
+
+        logger.info(
+            f"Event detection job {job_id} completed: "
+            f"{created_count} events persisted"
+        )
+
+    except Exception as exc:
+        error_msg = f"Event detection failed: {exc}"
+        logger.error(f"Job {job_id}: {error_msg}")
+        logger.debug(traceback.format_exc())
+        job_manager.fail_job(job_id, error_msg)
+
+
+def submit_event_detection(
+    sat_nos: list,
+    time_window_start: "datetime",
+    time_window_end: "datetime",
+    detector_types: list,
+    user_id: Optional[str] = None,
+) -> Job:
+    """
+    Submit an event detection job to run in the background.
+
+    Args:
+        sat_nos: List of NORAD IDs to analyze
+        time_window_start: Start of analysis window
+        time_window_end: End of analysis window
+        detector_types: Detector types to run
+        user_id: Owner user ID for job ownership tracking
+
+    Returns:
+        The created Job instance
+    """
+    job_manager = get_job_manager()
+    job = job_manager.create_job(
+        JobType.EVENT_DETECTION,
+        metadata={
+            "sat_nos": sat_nos,
+            "time_window_start": time_window_start.isoformat(),
+            "time_window_end": time_window_end.isoformat(),
+            "detector_types": detector_types,
+            "user_id": user_id,
+        },
+    )
+
+    executor = get_executor()
+    executor.submit(
+        run_event_detection,
+        job.id,
+        sat_nos,
+        time_window_start,
+        time_window_end,
+        detector_types,
+    )
+
+    return job

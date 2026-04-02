@@ -20,8 +20,10 @@ const ResultsPage = lazy(() => import('@/pages/ResultsPage').then(m => ({ defaul
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
 const DocumentationPage = lazy(() => import('@/pages/DocumentationPage').then(m => ({ default: m.DocumentationPage })));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const LandingPage = lazy(() => import('@/pages/LandingPage'));
 
 function PageLoader() {
   return (
@@ -48,6 +50,7 @@ function App() {
         <FeedbackProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              <Route path="/welcome" element={<LazyRoute><LandingPage /></LazyRoute>} />
               <Route path="/login" element={<LazyRoute><LoginPage /></LazyRoute>} />
 
               {/* Single layout route — auth enforced per-route */}
@@ -66,6 +69,7 @@ function App() {
                 <Route path="submit/my-submissions" element={<AuthGuard><LazyRoute><MySubmissionsPage /></LazyRoute></AuthGuard>} />
                 <Route path="results/:submissionId" element={<AuthGuard><LazyRoute><ResultsPage /></LazyRoute></AuthGuard>} />
                 <Route path="profile" element={<AuthGuard><LazyRoute><ProfilePage /></LazyRoute></AuthGuard>} />
+                <Route path="settings" element={<AuthGuard><LazyRoute><SettingsPage /></LazyRoute></AuthGuard>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<LazyRoute><NotFoundPage /></LazyRoute>} />

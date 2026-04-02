@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,11 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   User,
   Building2,
-  Key,
   Shield,
-  Eye,
-  EyeOff,
   Loader2,
+  ArrowRight,
+  KeyRound,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLeaderboardStatistics } from '@/hooks/useLeaderboard';
@@ -30,26 +30,6 @@ export function ProfilePage() {
   // Editable fields initialized from auth user data
   const [displayName, setDisplayName] = useState(user?.username ?? '');
   const [organization, setOrganization] = useState(user?.organization ?? '');
-  const [udlToken, setUdlToken] = useState('');
-  const [esaToken, setEsaToken] = useState('');
-  const [showUdlToken, setShowUdlToken] = useState(false);
-  const [showEsaToken, setShowEsaToken] = useState(false);
-  const [udlTokenMask, setUdlTokenMask] = useState('');
-  const [esaTokenMask, setEsaTokenMask] = useState('');
-
-  // Fetch profile from backend to get masked token values
-  useEffect(() => {
-    let cancelled = false;
-    api.getCurrentUser().then((res) => {
-      if (cancelled) return;
-      const profile = res.data;
-      if (profile.udl_token) setUdlTokenMask(profile.udl_token);
-      if (profile.esa_token) setEsaTokenMask(profile.esa_token);
-    }).catch(() => {
-      // Ignore -- profile may not exist yet
-    });
-    return () => { cancelled = true; };
-  }, []);
 
   // Fetch real stats from API
   const { data: stats } = useLeaderboardStatistics();
@@ -65,18 +45,8 @@ export function ProfilePage() {
         display_name: displayName,
         organization,
       };
-      // Only send tokens when the user has typed a new value
-      if (udlToken) payload.udl_token = udlToken;
-      if (esaToken) payload.esa_token = esaToken;
 
-      const res = await api.updateProfile(payload);
-      const profile = res.data;
-
-      // Update masks from response and clear raw inputs
-      if (profile.udl_token) setUdlTokenMask(profile.udl_token);
-      if (profile.esa_token) setEsaTokenMask(profile.esa_token);
-      setUdlToken('');
-      setEsaToken('');
+      await api.updateProfile(payload);
 
       toast({
         title: 'Profile Updated',
@@ -85,21 +55,11 @@ export function ProfilePage() {
     } catch (error: unknown) {
       console.error('Failed to update profile:', error);
       const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-      if (typeof detail === 'object' && detail !== null && !Array.isArray(detail)) {
-        // Per-field validation errors from token validation: {udl_token: "...", esa_token: "..."}
-        const messages = Object.entries(detail).map(([k, v]) => `${k}: ${v}`).join('\n');
-        toast({
-          title: 'Token Validation Failed',
-          description: messages,
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Update Failed',
-          description: String(detail || 'Failed to save profile changes. Please try again.'),
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Update Failed',
+        description: String(detail || 'Failed to save profile changes. Please try again.'),
+        variant: 'destructive',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -190,70 +150,25 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              {/* API Token Fields */}
+              {/* API Credentials Link */}
               <Separator />
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium">Data Source API Tokens</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Your API tokens are stored securely and used for dataset generation.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="udl-token">UDL API Token</Label>
-                    <Badge variant="destructive" className="text-xs">Required</Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
-                    <div className="relative flex-1">
-                      <Input
-                        id="udl-token"
-                        type={showUdlToken ? 'text' : 'password'}
-                        placeholder={udlTokenMask || 'Enter your UDL API token'}
-                        value={udlToken}
-                        onChange={(e) => setUdlToken(e.target.value)}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowUdlToken(!showUdlToken)}
-                      >
-                        {showUdlToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <KeyRound className="h-5 w-5 text-cosmic-cyan" />
+                    <div>
+                      <p className="font-medium text-sm">Data Source API Credentials</p>
+                      <p className="text-xs text-muted-foreground">
+                        Manage your API tokens and service credentials in Settings.
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Required for dataset generation. Get your token from UDL.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="esa-token">ESA API Token</Label>
-                  <div className="flex gap-2">
-                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
-                    <div className="relative flex-1">
-                      <Input
-                        id="esa-token"
-                        type={showEsaToken ? 'text' : 'password'}
-                        placeholder={esaTokenMask || 'Enter your ESA API token'}
-                        value={esaToken}
-                        onChange={(e) => setEsaToken(e.target.value)}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowEsaToken(!showEsaToken)}
-                      >
-                        {showEsaToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
+                  <Link to="/settings">
+                    <Button variant="outline" size="sm" className="gap-2">
+                      Settings
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
 
