@@ -5,9 +5,9 @@
 The UCT Benchmark project is a full-stack application for generating and evaluating Uncorrelated Track Processing (UCTP) benchmark datasets. The system consists of:
 
 1. **Python Backend** - Dataset generation, orbit propagation, and evaluation
-2. **FastAPI Backend** - REST API for web interface
-3. **React Frontend** - Web-based user interface
-4. **DuckDB Database** - Data storage and analytics
+2. **FastAPI Backend** - REST API for web interface with Supabase JWT authentication
+3. **React Frontend** - Web-based user interface with Supabase client-side auth
+4. **Database Layer** - PostgreSQL/Supabase (production) + DuckDB (development), using a dual-backend adapter pattern
 
 ## High-Level Architecture
 
@@ -20,10 +20,11 @@ The UCT Benchmark project is a full-stack application for generating and evaluat
 │  │                         WEB INTERFACE                                │   │
 │  │                                                                      │   │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐ │   │
-│  │  │  React Frontend │  │  FastAPI Backend │  │  Database (DuckDB) │ │   │
-│  │  │  (Vite/TS)      │─▶│  (REST API)      │─▶│  (Analytics)       │ │   │
+│  │  │  React Frontend │  │  FastAPI Backend │  │  Database Layer    │ │   │
+│  │  │  (Vite/TS)      │─▶│  (REST API)      │─▶│  PostgreSQL/DuckDB │ │   │
+│  │  │  +Supabase Auth │  │  +JWT Auth       │  │  (Adapter Pattern) │ │   │
 │  │  └─────────────────┘  └─────────────────┘  └─────────────────────┘ │   │
-│  │         Port 5173          Port 8000                                │   │
+│  │         Port 3000          Port 8000                                │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                     │                                       │
 │                                     ▼                                       │
@@ -81,13 +82,15 @@ UCT-Benchmark-DMR/combined/
 │   │   ├── eventDetection.py        # Orbital event detection (ML + fallback)
 │   │   ├── objectTypeFiltering.py   # Object type filters (HAMR, Close, Apparent)
 │   │   ├── readData.py              # Data loading utilities
-│   │   ├── windowCheck.py           # Window selection algorithm (legacy)
 │   │   └── windowSelection.py       # Window selection with TIER_5 support
 │   │
-│   ├── database/               # Database layer
+│   ├── database/               # Database layer (dual-backend adapter pattern)
 │   │   ├── __init__.py
-│   │   ├── connection.py       # DuckDB connection management
-│   │   ├── schema.py           # Schema definitions (14+ tables)
+│   │   ├── connection.py       # DatabaseManager (routes to DuckDB or PostgreSQL)
+│   │   ├── schema.py           # DuckDB schema definitions (14+ tables)
+│   │   ├── schema_postgres.sql # PostgreSQL schema (production)
+│   │   ├── adapters/
+│   │   │   └── postgres_adapter.py  # PostgreSQL/Supabase adapter
 │   │   ├── repository.py       # Data access layer
 │   │   ├── export.py           # Export utilities
 │   │   ├── ingestion.py        # Data ingestion pipeline
@@ -124,17 +127,21 @@ UCT-Benchmark-DMR/combined/
 │       ├── timerClass.py       # Performance timing
 │       └── unitConversion.py   # Unit conversion utilities
 │
-├── backend_api/                # FastAPI backend
+├── backend_api/                # FastAPI backend (v2.0.0)
 │   ├── __init__.py
-│   ├── main.py                 # Application entry point
+│   ├── main.py                 # Application entry point, CORS, security middleware
+│   ├── auth.py                 # ES256 JWKS JWT verification (Supabase production auth)
 │   ├── models/                 # Pydantic models
 │   ├── routers/                # API route handlers
-│   │   ├── datasets.py         # Dataset management
-│   │   ├── submissions.py      # Algorithm submissions
-│   │   ├── results.py          # Evaluation results
-│   │   ├── leaderboard.py      # Leaderboard API
-│   │   └── jobs.py             # Background job status
-│   └── jobs/                   # Background job processing
+│   │   ├── auth.py             # Session verify, profile management
+│   │   ├── datasets.py         # Dataset CRUD + generation
+│   │   ├── submissions.py      # Algorithm submissions with UCTP validation
+│   │   ├── results.py          # Evaluation results + reports
+│   │   ├── leaderboard.py      # Rankings, history, statistics
+│   │   ├── jobs.py             # Background job status
+│   │   └── feedback.py         # Feedback/bug reports
+│   ├── middleware/              # Auth, rate limiting, logging
+│   └── jobs/                   # Background job processing (ThreadPoolExecutor)
 │
 ├── frontend/                   # React web application (45+ components)
 │   ├── src/
@@ -206,9 +213,9 @@ def loadDataset(input_path) -> tuple:
 
 ---
 
-### 2. Window Selection (`data/windowCheck.py`)
+### 2. Window Selection (`data/windowSelection.py`)
 
-Implements intelligent window selection for finding high-quality data windows.
+Implements intelligent window selection for finding high-quality data windows with TIER_5 support.
 
 ```python
 def windowMain(codes, UDL_token) -> list:
@@ -459,7 +466,7 @@ simulation_track_spacing = 30
 
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
-│   UDL API   │───▶│ Create_Dataset│───▶│ Downsampling│───▶│  Simulation  │
+│   UDL API   │───▶│ Dataset Gen.  │───▶│ Downsampling│───▶│  Simulation  │
 │   Data Pull │    │   (T1 Base)   │    │   (T1/T2)   │    │    (T3)      │
 └─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
                                                                    │
@@ -550,8 +557,14 @@ simulation_track_spacing = 30
 - Orekit data files for atmospheric/gravitational models
 
 ### Database
-- `duckdb` - Analytical database
+- `duckdb` - Analytical database (development/local)
+- `psycopg2` - PostgreSQL adapter (production via Supabase)
 - `pyarrow` - Parquet support
+- `alembic` - Database migrations (PostgreSQL only)
+
+### Authentication
+- `PyJWT` - JWT decoding and verification
+- `cryptography` - ES256 JWKS key handling, Fernet encryption for stored tokens
 
 ### Web Stack
 - `fastapi` - Backend API

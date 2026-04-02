@@ -2,6 +2,53 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [2.0.0] - 2026-04-01
+
+### Added
+
+- Supabase JWT authentication (ES256 JWKS with HS256 fallback)
+- User profiles with encrypted API token storage (Fernet)
+- Role-based access control (admin via app_metadata)
+- Feedback/bug report system with admin management
+- Rate limiting via slowapi on mutation endpoints
+- Security headers middleware (HSTS, X-Frame-Options, CSP, etc.)
+- Request logging with correlation IDs
+- Sentry error tracking integration
+- Railway deployment pipeline with health check verification
+- nginx security headers for frontend
+
+### Changed
+
+- Database backend now supports both DuckDB (local) and PostgreSQL/Supabase (production)
+- Submissions now track user_id for ownership-based access control
+- API version bumped to 2.0.0
+- Docker containers now run as non-root user
+- OpenAPI docs disabled in production
+
+### Fixed
+
+- Space-Track query parameters were silently ignored (str.join bug)
+- Dataset config values ignored due to getattr(request) reading wrong object
+- Race condition: background job started before database transaction committed
+- NaN from np.arccos without clipping in Gauss IOD
+- SQL placeholder mismatch between feedback router (%s) and all other routers (?)
+- Token refresh subscribers hung forever on failure
+- File upload read entire file before size check (OOM risk)
+- Temp files from PDF report generation never cleaned up
+- datetime.utcnow() replaced with timezone-aware datetime.now(timezone.utc)
+- Orekit modules no longer crash on import in non-Java environments
+
+### Security
+
+- JWT issuer verification added
+- Dev-mode auth bypass requires explicit ENVIRONMENT=development
+- Admin role determined from app_metadata only (not user-writable metadata)
+- ENCRYPTION_KEY enforced for PostgreSQL backend
+- IDOR protection: submissions filtered by user_id
+- File upload extension allowlisted to .json only
+
+---
+
 ## [1.3.0] - 2026-01-31
 
 ### Added

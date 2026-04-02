@@ -12,7 +12,11 @@ nav:
     - Beginner's Guide: guides/BEGINNER_GUIDE.md
     - Dataset Generation: guides/DATASET_GENERATION.md
     - Evaluation Guide: guides/EVALUATION_GUIDE.md
+    - Deployment: guides/DEPLOYMENT.md
+    - Migrations: guides/MIGRATIONS.md
     - Orekit Setup: guides/OREKIT_SETUP.md
+    - Windows Orekit Setup: WINDOWS_OREKIT_SETUP.md
+    - Supabase Setup: SUPABASE_SETUP.md
     - UI Guide: guides/UI_GUIDE.md
     - Troubleshooting: guides/TROUBLESHOOTING.md
     - Code Examples: guides/EXAMPLES.md
@@ -24,10 +28,21 @@ nav:
     - Database: technical/DATABASE.md
     - Backend API: technical/BACKEND_API.md
     - Frontend: technical/FRONTEND.md
+    - Authentication: technical/AUTHENTICATION.md
     - Evaluation Metrics: technical/EVALUATION_METRICS.md
     - Configuration: technical/CONFIGURATION.md
     - Validation: technical/VALIDATION.md
+    - Limitations: technical/LIMITATIONS.md
     - Team Roles: technical/TEAM_ROLES.md
+    - Components: COMPONENTS.md
+    - Utilities: UTILITIES.md
+    - Implementation Details: IMPLEMENTATION_DETAILS.md
+    - Database Migration: DATABASE_MIGRATION.md
+
+  - Diagrams:
+    - Data Ingestion Flow: data-ingestion-flow.md
+    - Ingestion Pipeline: diagrams/ingestion-pipeline.md
+    - Full System Pipeline: full-system-pipeline.md
 
   - Reference:
     - Overview: reference/README.md

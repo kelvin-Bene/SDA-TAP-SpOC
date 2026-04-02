@@ -74,7 +74,7 @@ pip install pre-commit
 pre-commit install
 
 # 5. Verify setup
-pytest tests/ -v
+pytest backend_api/tests/ -v
 ```
 
 ---
@@ -150,7 +150,7 @@ export function DatasetCard({ dataset, onSelect }: DatasetCardProps) {
 
 ```bash
 # Run all tests
-pytest tests/ -v
+pytest backend_api/tests/ -v
 
 # Run specific test file
 pytest tests/test_database.py -v

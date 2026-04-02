@@ -27,7 +27,7 @@ Detailed documentation about the codebase and system architecture.
 - [Architecture](technical/ARCHITECTURE.md) - Code structure and modules
 - [Pipeline](technical/PIPELINE.md) - Data flow documentation
 - [Data Sources](technical/DATA_SOURCES.md) - API integrations
-- [Database](technical/DATABASE.md) - DuckDB storage architecture
+- [Database](technical/DATABASE.md) - PostgreSQL/Supabase (production) + DuckDB (development) storage architecture
 - [Frontend](technical/FRONTEND.md) - React web interface
 - [Backend API](technical/BACKEND_API.md) - FastAPI integration
 - [Configuration](technical/CONFIGURATION.md) - System settings
