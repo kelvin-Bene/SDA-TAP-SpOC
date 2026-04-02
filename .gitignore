@@ -63,6 +63,9 @@ yarn-error.log*
 Thumbs.db
 nul
 
+# ===== CI/CD Build Artifacts =====
+deploy-dist/
+
 # ===== Project Specific =====
 # Exclude data directory but include sample database for students without UDL access
 UCT-Benchmark-DMR/combined/data/*

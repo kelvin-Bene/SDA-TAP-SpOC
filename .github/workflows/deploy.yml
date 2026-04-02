@@ -4,6 +4,10 @@ on:
   push:
     branches: [master]
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   test:
     name: Run Tests
@@ -15,16 +19,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install backend dependencies
         working-directory: ./UCT-Benchmark-DMR/combined
         run: pip install ".[dev]"
 
-      - name: Run new auth and feedback tests (strict)
+      - name: Run backend API tests (strict)
         working-directory: ./UCT-Benchmark-DMR/combined
         run: |
-          pytest backend_api/tests/test_auth.py backend_api/tests/test_feedback.py \
-            -v --timeout=60
+          pip install pytest-cov
+          pytest backend_api/tests/ -v --cov=backend_api --cov-report=term-missing
 
       - name: Run pipeline tests (legacy, non-blocking)
         working-directory: ./UCT-Benchmark-DMR/combined
@@ -46,6 +51,10 @@ jobs:
           npm ci
           npx tsc --noEmit
 
+      - name: Run frontend unit tests
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
+        run: npx vitest run --reporter=verbose --coverage
+
   deploy-backend:
     name: Deploy Backend (production)
     runs-on: ubuntu-latest
@@ -60,7 +69,6 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
       - name: Verify backend deployment
-        continue-on-error: true
         env:
           BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
         if: env.BACKEND_URL != ''
@@ -114,7 +122,6 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
       - name: Verify frontend deployment
-        continue-on-error: true
         env:
           FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
         if: env.FRONTEND_URL != ''
