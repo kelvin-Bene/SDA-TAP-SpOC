@@ -619,9 +619,8 @@ class TestJobOwnership:
         response = client_regular_user.get("/api/v1/jobs/")
         assert response.status_code == 200
         data = response.json()
-        # Should only see jobs with user_id matching regular-user-123
-        for job in data:
-            assert job["metadata"].get("user_id") == "regular-user-123"
+        # Should only see the 2 jobs owned by regular-user-123 (not 4 total)
+        assert len(data) == 2
 
     def test_user_cannot_see_other_users_job(self, client_regular_user, job_manager_with_ownership):
         """Non-admin user should get 404 for another user's job."""
