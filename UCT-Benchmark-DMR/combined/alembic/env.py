@@ -39,14 +39,21 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode -- connects to database."""
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, text
 
     connectable = create_engine(config.get_main_option("sqlalchemy.url"))
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=None)
-        with context.begin_transaction():
-            context.run_migrations()
+        # Acquire advisory lock to prevent concurrent migrations
+        connection.execute(text("SELECT pg_advisory_lock(123456789)"))
+        try:
+            context.configure(connection=connection, target_metadata=None)
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            # Always release the advisory lock
+            connection.execute(text("SELECT pg_advisory_unlock(123456789)"))
+            connection.commit()
 
 
 if context.is_offline_mode():

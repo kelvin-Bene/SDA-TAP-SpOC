@@ -5,6 +5,7 @@ Provides SQL schema creation statements and migration utilities.
 Supports both DuckDB and PostgreSQL backends.
 """
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,12 @@ if TYPE_CHECKING:
 
 # Schema version for migration tracking
 SCHEMA_VERSION = "1.6.0"
+
+
+def _parse_version(v: str) -> tuple:
+    """Parse a version string into a comparable tuple."""
+    return tuple(int(x) for x in v.split("."))
+
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -247,7 +254,7 @@ CREATE TABLE IF NOT EXISTS datasets (
     generation_params JSON,
 
     -- Ownership
-    user_id VARCHAR(36),
+    user_id VARCHAR(255),
 
     -- Full provenance metadata from generation (timing, window selection, filtering, etc.)
     performance_metadata JSON,
@@ -534,9 +541,10 @@ CREATE TABLE IF NOT EXISTS feedback (
     page_url        VARCHAR(2048),
     user_agent      VARCHAR(500),
     viewport        VARCHAR(100),
-    recent_actions  TEXT,
-    console_errors  TEXT,
+    recent_actions  JSON,
+    console_errors  JSON,
     sentry_event_id VARCHAR(200),
+    app_version     VARCHAR(50),
     reporter_id     VARCHAR(36),
     reporter_email  VARCHAR(255),
     status          VARCHAR(50)  NOT NULL DEFAULT 'open',
@@ -549,6 +557,28 @@ CREATE TABLE IF NOT EXISTS feedback (
 FEEDBACK_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+"""
+
+# ============================================================
+# USER PROFILES TABLE
+# ============================================================
+
+PROFILES_TABLE = """
+CREATE TABLE IF NOT EXISTS profiles (
+    id VARCHAR(36) PRIMARY KEY,              -- Supabase user ID
+    email VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'user',
+    display_name VARCHAR(100),
+    organization VARCHAR(200),
+    udl_token TEXT,                           -- Encrypted UDL API token
+    esa_token TEXT,                           -- Encrypted ESA API token
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+PROFILES_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 """
 
 # ============================================================
@@ -604,6 +634,25 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
 
     if force:
         _drop_all_tables(db)
+
+    # Check existing schema version to prevent downgrade
+    if not force:
+        try:
+            row = db.adapter.fetchone(
+                "SELECT value FROM _schema_metadata WHERE key = 'version'"
+                if backend == "duckdb" else
+                "SELECT value FROM _schema_metadata WHERE key = %s",
+                () if backend == "duckdb" else ("version",),
+            )
+            if row and _parse_version(row[0]) > _parse_version(SCHEMA_VERSION):
+                raise RuntimeError(
+                    f"Database schema {row[0]} is newer than application {SCHEMA_VERSION}. "
+                    "Upgrade the application or set SKIP_SCHEMA_CHECK=1."
+                )
+        except Exception as e:
+            if "does not exist" not in str(e).lower() and "_schema_metadata" not in str(e).lower():
+                if not os.getenv("SKIP_SCHEMA_CHECK"):
+                    raise
 
     if backend == "postgres":
         _initialize_postgres_schema(db)
@@ -665,6 +714,10 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(FEEDBACK_TABLE)
     db.execute(FEEDBACK_INDEXES)
 
+    # Profiles table
+    db.execute(PROFILES_TABLE)
+    db.execute(PROFILES_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
@@ -697,6 +750,30 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
         for statement in statements:
             if statement and not statement.startswith("--"):
                 db.execute(statement)
+
+        # Run inline migrations for existing databases initialized with older SQL.
+        # All are idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS).
+        _migrate_to_1_2_0(db)
+        _migrate_to_1_3_0(db)
+        _migrate_to_1_4_0(db)
+        _migrate_to_1_5_0(db)
+        _migrate_to_1_6_0(db)
+
+        # Seed default event types
+        _seed_event_types_postgres(db)
+
+        # Stamp schema version
+        try:
+            db.execute(
+                """
+                INSERT INTO _schema_metadata (key, value, updated_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+                """,
+                ("version", SCHEMA_VERSION),
+            )
+        except Exception:
+            pass  # _schema_metadata may not exist yet in very old schemas
     else:
         # Fall back to converting DuckDB schema
         _initialize_postgres_schema_fallback(db)
@@ -759,6 +836,10 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(FEEDBACK_TABLE)
     db.execute(FEEDBACK_INDEXES)
 
+    # Profiles table
+    db.execute(PROFILES_TABLE)
+    db.execute(PROFILES_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
@@ -776,13 +857,14 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
         VALUES (%s, %s, CURRENT_TIMESTAMP)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
         """,
-        (SCHEMA_VERSION,),
+        ("version", SCHEMA_VERSION),
     )
 
 
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
+        "profiles",
         "breakup_events",
         "non_reference_observations",
         "event_observations",
@@ -888,7 +970,7 @@ def _migrate_to_1_5_0(db: "DatabaseManager") -> None:
 def _migrate_to_1_6_0(db: "DatabaseManager") -> None:
     """Add user_id column to datasets table for ownership tracking."""
     try:
-        db.execute("ALTER TABLE datasets ADD COLUMN IF NOT EXISTS user_id VARCHAR(36)")
+        db.execute("ALTER TABLE datasets ADD COLUMN IF NOT EXISTS user_id VARCHAR(255)")
     except Exception:
         pass  # Column already exists
 
@@ -950,6 +1032,7 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "non_reference_observations",
         "breakup_events",
         "feedback",
+        "profiles",
         "_schema_metadata",
     ]
 
