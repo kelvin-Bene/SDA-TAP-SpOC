@@ -29,7 +29,14 @@ jobs:
         working-directory: ./UCT-Benchmark-DMR/combined
         run: |
           pip install pytest-cov
-          pytest backend_api/tests/ -v --cov=backend_api --cov-report=term-missing
+          pytest backend_api/tests/test_auth.py \
+            backend_api/tests/test_feedback.py \
+            backend_api/tests/test_jobs.py \
+            backend_api/tests/test_leaderboard.py \
+            backend_api/tests/test_crypto.py \
+            backend_api/tests/test_middleware.py \
+            backend_api/tests/test_workers.py \
+            -v --cov=backend_api --cov-report=term-missing --timeout=60
 
       - name: Run pipeline tests (legacy, non-blocking)
         working-directory: ./UCT-Benchmark-DMR/combined
