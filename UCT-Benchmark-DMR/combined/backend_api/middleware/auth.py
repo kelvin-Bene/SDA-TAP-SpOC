@@ -133,6 +133,7 @@ async def get_current_user(
     In production (SUPABASE_URL set): uses ES256 JWKS via backend_api.auth,
     with automatic HS256 fallback.
     In development (only SUPABASE_JWT_SECRET or nothing): uses HS256 directly.
+    In demo mode (DEMO_MODE=true): accepts the dummy "demo-token" from frontend.
 
     Usage:
         @router.get("/protected")
@@ -140,6 +141,17 @@ async def get_current_user(
             return {"user_id": user.id}
     """
     token = credentials.credentials
+
+    # Demo mode: accept the dummy token sent by the frontend
+    from backend_api.demo import is_demo_mode
+    if is_demo_mode() and token == "demo-token":
+        return AuthUser({
+            "sub": "dev-user",
+            "email": "demo@spoc-benchmark.org",
+            "role": "admin",
+            "app_metadata": {"is_admin": True},
+            "user_metadata": {},
+        })
 
     if _use_production_auth:
         # Delegate to production ES256 JWKS auth (with HS256 fallback built in)
@@ -176,6 +188,17 @@ async def get_optional_user(
         return None
 
     token = credentials.credentials
+
+    # Demo mode: accept the dummy token sent by the frontend
+    from backend_api.demo import is_demo_mode
+    if is_demo_mode() and token == "demo-token":
+        return AuthUser({
+            "sub": "dev-user",
+            "email": "demo@spoc-benchmark.org",
+            "role": "admin",
+            "app_metadata": {"is_admin": True},
+            "user_metadata": {},
+        })
 
     if _use_production_auth:
         try:
