@@ -17,6 +17,9 @@ if __name__ == "__main__":
             stacklevel=1,
         )
     # Run database migrations before starting (PostgreSQL only)
+    # Note: schema.py also runs idempotent migrations on startup via init_database().
+    # Alembic is the preferred migration path but failures are non-fatal since
+    # schema.py handles the same changes as a fallback.
     if os.environ.get("DATABASE_URL"):
         import subprocess
         import sys
@@ -29,13 +32,11 @@ if __name__ == "__main__":
                 timeout=60,
             )
             if result.returncode != 0:
-                print(f"Migration FAILED: {result.stderr}", file=sys.stderr)
-                sys.exit(1)
+                print(f"Alembic migration failed (non-fatal, schema.py will handle): {result.stderr}", file=sys.stderr)
             else:
                 print("Database migrations complete.")
         except Exception as e:
-            print(f"Migration FAILED: {e}", file=sys.stderr)
-            sys.exit(1)
+            print(f"Alembic migration failed (non-fatal, schema.py will handle): {e}", file=sys.stderr)
 
     def validate_config():
         """Validate critical environment variables before starting."""
