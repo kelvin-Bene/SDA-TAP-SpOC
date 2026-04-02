@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.8.0"
+SCHEMA_VERSION = "2.0.0"
 
 
 def _parse_version(v: str) -> tuple:
