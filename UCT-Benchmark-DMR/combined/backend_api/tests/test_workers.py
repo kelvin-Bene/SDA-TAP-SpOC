@@ -110,7 +110,7 @@ class TestSubmitDatasetGeneration:
             "timeframe": 7,
         }
 
-        job = submit_dataset_generation(dataset_id=1, config=config)
+        job = submit_dataset_generation(dataset_id=1, config=config, udl_token="fake-token")
 
         assert job is not None
         assert job.job_type == JobType.DATASET_GENERATION
@@ -128,7 +128,7 @@ class TestSubmitDatasetGeneration:
         mock_get_executor.return_value = mock_executor
 
         config = {"name": "test"}
-        submit_dataset_generation(dataset_id=1, config=config)
+        submit_dataset_generation(dataset_id=1, config=config, udl_token="fake-token")
 
         # Verify executor.submit was called
         assert mock_executor.submit.called
@@ -150,7 +150,7 @@ class TestSubmitDatasetGeneration:
             "downsampling": {"enabled": True},
         }
 
-        job = submit_dataset_generation(dataset_id=1, config=config)
+        job = submit_dataset_generation(dataset_id=1, config=config, udl_token="fake-token")
 
         assert job.metadata["config"] == config
 
@@ -212,9 +212,11 @@ class TestDatasetGenerationWorker:
         mock_manager = MagicMock()
         mock_get_job_manager.return_value = mock_manager
 
-        # Should fail due to missing tokens, but start_job should be called
+        # Should fail due to empty token, but start_job should be called
         try:
-            run_dataset_generation(job_id="test-job", dataset_id=1, config={"name": "test"})
+            run_dataset_generation(
+                job_id="test-job", dataset_id=1, config={"name": "test"}, udl_token=""
+            )
         except Exception:
             pass
 
@@ -223,35 +225,27 @@ class TestDatasetGenerationWorker:
     @patch("backend_api.jobs.workers.get_job_manager")
     def test_worker_fails_without_tokens(self, mock_get_job_manager):
         """Test that worker fails when API tokens are missing."""
-        import os
-
         from backend_api.jobs.workers import run_dataset_generation
-
-        # Ensure tokens are not set
-        os.environ.pop("UDL_TOKEN", None)
-        os.environ.pop("ESA_TOKEN", None)
 
         mock_manager = MagicMock()
         mock_get_job_manager.return_value = mock_manager
 
-        run_dataset_generation(job_id="test-job", dataset_id=1, config={"name": "test"})
+        # Pass empty udl_token to trigger the missing-token error path
+        run_dataset_generation(
+            job_id="test-job", dataset_id=1, config={"name": "test"}, udl_token=""
+        )
 
-        # Should fail with error about missing tokens
+        # Should fail with error about missing API credential
         mock_manager.fail_job.assert_called_once()
         error_msg = mock_manager.fail_job.call_args[0][1]
-        assert "UDL_TOKEN" in error_msg or "ESA_TOKEN" in error_msg
+        assert "API credential" in error_msg or "unavailable" in error_msg
 
     @patch("backend_api.jobs.workers.get_job_manager")
-    @patch("backend_api.jobs.workers.generateDataset")
+    @patch("uct_benchmark.api.apiIntegration.generateDataset")
     @patch("backend_api.database.get_db")
     def test_worker_updates_progress(self, mock_get_db, mock_generate, mock_get_job_manager):
         """Test that worker updates progress during execution."""
-        import os
-
         from backend_api.jobs.workers import run_dataset_generation
-
-        os.environ["UDL_TOKEN"] = "test-token"
-        os.environ["ESA_TOKEN"] = "test-token"
 
         mock_manager = MagicMock()
         mock_get_job_manager.return_value = mock_manager
@@ -262,29 +256,24 @@ class TestDatasetGenerationWorker:
         mock_generate.return_value = (None, None, None, None, [25544], {})
 
         run_dataset_generation(
-            job_id="test-job", dataset_id=1, config={"name": "test", "satellites": [25544]}
+            job_id="test-job",
+            dataset_id=1,
+            config={"name": "test", "satellites": [25544]},
+            udl_token="test-token",
+            esa_token="test-token",
         )
 
         # Should have called update_job multiple times
         assert mock_manager.update_job.called
 
-        # Cleanup
-        os.environ.pop("UDL_TOKEN", None)
-        os.environ.pop("ESA_TOKEN", None)
-
     @patch("backend_api.jobs.workers.get_job_manager")
-    @patch("backend_api.jobs.workers.generateDataset")
+    @patch("uct_benchmark.api.apiIntegration.generateDataset")
     @patch("backend_api.database.get_db")
     def test_worker_completes_job_on_success(
         self, mock_get_db, mock_generate, mock_get_job_manager
     ):
         """Test that worker completes job on successful generation."""
-        import os
-
         from backend_api.jobs.workers import run_dataset_generation
-
-        os.environ["UDL_TOKEN"] = "test-token"
-        os.environ["ESA_TOKEN"] = "test-token"
 
         mock_manager = MagicMock()
         mock_get_job_manager.return_value = mock_manager
@@ -292,24 +281,41 @@ class TestDatasetGenerationWorker:
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
+        # Build a minimal obs_truth mock that satisfies the observation-linking code:
+        # must not be None, not be empty, have an "id" column, and support .copy()
+        mock_obs_truth = MagicMock()
+        mock_obs_truth.empty = False
+        mock_obs_truth.columns = ["id", "ra", "declination"]
+        mock_obs_truth.__getitem__ = lambda self, key: MagicMock(tolist=lambda: [1, 2, 3])
+        mock_obs_truth.copy.return_value = MagicMock(
+            rename=MagicMock(return_value=MagicMock(
+                columns=["id", "ra", "declination"],
+                dropna=MagicMock(return_value=MagicMock(__len__=lambda s: 3)),
+            )),
+        )
+        mock_obs_truth.iterrows = MagicMock(return_value=iter([]))
+
         mock_generate.return_value = (
             MagicMock(__len__=lambda x: 100),  # dataset_obs with length
-            None,
+            mock_obs_truth,  # obs_truth with id column
             None,
             None,
             [25544, 25545],  # actual_sats
             {"api_calls": 10},  # performance_data
         )
 
-        run_dataset_generation(job_id="test-job", dataset_id=1, config={"name": "test"})
+        run_dataset_generation(
+            job_id="test-job",
+            dataset_id=1,
+            config={"name": "test"},
+            udl_token="test-token",
+            esa_token="test-token",
+        )
 
         # Should complete the job
         mock_manager.complete_job.assert_called_once()
         result = mock_manager.complete_job.call_args[0][1]
         assert result["dataset_id"] == 1
-
-        os.environ.pop("UDL_TOKEN", None)
-        os.environ.pop("ESA_TOKEN", None)
 
     def test_worker_config_parsing_downsampling(self):
         """Test that downsampling config is parsed correctly."""
@@ -488,8 +494,8 @@ class TestWorkerErrorHandling:
         mock_manager = MagicMock()
         mock_get_job_manager.return_value = mock_manager
 
-        # No tokens set - should fail
-        run_dataset_generation(job_id="test-job", dataset_id=1, config={})
+        # Empty token - should fail with missing API credential error
+        run_dataset_generation(job_id="test-job", dataset_id=1, config={}, udl_token="")
 
         mock_manager.fail_job.assert_called_once()
 
@@ -505,7 +511,8 @@ class TestWorkerErrorHandling:
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
-        run_dataset_generation(job_id="test-job", dataset_id=1, config={})
+        # Empty token triggers the missing-credential error path
+        run_dataset_generation(job_id="test-job", dataset_id=1, config={}, udl_token="")
 
         # Database should have been updated to 'failed' status
         # Check that execute was called with status update
