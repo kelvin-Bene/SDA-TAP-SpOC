@@ -549,5 +549,5 @@ CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials(user_id);
 
 -- Set schema version
 INSERT INTO _schema_metadata (key, value, updated_at)
-VALUES ('version', '1.7.0', CURRENT_TIMESTAMP)
+VALUES ('version', '2.0.0', CURRENT_TIMESTAMP)
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;

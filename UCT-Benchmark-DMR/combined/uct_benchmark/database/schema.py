@@ -797,11 +797,24 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
     if schema_file.exists():
         # Read and execute the SQL file
         schema_sql = schema_file.read_text()
+        # Strip full-line comments before splitting to avoid fragments
+        lines = []
+        for line in schema_sql.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("--") or stripped.startswith("//"):
+                continue  # Skip full-line comments
+            lines.append(line)
+        clean_sql = "\n".join(lines)
         # Split on semicolons and execute each statement
-        statements = [s.strip() for s in schema_sql.split(";") if s.strip()]
+        statements = [s.strip() for s in clean_sql.split(";") if s.strip()]
         for statement in statements:
-            if statement and not statement.startswith("--"):
-                db.execute(statement)
+            if statement:
+                try:
+                    db.execute(statement)
+                except Exception as e:
+                    # Log but don't crash on individual statement failures
+                    # (e.g., table already exists with different column order)
+                    logger.debug(f"Schema statement skipped: {e}")
 
         # Run inline migrations for existing databases initialized with older SQL.
         # All are idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS).
