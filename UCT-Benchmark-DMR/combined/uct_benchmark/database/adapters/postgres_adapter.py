@@ -6,6 +6,8 @@ using psycopg2 for Supabase/PostgreSQL connectivity.
 """
 
 import os
+import re
+import threading
 from contextlib import contextmanager
 from typing import Any, Generator, List, Optional, Tuple
 
@@ -62,7 +64,8 @@ class PostgresAdapter(DatabaseAdapter):
             )
 
         self.connect_timeout = connect_timeout
-        self._connection = None
+        self._local = threading.local()
+        self._lock = threading.Lock()
 
         # Build DSN with sslmode for Supabase compatibility
         self._dsn = self.database_url
@@ -90,34 +93,46 @@ class PostgresAdapter(DatabaseAdapter):
         return conn
 
     def connect(self) -> None:
-        """Establish a database connection."""
-        if self._connection is None or self._connection.closed:
-            self._connection = self._create_connection()
+        """Establish a database connection for the current thread."""
+        self._get_connection()
 
     def close(self) -> None:
-        """Close the database connection."""
-        if self._connection is not None and not self._connection.closed:
-            self._connection.close()
-        self._connection = None
+        """Close the current thread's connection."""
+        if hasattr(self._local, "connection") and self._local.connection is not None:
+            if not self._local.connection.closed:
+                self._local.connection.close()
+            self._local.connection = None
 
     def is_connected(self) -> bool:
-        """Check if the adapter has an active connection."""
-        return self._connection is not None and not self._connection.closed
+        """Check if the current thread has an active connection."""
+        return (
+            hasattr(self._local, "connection")
+            and self._local.connection is not None
+            and not self._local.connection.closed
+        )
 
     def _get_connection(self):
-        """Get the current connection, creating one if needed."""
-        if self._connection is None or self._connection.closed:
-            self.connect()
-        return self._connection
+        """Get or create a thread-local connection."""
+        if not hasattr(self._local, "connection") or self._local.connection is None:
+            with self._lock:
+                if not hasattr(self._local, "connection") or self._local.connection is None:
+                    self._local.connection = self._create_connection()
+        # Check if connection is still alive
+        try:
+            if self._local.connection.closed:
+                self._local.connection = self._create_connection()
+        except Exception:
+            self._local.connection = self._create_connection()
+        return self._local.connection
 
     def _drop_connection(self):
-        """Safely close and discard the current connection."""
-        if self._connection is not None:
+        """Safely close and discard the current thread's connection for reconnection."""
+        if hasattr(self._local, "connection") and self._local.connection is not None:
             try:
-                self._connection.close()
+                self._local.connection.close()
             except Exception:
                 pass
-        self._connection = None
+            self._local.connection = None
 
     def _retry_on_error(self, fn):
         """
@@ -237,10 +252,13 @@ class PostgresAdapter(DatabaseAdapter):
         def _do():
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute(converted_query, params if params else None)
-            result = cursor.fetchone()
-            conn.commit()
-            return result
+            try:
+                cursor.execute(converted_query, params if params else None)
+                result = cursor.fetchone()
+                conn.commit()
+                return result
+            finally:
+                cursor.close()
 
         return self._retry_on_error(_do)
 
@@ -251,10 +269,13 @@ class PostgresAdapter(DatabaseAdapter):
         def _do():
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute(converted_query, params if params else None)
-            result = cursor.fetchall()
-            conn.commit()
-            return result
+            try:
+                cursor.execute(converted_query, params if params else None)
+                result = cursor.fetchall()
+                conn.commit()
+                return result
+            finally:
+                cursor.close()
 
         return self._retry_on_error(_do)
 
@@ -265,11 +286,14 @@ class PostgresAdapter(DatabaseAdapter):
         def _do():
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute(converted_query, params if params else None)
-            columns = [desc[0] for desc in cursor.description] if cursor.description else []
-            rows = cursor.fetchall()
-            conn.commit()
-            return pd.DataFrame(rows, columns=columns)
+            try:
+                cursor.execute(converted_query, params if params else None)
+                columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                rows = cursor.fetchall()
+                conn.commit()
+                return pd.DataFrame(rows, columns=columns)
+            finally:
+                cursor.close()
 
         return self._retry_on_error(_do)
 
@@ -286,12 +310,19 @@ class PostgresAdapter(DatabaseAdapter):
         if df.empty:
             return 0
 
+        # Validate identifiers to prevent SQL injection
+        self._validate_identifier(table)
+        for col in columns:
+            self._validate_identifier(col)
+
         insert_df = df[columns].copy()
         columns_str = ", ".join(columns)
 
         # Build conflict clause
         conflict_clause = ""
         if on_conflict and conflict_columns:
+            for cc in conflict_columns:
+                self._validate_identifier(cc)
             conflict_cols = ", ".join(conflict_columns)
             if on_conflict == "nothing":
                 conflict_clause = f" ON CONFLICT ({conflict_cols}) DO NOTHING"
@@ -351,8 +382,20 @@ class PostgresAdapter(DatabaseAdapter):
         )
         return result[0] > 0 if result else False
 
+    _SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
+
+    def _validate_identifier(self, name: str) -> str:
+        """Validate a SQL identifier against injection. Raises ValueError if unsafe."""
+        if not self._SAFE_IDENTIFIER_RE.match(name):
+            raise ValueError(
+                f"Invalid SQL identifier: {name!r}. "
+                "Only alphanumeric characters and underscores are allowed."
+            )
+        return name
+
     def get_row_count(self, table_name: str) -> int:
         """Get the number of rows in a table."""
+        self._validate_identifier(table_name)
         result = self.fetchone(f"SELECT COUNT(*) FROM {table_name}")
         return result[0] if result else 0
 
@@ -397,8 +440,12 @@ class PostgresAdapter(DatabaseAdapter):
         old_autocommit = conn.autocommit
         conn.autocommit = True
         cursor = conn.cursor()
-        if table_name:
-            cursor.execute(f"VACUUM ANALYZE {table_name}")
-        else:
-            cursor.execute("VACUUM ANALYZE")
-        conn.autocommit = old_autocommit
+        try:
+            if table_name:
+                self._validate_identifier(table_name)
+                cursor.execute(f"VACUUM ANALYZE {table_name}")
+            else:
+                cursor.execute("VACUUM ANALYZE")
+        finally:
+            cursor.close()
+            conn.autocommit = old_autocommit

@@ -58,7 +58,8 @@ _limiter = _RateLimiter()
 
 def _rate_limit(request: Request, max_hits: int = 5, window_seconds: int = 60) -> None:
     """Apply rate limiting based on client IP."""
-    client_ip = request.client.host if request.client else "unknown"
+    from backend_api.middleware.rate_limit import _get_real_client_ip
+    client_ip = _get_real_client_ip(request)
     _limiter.check(client_ip, max_hits, window_seconds)
 
 
@@ -205,6 +206,10 @@ async def list_feedback(
 
     Admin only. Supports filtering by status, severity, and date range.
     """
+    # Clamp pagination parameters to safe ranges
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
     if user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -367,40 +372,48 @@ async def update_feedback(
             detail="Failed to look up feedback.",
         )
 
-    # Build dynamic SET clause
-    set_parts: list[str] = []
-    params: list = []
+    now = datetime.now(timezone.utc).isoformat()
 
-    if body.status is not None:
-        set_parts.append("status = ?")
-        params.append(body.status)
-
-    if body.resolution is not None:
-        set_parts.append("resolution = ?")
-        params.append(body.resolution)
-
-    if not set_parts:
+    if body.status is not None and body.resolution is not None:
+        try:
+            db.execute(
+                "UPDATE feedback SET status = ?, resolution = ?, updated_at = ? WHERE id = ?",
+                (body.status, body.resolution, now, feedback_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to update feedback {feedback_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update feedback.",
+            )
+    elif body.status is not None:
+        try:
+            db.execute(
+                "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?",
+                (body.status, now, feedback_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to update feedback {feedback_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update feedback.",
+            )
+    elif body.resolution is not None:
+        try:
+            db.execute(
+                "UPDATE feedback SET resolution = ?, updated_at = ? WHERE id = ?",
+                (body.resolution, now, feedback_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to update feedback {feedback_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update feedback.",
+            )
+    else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update.",
-        )
-
-    set_parts.append("updated_at = ?")
-    params.append(datetime.now(timezone.utc).isoformat())
-    params.append(feedback_id)
-
-    set_clause = ", ".join(set_parts)
-
-    try:
-        db.execute(
-            f"UPDATE feedback SET {set_clause} WHERE id = ?",
-            tuple(params),
-        )
-    except Exception as e:
-        logger.error(f"Failed to update feedback {feedback_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update feedback.",
         )
 
     logger.info(f"Feedback {feedback_id} updated by admin {user.email}")

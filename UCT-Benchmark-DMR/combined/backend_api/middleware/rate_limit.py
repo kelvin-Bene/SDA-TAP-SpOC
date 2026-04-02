@@ -8,9 +8,15 @@ Uses X-Forwarded-For to get the real client IP behind Railway's
 load balancer / nginx reverse proxy.
 """
 
+import os
+
 from starlette.requests import Request
 
 from slowapi import Limiter
+
+# Number of trusted reverse proxies in the chain.
+# With depth=1 (default, single proxy like Railway/nginx), the last IP is trusted.
+_TRUSTED_PROXY_DEPTH = int(os.getenv("TRUSTED_PROXY_DEPTH", "1"))
 
 
 def _get_real_client_ip(request: Request) -> str:
@@ -23,7 +29,10 @@ def _get_real_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         # X-Forwarded-For is comma-separated: "client, proxy1, proxy2"
-        return forwarded.split(",")[0].strip()
+        # Trust the IP at position -(depth) from the right.
+        ips = [ip.strip() for ip in forwarded.split(",")]
+        index = max(0, len(ips) - _TRUSTED_PROXY_DEPTH)
+        return ips[index]
     # Fallback to direct connection IP
     return request.client.host if request.client else "unknown"
 

@@ -38,10 +38,15 @@ class AuthUser:
     def __init__(self, payload: dict[str, Any]):
         self.id: str = payload.get("sub", "")
         self.email: str = payload.get("email", "")
-        self.role: str = payload.get("role", "authenticated")
         self.app_metadata: dict = payload.get("app_metadata", {})
         self.user_metadata: dict = payload.get("user_metadata", {})
-        self.is_admin: bool = self.app_metadata.get("is_admin", False)
+        # Read role from app_metadata (server-side only, not user-editable),
+        # consistent with backend_api.auth.CurrentUser._build_current_user().
+        # Falls back to top-level role only if app_metadata has no role set.
+        _am = self.app_metadata
+        self.role: str = _am.get("role", "user") if isinstance(_am, dict) and "role" in _am else payload.get("role", "authenticated")
+        # Unify admin check: role == "admin" (same as CurrentUser.is_admin)
+        self.is_admin: bool = self.role == "admin"
 
     def __repr__(self) -> str:
         return f"AuthUser(id={self.id}, email={self.email}, role={self.role})"
@@ -66,6 +71,20 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
     if not SUPABASE_JWT_SECRET:
         # Only allow dev bypass when explicitly opted in
         if os.getenv("ENVIRONMENT", "").lower() == "development":
+            # Safety: refuse dev bypass if a real SUPABASE_URL is configured
+            if SUPABASE_URL:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="ENVIRONMENT=development is not allowed when SUPABASE_URL is set. "
+                           "Configure SUPABASE_JWT_SECRET or remove ENVIRONMENT=development.",
+                )
+            # Safety: refuse dev bypass if using production database backend
+            if os.getenv("DATABASE_BACKEND", "").lower() in ("postgres", "supabase"):
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Dev auth bypass not available with PostgreSQL backend. "
+                           "Set SUPABASE_JWT_SECRET for authentication.",
+                )
             logger.warning("Auth disabled — ENVIRONMENT=development. Never use in production.")
             return {
                 "sub": "dev-user",

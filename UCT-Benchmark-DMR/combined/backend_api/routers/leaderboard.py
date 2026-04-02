@@ -1,4 +1,9 @@
-"""Leaderboard endpoints."""
+"""Leaderboard endpoints.
+
+SEC-06: Leaderboard data is intentionally public for all authenticated users.
+All submissions, algorithm names, and rankings are visible to support the
+benchmark competition. No user PII is exposed through these endpoints.
+"""
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -53,7 +58,8 @@ async def get_leaderboard(
             sr.f1_score,
             sr.precision,
             sr.recall,
-            sr.position_rms_km
+            sr.position_rms_km,
+            sr.composite_score
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         JOIN datasets d ON s.dataset_id = d.id
@@ -79,8 +85,8 @@ async def get_leaderboard(
     elif period == "month":
         query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'"
 
-    # Order by F1 score descending and limit
-    query += " ORDER BY sr.f1_score DESC LIMIT ?"
+    # Order by composite score (falls back to F1 if composite not yet computed)
+    query += " ORDER BY COALESCE(sr.composite_score, sr.f1_score) DESC LIMIT ?"
     params.append(limit)
 
     result = db.execute(query, tuple(params))
@@ -101,6 +107,7 @@ async def get_leaderboard(
                 precision=float(row_dict.get("precision") or 0),
                 recall=float(row_dict.get("recall") or 0),
                 position_rms_km=float(row_dict.get("position_rms_km") or 0),
+                composite_score=float(row_dict["composite_score"]) if row_dict.get("composite_score") is not None else None,
                 submission_id=str(row_dict["submission_id"]),
                 submitted_at=row_dict.get("completed_at") or datetime.now(timezone.utc),
                 is_current_user=False,  # Would need auth context

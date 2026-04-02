@@ -133,7 +133,9 @@ def _decode_jwt(token: str) -> dict:
         # Only fall back to HS256 if explicitly allowed (legacy support)
         hs256_secret = os.getenv("SUPABASE_JWT_SECRET")
         allow_hs256 = os.getenv("ALLOW_HS256_FALLBACK", "").lower() in ("true", "1", "yes")
-        if hs256_secret and allow_hs256:
+        is_production = bool(os.getenv("SUPABASE_URL"))
+        is_testing = os.getenv("TESTING", "").lower() in ("true", "1", "yes")
+        if hs256_secret and (is_testing or (allow_hs256 and not is_production)):
             try:
                 hs256_opts = {
                     "algorithms": ["HS256"],

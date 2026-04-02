@@ -278,9 +278,9 @@ async def get_submission(
         FROM submissions s
         LEFT JOIN datasets d ON s.dataset_id = d.id
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE s.id = ? AND (s.user_id = ? OR s.user_id IS NULL)
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id), user.id),
+        (int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -378,14 +378,22 @@ async def create_submission(
                        f"Maximum upload size is {MAX_UPLOAD_SIZE / (1024*1024):.0f} MB.",
             )
 
+        # Quick sanity check: file content should start with JSON structure
+        stripped = contents.lstrip()
+        if stripped and stripped[0:1] not in (b"[", b"{"):
+            raise HTTPException(
+                status_code=400,
+                detail="File content does not appear to be JSON (must start with [ or {).",
+            )
+
         # Validate that the content is valid JSON
         try:
             parsed_data = json.loads(contents)
-        except json.JSONDecodeError as e:
-            logger.warning(f"Rejected upload with invalid JSON: {e}")
+        except json.JSONDecodeError:
+            logger.warning("Rejected upload with invalid JSON")
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid JSON file: {str(e)}",
+                detail="Invalid JSON file. Ensure the upload is well-formed JSON.",
             )
 
         # Validate UCTP output schema (per Louis's Benchmarking Documentation)
@@ -450,6 +458,7 @@ async def create_submission(
         submission_id=submission_id,
         dataset_id=int(dataset_id),
         file_path=str(file_path),
+        user_id=user.id,
     )
 
     # Update submission with job_id
@@ -476,6 +485,7 @@ async def create_submission(
 async def upload_results(
     submission_id: str,
     file: UploadFile = File(...),
+    user: AuthUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -490,11 +500,15 @@ async def upload_results(
     """
     # Verify submission exists
     submission = db.execute(
-        "SELECT id, dataset_id, status FROM submissions WHERE id = ?", (int(submission_id),)
+        "SELECT id, dataset_id, status, user_id FROM submissions WHERE id = ?", (int(submission_id),)
     ).fetchone()
 
     if submission is None:
         raise HTTPException(status_code=404, detail="Submission not found")
+
+    # Ownership check: only the submitter (or an admin) may re-upload results
+    if submission[3] is not None and submission[3] != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this submission")
 
     # Don't allow re-upload if currently processing
     if submission[2] in ("validating", "processing"):
@@ -579,6 +593,7 @@ async def upload_results(
         submission_id=int(submission_id),
         dataset_id=submission[1],
         file_path=str(file_path),
+        user_id=user.id,
     )
 
     # Update submission with job_id
