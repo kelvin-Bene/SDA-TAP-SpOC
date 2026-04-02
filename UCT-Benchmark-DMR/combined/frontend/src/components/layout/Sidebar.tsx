@@ -69,11 +69,6 @@ const authNavItems: NavItem[] = [
     href: '/leaderboard',
     icon: Trophy,
   },
-  {
-    title: 'Documentation',
-    href: '/docs',
-    icon: BookOpen,
-  },
 ];
 
 function NavItemComponent({ item }: { item: NavItem }) {

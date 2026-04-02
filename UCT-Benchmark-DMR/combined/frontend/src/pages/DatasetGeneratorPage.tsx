@@ -33,7 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
-import { api } from '@/api/client';
+import { api, apiClient } from '@/api/client';
 import type {
   OrbitalRegime,
   DatasetGenerationConfig,
@@ -426,16 +426,17 @@ export function DatasetGeneratorPage() {
           navigate('/datasets/my-datasets');
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { detail?: string | Array<{ loc?: string[]; msg?: string }> } }; message?: string };
       console.error('Failed to generate dataset:', error);
-      console.error('Error response:', error?.response?.data);
+      console.error('Error response:', axiosErr?.response?.data);
 
       // Handle Pydantic validation errors which return an array of error details
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      const detail = error?.response?.data?.detail;
+      const detail = axiosErr?.response?.data?.detail;
       if (Array.isArray(detail)) {
         // Pydantic validation error - format each error
-        errorMessage = detail.map((e: any) =>
+        errorMessage = detail.map((e) =>
           `${e.loc?.join(' -> ')}: ${e.msg}`
         ).join('\n');
       } else if (typeof detail === 'string') {
@@ -446,7 +447,7 @@ export function DatasetGeneratorPage() {
             detail.toLowerCase().includes('re-enter your token')) {
           setHasUdlToken(false);
         }
-      } else if (error?.message) {
+      } else if (error instanceof Error) {
         errorMessage = error.message;
       }
 
@@ -486,31 +487,21 @@ export function DatasetGeneratorPage() {
     setGenerationProgress(0);
 
     try {
-      // Call the legacy endpoint
-      const response = await fetch('/api/v1/datasets/legacy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          legacy_code: code,
-          object_type: legacyConfig.objectType,
-          target_percentage: legacyConfig.targetPercentage,
-          orbital_regime: legacyConfig.orbitalRegime,
-          event: legacyConfig.event,
-          sensor_type: legacyConfig.sensorType,
-          orbit_coverage: legacyConfig.orbitCoverage,
-          track_gap: legacyConfig.trackGap,
-          observation_count: legacyConfig.observationCount,
-          object_count_level: legacyConfig.objectCount,
-          fitspan_days: legacyConfig.fitspanDays,
-        }),
+      // Call the legacy endpoint via apiClient (includes auth token)
+      const { data: result } = await apiClient.post('/datasets/legacy', {
+        legacy_code: code,
+        object_type: legacyConfig.objectType,
+        target_percentage: legacyConfig.targetPercentage,
+        orbital_regime: legacyConfig.orbitalRegime,
+        event: legacyConfig.event,
+        sensor_type: legacyConfig.sensorType,
+        orbit_coverage: legacyConfig.orbitCoverage,
+        track_gap: legacyConfig.trackGap,
+        observation_count: legacyConfig.observationCount,
+        object_count_level: legacyConfig.objectCount,
+        fitspan_days: legacyConfig.fitspanDays,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to create dataset');
-      }
-
-      const result = await response.json();
       if (result?.job_id) {
         setJobId(result.job_id);
       } else {
@@ -519,11 +510,14 @@ export function DatasetGeneratorPage() {
           navigate('/datasets/my-datasets');
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate dataset from legacy code:', error);
+      const axiosErr = error as { response?: { data?: { detail?: string } }; message?: string };
+      const detail = axiosErr?.response?.data?.detail;
+      const message = typeof detail === 'string' ? detail : (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({
         title: 'Dataset generation failed',
-        description: error.message || 'An unexpected error occurred',
+        description: message,
         variant: 'destructive',
       });
       setIsGenerating(false);

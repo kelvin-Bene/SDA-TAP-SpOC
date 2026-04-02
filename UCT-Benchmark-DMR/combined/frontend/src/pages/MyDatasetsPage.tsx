@@ -28,7 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
-  const { data: datasets, isLoading, error, refetch } = useDatasets();
+  const { data: datasets, isLoading, error, refetch } = useDatasets({ mine: true });
   const deleteDataset = useDeleteDataset();
   const downloadMutation = useDownloadDataset();
   const isAdmin = useAuthStore((s) => s.isAdmin);
@@ -66,6 +66,11 @@ export function MyDatasetsPage() {
       setVersionHistory(response.data ?? []);
     } catch {
       setVersionHistory([]);
+      toast({
+        title: 'Version history unavailable',
+        description: 'Could not load version history for this dataset.',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingVersions(false);
     }
@@ -127,9 +132,22 @@ export function MyDatasetsPage() {
     setDatasetToDelete(dataset);
   };
 
-  const handleDeleteConfirm = () => {
-    if (datasetToDelete) {
-      deleteDataset.mutate(datasetToDelete.id);
+  const handleDeleteConfirm = async () => {
+    if (!datasetToDelete) return;
+    try {
+      await deleteDataset.mutateAsync(datasetToDelete.id);
+      toast({
+        title: 'Dataset Deleted',
+        description: `"${datasetToDelete.name}" has been permanently deleted.`,
+      });
+    } catch (err: unknown) {
+      const detail = (err as any)?.response?.data?.detail;
+      toast({
+        title: 'Delete Failed',
+        description: detail || 'Failed to delete dataset. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
       setDatasetToDelete(null);
     }
   };

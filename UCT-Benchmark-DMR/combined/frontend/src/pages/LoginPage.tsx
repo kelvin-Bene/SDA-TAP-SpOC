@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
@@ -29,6 +30,7 @@ export function LoginPage() {
     setConfirmPassword('');
     setSuccessMessage(null);
     clearError();
+    requestAnimationFrame(() => headingRef.current?.focus());
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,8 +39,6 @@ export function LoginPage() {
     setSuccessMessage(null);
     await login(email, password);
 
-    // Wait briefly for onAuthStateChange to propagate
-    await new Promise(resolve => setTimeout(resolve, 100));
     const state = useAuthStore.getState();
     if (state.error) {
       return; // Error is already set in the store, LoginPage will show it
@@ -118,7 +118,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <CardTitle className="text-3xl font-display font-bold">
+          <CardTitle ref={headingRef} tabIndex={-1} className="text-3xl font-display font-bold">
             <span className="text-gradient-cosmic">SpOC</span>
           </CardTitle>
           <CardDescription className="text-base">
@@ -131,7 +131,7 @@ export function LoginPage() {
         <CardContent className="space-y-6 pt-4">
           {/* Error display */}
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div role="alert" aria-live="assertive" className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <p>{error}</p>
             </div>
@@ -221,11 +221,11 @@ export function LoginPage() {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Min. 6 characters"
+                    placeholder="Min. 8 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/20 placeholder:text-muted-foreground/50"
                   />
                 </div>
@@ -237,7 +237,7 @@ export function LoginPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/20"
                   />
                 </div>

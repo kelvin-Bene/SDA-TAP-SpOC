@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles, Upload, Info } from 'lucide-react';
 import { Tooltip as RankTooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn, formatDate } from '@/lib/utils';
+import { getRankIcon } from '@/lib/rankUtils';
 import {
   LineChart,
   Line,
@@ -27,19 +28,6 @@ import {
 import { useLeaderboard, useLeaderboardHistory } from '@/hooks/useLeaderboard';
 import { useDatasets } from '@/hooks/useDatasets';
 import type { LeaderboardFilters } from '@/types';
-
-function getRankIcon(rank: number) {
-  switch (rank) {
-    case 1:
-      return <Trophy className="h-5 w-5 text-yellow-500" />;
-    case 2:
-      return <Medal className="h-5 w-5 text-gray-400" />;
-    case 3:
-      return <Award className="h-5 w-5 text-amber-600" />;
-    default:
-      return <span className="w-5 text-center font-mono font-semibold text-muted-foreground">{rank}</span>;
-  }
-}
 
 export function LeaderboardPage() {
   const [filters, setFilters] = useState<LeaderboardFilters>({
@@ -64,7 +52,7 @@ export function LeaderboardPage() {
       const direction = sortDirection === 'desc' ? -1 : 1;
       if (sortColumn === 'positionRmsKm') {
         // Lower is better for position RMS
-        return direction * (aVal - bVal) * -1;
+        return direction * (aVal - bVal);
       }
       return direction * (aVal - bVal);
     });
@@ -131,7 +119,7 @@ export function LeaderboardPage() {
 
       {/* Top 3 Podium */}
       {topThree.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
           {/* Second place */}
           {topThree[1] && (
             <div className="relative mt-8">
@@ -313,28 +301,40 @@ export function LeaderboardPage() {
                     <TableHead
                       scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('f1Score')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('f1Score'); } }}
                     >
                       F1-Score <SortIndicator column="f1Score" />
                     </TableHead>
                     <TableHead
                       scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('precision')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('precision'); } }}
                     >
                       Precision <SortIndicator column="precision" />
                     </TableHead>
                     <TableHead
                       scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('recall')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('recall'); } }}
                     >
                       Recall <SortIndicator column="recall" />
                     </TableHead>
                     <TableHead
                       scope="col"
                       className="hidden sm:table-cell cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('positionRmsKm')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('positionRmsKm'); } }}
                     >
                       Pos RMS (km) <SortIndicator column="positionRmsKm" />
                     </TableHead>

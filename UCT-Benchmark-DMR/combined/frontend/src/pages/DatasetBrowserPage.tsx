@@ -153,8 +153,18 @@ export function DatasetBrowserPage() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border p-4 space-y-3 animate-pulse">
+              <div className="h-5 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+              <div className="flex gap-2">
+                <div className="h-6 bg-muted rounded w-16" />
+                <div className="h-6 bg-muted rounded w-16" />
+              </div>
+              <div className="h-4 bg-muted rounded w-full" />
+            </div>
+          ))}
         </div>
       )}
 

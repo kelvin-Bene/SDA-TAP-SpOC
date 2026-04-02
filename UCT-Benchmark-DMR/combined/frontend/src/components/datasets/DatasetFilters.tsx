@@ -1,3 +1,5 @@
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { debounce } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +45,22 @@ const sensorOptions: { value: SensorType | 'all'; label: string }[] = [
 ];
 
 export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFiltersProps) {
+  const [localSearch, setLocalSearch] = useState(filters.search || '');
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  const debouncedSearchChange = useMemo(
+    () => debounce((value: string) => {
+      onFiltersChange({ ...filtersRef.current, search: value });
+    }, 300),
+    [onFiltersChange]
+  );
+
+  // Sync local search when filters change externally (e.g., clear button)
+  useEffect(() => {
+    setLocalSearch(filters.search || '');
+  }, [filters.search]);
+
   const hasFilters =
     filters.regime !== 'all' ||
     filters.tier !== 'all' ||
@@ -63,8 +81,11 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
               <Input
                 id="search-filter"
                 placeholder="Search by dataset name..."
-                value={filters.search || ''}
-                onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+                value={localSearch}
+                onChange={(e) => {
+                  setLocalSearch(e.target.value);
+                  debouncedSearchChange(e.target.value);
+                }}
                 className="pl-9"
               />
             </div>
@@ -175,7 +196,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           <div className="w-full sm:w-auto space-y-2 min-w-[200px] flex-1 max-w-[300px]">
             <Label>Object Count: {filters.objectCountRange?.min ?? 0} - {filters.objectCountRange?.max ?? 200}</Label>
             <Slider
-              defaultValue={[filters.objectCountRange?.min ?? 0, filters.objectCountRange?.max ?? 200]}
+              value={[filters.objectCountRange?.min ?? 0, filters.objectCountRange?.max ?? 200]}
               min={0}
               max={200}
               step={5}

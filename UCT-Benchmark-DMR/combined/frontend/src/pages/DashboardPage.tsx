@@ -7,6 +7,19 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 
+const ANNOUNCEMENTS = [
+  {
+    tag: 'NEW',
+    tagColor: 'cosmic-cyan',
+    text: 'T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!',
+  },
+  {
+    tag: 'UPDATE',
+    tagColor: 'stellar-purple',
+    text: 'Evaluation metrics now include covariance realism checks. See the documentation for details.',
+  },
+];
+
 export function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats();
   const { user } = useAuthStore();
@@ -173,22 +186,16 @@ export function DashboardPage() {
             <h3 className="font-display font-semibold text-lg">Announcements</h3>
           </div>
           <ul className="space-y-3">
-            <li className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
-              <span className="shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30">
-                NEW
-              </span>
-              <span className="text-sm text-muted-foreground">
-                T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!
-              </span>
-            </li>
-            <li className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
-              <span className="shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-stellar-purple/20 text-stellar-purple border border-stellar-purple/30">
-                UPDATE
-              </span>
-              <span className="text-sm text-muted-foreground">
-                Evaluation metrics now include covariance realism checks. See the documentation for details.
-              </span>
-            </li>
+            {ANNOUNCEMENTS.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
+                <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-${item.tagColor}/20 text-${item.tagColor} border border-${item.tagColor}/30`}>
+                  {item.tag}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {item.text}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       </div>

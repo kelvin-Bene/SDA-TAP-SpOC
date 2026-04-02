@@ -257,6 +257,7 @@ export interface DatasetFilters {
     min: number;
     max: number;
   };
+  mine?: boolean;
 }
 
 // Downsampling Options

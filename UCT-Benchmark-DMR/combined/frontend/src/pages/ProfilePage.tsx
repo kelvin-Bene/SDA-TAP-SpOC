@@ -12,9 +12,6 @@ import {
   Building2,
   Key,
   Shield,
-  Copy,
-  RefreshCw,
-  Check,
   Eye,
   EyeOff,
   Loader2,
@@ -28,8 +25,6 @@ import { api } from '@/api/client';
 export function ProfilePage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Editable fields initialized from auth user data
@@ -62,26 +57,6 @@ export function ProfilePage() {
 
   // Calculate user stats from real data
   const totalSubmissions = submissions.length;
-
-  const placeholderApiKey = 'sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-
-  const handleCopyApiKey = () => {
-    navigator.clipboard.writeText(placeholderApiKey);
-    setCopiedKey(true);
-    toast({
-      title: 'API Key Copied',
-      description: 'Your API key has been copied to the clipboard.',
-    });
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
-
-  const handleRegenerateKey = () => {
-    toast({
-      title: 'API Key Regenerated',
-      description: 'Your new API key has been generated. Update your applications.',
-      variant: 'destructive',
-    });
-  };
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -171,7 +146,7 @@ export function ProfilePage() {
                   <User className="h-10 w-10 text-primary" />
                 </div>
                 <div>
-                  <Button variant="outline" size="sm">Change Avatar</Button>
+                  <Button variant="outline" size="sm" disabled title="Avatar uploads coming soon">Change Avatar</Button>
                   <p className="text-xs text-muted-foreground mt-1">JPG, PNG or GIF. 1MB max.</p>
                 </div>
               </div>
@@ -326,67 +301,12 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Key className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Production API Key</span>
-                    <Badge variant="success">Active</Badge>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                  >
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-muted px-3 py-2 rounded font-mono text-sm">
-                    {showApiKey ? placeholderApiKey : '\u2022'.repeat(40)}
-                  </code>
-                  <Button variant="outline" size="icon" onClick={handleCopyApiKey}>
-                    {copiedKey ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Created: Jan 15, 2026 -- Last used: 2 hours ago
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Regenerate API Key</p>
+              <div className="relative">
+                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
+                <div className="opacity-50 pointer-events-none">
                   <p className="text-sm text-muted-foreground">
-                    This will invalidate your current key
+                    Programmatic API access with key management, usage tracking, and rate limits will be available in a future release.
                   </p>
-                </div>
-                <Button variant="destructive" className="gap-2" onClick={handleRegenerateKey}>
-                  <RefreshCw className="h-4 w-4" />
-                  Regenerate
-                </Button>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-2">API Usage</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  API usage tracking coming soon
-                </p>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">Requests Today</p>
-                    <p className="text-2xl font-bold text-muted-foreground">--</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">This Month</p>
-                    <p className="text-2xl font-bold text-muted-foreground">--</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">Rate Limit</p>
-                    <p className="text-2xl font-bold">Unlimited</p>
-                  </div>
                 </div>
               </div>
             </CardContent>

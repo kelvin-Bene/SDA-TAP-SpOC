@@ -68,8 +68,8 @@ apiClient.interceptors.response.use(
 
       // If too many recent refresh failures, sign out immediately
       if (refreshFailureCount >= MAX_REFRESH_FAILURES) {
-        await supabase.auth.signOut();
-        window.location.href = '/login';
+        const { useAuthStore } = await import('@/stores/authStore');
+        useAuthStore.getState().logout();
         return Promise.reject(error);
       }
 
@@ -96,8 +96,8 @@ apiClient.interceptors.response.use(
           refreshFailureCount++;
           lastRefreshFailureTime = Date.now();
           onRefreshFailed(error);
-          await supabase.auth.signOut();
-          window.location.href = '/login';
+          const { useAuthStore } = await import('@/stores/authStore');
+          useAuthStore.getState().logout();
           return Promise.reject(error);
         }
 
@@ -111,8 +111,8 @@ apiClient.interceptors.response.use(
         refreshFailureCount++;
         lastRefreshFailureTime = Date.now();
         onRefreshFailed(error);
-        await supabase.auth.signOut();
-        window.location.href = '/login';
+        const { useAuthStore } = await import('@/stores/authStore');
+        useAuthStore.getState().logout();
         return Promise.reject(error);
       } finally {
         isRefreshing = false;

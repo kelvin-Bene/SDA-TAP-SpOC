@@ -86,6 +86,9 @@ export function useDatasets(filters?: DatasetFilters) {
       if (filters?.sortOrder) {
         params.order = filters.sortOrder;
       }
+      if (filters?.mine) {
+        params.mine = 'true';
+      }
 
       const response = await api.getDatasets(params);
       const datasets = response.data as DatasetResponse[];
