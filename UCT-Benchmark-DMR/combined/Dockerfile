@@ -38,6 +38,9 @@ RUN pip install --no-cache-dir "."
 RUN apt-get purge -y --auto-remove gcc python3.12-dev software-properties-common && \
     rm -rf /var/lib/apt/lists/*
 
+# Cache-bust: any change to this value forces fresh COPY of app code
+ARG CACHEBUST=1
+
 # Copy application code
 COPY uct_benchmark/ ./uct_benchmark/
 COPY backend_api/ ./backend_api/
