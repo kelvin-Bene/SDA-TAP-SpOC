@@ -24,24 +24,25 @@ from typing import Any, Dict, List, Optional, Tuple
 import aiohttp
 import numpy as np
 
-# initialize orekit and JVM
-# - This must be done only once per program execution -
-# - If orekit is already initialized, these lines will have no effect -
-# - Using orekit_jpype as it is better maintained -
-# - Expecting OREKIT_DATA_PATH environment variable to be set -
-import orekit_jpype as orekit
 import pandas as pd
 import requests
 from loguru import logger
 
-vm_started = orekit.initVM()
-from orekit_jpype.pyhelpers import setup_orekit_curdir
+# Orekit initialization — optional, only needed for T2+ tiers (TLE propagation)
+OREKIT_AVAILABLE = False
+TLE = None
+TLEPropagator = None
 
-orekit_data_path = os.getenv("OREKIT_DATA_PATH", "./orekit-data-main")
-# setup_orekit_curdir(orekit_data_path)
-setup_orekit_curdir(from_pip_library=True)
-
-from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
+try:
+    import orekit_jpype as orekit
+    vm_started = orekit.initVM()
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
+    setup_orekit_curdir(from_pip_library=True)
+    from org.orekit.propagation.analytical.tle import TLE, TLEPropagator
+    OREKIT_AVAILABLE = True
+    logger.info("Orekit initialized successfully")
+except Exception as e:
+    logger.warning(f"Orekit not available: {e}. T2/T3/T4 tiers will fail.")
 
 from uct_benchmark.data.dataManipulation import binTracks, add_non_reference_observations
 from uct_benchmark.data.objectTypeFiltering import filter_by_object_type_code, ObjectFilterConfig
@@ -2028,6 +2029,26 @@ def generateDataset(
             for ID in satIDs
         ]
         elset_truth_data = asyncUDLBatchQuery(UDL_token, "elset", params_list, dt)
+
+        # If time-ranged TLE query returned empty, fall back to elset/current
+        if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
+            logger.warning(
+                f"Time-ranged TLE query returned no data for {len(satIDs)} sats, "
+                "falling back to elset/current"
+            )
+            elset_truth_data = UDLQuery(
+                UDL_token,
+                "elset/current",
+                {"satNo": ",".join(map(str, satIDs))},
+            )
+
+    # If still no data after fallback, fail gracefully
+    if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
+        raise ValueError(
+            f"No element set (TLE) data returned from UDL for any of the "
+            f"{len(satIDs)} satellites in the requested time window. "
+            f"The UDL may not have data for this date range."
+        )
 
     # If a satellite has no TLE data, drop it from list, state vectors, and obs
     satIDs = elset_truth_data["satNo"].unique()
