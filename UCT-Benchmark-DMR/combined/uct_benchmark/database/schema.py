@@ -814,7 +814,7 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
                 except Exception as e:
                     # Log but don't crash on individual statement failures
                     # (e.g., table already exists with different column order)
-                    logger.debug(f"Schema statement skipped: {e}")
+                    pass  # Statement already applied or not applicable
 
         # Run inline migrations for existing databases initialized with older SQL.
         # All are idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS).
