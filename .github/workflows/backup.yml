@@ -1,0 +1,64 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2:00 UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  backup:
+    name: Backup Database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create backup
+        id: backup
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="uct_benchmark_${TIMESTAMP}.sql.gz"
+          pg_dump "$DATABASE_URL" --no-owner --no-acl | gzip > "$BACKUP_FILE"
+          echo "backup_file=$BACKUP_FILE" >> "$GITHUB_OUTPUT"
+          echo "Backup created: $BACKUP_FILE ($(du -h $BACKUP_FILE | cut -f1))"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: ${{ steps.backup.outputs.backup_file }}
+          retention-days: 30
+
+  verify-restore:
+    name: Verify Backup Integrity
+    needs: backup
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: Download backup artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+
+      - name: Restore and verify
+        run: |
+          BACKUP_FILE=$(ls *.sql.gz | head -1)
+          echo "Restoring $BACKUP_FILE..."
+          gunzip -c "$BACKUP_FILE" | PGPASSWORD=testpass psql -h localhost -U postgres -d restore_test
+          echo "Verifying restore..."
+          PGPASSWORD=testpass psql -h localhost -U postgres -d restore_test \
+            -c "SELECT 'datasets', count(*) FROM datasets UNION ALL SELECT 'observations', count(*) FROM observations;"
+          echo "Backup restore verification passed."

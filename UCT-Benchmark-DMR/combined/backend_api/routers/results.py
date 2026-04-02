@@ -11,7 +11,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
 from loguru import logger
 
-from backend_api.middleware.auth import AuthUser, get_current_user
+from backend_api.auth import CurrentUser
+from backend_api.middleware.auth import get_current_user
 from backend_api.middleware.rate_limit import limiter
 
 from backend_api.database import get_db
@@ -52,7 +53,7 @@ async def list_results(
     algorithm_name: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """List all submission results with optional filtering."""
@@ -109,7 +110,7 @@ async def list_results(
 @router.get("/{submission_id}", response_model=SubmissionResults)
 async def get_results(
     submission_id: str,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -222,7 +223,7 @@ async def get_results(
 @router.get("/{submission_id}/metrics")
 async def get_detailed_metrics(
     submission_id: str,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -273,7 +274,7 @@ async def get_detailed_metrics(
 @router.get("/{submission_id}/visualization")
 async def get_visualization_data(
     submission_id: str,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -326,7 +327,7 @@ async def get_visualization_data(
 async def export_results(
     submission_id: str,
     format: str = "json",
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -428,7 +429,7 @@ async def generate_report(
     request: Request,
     submission_id: str,
     format: str = "pdf",
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """

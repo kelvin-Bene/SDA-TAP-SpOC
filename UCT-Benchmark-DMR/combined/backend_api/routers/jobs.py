@@ -6,14 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from backend_api.jobs import JobStatus, get_job_manager
-from backend_api.middleware.auth import AuthUser, get_current_user
+from backend_api.auth import CurrentUser
+from backend_api.middleware.auth import get_current_user
 from backend_api.models import JobResponse, JobStatusEnum
 
 router = APIRouter()
 
 
 @router.get("/{job_id}", response_model=JobResponse)
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: str, user: CurrentUser = Depends(get_current_user)):
     """
     Get the status of a background job.
 
@@ -28,6 +29,10 @@ async def get_job_status(job_id: str):
 
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    # Ownership check
+    if not user.is_admin and job.metadata.get("user_id") != user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
 
     return JobResponse(
         id=job.id,
@@ -48,13 +53,12 @@ async def list_jobs(
     job_type: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 20,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     List background jobs with optional filtering.
 
-    Requires authentication. Currently returns all jobs (admin-visible data);
-    per-user filtering will be added when jobs have a user_id column.
+    Requires authentication. Returns jobs owned by the current user (admins see all).
 
     Args:
         job_type: Filter by job type (dataset_generation, evaluation)
@@ -102,6 +106,10 @@ async def list_jobs(
         status=status_enum,
         limit=limit,
     )
+
+    # Filter by ownership unless admin
+    if not user.is_admin:
+        jobs = [j for j in jobs if j.metadata.get("user_id") == user.id]
 
     return [
         JobResponse(

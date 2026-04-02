@@ -197,6 +197,8 @@ DATASETS_SEQUENCE = """
 CREATE SEQUENCE IF NOT EXISTS datasets_id_seq;
 """
 
+# Note: JSON columns are automatically converted to JSONB for PostgreSQL
+# via convert_json_to_jsonb() in initialize_database(). DuckDB uses JSON natively.
 DATASETS_TABLE = """
 CREATE TABLE IF NOT EXISTS datasets (
     id INTEGER PRIMARY KEY DEFAULT nextval('datasets_id_seq'),
@@ -272,7 +274,10 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Optional file paths for export
     json_path VARCHAR(500),
-    parquet_path VARCHAR(500)
+    parquet_path VARCHAR(500),
+
+    -- Code is shared across version families; (code, version) must be unique
+    UNIQUE(code, version)
 );
 """
 
@@ -489,7 +494,7 @@ CREATE TABLE IF NOT EXISTS non_reference_observations (
     dataset_id INTEGER,                   -- References datasets(id)
     observation_id VARCHAR(64) NOT NULL,
     sensor_id VARCHAR(32),
-    obs_time TIMESTAMP NOT NULL,
+    obs_time TIMESTAMP NOT NULL,          -- Note: obs_time (not ob_time) for historical consistency; observations table uses ob_time to match UDL API naming
     ra_deg DECIMAL(12,8),
     dec_deg DECIMAL(12,8),
     source_norad_id INTEGER NOT NULL,     -- The actual satellite (for ground truth)

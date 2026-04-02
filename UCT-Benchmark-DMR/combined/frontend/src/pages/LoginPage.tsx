@@ -155,6 +155,7 @@ export function LoginPage() {
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="researcher@aerospace.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -176,6 +177,7 @@ export function LoginPage() {
                   <Input
                     id="password"
                     type="password"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -209,6 +211,7 @@ export function LoginPage() {
                   <Input
                     id="signup-email"
                     type="email"
+                    autoComplete="email"
                     placeholder="researcher@aerospace.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -221,6 +224,7 @@ export function LoginPage() {
                   <Input
                     id="signup-password"
                     type="password"
+                    autoComplete="new-password"
                     placeholder="Min. 8 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -234,6 +238,7 @@ export function LoginPage() {
                   <Input
                     id="signup-confirm"
                     type="password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required

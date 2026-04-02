@@ -249,9 +249,13 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Optional file paths for export
     json_path VARCHAR(500),
-    parquet_path VARCHAR(500)
+    parquet_path VARCHAR(500),
+
+    -- Code is shared across version families; (code, version) must be unique
+    UNIQUE(code, version)
 );
 
+CREATE INDEX IF NOT EXISTS idx_datasets_code ON datasets(code);
 CREATE INDEX IF NOT EXISTS idx_datasets_legacy_code ON datasets(legacy_code);
 CREATE INDEX IF NOT EXISTS idx_datasets_object_type ON datasets(object_type_code);
 CREATE INDEX IF NOT EXISTS idx_datasets_regime ON datasets(orbital_regime);

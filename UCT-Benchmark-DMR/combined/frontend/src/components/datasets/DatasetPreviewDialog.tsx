@@ -9,16 +9,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Satellite, Database, Calendar, History, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Satellite, Database, Calendar, History, Loader2, BarChart3 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import type { Dataset } from '@/types';
 import { useDatasetVersions } from '@/hooks/useDatasets';
 
@@ -120,71 +112,13 @@ export function DatasetPreviewDialog({
           </TabsContent>
 
           <TabsContent value="statistics" className="space-y-4 mt-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50 p-3 mb-4">
-              <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                Statistics shown are illustrative examples, not derived from this dataset.
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-sm font-medium text-muted-foreground">Dataset Statistics Coming Soon</p>
+              <p className="text-xs text-muted-foreground/70 mt-1 max-w-sm">
+                Real-time observation density, track gap distribution, and sensor type
+                breakdowns will be available in a future release.
               </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground mb-2">Observation Density</p>
-                <div className="h-24 flex items-end gap-1">
-                  {[35, 45, 60, 75, 85, 70, 55, 40].map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-primary/20 rounded-t"
-                      style={{ height: `${h}%` }}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">Avg: 50 obs/satellite/3-days</p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground mb-2">Track Gap Distribution</p>
-                <ResponsiveContainer width="100%" height={96}>
-                  <BarChart data={[
-                    { bin: '0-1', count: 80 },
-                    { bin: '1-2', count: 60 },
-                    { bin: '2-3', count: 40 },
-                    { bin: '3-4', count: 25 },
-                    { bin: '4-5', count: 15 },
-                    { bin: '5-6', count: 8 },
-                    { bin: '6-7', count: 4 },
-                    { bin: '7+', count: 2 },
-                  ]}>
-                    <XAxis dataKey="bin" tick={{ fontSize: 10 }} />
-                    <YAxis hide />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(222 47% 11%)',
-                        borderColor: 'hsl(222 30% 18%)',
-                        borderRadius: '6px',
-                        fontSize: 12,
-                      }}
-                    />
-                    <Bar dataKey="count" fill="hsl(192, 91%, 52%)" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-xs text-muted-foreground mt-2">Median gap: 2.3 orbital periods</p>
-              </div>
-            </div>
-            <div className="rounded-lg border p-4">
-              <p className="text-sm text-muted-foreground mb-2">Sensor Type Distribution</p>
-              <div className="flex gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orbital-leo" />
-                  <span className="text-sm">Optical: 65%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orbital-meo" />
-                  <span className="text-sm">Radar: 25%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orbital-geo" />
-                  <span className="text-sm">RF: 10%</span>
-                </div>
-              </div>
             </div>
           </TabsContent>
 

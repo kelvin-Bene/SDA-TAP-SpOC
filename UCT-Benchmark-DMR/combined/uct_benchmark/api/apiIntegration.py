@@ -2425,6 +2425,15 @@ def generateDataset(
             simulation_config["enabled"] = True
         logger.info(f"Tier {determined_tier}: auto-enabled simulation")
 
+    if determined_tier == "T4":
+        # T4 spec: downsample + simulate obs + simulate new objects.
+        # "Simulate new objects" is not yet implemented; T4 currently
+        # behaves identically to T3 (downsample + simulate obs only).
+        logger.warning(
+            "T4 'simulate new objects' not yet implemented. "
+            "T4 currently behaves identically to T3 (downsample + simulate obs only)."
+        )
+
     if determined_tier == "T1":
         # T1: no manipulation needed — disable both
         if isinstance(downsample_config, dict):

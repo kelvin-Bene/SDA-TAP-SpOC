@@ -9,6 +9,10 @@ Authentication strategy:
     which uses ES256 asymmetric keys via JWKS, with HS256 fallback.
   - When only SUPABASE_JWT_SECRET is set: uses HS256 symmetric key directly.
   - When neither is set: development mode with a stub user (no enforcement).
+
+TODO: Consolidate with backend_api/auth.py into a single auth module.
+Both paths produce identical CurrentUser results; keeping separate for now
+because consolidation is high-risk for the auth-critical path.
 """
 
 import os
@@ -18,6 +22,8 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from loguru import logger
+
+from backend_api.auth import CurrentUser
 
 # Supabase JWT configuration
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
@@ -33,19 +39,20 @@ security_required = HTTPBearer(auto_error=True)
 
 
 class AuthUser:
-    """Authenticated user context extracted from JWT."""
+    """Authenticated user context extracted from JWT.
+
+    .. deprecated::
+        Use ``backend_api.auth.CurrentUser`` instead. This class is retained
+        only for backward compatibility and will be removed in a future release.
+    """
 
     def __init__(self, payload: dict[str, Any]):
         self.id: str = payload.get("sub", "")
         self.email: str = payload.get("email", "")
         self.app_metadata: dict = payload.get("app_metadata", {})
         self.user_metadata: dict = payload.get("user_metadata", {})
-        # Read role from app_metadata (server-side only, not user-editable),
-        # consistent with backend_api.auth.CurrentUser._build_current_user().
-        # Falls back to top-level role only if app_metadata has no role set.
         _am = self.app_metadata
         self.role: str = _am.get("role", "user") if isinstance(_am, dict) and "role" in _am else payload.get("role", "authenticated")
-        # Unify admin check: role == "admin" (same as CurrentUser.is_admin)
         self.is_admin: bool = self.role == "admin"
 
     def __repr__(self) -> str:
@@ -128,23 +135,28 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
         )
 
 
-def _payload_to_auth_user(payload: dict[str, Any]) -> AuthUser:
+def _payload_to_current_user(payload: dict[str, Any]) -> CurrentUser:
     """
-    Convert a decoded JWT payload (from either auth path) into an AuthUser.
+    Convert a decoded JWT payload (from either auth path) into a CurrentUser.
 
     Handles the role mapping differences between the production auth module
     (which checks app_metadata.role) and the HS256 path (which reads
     top-level role).
     """
-    # Normalise role: production module sets role from app_metadata,
-    # but AuthUser also reads app_metadata in its __init__.
-    # Just pass the payload through so AuthUser can pick up all fields.
-    return AuthUser(payload)
+    user_id = payload.get("sub", "")
+    email = payload.get("email", "")
+    app_metadata = payload.get("app_metadata", {})
+    role = (
+        app_metadata.get("role", "user")
+        if isinstance(app_metadata, dict) and "role" in app_metadata
+        else payload.get("role", "authenticated")
+    )
+    return CurrentUser(id=user_id, email=email, role=role)
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_required),
-) -> AuthUser:
+) -> CurrentUser:
     """
     FastAPI dependency that extracts and validates the current user from JWT.
 
@@ -154,7 +166,7 @@ async def get_current_user(
 
     Usage:
         @router.get("/protected")
-        async def protected_route(user: AuthUser = Depends(get_current_user)):
+        async def protected_route(user: CurrentUser = Depends(get_current_user)):
             return {"user_id": user.id}
     """
     token = credentials.credentials
@@ -164,8 +176,7 @@ async def get_current_user(
         try:
             from backend_api.auth import _decode_jwt, _build_current_user
             payload = _decode_jwt(token)
-            # Convert the production CurrentUser fields into an AuthUser-compatible payload
-            return _payload_to_auth_user(payload)
+            return _payload_to_current_user(payload)
         except HTTPException:
             raise
         except Exception as e:
@@ -178,12 +189,12 @@ async def get_current_user(
     else:
         # HS256-only path (development or SUPABASE_JWT_SECRET-only environments)
         payload = _decode_token_hs256(token)
-        return AuthUser(payload)
+        return _payload_to_current_user(payload)
 
 
 async def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[AuthUser]:
+) -> Optional[CurrentUser]:
     """
     FastAPI dependency for optional authentication.
     Returns None if no token is provided, validates if present.
@@ -199,7 +210,7 @@ async def get_optional_user(
         try:
             from backend_api.auth import _decode_jwt
             payload = _decode_jwt(token)
-            return _payload_to_auth_user(payload)
+            return _payload_to_current_user(payload)
         except HTTPException:
             raise
         except Exception as e:
@@ -211,18 +222,18 @@ async def get_optional_user(
             )
     else:
         payload = _decode_token_hs256(token)
-        return AuthUser(payload)
+        return _payload_to_current_user(payload)
 
 
 async def require_admin(
-    user: AuthUser = Depends(get_current_user),
-) -> AuthUser:
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
     """
     FastAPI dependency that requires admin role.
 
     Usage:
         @router.delete("/admin-only")
-        async def admin_route(user: AuthUser = Depends(require_admin)):
+        async def admin_route(user: CurrentUser = Depends(require_admin)):
             ...
     """
     if not user.is_admin:

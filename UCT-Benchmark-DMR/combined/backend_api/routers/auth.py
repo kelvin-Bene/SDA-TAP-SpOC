@@ -78,7 +78,9 @@ class VerifyResponse(BaseModel):
 
 
 @router.post("/verify", response_model=VerifyResponse)
+@limiter.limit("10/minute")
 async def verify_token(
+    request: Request,
     user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):

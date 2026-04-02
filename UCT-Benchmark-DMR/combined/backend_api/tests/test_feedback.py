@@ -36,12 +36,14 @@ REGULAR_USER = FakeUser(id="user-001", email="user@test.com", role="user")
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
-    """Clear the feedback router's rate limiter state before each test."""
-    from backend_api.routers.feedback import _limiter
+    """Reset slowapi rate limiter storage between tests to avoid cross-test 429s."""
+    from backend_api.middleware.rate_limit import limiter
 
-    _limiter._hits.clear()
+    if hasattr(limiter, "_limiter") and hasattr(limiter._limiter, "storage"):
+        limiter._limiter.storage.reset()
     yield
-    _limiter._hits.clear()
+    if hasattr(limiter, "_limiter") and hasattr(limiter._limiter, "storage"):
+        limiter._limiter.storage.reset()
 
 
 # ---------------------------------------------------------------------------

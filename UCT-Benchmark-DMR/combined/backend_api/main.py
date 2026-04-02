@@ -11,9 +11,13 @@ This module provides REST endpoints for:
 Note: Auto-links observations when retrieving dataset observations.
 """
 
+import glob
 import json
 import os
-from contextlib import asynccontextmanager
+import shutil
+import tempfile
+import time
+from contextlib import asynccontextmanager, contextmanager
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -41,7 +45,7 @@ from .routers import datasets, feedback, jobs, leaderboard, results, submissions
 _skip_lifespan_init = False
 
 
-def get_cors_origins() -> list[str]:
+def get_cors_origins() -> tuple[list[str], bool]:
     """
     Get CORS origins from environment or use defaults for development.
 
@@ -49,8 +53,18 @@ def get_cors_origins() -> list[str]:
         CORS_ORIGINS: Comma-separated list of allowed origins (e.g., "https://example.com,https://app.example.com")
 
     Returns:
-        List of allowed origin URLs
+        Tuple of (origin list, is_explicit) where is_explicit indicates
+        that CORS_ORIGINS was explicitly configured (production).
     """
+    _dev_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:5173",
+    ]
+
     env_origins = os.getenv("CORS_ORIGINS")
     if env_origins:
         origins = [origin.strip() for origin in env_origins.split(",") if origin.strip()]
@@ -59,25 +73,11 @@ def get_cors_origins() -> list[str]:
                 "CORS_ORIGINS contains '*' which is incompatible with "
                 "allow_credentials=True. Falling back to defaults."
             )
-            return [
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:3001",
-                "http://127.0.0.1:5173",
-            ]
-        return origins
+            return _dev_origins, False
+        return origins, True
 
     # Default development origins
-    return [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:5173",
-    ]
+    return _dev_origins, False
 
 
 @asynccontextmanager
@@ -104,6 +104,20 @@ async def lifespan(app: FastAPI):
 
     # Startup
     logger.info("Starting UCT Benchmark API...")
+
+    # Clean up stale temp directories from previous crashed report generations
+    try:
+        temp_dir = tempfile.gettempdir()
+        stale_cutoff = time.time() - 3600  # 1 hour
+        cleaned = 0
+        for d in glob.glob(os.path.join(temp_dir, "tmp*")):
+            if os.path.isdir(d) and os.path.getmtime(d) < stale_cutoff:
+                shutil.rmtree(d, ignore_errors=True)
+                cleaned += 1
+        if cleaned:
+            logger.info(f"Cleaned {cleaned} stale temp directories")
+    except Exception as e:
+        logger.debug(f"Temp cleanup skipped: {e}")
 
     # Initialize Sentry error tracking (if configured)
     sentry_dsn = os.getenv("SENTRY_DSN")
@@ -239,16 +253,16 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 # Configure CORS - use environment variable in production (S11)
-cors_origins = get_cors_origins()
-if not os.getenv("CORS_ORIGINS"):
+cors_origins, _cors_explicit = get_cors_origins()
+if not _cors_explicit:
     logger.warning(
-        "CORS_ORIGINS not set — using localhost defaults. "
+        "CORS_ORIGINS not set — using localhost defaults with credentials disabled. "
         "Set CORS_ORIGINS env var for production."
     )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=_cors_explicit,  # Only allow credentials when origins are explicitly configured
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
@@ -372,3 +386,24 @@ def reset_test_mode():
     """
     global _skip_lifespan_init
     _skip_lifespan_init = False
+
+
+@contextmanager
+def test_mode():
+    """
+    Context manager for test mode that auto-resets on exit.
+
+    Usage:
+        with test_mode() as test_app:
+            test_app.dependency_overrides[get_db] = override_get_db
+            with TestClient(test_app) as client:
+                # Run tests
+                pass
+        # _skip_lifespan_init is automatically reset
+    """
+    global _skip_lifespan_init
+    _skip_lifespan_init = True
+    try:
+        yield app
+    finally:
+        _skip_lifespan_init = False

@@ -30,6 +30,9 @@ erDiagram
     submissions ||--o| submission_results : "produces"
     jobs ||--o{ submissions : "processes"
 
+    non_reference_observations ||--o{ datasets : "belongs_to"
+    feedback }o--|| profiles : "submitted_by"
+
     satellites {
         int sat_no PK
         varchar name
@@ -109,6 +112,56 @@ erDiagram
         varchar id PK
         varchar job_type
         varchar status
+    }
+
+    feedback {
+        int id PK
+        varchar description
+        varchar reporter_email
+        text screenshot_base64
+        varchar page_url
+        varchar user_agent
+        varchar status
+        varchar resolution
+        uuid user_id
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    non_reference_observations {
+        int id PK
+        int dataset_id FK
+        varchar observation_id
+        int source_norad_id
+        timestamp obs_time
+        decimal ra_deg
+        decimal dec_deg
+        varchar sensor_id
+        timestamp created_at
+    }
+
+    breakup_events {
+        int id PK
+        int parent_norad_id
+        varchar parent_name
+        date event_date
+        int debris_count
+        json debris_norad_ids
+        varchar event_type
+        varchar source
+        timestamp cached_at
+    }
+
+    profiles {
+        uuid id PK
+        varchar email
+        varchar role
+        varchar display_name
+        varchar organization
+        varchar udl_token
+        varchar esa_token
+        timestamp created_at
+        timestamp updated_at
     }
 ```
 

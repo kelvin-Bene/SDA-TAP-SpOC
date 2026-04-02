@@ -7,6 +7,8 @@ for long-running operations like dataset generation and evaluation.
 
 import threading
 import uuid
+
+from loguru import logger
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -338,8 +340,8 @@ class DatabaseJobManager(JobManager):
                     job.completed_at.isoformat() if job.completed_at else None,
                 ),
             )
-        except Exception:
-            pass  # DB persistence is best-effort; in-memory is primary
+        except Exception as e:
+            logger.warning(f"Job DB persistence failed for {job.id}: {e}")
 
     def create_job(self, job_type: JobType, metadata: Optional[Dict[str, Any]] = None) -> Job:
         job = super().create_job(job_type, metadata)

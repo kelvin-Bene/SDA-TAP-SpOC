@@ -81,9 +81,13 @@ async def get_leaderboard(
         params.append(tier)
 
     if period == "week":
-        query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'"
+        week_cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        query += " AND s.completed_at >= ?"
+        params.append(week_cutoff)
     elif period == "month":
-        query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'"
+        month_cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        query += " AND s.completed_at >= ?"
+        params.append(month_cutoff)
 
     # Order by composite score (falls back to F1 if composite not yet computed)
     query += " ORDER BY COALESCE(sr.composite_score, sr.f1_score) DESC LIMIT ?"
@@ -256,15 +260,19 @@ async def get_leaderboard_statistics(
     row_dict = dict(zip(columns, row))
 
     # Determine trend (compare last week to previous week)
+    now = datetime.now(timezone.utc)
+    one_week_ago = (now - timedelta(days=7)).isoformat()
+    two_weeks_ago = (now - timedelta(days=14)).isoformat()
     trend_query = f"""
         SELECT
-            SUM(CASE WHEN s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as this_week,
-            SUM(CASE WHEN s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
-                 AND s.completed_at < CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as last_week
+            SUM(CASE WHEN s.completed_at >= ? THEN 1 ELSE 0 END) as this_week,
+            SUM(CASE WHEN s.completed_at >= ?
+                 AND s.completed_at < ? THEN 1 ELSE 0 END) as last_week
         {base_query}
     """
+    trend_params = [one_week_ago, two_weeks_ago, one_week_ago] + list(params)
 
-    trend_result = db.execute(trend_query, tuple(params))
+    trend_result = db.execute(trend_query, tuple(trend_params))
     trend_row = trend_result.fetchone()
 
     trend = "stable"

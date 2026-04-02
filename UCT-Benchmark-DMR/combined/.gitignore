@@ -1,0 +1,30 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Python
+*.pyc
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Database
+*.duckdb
+*.duckdb.wal
+
+# Uploads
+data/uploads/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

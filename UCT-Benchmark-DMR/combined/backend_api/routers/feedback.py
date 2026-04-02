@@ -2,9 +2,7 @@
 
 import json
 import re
-import time
 import uuid
-from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -13,6 +11,7 @@ from loguru import logger
 
 from backend_api.auth import CurrentUser, get_current_user, get_optional_user
 from backend_api.database import get_db
+from backend_api.middleware.rate_limit import limiter
 from backend_api.models.feedback import (
     FeedbackCreate,
     FeedbackListItem,
@@ -22,45 +21,6 @@ from backend_api.models.feedback import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
-
-
-# ---------------------------------------------------------------------------
-# Lightweight in-process rate limiter (no slowapi dependency required)
-# ---------------------------------------------------------------------------
-
-class _RateLimiter:
-    """Simple per-IP sliding-window rate limiter."""
-
-    def __init__(self) -> None:
-        self._hits: dict[str, list[float]] = defaultdict(list)
-
-    def check(self, key: str, max_hits: int, window_seconds: int) -> None:
-        """Raise 429 if *key* has exceeded *max_hits* within *window_seconds*."""
-        now = time.monotonic()
-        timestamps = self._hits[key]
-        # Prune expired entries
-        self._hits[key] = [t for t in timestamps if now - t < window_seconds]
-        # Periodic global cleanup: remove empty keys to prevent memory growth
-        if len(self._hits) > 1000:
-            empty_keys = [k for k, v in self._hits.items() if not v]
-            for k in empty_keys:
-                del self._hits[k]
-        if len(self._hits[key]) >= max_hits:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Try again later.",
-            )
-        self._hits[key].append(now)
-
-
-_limiter = _RateLimiter()
-
-
-def _rate_limit(request: Request, max_hits: int = 5, window_seconds: int = 60) -> None:
-    """Apply rate limiting based on client IP."""
-    from backend_api.middleware.rate_limit import _get_real_client_ip
-    client_ip = _get_real_client_ip(request)
-    _limiter.check(client_ip, max_hits, window_seconds)
 
 
 # ---------------------------------------------------------------------------
@@ -81,9 +41,10 @@ def _sanitize_description(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/feedback", response_model=FeedbackResponse, status_code=201)
+@limiter.limit("5/minute")
 async def submit_feedback(
-    body: FeedbackCreate,
     request: Request,
+    body: FeedbackCreate,
     user: Optional[CurrentUser] = Depends(get_optional_user),
     db: DatabaseManager = Depends(get_db),
 ) -> FeedbackResponse:
@@ -93,8 +54,6 @@ async def submit_feedback(
     Authentication is optional -- anonymous submissions are accepted.
     Rate-limited to 5 requests per minute per IP.
     """
-    # Rate limit
-    _rate_limit(request)
 
     feedback_id = str(uuid.uuid4())
 

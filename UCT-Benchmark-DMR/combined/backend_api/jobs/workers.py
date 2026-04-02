@@ -812,6 +812,14 @@ def run_evaluation_pipeline(
             except Exception as hist_err:
                 logger.debug(f"Histogram generation skipped: {hist_err}")
 
+        # Compute composite score from binary, state, and residual metrics
+        _f1 = binary_results.get("f1_score", binary_results.get("F1Score"))
+        _pos_rms = state_results.get("position_rms_km")
+        _ra_rms = state_results.get("ra_residual_rms_arcsec")
+        _dec_rms = state_results.get("dec_residual_rms_arcsec")
+        composite_score = compute_composite_score(_f1, _pos_rms, _ra_rms, _dec_rms)
+        logger.info(f"Composite score for submission {submission_id}: {composite_score:.4f}")
+
         # Store results in database (upsert to handle re-evaluation gracefully)
         db.execute(
             """
@@ -828,8 +836,9 @@ def run_evaluation_pipeline(
                 accuracy,
                 position_rms_km,
                 velocity_rms_km_s,
-                raw_results
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                raw_results,
+                composite_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (submission_id) DO UPDATE SET
                 true_positives = EXCLUDED.true_positives,
                 true_negatives = EXCLUDED.true_negatives,
@@ -842,7 +851,8 @@ def run_evaluation_pipeline(
                 accuracy = EXCLUDED.accuracy,
                 position_rms_km = EXCLUDED.position_rms_km,
                 velocity_rms_km_s = EXCLUDED.velocity_rms_km_s,
-                raw_results = EXCLUDED.raw_results
+                raw_results = EXCLUDED.raw_results,
+                composite_score = EXCLUDED.composite_score
             """,
             (
                 submission_id,
@@ -858,6 +868,7 @@ def run_evaluation_pipeline(
                 state_results.get("position_rms_km", 0.0),
                 state_results.get("velocity_rms_km_s", 0.0),
                 json.dumps(raw_results_payload),
+                composite_score,
             ),
         )
 

@@ -4,12 +4,13 @@ import asyncio
 import json
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
 from loguru import logger
 
 from backend_api.auth import CurrentUser, get_current_user
@@ -54,7 +55,6 @@ def _maybe_cleanup_stuck_datasets(db) -> None:
         return
     _last_cleanup_time = now
     try:
-        from datetime import timedelta
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
         db.execute(
             """UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP
@@ -377,30 +377,20 @@ async def get_dataset_versions(
     target_parent_id = target[1]
     target_code = target[2]
 
-    # Detect if legacy_code column exists (present in DuckDB but not always in PostgreSQL)
-    has_legacy_code = False
-    try:
-        probe = db.execute(
-            "SELECT legacy_code FROM datasets WHERE id = ? LIMIT 1", (id_int,)
-        ).fetchone()
-        has_legacy_code = True
-        target_legacy_code = probe[0] if probe else None
-    except Exception:
-        target_legacy_code = None
-
-    # Find all related versions:
-    # 1. Same legacy_code or code (regenerated datasets)
-    # 2. Parent/child chain (versioned datasets)
-    version_ids = {id_int}
-
-    # Follow parent chain upward
-    current_id = target_parent_id
-    while current_id:
-        version_ids.add(current_id)
-        parent_row = db.execute(
-            "SELECT parent_id FROM datasets WHERE id = ?", (current_id,)
-        ).fetchone()
-        current_id = parent_row[0] if parent_row else None
+    # Find all related versions using recursive CTE to avoid N+1 queries.
+    # Traverses parent chain upward and child chain downward in a single query.
+    # Also matches by code column for regenerated datasets sharing the same code.
+    ancestor_cte = (
+        "WITH RECURSIVE ancestors AS ("
+        "  SELECT id, parent_id FROM datasets WHERE id = ?"
+        "  UNION ALL"
+        "  SELECT d.id, d.parent_id FROM datasets d"
+        "  JOIN ancestors a ON d.id = a.parent_id"
+        ") "
+        "SELECT id FROM ancestors"
+    )
+    ancestor_rows = db.execute(ancestor_cte, (id_int,)).fetchall()
+    version_ids = {row[0] for row in ancestor_rows}
 
     # Find children (datasets with this ID as parent)
     children = db.execute(
@@ -409,21 +399,28 @@ async def get_dataset_versions(
     for child in children:
         version_ids.add(child[0])
 
-    # Match by legacy_code if the column exists and has a value
-    if has_legacy_code and target_legacy_code:
-        code_matches = db.execute(
-            "SELECT id FROM datasets WHERE legacy_code = ?", (target_legacy_code,)
-        ).fetchall()
-        for match in code_matches:
-            version_ids.add(match[0])
-
-    # Also match by code column (works on all DB backends)
+    # Match by code column (works on all DB backends, covers regenerated datasets)
     if target_code:
         code_matches = db.execute(
             "SELECT id FROM datasets WHERE code = ?", (target_code,)
         ).fetchall()
         for match in code_matches:
             version_ids.add(match[0])
+
+    # Also match by legacy_code if the column exists and has a value
+    try:
+        probe = db.execute(
+            "SELECT legacy_code FROM datasets WHERE id = ? LIMIT 1", (id_int,)
+        ).fetchone()
+        target_legacy_code = probe[0] if probe else None
+        if target_legacy_code:
+            legacy_matches = db.execute(
+                "SELECT id FROM datasets WHERE legacy_code = ?", (target_legacy_code,)
+            ).fetchall()
+            for match in legacy_matches:
+                version_ids.add(match[0])
+    except Exception:
+        pass  # legacy_code column may not exist in all backends
 
     # Query all version datasets
     placeholders = ",".join(["?" for _ in version_ids])
@@ -657,7 +654,7 @@ async def create_dataset(
             "UPDATE datasets SET status = 'failed' WHERE id = ?",
             (dataset_id,),
         )
-        raise HTTPException(status_code=500, detail=f"Failed to start dataset generation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to start dataset generation. Please try again or contact support.")
 
     return DatasetSummary(
         id=str(dataset_id),
@@ -839,14 +836,17 @@ async def link_observations(dataset_id: str, user: CurrentUser = Depends(get_cur
     dataset_created_at = ds_time_row[0]
 
     # Get observation IDs scoped to this dataset's generation time window
+    if isinstance(dataset_created_at, str):
+        dataset_created_at = datetime.fromisoformat(dataset_created_at)
+    end_time = dataset_created_at + timedelta(hours=1)
     result = db.execute(
         """
         SELECT id FROM observations
-        WHERE created_at >= ? AND created_at <= ? + INTERVAL '1 hour'
+        WHERE created_at >= ? AND created_at <= ?
         ORDER BY created_at ASC
         LIMIT ?
         """,
-        (dataset_created_at, dataset_created_at, obs_count),
+        (dataset_created_at, end_time, obs_count),
     )
     obs_ids = [row[0] for row in result.fetchall()]
 
@@ -863,7 +863,7 @@ async def link_observations(dataset_id: str, user: CurrentUser = Depends(get_cur
         }
     except Exception as e:
         logger.error(f"Failed to link observations: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to link observations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to link observations. Please try again or contact support.")
 
 
 @router.patch("/{dataset_id}/coverage")
@@ -973,6 +973,10 @@ async def download_dataset(
 
     row_dict = dict(zip(columns, row))
 
+    # Ownership check: only the dataset owner or an admin can download
+    if row_dict.get("user_id") != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to download this dataset")
+
     if row_dict.get("status") not in ("available", "complete"):
         raise HTTPException(status_code=400, detail="Dataset is not available for download")
 
@@ -991,7 +995,20 @@ async def download_dataset(
             detail=f"Dataset too large for direct download ({obs_count:,} observations, max {MAX_DOWNLOAD_ROWS:,}). Contact admin for bulk export.",
         )
 
-    # Get observations
+    # Check for empty dataset before starting the streaming query
+    if obs_count == 0:
+        expected = row_dict.get("observation_count", 0)
+        if expected and expected > 0:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Dataset '{row_dict['name']}' reports {expected} observations but none "
+                    "were found in the database. The observation data may not have been "
+                    "persisted correctly during generation. Try regenerating this dataset."
+                ),
+            )
+
+    # Get observations (streamed in batches to avoid OOM)
     obs_result = db.execute(
         """
         SELECT o.*, dso.assigned_track_id, dso.assigned_object_id
@@ -1004,19 +1021,6 @@ async def download_dataset(
     )
 
     obs_columns = [desc[0] for desc in obs_result.description]
-    obs_rows = obs_result.fetchall()
-
-    if not obs_rows:
-        expected = row_dict.get("observation_count", 0)
-        if expected and expected > 0:
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Dataset '{row_dict['name']}' reports {expected} observations but none "
-                    "were found in the database. The observation data may not have been "
-                    "persisted correctly during generation. Try regenerating this dataset."
-                ),
-            )
 
     # Map DB snake_case columns to Benchmarking Documentation camelCase names
     DB_TO_DOC_FIELD_MAP = {
@@ -1051,37 +1055,9 @@ async def download_dataset(
         "geo_range": "georange",
     }
 
-    observations = []
-    for obs_row in obs_rows:
-        obs_dict = dict(zip(obs_columns, obs_row))
-        # Convert datetime to string for JSON
-        if obs_dict.get("ob_time"):
-            obs_dict["ob_time"] = (
-                obs_dict["ob_time"].isoformat()
-                if hasattr(obs_dict["ob_time"], "isoformat")
-                else str(obs_dict["ob_time"])
-            )
-        # Rename DB columns to doc-matching camelCase names
-        obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
-        observations.append(obs_dict)
-
-    # Build export data
-    export_data = {
-        "dataset": {
-            "id": row_dict["id"],
-            "name": row_dict["name"],
-            "regime": row_dict.get("orbital_regime"),
-            "tier": row_dict.get("tier"),
-            "observation_count": row_dict.get("observation_count"),
-            "satellite_count": row_dict.get("satellite_count"),
-            "created_at": str(row_dict["created_at"]) if row_dict.get("created_at") else None,
-        },
-        "observations": observations,
-    }
-
-    # Convert non-serializable types returned by PostgreSQL
     import math
     from datetime import datetime as _dt, date as _date
+
     def _make_serializable(obj: Any) -> Any:
         if isinstance(obj, dict):
             return {k: _make_serializable(v) for k, v in obj.items()}
@@ -1098,10 +1074,50 @@ async def download_dataset(
             return obj.isoformat()
         return obj
 
-    export_data = _make_serializable(export_data)
+    def _transform_row(obs_row: tuple) -> dict:
+        obs_dict = dict(zip(obs_columns, obs_row))
+        if obs_dict.get("ob_time"):
+            obs_dict["ob_time"] = (
+                obs_dict["ob_time"].isoformat()
+                if hasattr(obs_dict["ob_time"], "isoformat")
+                else str(obs_dict["ob_time"])
+            )
+        obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
+        return _make_serializable(obs_dict)
 
-    return JSONResponse(
-        content=export_data,
+    dataset_metadata = _make_serializable({
+        "id": row_dict["id"],
+        "name": row_dict["name"],
+        "regime": row_dict.get("orbital_regime"),
+        "tier": row_dict.get("tier"),
+        "observation_count": row_dict.get("observation_count"),
+        "satellite_count": row_dict.get("satellite_count"),
+        "created_at": str(row_dict["created_at"]) if row_dict.get("created_at") else None,
+    })
+
+    BATCH_SIZE = 5_000
+
+    def _stream_observations():
+        """Stream the JSON response in batches to avoid loading all rows into memory."""
+        yield '{"dataset": '
+        yield json.dumps(dataset_metadata)
+        yield ', "observations": ['
+
+        first = True
+        while True:
+            batch = obs_result.fetchmany(BATCH_SIZE)
+            if not batch:
+                break
+            for obs_row in batch:
+                if not first:
+                    yield ","
+                first = False
+                yield json.dumps(_transform_row(obs_row))
+
+        yield "]}"
+
+    return StreamingResponse(
+        _stream_observations(),
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{row_dict["name"]}.json"'},
     )
@@ -1306,7 +1322,7 @@ async def create_dataset_from_legacy_code(
                 logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
 
         logger.error(f"Failed to create dataset from legacy code: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create dataset. Please try again or contact support.")
 
     return DatasetSummary(
         id=str(dataset_id),

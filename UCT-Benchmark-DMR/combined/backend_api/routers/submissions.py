@@ -12,7 +12,8 @@ from loguru import logger
 
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_evaluation
-from backend_api.middleware.auth import AuthUser, get_current_user
+from backend_api.auth import CurrentUser
+from backend_api.middleware.auth import get_current_user
 from backend_api.middleware.rate_limit import limiter
 from backend_api.models import (
     SubmissionDetail,
@@ -200,7 +201,7 @@ async def list_submissions(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -257,7 +258,7 @@ async def list_submissions(
 @router.get("/{submission_id}", response_model=SubmissionDetail)
 async def get_submission(
     submission_id: str,
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -320,7 +321,7 @@ async def create_submission(
     description: Optional[str] = Form(default=None),
     classification_marking: Optional[str] = Form(default=None),
     file: UploadFile = File(...),
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -485,7 +486,7 @@ async def create_submission(
 async def upload_results(
     submission_id: str,
     file: UploadFile = File(...),
-    user: AuthUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -551,7 +552,7 @@ async def upload_results(
             logger.warning(f"Rejected re-upload with invalid JSON: {e}")
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid JSON file: {str(e)}",
+                detail="Invalid JSON file. Please verify the file contains valid JSON and try again.",
             )
 
         # Validate UCTP output schema

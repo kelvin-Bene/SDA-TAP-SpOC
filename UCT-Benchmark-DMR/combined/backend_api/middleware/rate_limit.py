@@ -37,4 +37,5 @@ def _get_real_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-limiter = Limiter(key_func=_get_real_client_ip)
+_storage_uri = os.getenv("RATE_LIMIT_STORAGE_URI", "memory://")
+limiter = Limiter(key_func=_get_real_client_ip, storage_uri=_storage_uri)
