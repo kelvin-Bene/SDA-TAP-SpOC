@@ -1964,11 +1964,13 @@ def generateDataset(
     # The UDL API may return observations slightly outside the requested window,
     # and fallback strategies may widen the query range. Filter strictly here.
     #
-    # UDLToDatetime returns naive (no tz) datetimes while actual_start/end may
-    # be timezone-aware (UTC). Strip tz info for a safe comparison -- all times
-    # in this pipeline are UTC.
-    filter_start = actual_start_time.replace(tzinfo=None) if hasattr(actual_start_time, 'tzinfo') and actual_start_time.tzinfo else actual_start_time
-    filter_end = actual_end_time.replace(tzinfo=None) if hasattr(actual_end_time, 'tzinfo') and actual_end_time.tzinfo else actual_end_time
+    # UDLToDatetime returns tz-aware (UTC) datetimes, so actual_start/end must
+    # also be tz-aware for the comparison to succeed.  Ensure both sides are
+    # UTC-aware to avoid "Invalid comparison between datetime64[us, UTC] and
+    # datetime" errors.
+    _utc = datetime.timezone.utc
+    filter_start = actual_start_time if (hasattr(actual_start_time, 'tzinfo') and actual_start_time.tzinfo) else actual_start_time.replace(tzinfo=_utc)
+    filter_end = actual_end_time if (hasattr(actual_end_time, 'tzinfo') and actual_end_time.tzinfo) else actual_end_time.replace(tzinfo=_utc)
     pre_filter_count = len(obs_truth_data)
     obs_truth_data = obs_truth_data[
         (obs_truth_data["obTime"] >= filter_start) &

@@ -269,10 +269,13 @@ def evaluate_window(
     if obs_df["obTime"].dtype == "object":
         obs_df["obTime"] = pd.to_datetime(obs_df["obTime"])
 
-    # Handle timezone-aware datetimes
+    # Handle timezone-aware datetimes: ensure start/end match the column tz
     if obs_df["obTime"].dt.tz is not None:
-        start_time = pd.Timestamp(start_time).tz_localize(obs_df["obTime"].dt.tz)
-        end_time = pd.Timestamp(end_time).tz_localize(obs_df["obTime"].dt.tz)
+        col_tz = obs_df["obTime"].dt.tz
+        ts_start = pd.Timestamp(start_time)
+        ts_end = pd.Timestamp(end_time)
+        start_time = ts_start.tz_convert(col_tz) if ts_start.tzinfo is not None else ts_start.tz_localize(col_tz)
+        end_time = ts_end.tz_convert(col_tz) if ts_end.tzinfo is not None else ts_end.tz_localize(col_tz)
 
     window_mask = (obs_df["obTime"] >= start_time) & (obs_df["obTime"] <= end_time)
     window_obs = obs_df[window_mask]
@@ -1474,10 +1477,13 @@ def select_optimal_window_for_dataset(
         window_start = result.best_window.start_time
         window_end = result.best_window.end_time
 
-        # Handle timezone matching
+        # Handle timezone matching: use tz_convert if already aware, else tz_localize
         if obs_df["obTime"].dt.tz is not None:
-            window_start = pd.Timestamp(window_start).tz_localize(obs_df["obTime"].dt.tz)
-            window_end = pd.Timestamp(window_end).tz_localize(obs_df["obTime"].dt.tz)
+            col_tz = obs_df["obTime"].dt.tz
+            ts_ws = pd.Timestamp(window_start)
+            ts_we = pd.Timestamp(window_end)
+            window_start = ts_ws.tz_convert(col_tz) if ts_ws.tzinfo is not None else ts_ws.tz_localize(col_tz)
+            window_end = ts_we.tz_convert(col_tz) if ts_we.tzinfo is not None else ts_we.tz_localize(col_tz)
 
         filtered_obs = obs_df[
             (obs_df["obTime"] >= window_start) &
