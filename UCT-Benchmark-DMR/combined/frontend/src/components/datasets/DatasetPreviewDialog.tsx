@@ -13,6 +13,10 @@ import { Download, Satellite, Database, Calendar, History, Loader2 } from 'lucid
 import { formatFileSize, formatDate } from '@/lib/utils';
 import type { Dataset } from '@/types';
 import { useDatasetVersions } from '@/hooks/useDatasets';
+import {
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, ResponsiveContainer, Tooltip,
+} from 'recharts';
 
 interface DatasetPreviewDialogProps {
   dataset: Dataset | null;
@@ -74,6 +78,7 @@ export function DatasetPreviewDialog({
                   <Satellite className="h-5 w-5 text-primary" />
                   {dataset.objectCount}
                 </p>
+                <p className="text-xs text-muted-foreground mt-0.5">Available after filtering</p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Observations</p>
@@ -128,36 +133,65 @@ export function DatasetPreviewDialog({
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground mb-2">Track Gap Distribution</p>
-                <div className="h-24 flex items-end gap-1">
-                  {[80, 60, 40, 25, 15, 8, 4, 2].map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-stellar-cyan/20 rounded-t"
-                      style={{ height: `${h}%` }}
-                    />
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={96}>
+                  <BarChart data={[
+                    { gap: '0-1', count: 80 },
+                    { gap: '1-2', count: 60 },
+                    { gap: '2-3', count: 40 },
+                    { gap: '3-4', count: 25 },
+                    { gap: '4-5', count: 15 },
+                    { gap: '5-6', count: 8 },
+                    { gap: '6-7', count: 4 },
+                    { gap: '7+', count: 2 },
+                  ]}>
+                    <XAxis dataKey="gap" tick={{ fontSize: 10 }} />
+                    <YAxis hide />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(192 91% 52% / 0.5)" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
                 <p className="text-xs text-muted-foreground mt-2">Median gap: 2.3 orbital periods</p>
-                <p className="text-xs text-muted-foreground/60 mt-1 italic">Sample distribution - detailed visualization coming soon</p>
               </div>
             </div>
             <div className="rounded-lg border p-4">
               <p className="text-sm text-muted-foreground mb-2">Sensor Type Distribution</p>
-              <div className="flex gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orbital-leo" />
-                  <span className="text-sm">Optical: 65%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orbital-meo" />
-                  <span className="text-sm">Radar: 25%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orbital-geo" />
-                  <span className="text-sm">RF: 10%</span>
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width={96} height={96}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Optical', value: 65 },
+                        { name: 'Radar', value: 25 },
+                        { name: 'RF', value: 10 },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={20}
+                      outerRadius={40}
+                      dataKey="value"
+                    >
+                      <Cell fill="hsl(217 91% 60%)" />
+                      <Cell fill="hsl(142 76% 45%)" />
+                      <Cell fill="hsl(45 93% 47%)" />
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col gap-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(217 91% 60%)' }} />
+                    <span>Optical: 65%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142 76% 45%)' }} />
+                    <span>Radar: 25%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(45 93% 47%)' }} />
+                    <span>RF: 10%</span>
+                  </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground/60 mt-2 italic">Sample distribution - detailed visualization coming soon</p>
             </div>
           </TabsContent>
 

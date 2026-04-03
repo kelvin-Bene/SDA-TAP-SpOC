@@ -87,7 +87,7 @@ function transformSubmission(data: SubmissionResponse): Submission {
       raResidualRmsArcsec: 0,
       decResidualRmsArcsec: 0,
       satelliteResults: [],
-      rank: 0,
+      rank: undefined,
     } : undefined,
   };
 }

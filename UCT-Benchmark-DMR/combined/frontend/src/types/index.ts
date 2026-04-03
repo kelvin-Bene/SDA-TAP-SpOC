@@ -356,7 +356,7 @@ export interface SubmissionResults {
   positionErrorHistogram?: HistogramData;
 
   // Rank info
-  rank: number;
+  rank?: number;
   previousRank?: number;
 }
 

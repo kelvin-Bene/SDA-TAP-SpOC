@@ -175,14 +175,27 @@ def _seed_submissions(db, dataset_ids: list[int]) -> list[int]:
     submission_ids: list[int] = []
     now = datetime.now(timezone.utc)
 
-    # Vary processing times for realism (25 min to 3.5 hours)
+    # Vary processing times for realism
     processing_minutes = [47, 128, 35, 195, 82, 210, 55, 150]
+
+    # Spread submissions across ~4 months for meaningful leaderboard trend lines
+    day_offsets = [120, 105, 90, 75, 60, 45, 30, 10]
+
+    # Vary time-of-day so timestamps are not identical
+    hour_offsets = [9, 14, 7, 16, 11, 20, 8, 15]
+    minute_offsets = [23, 47, 12, 35, 58, 5, 41, 19]
 
     for i, sub in enumerate(MOCK_SUBMISSIONS):
         dataset_id = dataset_ids[sub["dataset_idx"]]
-        created_at = (now - timedelta(days=30 - i * 3)).isoformat()
+        base_date = now - timedelta(days=day_offsets[i])
+        created_dt = base_date.replace(
+            hour=hour_offsets[i % len(hour_offsets)],
+            minute=minute_offsets[i % len(minute_offsets)],
+            second=0, microsecond=0,
+        )
+        created_at = created_dt.isoformat()
         proc_time = processing_minutes[i % len(processing_minutes)]
-        completed_at = (now - timedelta(days=30 - i * 3) + timedelta(minutes=proc_time)).isoformat()
+        completed_at = (created_dt + timedelta(minutes=proc_time)).isoformat()
 
         db.execute(
             """

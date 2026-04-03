@@ -373,11 +373,13 @@ export function ResultsPage() {
                 </div>
                 <div className="rounded-lg border p-4">
                   <p className="text-sm text-muted-foreground">Mahalanobis Distance</p>
-                  <p className="text-3xl font-bold">{results.mahalanobisDistance?.toFixed(2) || '-'}</p>
+                  <p className="text-3xl font-bold">{results.mahalanobisDistance ? results.mahalanobisDistance.toFixed(2) : '-'}</p>
                   <p className="text-sm text-muted-foreground">
-                    {results.mahalanobisDistance && results.mahalanobisDistance < 2
-                      ? 'Good covariance realism'
-                      : 'Check covariance scaling'}
+                    {results.mahalanobisDistance
+                      ? results.mahalanobisDistance < 2
+                        ? 'Good covariance realism'
+                        : 'Check covariance scaling'
+                      : ''}
                   </p>
                 </div>
               </CardContent>

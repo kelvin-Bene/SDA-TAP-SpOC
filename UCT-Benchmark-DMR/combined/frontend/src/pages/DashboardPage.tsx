@@ -25,9 +25,9 @@ export function DashboardPage() {
     : '--';
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Hero Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cosmic-cyan/5 via-transparent to-stellar-purple/5 p-8">
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cosmic-cyan/5 via-transparent to-stellar-purple/5 p-6">
         {/* Background decoration */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-stellar-purple/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
