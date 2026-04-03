@@ -271,11 +271,15 @@ export function DatasetGeneratorPage() {
   const [hasUdlToken, setHasUdlToken] = useState<boolean | null>(null);
 
   useEffect(() => {
-    api.getCurrentUser().then((res) => {
-      // Masked token looks like "****XXXX" — null means not set
-      setHasUdlToken(!!res.data.udl_token);
+    // Check credentials table first (new system), fall back to legacy profile token
+    api.getCredential('udl').then((res) => {
+      setHasUdlToken(res.data.is_configured);
     }).catch(() => {
-      setHasUdlToken(false);
+      api.getCurrentUser().then((res) => {
+        setHasUdlToken(!!res.data.udl_token);
+      }).catch(() => {
+        setHasUdlToken(false);
+      });
     });
   }, []);
 
@@ -544,8 +548,8 @@ export function DatasetGeneratorPage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   You need a UDL API token to generate datasets. Generation is disabled until a token is configured.
                 </p>
-                <Button variant="link" className="h-auto p-0 mt-1 text-primary" onClick={() => navigate('/profile')}>
-                  Go to Profile Settings &rarr;
+                <Button variant="link" className="h-auto p-0 mt-1 text-primary" onClick={() => navigate('/settings')}>
+                  Go to Settings &rarr;
                 </Button>
               </div>
             </div>
@@ -647,8 +651,8 @@ export function DatasetGeneratorPage() {
               <div className="text-center p-6">
                 <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
                 <p className="font-medium text-destructive">UDL API Token Required</p>
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate('/profile')}>
-                  Go to Profile Settings
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate('/settings')}>
+                  Go to Settings
                 </Button>
               </div>
             </div>

@@ -388,7 +388,7 @@ async def health_check():
 
     # Orekit (Java) availability for state/residual metrics
     try:
-        import orekit  # noqa: F401
+        import orekit_jpype  # noqa: F401
         components["orekit"] = "available"
     except ImportError:
         components["orekit"] = "unavailable"

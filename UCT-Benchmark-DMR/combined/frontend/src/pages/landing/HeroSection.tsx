@@ -13,7 +13,7 @@ const STATS = [
 ];
 
 export function HeroSection() {
-  const { ref: statsRef, isInView: statsVisible } = useInView({ threshold: 0.3 });
+  const { ref: statsRef, isInView: statsVisible } = useInView({ threshold: 0.05 });
 
   return (
     <section
