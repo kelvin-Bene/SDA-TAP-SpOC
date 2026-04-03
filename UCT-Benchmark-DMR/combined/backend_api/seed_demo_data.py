@@ -272,36 +272,24 @@ def seed_if_empty(db) -> None:
     # Use a deterministic seed so re-runs produce the same data
     random.seed(42)
 
-    # --- Guard: skip if already seeded ---------------------------------
+    # --- Guard: skip if already seeded with team names ---
     try:
-        row = db.adapter.fetchone(
-            db.adapter.convert_placeholders("SELECT COUNT(*) FROM datasets"),
-            (),
-        )
-        # Check if seed completed fully (submissions with team field = seed v2 finished)
-        sub_row = db.execute("SELECT COUNT(*) FROM submissions").fetchone()
-        if row and row[0] > 0 and sub_row and sub_row[0] > 0:
-            # Check if team column is populated (v2 seed)
+        team_check = db.execute(
+            "SELECT COUNT(*) FROM submissions WHERE team IS NOT NULL"
+        ).fetchone()
+        if team_check and team_check[0] > 0:
+            logger.info("Demo data already present (with teams), skipping seed")
+            return
+        # Clear any old/partial data before re-seeding
+        for tbl in ["submission_results", "submissions", "dataset_observations",
+                     "observations", "datasets"]:
             try:
-                team_row = db.execute("SELECT team FROM submissions WHERE team IS NOT NULL LIMIT 1").fetchone()
-                if team_row:
-                    logger.info("Demo data already present (with teams), skipping seed")
-                    return
-                logger.info("Demo data exists but missing team names — re-seeding...")
+                db.execute(f"DELETE FROM {tbl}")
             except Exception:
-                logger.info("Team column check failed — re-seeding...")
-            # Fall through to re-seed
-        # Partial seed detected — clean up and re-seed
-        if row and row[0] > 0:
-            logger.info("Partial seed detected — cleaning up for re-seed...")
-            for tbl in ["submission_results", "submissions", "dataset_observations", "observations", "datasets"]:
-                try:
-                    db.execute(f"DELETE FROM {tbl}")
-                except Exception:
-                    pass
+                pass
     except Exception as e:
-        logger.warning(f"Could not check datasets table (may not exist yet): {e}")
-        return
+        logger.warning(f"Seed guard check failed: {e}")
+        # Continue anyway — tables may not exist yet
 
     logger.info("Seeding demo data for symposium demo...")
 
