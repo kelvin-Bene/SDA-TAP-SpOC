@@ -16,9 +16,11 @@ import { Plus, Download, Trash2, Copy, Eye, Loader2, History } from 'lucide-reac
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { useDatasets, useDeleteDataset } from '@/hooks/useDatasets';
 import { api } from '@/api/client';
+import { useToast } from '@/hooks/use-toast';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
+  const { toast } = useToast();
   const { data: datasets, isLoading, error } = useDatasets();
   const deleteDataset = useDeleteDataset();
   const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
@@ -157,7 +159,7 @@ export function MyDatasetsPage() {
                     <TableCell>{formatDate(dataset.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Coming soon', description: 'This feature is not yet available in the demo.' })}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
@@ -168,10 +170,10 @@ export function MyDatasetsPage() {
                         >
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Coming soon', description: 'This feature is not yet available in the demo.' })}>
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Coming soon', description: 'This feature is not yet available in the demo.' })}>
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.5.0"
+SCHEMA_VERSION = "1.5.1"
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -341,6 +341,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     description TEXT,
     file_path VARCHAR(500),
     classification_marking VARCHAR(200),   -- Organization label (per Louis's spec)
+    team VARCHAR(100),                    -- Team name for leaderboard display
     status VARCHAR(20) DEFAULT 'queued',  -- queued, validating, processing, completed, failed
     job_id VARCHAR(100),                  -- References jobs(id)
     error_message TEXT,
@@ -646,6 +647,7 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
+    _migrate_to_1_5_1(db)
 
     # Seed default event types
     _seed_event_types(db)
@@ -726,6 +728,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
+    _migrate_to_1_5_1(db)
 
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
@@ -859,6 +862,14 @@ def _migrate_to_1_5_0(db: "DatabaseManager") -> None:
             db.execute(f"ALTER TABLE observations ADD COLUMN IF NOT EXISTS {col}")
         except Exception:
             pass
+
+
+def _migrate_to_1_5_1(db: "DatabaseManager") -> None:
+    """Add team column to submissions table for leaderboard display."""
+    try:
+        db.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS team VARCHAR(100)")
+    except Exception:
+        pass
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:

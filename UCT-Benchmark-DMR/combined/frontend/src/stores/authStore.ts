@@ -226,6 +226,8 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
       if (error) {
         console.error('Logout error:', error.message);
       }
+      // Always clear state after signOut attempt
+      set({ user: null, session: null, isAuthenticated: false, isAdmin: false, isLoading: false });
     } catch (err) {
       console.error('Logout failed:', err);
       set({ user: null, session: null, isAuthenticated: false, isAdmin: false, isLoading: false });

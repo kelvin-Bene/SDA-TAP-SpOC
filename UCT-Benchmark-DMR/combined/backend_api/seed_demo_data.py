@@ -429,14 +429,15 @@ def seed_if_empty(db) -> None:
 
         db.execute(
             "INSERT INTO submissions "
-            "(dataset_id, algorithm_name, version, description, "
+            "(dataset_id, algorithm_name, version, description, team, "
             "status, created_at, completed_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 ds_id,
                 sub_def["algorithm"],
                 sub_def["version"],
                 f"{sub_def['team']} submission using {sub_def['algorithm']}",
+                sub_def["team"],
                 "completed",
                 created.isoformat(),
                 completed.isoformat(),

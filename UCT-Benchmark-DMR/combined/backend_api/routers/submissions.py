@@ -590,8 +590,8 @@ async def demo_evaluate(
         """
         INSERT INTO submissions (
             dataset_id, algorithm_name, version, description,
-            status, created_at
-        ) VALUES (?, ?, ?, ?, 'processing', CURRENT_TIMESTAMP)
+            team, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, 'processing', CURRENT_TIMESTAMP)
         RETURNING id
         """,
         (
@@ -599,6 +599,7 @@ async def demo_evaluate(
             request.algorithm_name,
             request.version,
             f"Demo evaluation by {user_display_name}",
+            user_display_name,
         ),
     )
     submission_id = result.fetchone()[0]

@@ -206,7 +206,7 @@ export function MySubmissionsPage() {
                         >
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive">
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => toast({ title: 'Coming soon', description: 'Submission deletion will be available in a future update.' })}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>

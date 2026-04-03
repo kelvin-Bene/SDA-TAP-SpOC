@@ -128,7 +128,7 @@ export function ProfilePage() {
                   <User className="h-10 w-10 text-primary" />
                 </div>
                 <div>
-                  <Button variant="outline" size="sm">Change Avatar</Button>
+                  <Button variant="outline" size="sm" onClick={() => toast({ title: 'Coming soon', description: 'Avatar uploads will be available in a future update.' })}>Change Avatar</Button>
                   <p className="text-xs text-muted-foreground mt-1">JPG, PNG or GIF. 1MB max.</p>
                 </div>
               </div>
@@ -318,7 +318,7 @@ export function ProfilePage() {
               </div>
 
               <div className="flex justify-end">
-                <Button>Save Preferences</Button>
+                <Button onClick={() => toast({ title: 'Coming soon', description: 'Notification preferences will be available in a future update.' })}>Save Preferences</Button>
               </div>
             </CardContent>
           </Card>
@@ -350,7 +350,7 @@ export function ProfilePage() {
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
                     <Input id="confirm-password" type="password" />
                   </div>
-                  <Button>Update Password</Button>
+                  <Button onClick={() => toast({ title: 'Coming soon', description: 'Password updates will be available in a future update.' })}>Update Password</Button>
                 </div>
               </div>
 
@@ -367,7 +367,7 @@ export function ProfilePage() {
                     Add an extra layer of security to your account
                   </p>
                 </div>
-                <Button variant="outline">Enable 2FA</Button>
+                <Button variant="outline" onClick={() => toast({ title: 'Coming soon', description: 'Two-factor authentication will be available in a future update.' })}>Enable 2FA</Button>
               </div>
 
               <Separator />

@@ -42,6 +42,7 @@ async def get_leaderboard(
         SELECT
             s.id as submission_id,
             s.algorithm_name,
+            s.team,
             s.version,
             s.dataset_id,
             s.completed_at,
@@ -93,7 +94,7 @@ async def get_leaderboard(
             LeaderboardEntry(
                 rank=rank,
                 algorithm_name=row_dict["algorithm_name"],
-                team=None,  # Would need user/team table
+                team=row_dict.get("team"),
                 version=row_dict.get("version", "1.0"),
                 f1_score=float(row_dict.get("f1_score") or 0),
                 precision=float(row_dict.get("precision") or 0),

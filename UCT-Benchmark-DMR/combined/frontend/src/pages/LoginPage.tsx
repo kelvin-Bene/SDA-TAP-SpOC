@@ -114,7 +114,7 @@ export function LoginPage() {
 
         <CardFooter className="flex justify-center pt-2">
           <p className="text-xs text-muted-foreground/70 text-center">
-            Demo mode — scores are simulated to demonstrate the evaluation pipeline
+            Demo mode — guest access with simulated scoring to demonstrate the evaluation pipeline
           </p>
         </CardFooter>
       </Card>

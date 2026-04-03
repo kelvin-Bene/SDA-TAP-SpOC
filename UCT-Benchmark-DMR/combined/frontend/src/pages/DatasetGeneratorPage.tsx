@@ -461,7 +461,7 @@ export function DatasetGeneratorPage() {
         }, 1000);
       }
     } catch (error: any) {
-      console.error('Failed to generate dataset from legacy code:', error);
+      // Error handled via toast below
       toast({
         title: 'Dataset generation failed',
         description: error.message || 'An unexpected error occurred',
