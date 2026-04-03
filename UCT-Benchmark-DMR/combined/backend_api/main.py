@@ -109,7 +109,8 @@ async def lifespan(app: FastAPI):
         from backend_api.seed_demo_data import seed_if_empty
         seed_if_empty(db)
     except Exception as e:
-        logger.error(f"Demo data seeding failed (non-fatal): {e}")
+        import traceback
+        logger.error(f"Demo data seeding failed (non-fatal): {e}\n{traceback.format_exc()}")
 
     # Verify critical modules are importable
     try:
