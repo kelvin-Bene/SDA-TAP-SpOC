@@ -91,18 +91,18 @@
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
+    --muted: 210 40% 93%;
     --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
+    --accent: 210 40% 93%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 214 32% 85%;
+    --input: 214 32% 85%;
     --ring: 217 91% 50%;
 
     --space-void: 210 40% 98%;
-    --space-deep: 210 40% 96%;
+    --space-deep: 210 40% 93%;
     --space-nebula: 260 20% 95%;
 
     --cosmic-cyan: 192 91% 40%;
@@ -402,6 +402,16 @@
 
   .animate-beam {
     animation: beam-scan 3s ease-in-out infinite;
+  }
+
+  @keyframes highlight-pulse {
+    0% { background-color: hsl(var(--primary) / 0.25); }
+    50% { background-color: hsl(var(--primary) / 0.10); }
+    100% { background-color: transparent; }
+  }
+
+  .animate-highlight-pulse {
+    animation: highlight-pulse 1.5s ease-in-out 2;
   }
 }
 

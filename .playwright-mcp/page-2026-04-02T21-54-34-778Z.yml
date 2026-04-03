@@ -1,0 +1,400 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [active] [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e58]:
+                - button "Datasets" [ref=e59] [cursor=pointer]:
+                  - generic [ref=e60]:
+                    - img [ref=e61]
+                    - text: Datasets
+                  - img [ref=e65]
+                - generic [ref=e67]:
+                  - link "Browse Datasets" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e70] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e71]:
+                - button "Submit" [ref=e72] [cursor=pointer]:
+                  - generic [ref=e73]:
+                    - img [ref=e74]
+                    - text: Submit
+                  - img [ref=e77]
+                - generic [ref=e79]:
+                  - link "New Submission" [ref=e80] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e81] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e82] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e83]
+                - text: Leaderboard
+              - link "Documentation" [ref=e89] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e90]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e407]:
+          - generic [ref=e408]:
+            - generic [ref=e409]:
+              - heading "Datasets" [level=1] [ref=e410]
+              - paragraph [ref=e411]: Browse and download benchmark datasets for UCT algorithm evaluation
+            - link "Generate New" [ref=e412] [cursor=pointer]:
+              - /url: /datasets/generate
+              - button "Generate New" [ref=e413]:
+                - img [ref=e414]
+                - text: Generate New
+          - generic [ref=e416]:
+            - generic [ref=e417]:
+              - generic [ref=e418]:
+                - text: Search
+                - generic [ref=e419]:
+                  - img [ref=e420]
+                  - textbox "Search" [ref=e423]:
+                    - /placeholder: Search by dataset name...
+              - generic [ref=e424]:
+                - text: Sort By
+                - combobox "Sort By" [ref=e425] [cursor=pointer]:
+                  - generic: Date Created
+                  - img [ref=e426]
+              - button "Descending" [ref=e428] [cursor=pointer]:
+                - img [ref=e429]
+            - generic [ref=e432]:
+              - generic [ref=e433]:
+                - text: Orbital Regime
+                - combobox "Orbital Regime" [ref=e434] [cursor=pointer]:
+                  - generic: All Regimes
+                  - img [ref=e435]
+              - generic [ref=e437]:
+                - text: Data Tier
+                - combobox "Data Tier" [ref=e438] [cursor=pointer]:
+                  - generic: All Tiers
+                  - img [ref=e439]
+              - generic [ref=e441]:
+                - text: Sensor Type
+                - combobox "Sensor Type" [ref=e442] [cursor=pointer]:
+                  - generic: All Sensors
+                  - img [ref=e443]
+              - generic [ref=e445]:
+                - generic [ref=e446]: "Object Count: 10 - 100"
+                - slider "Minimum" [ref=e451]
+          - generic [ref=e452]:
+            - paragraph [ref=e453]: Showing 8 datasets
+            - generic [ref=e454]:
+              - button [ref=e455] [cursor=pointer]:
+                - img [ref=e456]
+              - button [ref=e461] [cursor=pointer]:
+                - img [ref=e462]
+          - generic [ref=e463]:
+            - generic [ref=e464]:
+              - generic [ref=e466]:
+                - heading "LEO-Maneuver-T2-Optical" [level=3] [ref=e468]
+                - generic [ref=e469]:
+                  - generic [ref=e470]: LEO
+                  - generic [ref=e471]: T2 - Downsampled
+              - generic [ref=e472]:
+                - generic [ref=e473]:
+                  - generic [ref=e474]:
+                    - img [ref=e475]
+                    - generic [ref=e481]: 8 objects
+                  - generic [ref=e482]:
+                    - img [ref=e483]
+                    - generic [ref=e487]: 1,650 obs
+                  - generic [ref=e488]:
+                    - generic [ref=e489]: "Coverage:"
+                    - generic [ref=e493]: 38%
+                  - generic [ref=e494]:
+                    - generic [ref=e495]: "Size:"
+                    - generic [ref=e496]: 805.66 KB
+                - generic [ref=e497]:
+                  - img [ref=e498]
+                  - text: Mar 31, 2026
+              - generic [ref=e500]:
+                - button "Preview dataset" [ref=e501] [cursor=pointer]:
+                  - img [ref=e502]
+                  - text: Preview
+                - button "Download dataset" [ref=e505] [cursor=pointer]:
+                  - img [ref=e506]
+                  - text: Download
+            - generic [ref=e509]:
+              - generic [ref=e511]:
+                - heading "MEO-Standard-T2-Radar" [level=3] [ref=e513]
+                - generic [ref=e514]:
+                  - generic [ref=e515]: MEO
+                  - generic [ref=e516]: T2 - Downsampled
+              - generic [ref=e517]:
+                - generic [ref=e518]:
+                  - generic [ref=e519]:
+                    - img [ref=e520]
+                    - generic [ref=e526]: 10 objects
+                  - generic [ref=e527]:
+                    - img [ref=e528]
+                    - generic [ref=e532]: 1,250 obs
+                  - generic [ref=e533]:
+                    - generic [ref=e534]: "Coverage:"
+                    - generic [ref=e538]: 60%
+                  - generic [ref=e539]:
+                    - generic [ref=e540]: "Size:"
+                    - generic [ref=e541]: 610.35 KB
+                - generic [ref=e542]:
+                  - img [ref=e543]
+                  - text: Mar 27, 2026
+              - generic [ref=e545]:
+                - button "Preview dataset" [ref=e546] [cursor=pointer]:
+                  - img [ref=e547]
+                  - text: Preview
+                - button "Download dataset" [ref=e550] [cursor=pointer]:
+                  - img [ref=e551]
+                  - text: Download
+            - generic [ref=e554]:
+              - generic [ref=e556]:
+                - heading "GEO-HAMR-T2-Optical" [level=3] [ref=e558]
+                - generic [ref=e559]:
+                  - generic [ref=e560]: GEO
+                  - generic [ref=e561]: T2 - Downsampled
+              - generic [ref=e562]:
+                - generic [ref=e563]:
+                  - generic [ref=e564]:
+                    - img [ref=e565]
+                    - generic [ref=e571]: 6 objects
+                  - generic [ref=e572]:
+                    - img [ref=e573]
+                    - generic [ref=e577]: 420 obs
+                  - generic [ref=e578]:
+                    - generic [ref=e579]: "Coverage:"
+                    - generic [ref=e583]: 48%
+                  - generic [ref=e584]:
+                    - generic [ref=e585]: "Size:"
+                    - generic [ref=e586]: 205.08 KB
+                - generic [ref=e587]:
+                  - img [ref=e588]
+                  - text: Mar 23, 2026
+              - generic [ref=e590]:
+                - button "Preview dataset" [ref=e591] [cursor=pointer]:
+                  - img [ref=e592]
+                  - text: Preview
+                - button "Download dataset" [ref=e595] [cursor=pointer]:
+                  - img [ref=e596]
+                  - text: Download
+            - generic [ref=e599]:
+              - generic [ref=e601]:
+                - heading "LEO-Mixed-T3-Fusion" [level=3] [ref=e603]
+                - generic [ref=e604]:
+                  - generic [ref=e605]: LEO
+                  - generic [ref=e606]: T3 - Simulated
+              - generic [ref=e607]:
+                - generic [ref=e608]:
+                  - generic [ref=e609]:
+                    - img [ref=e610]
+                    - generic [ref=e616]: 15 objects
+                  - generic [ref=e617]:
+                    - img [ref=e618]
+                    - generic [ref=e622]: 3,100 obs
+                  - generic [ref=e623]:
+                    - generic [ref=e624]: "Coverage:"
+                    - generic [ref=e628]: 30%
+                  - generic [ref=e629]:
+                    - generic [ref=e630]: "Size:"
+                    - generic [ref=e631]: 1.48 MB
+                - generic [ref=e632]:
+                  - img [ref=e633]
+                  - text: Mar 19, 2026
+              - generic [ref=e635]:
+                - button "Preview dataset" [ref=e636] [cursor=pointer]:
+                  - img [ref=e637]
+                  - text: Preview
+                - button "Download dataset" [ref=e640] [cursor=pointer]:
+                  - img [ref=e641]
+                  - text: Download
+            - generic [ref=e644]:
+              - generic [ref=e646]:
+                - heading "GEO-Comms-T2-Optical" [level=3] [ref=e648]
+                - generic [ref=e649]:
+                  - generic [ref=e650]: GEO
+                  - generic [ref=e651]: T2 - Downsampled
+              - generic [ref=e652]:
+                - generic [ref=e653]:
+                  - generic [ref=e654]:
+                    - img [ref=e655]
+                    - generic [ref=e661]: 5 objects
+                  - generic [ref=e662]:
+                    - img [ref=e663]
+                    - generic [ref=e667]: 640 obs
+                  - generic [ref=e668]:
+                    - generic [ref=e669]: "Coverage:"
+                    - generic [ref=e673]: 55%
+                  - generic [ref=e674]:
+                    - generic [ref=e675]: "Size:"
+                    - generic [ref=e676]: 312.5 KB
+                - generic [ref=e677]:
+                  - img [ref=e678]
+                  - text: Mar 16, 2026
+              - generic [ref=e680]:
+                - button "Preview dataset" [ref=e681] [cursor=pointer]:
+                  - img [ref=e682]
+                  - text: Preview
+                - button "Download dataset" [ref=e685] [cursor=pointer]:
+                  - img [ref=e686]
+                  - text: Download
+            - generic [ref=e689]:
+              - generic [ref=e691]:
+                - heading "MEO-Navigation-T1-Radar" [level=3] [ref=e693]
+                - generic [ref=e694]:
+                  - generic [ref=e695]: MEO
+                  - generic [ref=e696]: T1 - Pristine
+              - generic [ref=e697]:
+                - generic [ref=e698]:
+                  - generic [ref=e699]:
+                    - img [ref=e700]
+                    - generic [ref=e706]: 8 objects
+                  - generic [ref=e707]:
+                    - img [ref=e708]
+                    - generic [ref=e712]: 980 obs
+                  - generic [ref=e713]:
+                    - generic [ref=e714]: "Coverage:"
+                    - generic [ref=e718]: 78%
+                  - generic [ref=e719]:
+                    - generic [ref=e720]: "Size:"
+                    - generic [ref=e721]: 478.52 KB
+                - generic [ref=e722]:
+                  - img [ref=e723]
+                  - text: Mar 12, 2026
+              - generic [ref=e725]:
+                - button "Preview dataset" [ref=e726] [cursor=pointer]:
+                  - img [ref=e727]
+                  - text: Preview
+                - button "Download dataset" [ref=e730] [cursor=pointer]:
+                  - img [ref=e731]
+                  - text: Download
+            - generic [ref=e734]:
+              - generic [ref=e736]:
+                - heading "LEO-Standard-T2-Downsampled" [level=3] [ref=e738]
+                - generic [ref=e739]:
+                  - generic [ref=e740]: LEO
+                  - generic [ref=e741]: T2 - Downsampled
+              - generic [ref=e742]:
+                - generic [ref=e743]:
+                  - generic [ref=e744]:
+                    - img [ref=e745]
+                    - generic [ref=e751]: 10 objects
+                  - generic [ref=e752]:
+                    - img [ref=e753]
+                    - generic [ref=e757]: 1,820 obs
+                  - generic [ref=e758]:
+                    - generic [ref=e759]: "Coverage:"
+                    - generic [ref=e763]: 42%
+                  - generic [ref=e764]:
+                    - generic [ref=e765]: "Size:"
+                    - generic [ref=e766]: 888.67 KB
+                - generic [ref=e767]:
+                  - img [ref=e768]
+                  - text: Mar 8, 2026
+              - generic [ref=e770]:
+                - button "Preview dataset" [ref=e771] [cursor=pointer]:
+                  - img [ref=e772]
+                  - text: Preview
+                - button "Download dataset" [ref=e775] [cursor=pointer]:
+                  - img [ref=e776]
+                  - text: Download
+            - generic [ref=e779]:
+              - generic [ref=e781]:
+                - heading "LEO-Calibration-T1-Optical" [level=3] [ref=e783]
+                - generic [ref=e784]:
+                  - generic [ref=e785]: LEO
+                  - generic [ref=e786]: T1 - Pristine
+              - generic [ref=e787]:
+                - generic [ref=e788]:
+                  - generic [ref=e789]:
+                    - img [ref=e790]
+                    - generic [ref=e796]: 10 objects
+                  - generic [ref=e797]:
+                    - img [ref=e798]
+                    - generic [ref=e802]: 2,450 obs
+                  - generic [ref=e803]:
+                    - generic [ref=e804]: "Coverage:"
+                    - generic [ref=e808]: 85%
+                  - generic [ref=e809]:
+                    - generic [ref=e810]: "Size:"
+                    - generic [ref=e811]: 1.17 MB
+                - generic [ref=e812]:
+                  - img [ref=e813]
+                  - text: Mar 5, 2026
+              - generic [ref=e815]:
+                - button "Preview dataset" [ref=e816] [cursor=pointer]:
+                  - img [ref=e817]
+                  - text: Preview
+                - button "Download dataset" [ref=e820] [cursor=pointer]:
+                  - img [ref=e821]
+                  - text: Download
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e289] [cursor=pointer]:
+    - img [ref=e290]

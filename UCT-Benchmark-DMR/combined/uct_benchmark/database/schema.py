@@ -5,6 +5,7 @@ Provides SQL schema creation statements and migration utilities.
 Supports both DuckDB and PostgreSQL backends.
 """
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,7 +13,13 @@ if TYPE_CHECKING:
     from .connection import DatabaseManager
 
 # Schema version for migration tracking
-SCHEMA_VERSION = "1.6.0"
+SCHEMA_VERSION = "2.0.0"
+
+
+def _parse_version(v: str) -> tuple:
+    """Parse a version string into a comparable tuple."""
+    return tuple(int(x) for x in v.split("."))
+
 
 # ============================================================
 # DUCKDB SCHEMA CREATION SQL
@@ -90,29 +97,13 @@ CREATE TABLE IF NOT EXISTS observations (
     sen_x DECIMAL(16,9),
     sen_y DECIMAL(16,9),
     sen_z DECIMAL(16,9),
-    sen_vel_x DECIMAL(16,12),
-    sen_vel_y DECIMAL(16,12),
-    sen_vel_z DECIMAL(16,12),
     exp_duration DECIMAL(10,4),
-    zeroptd DECIMAL(16,10),
-    net_obj_sig DECIMAL(16,6),
-    net_obj_sig_unc DECIMAL(16,6),
     mag DECIMAL(10,6),
     mag_unc DECIMAL(10,6),
     geo_lat DECIMAL(12,8),
     geo_lon DECIMAL(12,8),
     geo_alt DECIMAL(16,6),
-    geo_range DECIMAL(16,6),
-    solar_phase_angle DECIMAL(12,8),
-    solar_eq_phase_angle DECIMAL(12,8),
-    solar_dec_angle DECIMAL(12,8),
-    shutter_delay DECIMAL(10,4),
-    raw_file_uri VARCHAR(500),
-    created_by VARCHAR(100),
-    orig_network VARCHAR(50),
-    los_unc DECIMAL(12,6),
-    source VARCHAR(50),
-    obs_type VARCHAR(50)
+    geo_range DECIMAL(16,6)
 );
 """
 
@@ -206,6 +197,8 @@ DATASETS_SEQUENCE = """
 CREATE SEQUENCE IF NOT EXISTS datasets_id_seq;
 """
 
+# Note: JSON columns are automatically converted to JSONB for PostgreSQL
+# via convert_json_to_jsonb() in initialize_database(). DuckDB uses JSON natively.
 DATASETS_TABLE = """
 CREATE TABLE IF NOT EXISTS datasets (
     id INTEGER PRIMARY KEY DEFAULT nextval('datasets_id_seq'),
@@ -262,6 +255,9 @@ CREATE TABLE IF NOT EXISTS datasets (
     -- Parameters used (JSON blob)
     generation_params JSON,
 
+    -- Ownership
+    user_id VARCHAR(255),
+
     -- Full provenance metadata from generation (timing, window selection, filtering, etc.)
     performance_metadata JSON,
 
@@ -270,6 +266,7 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
+    error_message TEXT,                   -- User-facing error when status = 'failed'
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -277,7 +274,10 @@ CREATE TABLE IF NOT EXISTS datasets (
 
     -- Optional file paths for export
     json_path VARCHAR(500),
-    parquet_path VARCHAR(500)
+    parquet_path VARCHAR(500),
+
+    -- Code is shared across version families; (code, version) must be unique
+    UNIQUE(code, version)
 );
 """
 
@@ -344,6 +344,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     status VARCHAR(20) DEFAULT 'queued',  -- queued, validating, processing, completed, failed
     job_id VARCHAR(100),                  -- References jobs(id)
     error_message TEXT,
+    user_id VARCHAR(255),                 -- Supabase user ID (for ownership checks)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP
 );
@@ -352,6 +353,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 SUBMISSIONS_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_submissions_dataset ON submissions(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions(user_id);
 """
 
 SUBMISSION_RESULTS_SEQUENCE = """
@@ -385,6 +387,9 @@ CREATE TABLE IF NOT EXISTS submission_results (
 
     -- Raw results (JSON blob with full breakdown)
     raw_results JSON,
+
+    -- Composite score (weighted combination of metrics)
+    composite_score DECIMAL(10,6),
 
     -- Processing info
     processing_time_seconds DECIMAL(12,3),
@@ -459,11 +464,24 @@ CREATE TABLE IF NOT EXISTS events (
     source VARCHAR(100),
     external_id VARCHAR(100),
 
+    -- Detector configuration (JSON string of parameters used)
+    detection_config TEXT,
+
+    -- Optional link to a dataset
+    dataset_id INTEGER,                   -- References datasets(id)
+
     -- Metadata
     labelled_by VARCHAR(100),
     labelled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT
 );
+"""
+
+EVENTS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_events_dataset ON events(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type_id);
+CREATE INDEX IF NOT EXISTS idx_events_primary_sat ON events(primary_sat_no);
+CREATE INDEX IF NOT EXISTS idx_events_time ON events(event_time_start);
 """
 
 EVENT_OBSERVATIONS_TABLE = """
@@ -489,7 +507,7 @@ CREATE TABLE IF NOT EXISTS non_reference_observations (
     dataset_id INTEGER,                   -- References datasets(id)
     observation_id VARCHAR(64) NOT NULL,
     sensor_id VARCHAR(32),
-    obs_time TIMESTAMP NOT NULL,
+    obs_time TIMESTAMP NOT NULL,          -- Note: obs_time (not ob_time) for historical consistency; observations table uses ob_time to match UDL API naming
     ra_deg DECIMAL(12,8),
     dec_deg DECIMAL(12,8),
     source_norad_id INTEGER NOT NULL,     -- The actual satellite (for ground truth)
@@ -544,9 +562,10 @@ CREATE TABLE IF NOT EXISTS feedback (
     page_url        VARCHAR(2048),
     user_agent      VARCHAR(500),
     viewport        VARCHAR(100),
-    recent_actions  TEXT,
-    console_errors  TEXT,
+    recent_actions  JSON,
+    console_errors  JSON,
     sentry_event_id VARCHAR(200),
+    app_version     VARCHAR(50),
     reporter_id     VARCHAR(36),
     reporter_email  VARCHAR(255),
     status          VARCHAR(50)  NOT NULL DEFAULT 'open',
@@ -559,6 +578,52 @@ CREATE TABLE IF NOT EXISTS feedback (
 FEEDBACK_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+"""
+
+# ============================================================
+# USER PROFILES TABLE
+# ============================================================
+
+PROFILES_TABLE = """
+CREATE TABLE IF NOT EXISTS profiles (
+    id VARCHAR(36) PRIMARY KEY,              -- Supabase user ID
+    email VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'user',
+    display_name VARCHAR(100),
+    organization VARCHAR(200),
+    udl_token TEXT,                           -- Encrypted UDL API token
+    esa_token TEXT,                           -- Encrypted ESA API token
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+PROFILES_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
+"""
+
+# ============================================================
+# CREDENTIALS TABLE (encrypted per-user API credentials)
+# ============================================================
+
+CREDENTIALS_TABLE = """
+CREATE TABLE IF NOT EXISTS credentials (
+    id INTEGER PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    service_name VARCHAR(50) NOT NULL,
+    encrypted_primary TEXT,
+    encrypted_secondary TEXT,
+    is_valid BOOLEAN,
+    validation_status VARCHAR(20) DEFAULT 'untested',
+    last_tested_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, service_name)
+);
+"""
+
+CREDENTIALS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials(user_id);
 """
 
 # ============================================================
@@ -615,6 +680,25 @@ def initialize_schema(db: "DatabaseManager", force: bool = False) -> None:
     if force:
         _drop_all_tables(db)
 
+    # Check existing schema version to prevent downgrade
+    if not force:
+        try:
+            row = db.adapter.fetchone(
+                "SELECT value FROM _schema_metadata WHERE key = 'version'"
+                if backend == "duckdb" else
+                "SELECT value FROM _schema_metadata WHERE key = %s",
+                () if backend == "duckdb" else ("version",),
+            )
+            if row and _parse_version(row[0]) > _parse_version(SCHEMA_VERSION):
+                raise RuntimeError(
+                    f"Database schema {row[0]} is newer than application {SCHEMA_VERSION}. "
+                    "Upgrade the application or set SKIP_SCHEMA_CHECK=1."
+                )
+        except Exception as e:
+            if "does not exist" not in str(e).lower() and "_schema_metadata" not in str(e).lower():
+                if not os.getenv("SKIP_SCHEMA_CHECK"):
+                    raise
+
     if backend == "postgres":
         _initialize_postgres_schema(db)
     else:
@@ -661,6 +745,7 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     # Event tables
     db.execute(EVENT_TYPES_TABLE)
     db.execute(EVENTS_TABLE)
+    db.execute(EVENTS_INDEXES)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
     # Non-reference observations table (for True Negatives)
@@ -675,11 +760,22 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     db.execute(FEEDBACK_TABLE)
     db.execute(FEEDBACK_INDEXES)
 
+    # Profiles table
+    db.execute(PROFILES_TABLE)
+    db.execute(PROFILES_INDEXES)
+
+    # Credentials table (encrypted per-user API credentials)
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
+    _migrate_to_1_6_0(db)
+    _migrate_to_1_7_0(db)
+    _migrate_to_1_8_0(db)
 
     # Seed default event types
     _seed_event_types(db)
@@ -701,11 +797,50 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
     if schema_file.exists():
         # Read and execute the SQL file
         schema_sql = schema_file.read_text()
+        # Strip full-line comments before splitting to avoid fragments
+        lines = []
+        for line in schema_sql.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("--") or stripped.startswith("//"):
+                continue  # Skip full-line comments
+            lines.append(line)
+        clean_sql = "\n".join(lines)
         # Split on semicolons and execute each statement
-        statements = [s.strip() for s in schema_sql.split(";") if s.strip()]
+        statements = [s.strip() for s in clean_sql.split(";") if s.strip()]
         for statement in statements:
-            if statement and not statement.startswith("--"):
-                db.execute(statement)
+            if statement:
+                try:
+                    db.execute(statement)
+                except Exception as e:
+                    # Log but don't crash on individual statement failures
+                    # (e.g., table already exists with different column order)
+                    pass  # Statement already applied or not applicable
+
+        # Run inline migrations for existing databases initialized with older SQL.
+        # All are idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS).
+        _migrate_to_1_2_0(db)
+        _migrate_to_1_3_0(db)
+        _migrate_to_1_4_0(db)
+        _migrate_to_1_5_0(db)
+        _migrate_to_1_6_0(db)
+        _migrate_to_1_7_0(db)
+        _migrate_to_1_8_0(db)
+
+        # Seed default event types
+        _seed_event_types_postgres(db)
+
+        # Stamp schema version
+        try:
+            db.execute(
+                """
+                INSERT INTO _schema_metadata (key, value, updated_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+                """,
+                ("version", SCHEMA_VERSION),
+            )
+        except Exception:
+            pass  # _schema_metadata may not exist yet in very old schemas
     else:
         # Fall back to converting DuckDB schema
         _initialize_postgres_schema_fallback(db)
@@ -754,6 +889,7 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     # Event tables
     db.execute(EVENT_TYPES_TABLE)
     db.execute(EVENTS_TABLE)
+    db.execute(EVENTS_INDEXES)
     db.execute(EVENT_OBSERVATIONS_TABLE)
 
     # Non-reference observations table (for True Negatives)
@@ -768,11 +904,21 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     db.execute(FEEDBACK_TABLE)
     db.execute(FEEDBACK_INDEXES)
 
+    # Profiles table
+    db.execute(PROFILES_TABLE)
+    db.execute(PROFILES_INDEXES)
+
+    # Credentials table (encrypted per-user API credentials)
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEXES)
+
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
     _migrate_to_1_3_0(db)
     _migrate_to_1_4_0(db)
     _migrate_to_1_5_0(db)
+    _migrate_to_1_6_0(db)
+    _migrate_to_1_7_0(db)
 
     # Seed default event types (PostgreSQL syntax)
     _seed_event_types_postgres(db)
@@ -784,14 +930,15 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
         VALUES (%s, %s, CURRENT_TIMESTAMP)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
         """,
-        (SCHEMA_VERSION,),
+        ("version", SCHEMA_VERSION),
     )
 
 
 def _drop_all_tables(db: "DatabaseManager") -> None:
     """Drop all tables and sequences (for force initialization)."""
     tables = [
-        "feedback",
+        "credentials",
+        "profiles",
         "breakup_events",
         "non_reference_observations",
         "event_observations",
@@ -829,9 +976,10 @@ def _drop_all_tables(db: "DatabaseManager") -> None:
 
 def _migrate_to_1_2_0(db: "DatabaseManager") -> None:
     """Add performance_metadata and actual_satellite_ids columns to datasets table."""
-    for col in ["performance_metadata JSON", "actual_satellite_ids JSON"]:
+    json_type = "JSONB" if db.backend == "postgres" else "JSON"
+    for col_name in ["performance_metadata", "actual_satellite_ids"]:
         try:
-            db.execute(f"ALTER TABLE datasets ADD COLUMN IF NOT EXISTS {col}")
+            db.execute(f"ALTER TABLE datasets ADD COLUMN IF NOT EXISTS {col_name} {json_type}")
         except Exception:
             pass  # Column already exists
 
@@ -878,35 +1026,49 @@ def _migrate_to_1_5_0(db: "DatabaseManager") -> None:
         "sen_x DECIMAL(16,9)",
         "sen_y DECIMAL(16,9)",
         "sen_z DECIMAL(16,9)",
-        "sen_vel_x DECIMAL(16,12)",
-        "sen_vel_y DECIMAL(16,12)",
-        "sen_vel_z DECIMAL(16,12)",
         "exp_duration DECIMAL(10,4)",
-        "zeroptd DECIMAL(16,10)",
-        "net_obj_sig DECIMAL(16,6)",
-        "net_obj_sig_unc DECIMAL(16,6)",
         "mag DECIMAL(10,6)",
         "mag_unc DECIMAL(10,6)",
         "geo_lat DECIMAL(12,8)",
         "geo_lon DECIMAL(12,8)",
         "geo_alt DECIMAL(16,6)",
         "geo_range DECIMAL(16,6)",
-        "solar_phase_angle DECIMAL(12,8)",
-        "solar_eq_phase_angle DECIMAL(12,8)",
-        "solar_dec_angle DECIMAL(12,8)",
-        "shutter_delay DECIMAL(10,4)",
-        "raw_file_uri VARCHAR(500)",
-        "created_by VARCHAR(100)",
-        "orig_network VARCHAR(50)",
-        "los_unc DECIMAL(12,6)",
-        "source VARCHAR(50)",
-        "obs_type VARCHAR(50)",
     ]
     for col in new_columns:
         try:
             db.execute(f"ALTER TABLE observations ADD COLUMN IF NOT EXISTS {col}")
         except Exception:
             pass
+
+
+def _migrate_to_1_6_0(db: "DatabaseManager") -> None:
+    """Add user_id column to datasets table for ownership tracking."""
+    try:
+        db.execute("ALTER TABLE datasets ADD COLUMN IF NOT EXISTS user_id VARCHAR(255)")
+    except Exception:
+        pass  # Column already exists
+
+
+def _migrate_to_1_7_0(db: "DatabaseManager") -> None:
+    """Add credentials table for encrypted per-user API credential storage."""
+    # CREATE TABLE IF NOT EXISTS is idempotent
+    db.execute(CREDENTIALS_TABLE)
+    db.execute(CREDENTIALS_INDEXES)
+
+
+def _migrate_to_1_8_0(db: "DatabaseManager") -> None:
+    """Add detection_config and dataset_id columns to events table for labelling system."""
+    try:
+        db.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS detection_config TEXT")
+    except Exception:
+        pass  # Column already exists
+    try:
+        db.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS dataset_id INTEGER")
+    except Exception:
+        pass  # Column already exists
+
+    # Add indexes (idempotent)
+    db.execute(EVENTS_INDEXES)
 
 
 def _seed_event_types(db: "DatabaseManager") -> None:
@@ -966,6 +1128,8 @@ def verify_schema(db: "DatabaseManager") -> dict:
         "non_reference_observations",
         "breakup_events",
         "feedback",
+        "profiles",
+        "credentials",
         "_schema_metadata",
     ]
 

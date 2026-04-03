@@ -19,14 +19,12 @@ Usage:
 """
 
 from .base import DatabaseAdapter
-from .duckdb_adapter import DuckDBAdapter
 from .factory import create_adapter, create_test_adapter, get_database_backend
 
-# PostgresAdapter is imported on-demand to avoid requiring psycopg
-# when only using DuckDB
+# Both DuckDBAdapter and PostgresAdapter are imported on-demand to avoid
+# requiring duckdb or pg8000 when only using one backend
 __all__ = [
     "DatabaseAdapter",
-    "DuckDBAdapter",
     "create_adapter",
     "create_test_adapter",
     "get_database_backend",

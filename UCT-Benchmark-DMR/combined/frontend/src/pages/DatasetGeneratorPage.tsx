@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { api, apiClient } from '@/api/client';
 import type {
   OrbitalRegime,
   DatasetGenerationConfig,
@@ -265,6 +267,25 @@ export function DatasetGeneratorPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
 
+  // Token availability check
+  const [hasUdlToken, setHasUdlToken] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Check credentials table first (new system), fall back to legacy profile token
+    api.getCredential('udl').then((res) => {
+      setHasUdlToken(res.data.is_configured);
+    }).catch(() => {
+      api.getCurrentUser().then((res) => {
+        setHasUdlToken(!!res.data.udl_token);
+      }).catch(() => {
+        setHasUdlToken(false);
+      });
+    });
+  }, []);
+
+  // Optional user-provided dataset name
+  const [customName, setCustomName] = useState('');
+
   // Legacy code mode state
   const [mode, setMode] = useState<'standard' | 'legacy'>('standard');
   const [legacyConfig, setLegacyConfig] = useState<LegacyDatasetCodeConfig>(defaultLegacyConfig);
@@ -300,10 +321,24 @@ export function DatasetGeneratorPage() {
       setGenerationProgress(jobStatus.progress);
       if (jobStatus.status === 'completed') {
         setIsGenerating(false);
-        navigate('/datasets/my-datasets');
+        // Extract dataset info from job result for the notification
+        const result = jobStatus.result as { dataset_id?: string } | undefined;
+        const datasetId = result?.dataset_id;
+        const datasetName = customName.trim() || `${config.regime}-${config.coverage}`;
+        toast({
+          title: 'Dataset generated',
+          description: `Your dataset "${datasetName}" was successfully generated!`,
+          action: datasetId ? (
+            <ToastAction altText="View dataset" onClick={() => navigate(`/datasets/${datasetId}`)}>
+              View Dataset
+            </ToastAction>
+          ) : undefined,
+        });
+        // Navigate to my-datasets with highlight param so the new row pulses
+        navigate(datasetId ? `/datasets/my-datasets?highlight=${datasetId}` : '/datasets/my-datasets');
       } else if (jobStatus.status === 'failed') {
         let errorMessage = jobStatus.error || 'Dataset generation failed. Please try different parameters.';
-        if (errorMessage.includes('No observation data returned')) {
+        if (errorMessage.includes('No observation data returned') || errorMessage.includes('No observations found')) {
           errorMessage = 'No observation data is available for the selected parameters. Try a different orbital regime, date range, or sensor type.';
         } else if (errorMessage.includes('Missing required environment variable') || errorMessage.includes('API credential')) {
           errorMessage = 'The dataset generation service is temporarily unavailable. Please try again later or contact support.';
@@ -317,7 +352,7 @@ export function DatasetGeneratorPage() {
         setJobId(null);
       }
     }
-  }, [jobStatus, navigate]);
+  }, [jobStatus, navigate, toast, customName, config.regime, config.coverage]);
 
   const updateConfig = <K extends keyof DatasetGenerationConfig>(
     key: K,
@@ -376,15 +411,13 @@ export function DatasetGeneratorPage() {
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // Auto-generate a name from regime + date + unique suffix
-    const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
-    const suffix = Math.random().toString(36).slice(2, 10);
-    const autoName = `${config.regime}-standard-${timestamp}-${suffix}`;
+    // Use custom name if provided, otherwise auto-generate
+    const datasetName = customName.trim() || `${config.regime}-${config.coverage}`;
 
     try {
       const result = await generateDatasetMutation.mutateAsync({
         ...config,
-        name: autoName,
+        name: datasetName,
       });
       console.log('Generation result:', result);
       // The API returns a job_id for tracking progress
@@ -397,21 +430,28 @@ export function DatasetGeneratorPage() {
           navigate('/datasets/my-datasets');
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { detail?: string | Array<{ loc?: string[]; msg?: string }> } }; message?: string };
       console.error('Failed to generate dataset:', error);
-      console.error('Error response:', error?.response?.data);
+      console.error('Error response:', axiosErr?.response?.data);
 
       // Handle Pydantic validation errors which return an array of error details
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      const detail = error?.response?.data?.detail;
+      const detail = axiosErr?.response?.data?.detail;
       if (Array.isArray(detail)) {
         // Pydantic validation error - format each error
-        errorMessage = detail.map((e: any) =>
+        errorMessage = detail.map((e) =>
           `${e.loc?.join(' -> ')}: ${e.msg}`
         ).join('\n');
       } else if (typeof detail === 'string') {
         errorMessage = detail;
-      } else if (error?.message) {
+        // Only mark token as missing for genuinely-missing-token errors,
+        // not for validation failures like "token validation failed"
+        if (detail.toLowerCase().includes('token required') ||
+            detail.toLowerCase().includes('re-enter your token')) {
+          setHasUdlToken(false);
+        }
+      } else if (error instanceof Error) {
         errorMessage = error.message;
       }
 
@@ -451,31 +491,21 @@ export function DatasetGeneratorPage() {
     setGenerationProgress(0);
 
     try {
-      // Call the legacy endpoint
-      const response = await fetch('/api/v1/datasets/legacy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          legacy_code: code,
-          object_type: legacyConfig.objectType,
-          target_percentage: legacyConfig.targetPercentage,
-          orbital_regime: legacyConfig.orbitalRegime,
-          event: legacyConfig.event,
-          sensor_type: legacyConfig.sensorType,
-          orbit_coverage: legacyConfig.orbitCoverage,
-          track_gap: legacyConfig.trackGap,
-          observation_count: legacyConfig.observationCount,
-          object_count_level: legacyConfig.objectCount,
-          fitspan_days: legacyConfig.fitspanDays,
-        }),
+      // Call the legacy endpoint via apiClient (includes auth token)
+      const { data: result } = await apiClient.post('/datasets/legacy', {
+        legacy_code: code,
+        object_type: legacyConfig.objectType,
+        target_percentage: legacyConfig.targetPercentage,
+        orbital_regime: legacyConfig.orbitalRegime,
+        event: legacyConfig.event,
+        sensor_type: legacyConfig.sensorType,
+        orbit_coverage: legacyConfig.orbitCoverage,
+        track_gap: legacyConfig.trackGap,
+        observation_count: legacyConfig.observationCount,
+        object_count_level: legacyConfig.objectCount,
+        fitspan_days: legacyConfig.fitspanDays,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to create dataset');
-      }
-
-      const result = await response.json();
       if (result?.job_id) {
         setJobId(result.job_id);
       } else {
@@ -484,11 +514,14 @@ export function DatasetGeneratorPage() {
           navigate('/datasets/my-datasets');
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate dataset from legacy code:', error);
+      const axiosErr = error as { response?: { data?: { detail?: string } }; message?: string };
+      const detail = axiosErr?.response?.data?.detail;
+      const message = typeof detail === 'string' ? detail : (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({
         title: 'Dataset generation failed',
-        description: error.message || 'An unexpected error occurred',
+        description: message,
         variant: 'destructive',
       });
       setIsGenerating(false);
@@ -507,6 +540,20 @@ export function DatasetGeneratorPage() {
           <p className="text-muted-foreground mt-1">
             Configure parameters to generate a custom benchmark dataset
           </p>
+          {hasUdlToken === false && (
+            <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-destructive">UDL API Token Required</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  You need a UDL API token to generate datasets. Generation is disabled until a token is configured.
+                </p>
+                <Button variant="link" className="h-auto p-0 mt-1 text-primary" onClick={() => navigate('/settings')}>
+                  Go to Settings &rarr;
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Mode Tabs */}
@@ -598,7 +645,18 @@ export function DatasetGeneratorPage() {
         </div>
 
         {/* Step Content */}
-        <Card>
+        <Card className={cn(hasUdlToken === false && 'relative')}>
+          {hasUdlToken === false && (
+            <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
+              <div className="text-center p-6">
+                <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                <p className="font-medium text-destructive">UDL API Token Required</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate('/settings')}>
+                  Go to Settings
+                </Button>
+              </div>
+            </div>
+          )}
           {/* ============ LEGACY MODE STEPS ============ */}
           {mode === 'legacy' && codeInputMode === 'wizard' && (
             <>
@@ -626,10 +684,7 @@ export function DatasetGeneratorPage() {
                           )}
                         >
                           <RadioGroupItem value={value} />
-                          <div>
-                            <span className="font-mono text-lg mr-2">{value}</span>
-                            <span>{label}</span>
-                          </div>
+                          <span>{label}</span>
                         </Label>
                       ))}
                     </RadioGroup>
@@ -734,6 +789,12 @@ export function DatasetGeneratorPage() {
                         </Label>
                       ))}
                     </RadioGroup>
+                    {(legacyConfig.event && legacyConfig.event !== 'NE') && (
+                      <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        Event detection is not yet integrated into the pipeline. Selecting an event type records the intent but does not filter data by events.
+                      </p>
+                    )}
                   </CardContent>
                 </>
               )}
@@ -762,13 +823,16 @@ export function DatasetGeneratorPage() {
                           )}
                         >
                           <RadioGroupItem value={value} />
-                          <div>
-                            <span className="font-mono text-lg mr-2">{value}</span>
-                            <span>{label}</span>
-                          </div>
+                          <span>{label}</span>
                         </Label>
                       ))}
                     </RadioGroup>
+                    {(legacyConfig.sensorType && legacyConfig.sensorType !== 'OP') && (
+                      <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        Only optical (EO) data is currently available from UDL. Non-optical sensor types will still generate optical observations.
+                      </p>
+                    )}
                   </CardContent>
                 </>
               )}
@@ -1332,6 +1396,12 @@ export function DatasetGeneratorPage() {
                       </Label>
                     ))}
                   </RadioGroup>
+                  {(config.sensorTypeCode && config.sensorTypeCode !== 'OP') && (
+                    <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Only optical (EO) data is currently available from UDL. Non-optical sensor types will still generate optical observations.
+                    </p>
+                  )}
                 </div>
 
                 <Separator />
@@ -1376,6 +1446,12 @@ export function DatasetGeneratorPage() {
                       </Label>
                     ))}
                   </RadioGroup>
+                  {(config.eventCode && config.eventCode !== 'NE') && (
+                    <p className="text-sm text-amber-500 flex items-center gap-1.5 mt-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Event detection is not yet integrated into the pipeline. Selecting an event type records the intent but does not filter data by events.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </>
@@ -1490,11 +1566,11 @@ export function DatasetGeneratorPage() {
                       <SelectValue placeholder="Select object type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="U">U - Unspecified (All objects)</SelectItem>
-                      <SelectItem value="H">H - HAMR (High Area-to-Mass Ratio)</SelectItem>
-                      <SelectItem value="C">C - Close (Physical proximity)</SelectItem>
-                      <SelectItem value="A">A - Apparent (Angular proximity)</SelectItem>
-                      <SelectItem value="N">N - Calibration satellites</SelectItem>
+                      <SelectItem value="U">Unspecified (All objects)</SelectItem>
+                      <SelectItem value="H">HAMR (High Area-to-Mass Ratio)</SelectItem>
+                      <SelectItem value="C">Close (Physical proximity)</SelectItem>
+                      <SelectItem value="A">Apparent (Angular proximity)</SelectItem>
+                      <SelectItem value="N">Calibration satellites</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1861,16 +1937,16 @@ export function DatasetGeneratorPage() {
 
                 <Separator />
 
-                {/* Advanced Louis's Spec Options */}
+                {/* Advanced Benchmark Options */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Label className="text-base font-medium">Louis's Benchmark Options</Label>
+                    <Label className="text-base font-medium">Advanced Benchmark Settings</Label>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p>Advanced options per Louis's Benchmarking Documentation for comprehensive evaluation.</p>
+                        <p>Advanced options for comprehensive benchmark evaluation and dataset customization.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -1936,6 +2012,21 @@ export function DatasetGeneratorPage() {
                   </div>
                 ) : (
                   <>
+                    {/* Optional dataset name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="dataset-name">Dataset Name (optional)</Label>
+                      <Input
+                        id="dataset-name"
+                        placeholder={`e.g., My LEO test run — defaults to "${config.regime}-${config.coverage}"`}
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        maxLength={80}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        A timestamp and unique ID will be appended automatically.
+                      </p>
+                    </div>
+
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="rounded-lg border p-4 space-y-3">
                         <h4 className="font-medium">Orbital Regime</h4>
@@ -2154,7 +2245,7 @@ export function DatasetGeneratorPage() {
               ) : (
                 <Button
                   onClick={handleGenerate}
-                  disabled={isGenerating || !isTimeframeValid}
+                  disabled={isGenerating || !isTimeframeValid || !hasUdlToken}
                   className="gap-2"
                 >
                   {isGenerating ? (
@@ -2181,7 +2272,7 @@ export function DatasetGeneratorPage() {
                 ) : (
                   <Button
                     onClick={handleLegacyGenerate}
-                    disabled={isGenerating || !legacyCodeValidation.valid}
+                    disabled={isGenerating || !legacyCodeValidation.valid || !hasUdlToken}
                     className="gap-2"
                   >
                     {isGenerating ? (
@@ -2201,7 +2292,7 @@ export function DatasetGeneratorPage() {
                 // Direct code entry mode
                 <Button
                   onClick={handleLegacyGenerate}
-                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16}
+                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16 || !hasUdlToken}
                   className="gap-2"
                 >
                   {isGenerating ? (

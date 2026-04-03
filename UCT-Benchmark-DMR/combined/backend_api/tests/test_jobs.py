@@ -10,7 +10,13 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend_api.auth import CurrentUser
+from backend_api.auth import get_current_user as prod_get_current_user
 from backend_api.jobs import JobManager, JobStatus, JobType
+from backend_api.middleware.auth import get_current_user as mw_get_current_user
+
+# Mock authenticated user for dependency overrides
+_mock_user = CurrentUser(id="test-user-id", email="test@example.com", role="admin")
 
 # =============================================================================
 # FIXTURES
@@ -49,10 +55,15 @@ def client_with_jobs(mock_job_manager):
     from uct_benchmark.database.connection import DatabaseManager
 
     # Create a minimal in-memory database for the app lifespan
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
+
+    # Override auth dependencies so requests are not rejected with 401
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
 
     with patch("backend_api.main.init_database", return_value=test_db):
         with patch("backend_api.main.close_database"):
@@ -64,6 +75,8 @@ def client_with_jobs(mock_job_manager):
                         with TestClient(app) as client:
                             yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
     test_db.close()
 
@@ -78,10 +91,15 @@ def client_empty_jobs():
     empty_manager = JobManager()
 
     # Create a minimal in-memory database for the app lifespan
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
+
+    # Override auth dependencies so requests are not rejected with 401
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
 
     with patch("backend_api.main.init_database", return_value=test_db):
         with patch("backend_api.main.close_database"):
@@ -93,6 +111,8 @@ def client_empty_jobs():
                         with TestClient(app) as client:
                             yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
     test_db.close()
 
@@ -111,10 +131,15 @@ def create_test_client_with_job_manager(job_manager):
     from backend_api.main import app
     from uct_benchmark.database.connection import DatabaseManager
 
-    test_db = DatabaseManager(in_memory=True)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
     test_db.initialize()
     original_db = db_module._db_manager
     db_module._db_manager = test_db
+
+    # Override auth dependencies so requests are not rejected with 401
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
 
     with patch("backend_api.main.init_database", return_value=test_db):
         with patch("backend_api.main.close_database"):
@@ -126,6 +151,8 @@ def create_test_client_with_job_manager(job_manager):
                         with TestClient(app) as client:
                             yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
     test_db.close()
 
@@ -350,22 +377,18 @@ class TestListJobs:
         assert data == []
 
     def test_list_jobs_invalid_type_filter(self, client_with_jobs):
-        """Test that invalid job type filter is ignored."""
+        """Test that invalid job type filter returns 400."""
         response = client_with_jobs.get("/api/v1/jobs/?job_type=invalid_type")
 
-        assert response.status_code == 200
-        # Should return all jobs since invalid filter is ignored
-        data = response.json()
-        assert len(data) == 4
+        assert response.status_code == 400
 
     def test_list_jobs_invalid_status_filter(self, client_with_jobs):
-        """Test that invalid status filter is ignored."""
+        """Test that invalid status filter returns 400."""
         response = client_with_jobs.get("/api/v1/jobs/?status=invalid_status")
 
-        assert response.status_code == 200
-        # Should return all jobs since invalid filter is ignored
+        assert response.status_code == 400
         data = response.json()
-        assert len(data) == 4
+        assert "detail" in data
 
 
 # =============================================================================
@@ -482,6 +505,138 @@ class TestJobManager:
 
         assert len(pending) == 1
         assert len(completed) == 1
+
+
+# =============================================================================
+# JOB OWNERSHIP TESTS
+# =============================================================================
+
+# Non-admin mock user for ownership tests
+_regular_user = CurrentUser(id="regular-user-123", email="user@example.com", role="user")
+
+
+@pytest.fixture
+def job_manager_with_ownership():
+    """Create job manager with jobs owned by different users."""
+    manager = JobManager()
+
+    # Jobs owned by regular-user-123
+    job1 = manager.create_job(
+        JobType.DATASET_GENERATION,
+        metadata={"dataset_id": 1, "user_id": "regular-user-123"},
+    )
+    job2 = manager.create_job(
+        JobType.EVALUATION,
+        metadata={"submission_id": 1, "user_id": "regular-user-123"},
+    )
+
+    # Jobs owned by other-user-456
+    job3 = manager.create_job(
+        JobType.DATASET_GENERATION,
+        metadata={"dataset_id": 2, "user_id": "other-user-456"},
+    )
+
+    # Job with no user_id (legacy)
+    job4 = manager.create_job(
+        JobType.EVALUATION,
+        metadata={"submission_id": 2},
+    )
+
+    return manager
+
+
+@pytest.fixture
+def client_regular_user(job_manager_with_ownership):
+    """Test client with non-admin user for ownership tests."""
+    import backend_api.database as db_module
+    from backend_api.main import app
+    from uct_benchmark.database.connection import DatabaseManager
+
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
+    test_db.initialize()
+    original_db = db_module._db_manager
+    db_module._db_manager = test_db
+
+    app.dependency_overrides[mw_get_current_user] = lambda: _regular_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _regular_user
+
+    with patch("backend_api.main.init_database", return_value=test_db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=job_manager_with_ownership):
+                with patch("backend_api.main.shutdown_executor"):
+                    with patch(
+                        "backend_api.routers.jobs.get_job_manager",
+                        return_value=job_manager_with_ownership,
+                    ):
+                        with TestClient(app) as client:
+                            yield client
+
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
+    db_module._db_manager = original_db
+    test_db.close()
+
+
+@pytest.fixture
+def client_admin_ownership(job_manager_with_ownership):
+    """Test client with admin user for ownership tests."""
+    import backend_api.database as db_module
+    from backend_api.main import app
+    from uct_benchmark.database.connection import DatabaseManager
+
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    test_db = DatabaseManager(in_memory=True, backend="duckdb")
+    test_db.initialize()
+    original_db = db_module._db_manager
+    db_module._db_manager = test_db
+
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
+
+    with patch("backend_api.main.init_database", return_value=test_db):
+        with patch("backend_api.main.close_database"):
+            with patch("backend_api.main.init_job_manager", return_value=job_manager_with_ownership):
+                with patch("backend_api.main.shutdown_executor"):
+                    with patch(
+                        "backend_api.routers.jobs.get_job_manager",
+                        return_value=job_manager_with_ownership,
+                    ):
+                        with TestClient(app) as client:
+                            yield client
+
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
+    db_module._db_manager = original_db
+    test_db.close()
+
+
+class TestJobOwnership:
+    """Test that non-admin users can only see their own jobs."""
+
+    def test_user_sees_own_jobs_in_list(self, client_regular_user):
+        """Non-admin user should only see jobs with their user_id."""
+        response = client_regular_user.get("/api/v1/jobs/")
+        assert response.status_code == 200
+        data = response.json()
+        # Should only see the 2 jobs owned by regular-user-123 (not 4 total)
+        assert len(data) == 2
+
+    def test_user_cannot_see_other_users_job(self, client_regular_user, job_manager_with_ownership):
+        """Non-admin user should get 404 for another user's job."""
+        # Find the job owned by other-user-456
+        all_jobs = job_manager_with_ownership.list_jobs()
+        other_job = next(j for j in all_jobs if j.metadata.get("user_id") == "other-user-456")
+
+        response = client_regular_user.get(f"/api/v1/jobs/{other_job.id}")
+        assert response.status_code == 404
+
+    def test_admin_sees_all_jobs(self, client_admin_ownership):
+        """Admin user should see all jobs regardless of ownership."""
+        response = client_admin_ownership.get("/api/v1/jobs/")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 4  # All jobs visible to admin
 
 
 if __name__ == "__main__":

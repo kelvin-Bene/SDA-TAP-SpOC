@@ -47,7 +47,7 @@ flowchart TD
     %% JOB ORCHESTRATION
     %% ═══════════════════════════════════════════
 
-    subgraph JOBS["PHASE 3: JOB ORCHESTRATION (ThreadPoolExecutor, 4 workers)"]
+    subgraph JOBS["PHASE 3: JOB ORCHESTRATION (ThreadPoolExecutor, 1 worker default)"]
         JOB_DS["Job: dataset_generation<br/>pending→running→completed<br/>Stage-aware progress callback"]:::process
         JOB_EVAL["Job: evaluation<br/>Load uploaded JSON<br/>Compare to truth data"]:::process
     end

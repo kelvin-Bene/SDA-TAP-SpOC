@@ -1,0 +1,41 @@
+name: E2E Tests (Non-blocking)
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: UCT-Benchmark-DMR/combined/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: ./UCT-Benchmark-DMR/combined
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: ./UCT-Benchmark-DMR/combined
+        run: npx playwright test --reporter=html
+        env:
+          CI: true
+
+      - name: Upload E2E report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: UCT-Benchmark-DMR/combined/test-results/
+          retention-days: 14

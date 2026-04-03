@@ -1,0 +1,54 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '0 8 * * 1'  # Weekly Monday 8am UTC
+
+jobs:
+  python-audit:
+    name: Python Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install and audit Python dependencies
+        working-directory: ./UCT-Benchmark-DMR/combined
+        run: |
+          pip install ".[dev]"
+          pip install pip-audit
+          pip-audit --desc || echo "::warning::Python dependency vulnerabilities found"
+
+  npm-audit:
+    name: npm Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Audit npm packages
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high || echo "::warning::npm dependency vulnerabilities found"
+
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        working-directory: ./UCT-Benchmark-DMR/combined
+        run: docker build -t uct-benchmark:scan .
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'uct-benchmark:scan'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'

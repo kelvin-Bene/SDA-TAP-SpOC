@@ -6,7 +6,7 @@
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~90% Complete** *(Updated 2026-01-31)*
+**Overall Progress: ~95% Complete** *(Updated 2026-04-01)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
 
@@ -294,7 +294,7 @@ Implemented components:
 - [x] Data ingestion pipeline (`uct_benchmark/database/ingestion.py`)
 - [x] Query interface (`uct_benchmark/database/repository.py`)
 - [x] Version control for datasets (built into schema)
-- [ ] Access control (planned)
+- [x] Access control (role-based via Supabase JWT)
 
 **Implementation Details:**
 - DuckDB-based analytical database
@@ -316,7 +316,7 @@ Implemented components:
 - [x] Algorithm submission interface
 - [x] Results viewer
 - [x] Leaderboard display
-- [ ] Authentication system (planned)
+- [x] Authentication system (Supabase JWT)
 
 **Implementation Details:**
 - 45+ React components in `frontend/src/`

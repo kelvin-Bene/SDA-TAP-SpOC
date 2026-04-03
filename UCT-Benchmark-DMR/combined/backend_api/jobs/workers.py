@@ -9,6 +9,7 @@ Note: Dataset ID is now passed to generateDataset to avoid duplicate creation.
 
 import json
 import os
+import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Optional
@@ -17,6 +18,57 @@ from loguru import logger
 
 from . import Job, JobType, get_job_manager
 from .progress import DatasetStage, create_job_progress_callback
+
+
+def compute_composite_score(
+    f1_score: Optional[float],
+    position_rms_km: Optional[float],
+    ra_residual_rms: Optional[float],
+    dec_residual_rms: Optional[float],
+) -> float:
+    """Compute weighted composite score from binary, state, and residual metrics.
+
+    Falls back to F1-only when state/residual metrics are unavailable (no Orekit).
+    Weights are configurable via environment variables.
+    """
+    w1 = float(os.getenv("COMPOSITE_WEIGHT_BINARY", "0.4"))
+    w2 = float(os.getenv("COMPOSITE_WEIGHT_STATE", "0.3"))
+    w3 = float(os.getenv("COMPOSITE_WEIGHT_RESIDUAL", "0.3"))
+
+    binary_component = f1_score or 0.0
+
+    # Normalize position RMS: lower is better, cap at 100km
+    state_component = None
+    if position_rms_km is not None and position_rms_km >= 0:
+        state_component = max(0.0, 1.0 - (position_rms_km / 100.0))
+
+    # Normalize residual RMS: lower is better, cap at 100 arcsec
+    residual_component = None
+    if ra_residual_rms is not None and dec_residual_rms is not None:
+        avg_residual = (ra_residual_rms + dec_residual_rms) / 2.0
+        residual_component = max(0.0, 1.0 - (avg_residual / 100.0))
+
+    # Fallback: if state/residual unavailable, redistribute weights
+    if state_component is None and residual_component is None:
+        return binary_component  # F1-only (binary evaluation)
+    elif state_component is None:
+        total_weight = w1 + w3
+        return (w1 * binary_component + w3 * residual_component) / total_weight
+    elif residual_component is None:
+        total_weight = w1 + w2
+        return (w1 * binary_component + w2 * state_component) / total_weight
+    else:
+        return w1 * binary_component + w2 * state_component + w3 * residual_component
+
+# Regime-specific satellite NORAD IDs for auto-selection.
+# LEO satellites are loaded at runtime from settings.satIDs (the calibration list).
+# MEO/GEO/HEO lists contain well-known satellites in those regimes.
+REGIME_SATELLITES = {
+    "LEO": None,  # Populated at runtime from settings.satIDs (DEFAULT_SATELLITES)
+    "MEO": [24876, 26360, 28190, 28474, 29486, 32260, 36585, 37753, 38833, 39166],  # GPS constellation
+    "GEO": [37826, 38087, 39616, 40258, 41028, 41866, 42432, 43039, 43479, 44333],  # GEO comm sats
+    "HEO": [25847, 26867, 27434, 28163, 29389, 36744, 39731, 40358],  # Molniya/Tundra orbits
+}
 
 
 def _convert_numpy_to_native(obj: Any) -> Any:
@@ -52,30 +104,43 @@ def _parse_timestamp(value: Any) -> Any:
         return None
 
 
-# Global thread pool for background tasks
+# Global thread pool for background tasks (thread-safe initialization)
 _executor: Optional[ThreadPoolExecutor] = None
+_executor_lock = threading.Lock()
 
 
 def get_executor() -> ThreadPoolExecutor:
-    """Get or create the global thread pool executor."""
+    """Get or create the global thread pool executor (thread-safe)."""
     global _executor
-    if _executor is None:
-        _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="worker")
+    if _executor is not None:
+        return _executor
+    with _executor_lock:
+        if _executor is None:
+            _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="worker")
     return _executor
 
 
-def shutdown_executor() -> None:
-    """Shutdown the thread pool executor."""
+def shutdown_executor(wait: bool = True) -> None:
+    """Shutdown the thread pool executor.
+
+    Args:
+        wait: If True, wait for running futures to complete before returning.
+              Defaults to True to avoid losing in-progress jobs.
+    """
     global _executor
-    if _executor is not None:
-        _executor.shutdown(wait=False)
-        _executor = None
+    with _executor_lock:
+        if _executor is not None:
+            logger.info(f"Shutting down thread pool executor (wait={wait})")
+            _executor.shutdown(wait=wait, cancel_futures=False)
+            _executor = None
 
 
 def run_dataset_generation(
     job_id: str,
     dataset_id: int,
     config: Dict[str, Any],
+    udl_token: str,
+    esa_token: Optional[str] = None,
 ) -> None:
     """
     Worker function for dataset generation.
@@ -90,6 +155,8 @@ def run_dataset_generation(
             - object_count: Number of satellites
             - timeframe: Duration in days
             - satellites: Optional list of specific NORAD IDs
+        udl_token: User's UDL API token (passed directly, never stored in DB)
+        esa_token: User's ESA API token (optional, passed directly)
     """
     job_manager = get_job_manager()
     job_manager.start_job(job_id)
@@ -102,18 +169,15 @@ def run_dataset_generation(
         from uct_benchmark.api.apiIntegration import generateDataset
         from uct_benchmark.settings import satIDs as DEFAULT_SATELLITES
 
-        # Get tokens from environment
-        udl_token = os.getenv("UDL_TOKEN")
-        esa_token = os.getenv("ESA_TOKEN")
-
+        # Tokens are passed directly from the authenticated user's profile
         if not udl_token:
             raise ValueError(
-                "Missing required environment variable: UDL_TOKEN. "
-                "Please set it in your .env file."
+                "The dataset generation service is temporarily unavailable due to a missing API credential. "
+                "Please contact the platform administrator or try again later."
             )
         if not esa_token:
             logger.warning(
-                "ESA_TOKEN not set - Discosweb data (mass/crossSection) will be unavailable. "
+                "ESA token not provided — Discosweb data (mass/crossSection) will be unavailable. "
                 "HAMR object filtering will not work correctly."
             )
 
@@ -136,19 +200,25 @@ def run_dataset_generation(
         # Update progress - initializing
         progress_callback(DatasetStage.INITIALIZING, 0.0)
 
-        # Get satellite list from config or auto-select
+        # Get satellite list from config or auto-select based on regime
         satellites = config.get("satellites", [])
         object_count = config.get("object_count", 5)
+        regime = config.get("regime", "LEO")
 
         if not satellites:
-            # Auto-select satellites from the default calibration list
-            # Use object_count to determine how many to select
-            available_sats = list(DEFAULT_SATELLITES)
+            # Auto-select satellites from the regime-appropriate list
+            # LEO uses the default calibration list; other regimes use dedicated lists
+            if regime == "LEO" or regime not in REGIME_SATELLITES:
+                available_sats = list(DEFAULT_SATELLITES)
+            else:
+                available_sats = list(REGIME_SATELLITES[regime])
             random.shuffle(available_sats)
             satellites = available_sats[: min(object_count, len(available_sats))]
-            logger.info(f"Auto-selected {len(satellites)} satellites: {satellites}")
+            logger.info(
+                f"Auto-selected {len(satellites)} {regime} satellites: {satellites}"
+            )
 
-        timeframe = config.get("timeframe", 7)
+        timeframe = min(int(config.get("timeframe", 7)), 365)
         timeunit = config.get("timeunit", "days")
 
         # Parse start_date and end_date if provided
@@ -158,28 +228,39 @@ def run_dataset_generation(
         end_date_str = config.get("end_date")
 
         if end_date_str:
-            from datetime import datetime
+            from datetime import datetime, timezone
+
+            def _parse_iso_datetime(date_str: str, end_of_day: bool = False) -> datetime:
+                """Parse an ISO date/datetime string into a timezone-aware UTC datetime.
+
+                Always returns a timezone-aware datetime to avoid naive/aware
+                subtraction errors.  Date-only strings (no 'T') get midnight
+                (start of day) or 23:59:59 (end of day) in UTC.
+                """
+                if "T" in date_str:
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                else:
+                    suffix = "T23:59:59+00:00" if end_of_day else "T00:00:00+00:00"
+                    dt = datetime.fromisoformat(date_str + suffix)
+                # Ensure timezone-aware (UTC) even if the source had no tz info
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
 
             try:
-                # Parse end_date - handle both date-only and full datetime formats
-                if "T" in end_date_str:
-                    end_time = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-                else:
-                    # Date only - set to end of day
-                    end_time = datetime.fromisoformat(end_date_str + "T23:59:59")
+                end_time = _parse_iso_datetime(end_date_str, end_of_day=True)
                 logger.info(f"Using end_date from config: {end_time}")
 
                 # If both dates provided, calculate timeframe from them
                 if start_date_str:
-                    if "T" in start_date_str:
-                        start_time = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-                    else:
-                        start_time = datetime.fromisoformat(start_date_str + "T00:00:00")
-                    # Calculate timeframe in days
+                    start_time = _parse_iso_datetime(start_date_str, end_of_day=False)
+                    # Calculate timeframe in days (round up to avoid losing partial days)
                     delta = end_time - start_time
-                    timeframe = max(1, delta.days)
+                    total_seconds = delta.total_seconds()
+                    timeframe = max(1, int(total_seconds / 86400) + (1 if total_seconds % 86400 else 0))
                     timeunit = "days"
-                    logger.info(f"Calculated timeframe from dates: {timeframe} {timeunit}")
+                    logger.info(f"Calculated timeframe from dates: {timeframe} {timeunit} "
+                                f"(start={start_time}, end={end_time})")
             except (ValueError, TypeError) as e:
                 logger.warning(f"Failed to parse dates: {e}, falling back to timeframe={timeframe}")
                 end_time = "now"
@@ -224,8 +305,7 @@ def run_dataset_generation(
         search_strategy = config.get("search_strategy", "hybrid")
         window_size_minutes = config.get("window_size_minutes", 10)
 
-        # Get regime from config (used for windowed strategy)
-        regime = config.get("regime", "LEO")
+        # regime was already extracted above for satellite selection
 
         # Get non-reference observation config (for True Negative calculation)
         include_non_ref_obs = config.get("include_non_ref_obs", True)
@@ -262,7 +342,7 @@ def run_dataset_generation(
             dt=0.5,
             max_datapoints=0,
             end_time=end_time,
-            use_database=True,
+            use_database=False,  # Worker persists to production DB directly
             dataset_name=config.get("name"),
             downsample_config=downsample_config,
             simulation_config=simulation_config,
@@ -288,6 +368,33 @@ def run_dataset_generation(
         db = get_db()
         observation_count = len(dataset_obs) if dataset_obs is not None else 0
         satellite_count = len(actual_sats) if actual_sats is not None else 0
+
+        # Detect empty results and fail gracefully instead of creating a 0-object dataset
+        if satellite_count == 0 or observation_count == 0:
+            error_msg = (
+                "No observations found for the specified parameters. "
+                "The UDL API returned no data for the selected orbital regime and time window. "
+                "Try expanding the date range, selecting a different orbital regime, "
+                "or verifying that your UDL token has access to the requested data."
+            )
+            logger.warning(
+                f"Dataset generation produced 0 results for job {job_id}: "
+                f"satellite_count={satellite_count}, observation_count={observation_count}"
+            )
+            db.execute(
+                """
+                UPDATE datasets
+                SET status = 'failed',
+                    error_message = ?,
+                    satellite_count = 0,
+                    observation_count = 0,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (error_msg, dataset_id),
+            )
+            job_manager.fail_job(job_id, error_msg)
+            return
 
         # Calculate coverage as ratio of satellites with full data vs requested
         requested_count = len(satellites)
@@ -356,16 +463,72 @@ def run_dataset_generation(
             ),
         )
 
-        # Link observations to dataset if we have observation data
-        # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable
-        progress_callback(DatasetStage.PERSISTING_DATABASE, 0.5)
-        logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
+        # Persist observations to the production database, then link them.
+        # Previously generateDataset() with use_database=True wrote only to
+        # a local DuckDB instance, leaving the production PostgreSQL without
+        # the actual observation rows.  The worker now handles persistence
+        # directly so the download endpoint's JOIN succeeds.
+        progress_callback(DatasetStage.PERSISTING_DATABASE, 0.4)
+        logger.info(f"[WORKER] Persisting observations to production DB for dataset {dataset_id}")
         if obs_truth is not None and not obs_truth.empty and "id" in obs_truth.columns:
+            import pandas as pd
+
+            # Rename camelCase API columns to snake_case DB columns
+            obs_for_db = obs_truth.copy()
+            obs_for_db = obs_for_db.rename(
+                columns={
+                    "satNo": "sat_no",
+                    "obTime": "ob_time",
+                    "sensorName": "sensor_name",
+                    "idSensor": "sensor_id",
+                    "dataMode": "data_mode",
+                    "trackId": "track_id",
+                    "senderLatitude": "send_lat",
+                    "senderLongitude": "send_long",
+                    "senderAltitude": "send_alt",
+                    "typeOptical": "type_optical",
+                    "classificationMarking": "classification_marking",
+                    "idOnOrbit": "id_on_orbit",
+                    "taskId": "task_id",
+                    "origObjectId": "orig_object_id",
+                    "origSensorId": "orig_sensor_id",
+                    "senx": "sen_x",
+                    "seny": "sen_y",
+                    "senz": "sen_z",
+                    "expDuration": "exp_duration",
+                    "magUnc": "mag_unc",
+                    "geolat": "geo_lat",
+                    "geolon": "geo_lon",
+                    "geoalt": "geo_alt",
+                    "georange": "geo_range",
+                    "senlat": "send_lat",
+                    "senlon": "send_long",
+                    "senalt": "send_alt",
+                    "range": "range_km",
+                    "rangeRate": "range_rate_km_s",
+                    "uct": "is_uct",
+                    "isSimulated": "is_simulated",
+                    "createdAt": "created_at",
+                }
+            )
+            # Filter out rows with all-NaN coordinates before DB insert
+            coord_cols = [c for c in ["ra", "declination", "geo_lat", "geo_lon", "geo_alt", "geo_range"] if c in obs_for_db.columns]
+            if coord_cols:
+                before_count = len(obs_for_db)
+                obs_for_db = obs_for_db.dropna(subset=coord_cols, how="all")
+                dropped = before_count - len(obs_for_db)
+                if dropped > 0:
+                    logger.warning(f"Dropped {dropped} observations with all-NaN coordinates before DB insert")
+            inserted = db.observations.bulk_insert(obs_for_db)
+            logger.info(f"Persisted {inserted} observations to production DB for dataset {dataset_id}")
+
+            # Link observations to dataset
+            # NOTE: This is a CRITICAL step - if linking fails, the dataset is unusable
+            progress_callback(DatasetStage.PERSISTING_DATABASE, 0.7)
+            logger.info(f"[WORKER] About to link observations for dataset {dataset_id}")
             obs_ids = obs_truth["id"].tolist()
             track_assignments = {}
             if "trackId" in obs_truth.columns:
-                import pandas as pd
-
                 INT32_MAX = 2147483647  # Max value for INT32
                 for _, row in obs_truth.iterrows():
                     track_id = row.get("trackId")
@@ -382,9 +545,18 @@ def run_dataset_generation(
                         except (ValueError, TypeError):
                             track_id = None
                     track_assignments[row["id"]] = track_id
-            # Don't catch exceptions here - linking failure should fail the entire job
-            # A dataset without linked observations is corrupted and unusable
-            db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+            # Wrap linking in try/except: if linking fails, clean up orphaned observations
+            try:
+                db.datasets.add_observations_to_dataset(dataset_id, obs_ids, track_assignments)
+            except Exception as link_err:
+                logger.error(f"Failed to link observations to dataset {dataset_id}: {link_err}. Rolling back inserted observations.")
+                try:
+                    placeholders = ",".join(["?"] * len(obs_ids))
+                    db.execute(f"DELETE FROM observations WHERE id IN ({placeholders})", tuple(obs_ids))
+                    logger.info(f"Rolled back {len(obs_ids)} orphaned observations for dataset {dataset_id}")
+                except Exception as cleanup_err:
+                    logger.error(f"CRITICAL: Failed to clean up orphaned observations for dataset {dataset_id}: {cleanup_err}")
+                raise
             logger.info(f"Linked {len(obs_ids)} observations to dataset {dataset_id}")
         else:
             # If we have no observations to link, this is also an error
@@ -424,12 +596,12 @@ def run_dataset_generation(
             db = get_db()
             # Rollback any failed transaction state before executing update
             try:
-                db._connection.rollback()
+                db.execute("ROLLBACK")
             except Exception as rollback_error:
-                logger.debug(f"Rollback not needed or failed: {rollback_error}")
+                logger.debug(f"Rollback not needed or failed (expected if not in transaction): {rollback_error}")
             db.execute(
-                "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (dataset_id,),
+                "UPDATE datasets SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (error_msg, dataset_id),
             )
         except Exception as db_error:
             # Log the secondary failure - this is critical as the dataset will be stuck in 'generating' state
@@ -640,7 +812,15 @@ def run_evaluation_pipeline(
             except Exception as hist_err:
                 logger.debug(f"Histogram generation skipped: {hist_err}")
 
-        # Store results in database
+        # Compute composite score from binary, state, and residual metrics
+        _f1 = binary_results.get("f1_score", binary_results.get("F1Score"))
+        _pos_rms = state_results.get("position_rms_km")
+        _ra_rms = state_results.get("ra_residual_rms_arcsec")
+        _dec_rms = state_results.get("dec_residual_rms_arcsec")
+        composite_score = compute_composite_score(_f1, _pos_rms, _ra_rms, _dec_rms)
+        logger.info(f"Composite score for submission {submission_id}: {composite_score:.4f}")
+
+        # Store results in database (upsert to handle re-evaluation gracefully)
         db.execute(
             """
             INSERT INTO submission_results (
@@ -656,8 +836,23 @@ def run_evaluation_pipeline(
                 accuracy,
                 position_rms_km,
                 velocity_rms_km_s,
-                raw_results
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                raw_results,
+                composite_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (submission_id) DO UPDATE SET
+                true_positives = EXCLUDED.true_positives,
+                true_negatives = EXCLUDED.true_negatives,
+                false_positives = EXCLUDED.false_positives,
+                false_negatives = EXCLUDED.false_negatives,
+                precision = EXCLUDED.precision,
+                recall = EXCLUDED.recall,
+                f1_score = EXCLUDED.f1_score,
+                specificity = EXCLUDED.specificity,
+                accuracy = EXCLUDED.accuracy,
+                position_rms_km = EXCLUDED.position_rms_km,
+                velocity_rms_km_s = EXCLUDED.velocity_rms_km_s,
+                raw_results = EXCLUDED.raw_results,
+                composite_score = EXCLUDED.composite_score
             """,
             (
                 submission_id,
@@ -673,6 +868,7 @@ def run_evaluation_pipeline(
                 state_results.get("position_rms_km", 0.0),
                 state_results.get("velocity_rms_km_s", 0.0),
                 json.dumps(raw_results_payload),
+                composite_score,
             ),
         )
 
@@ -727,6 +923,9 @@ def run_evaluation_pipeline(
 def submit_dataset_generation(
     dataset_id: int,
     config: Dict[str, Any],
+    udl_token: str,
+    esa_token: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Job:
     """
     Submit a dataset generation job to run in the background.
@@ -734,6 +933,9 @@ def submit_dataset_generation(
     Args:
         dataset_id: The database ID for the dataset
         config: Dataset generation configuration
+        udl_token: User's UDL API token (passed as arg, never stored in job metadata)
+        esa_token: User's ESA API token (optional)
+        user_id: Owner user ID for job ownership tracking
 
     Returns:
         The created Job instance
@@ -741,18 +943,11 @@ def submit_dataset_generation(
     job_manager = get_job_manager()
     job = job_manager.create_job(
         JobType.DATASET_GENERATION,
-        metadata={"dataset_id": dataset_id, "config": config},
+        metadata={"dataset_id": dataset_id, "config": config, "user_id": user_id},
     )
 
     executor = get_executor()
-
-    # In demo mode, use mock worker instead of real UDL/Orekit pipeline
-    from backend_api.demo import is_demo_mode
-    if is_demo_mode():
-        from backend_api.demo.mock_workers import run_mock_dataset_generation
-        executor.submit(run_mock_dataset_generation, job.id, dataset_id, config)
-    else:
-        executor.submit(run_dataset_generation, job.id, dataset_id, config)
+    executor.submit(run_dataset_generation, job.id, dataset_id, config, udl_token, esa_token)
 
     return job
 
@@ -761,6 +956,7 @@ def submit_evaluation(
     submission_id: int,
     dataset_id: int,
     file_path: str,
+    user_id: Optional[str] = None,
 ) -> Job:
     """
     Submit an evaluation job to run in the background.
@@ -769,6 +965,7 @@ def submit_evaluation(
         submission_id: The database ID for the submission
         dataset_id: The dataset ID to evaluate against
         file_path: Path to the uploaded results file
+        user_id: Owner user ID for job ownership tracking
 
     Returns:
         The created Job instance
@@ -780,16 +977,184 @@ def submit_evaluation(
             "submission_id": submission_id,
             "dataset_id": dataset_id,
             "file_path": file_path,
+            "user_id": user_id,
         },
     )
 
     executor = get_executor()
+    executor.submit(run_evaluation_pipeline, job.id, submission_id, dataset_id, file_path)
 
-    from backend_api.demo import is_demo_mode
-    if is_demo_mode():
-        from backend_api.demo.mock_workers import run_mock_evaluation
-        executor.submit(run_mock_evaluation, job.id, submission_id, dataset_id, file_path)
-    else:
-        executor.submit(run_evaluation_pipeline, job.id, submission_id, dataset_id, file_path)
+    return job
+
+
+# ============================================================
+# Event Detection Worker
+# ============================================================
+
+
+def run_event_detection(
+    job_id: str,
+    sat_nos: list,
+    time_window_start: "datetime",
+    time_window_end: "datetime",
+    detector_types: list,
+) -> None:
+    """
+    Worker function for event detection.
+
+    Runs in a background thread. Instantiates the requested detectors,
+    runs the LabellingPipeline, persists results, and updates job progress.
+
+    Args:
+        job_id: The job ID to update progress
+        sat_nos: List of NORAD IDs to analyze
+        time_window_start: Start of analysis window
+        time_window_end: End of analysis window
+        detector_types: List of detector type strings (launch, maneuver, proximity, breakup)
+    """
+    from datetime import datetime
+
+    job_manager = get_job_manager()
+    job_manager.start_job(job_id)
+
+    try:
+        from backend_api.database import get_db
+        from uct_benchmark.database.repository import ObservationRepository
+        from uct_benchmark.labelling.pipeline import LabellingPipeline
+        from uct_benchmark.labelling.launch_detection import LaunchDetector
+        from uct_benchmark.labelling.maneuver_detection import ManeuverDetector
+        from uct_benchmark.labelling.proximity_detection import ProximityDetector
+        from uct_benchmark.labelling.breakup_detection import BreakupDetector
+
+        db = get_db()
+        if db is None:
+            raise RuntimeError("Database not available")
+
+        job_manager.update_job(job_id, progress=10, stage="Fetching observations")
+
+        # Fetch observations for the specified satellites and time window
+        obs_repo = ObservationRepository(db)
+        observations_df = obs_repo.get_by_time_window(
+            start_time=time_window_start,
+            end_time=time_window_end,
+        )
+
+        # Filter to requested satellites if specified
+        if sat_nos:
+            observations_df = observations_df[observations_df["sat_no"].isin(sat_nos)]
+
+        if observations_df.empty:
+            job_manager.complete_job(job_id, result={
+                "events_detected": 0,
+                "message": "No observations found for the specified parameters",
+            })
+            return
+
+        job_manager.update_job(
+            job_id, progress=25,
+            stage=f"Initializing detectors ({len(observations_df)} observations)",
+        )
+
+        # Build detector list based on requested types
+        detector_map = {
+            "launch": LaunchDetector,
+            "maneuver": ManeuverDetector,
+            "proximity": ProximityDetector,
+            "breakup": BreakupDetector,
+        }
+        detectors = []
+        for dt in detector_types:
+            cls = detector_map.get(dt)
+            if cls:
+                detectors.append(cls())
+
+        if not detectors:
+            raise ValueError(f"No valid detectors for types: {detector_types}")
+
+        job_manager.update_job(
+            job_id, progress=40,
+            stage=f"Running {len(detectors)} detectors",
+        )
+
+        # Run the pipeline
+        pipeline = LabellingPipeline(
+            detectors=detectors,
+            dataset_id=f"detection_job_{job_id}",
+        )
+
+        time_window = (time_window_start, time_window_end)
+        labelled_dataset = pipeline.run(observations_df, time_window)
+
+        job_manager.update_job(
+            job_id, progress=80,
+            stage=f"Persisting {len(labelled_dataset.event_labels)} events",
+        )
+
+        # Persist to database
+        created_count = pipeline.persist(labelled_dataset, db)
+
+        summary = labelled_dataset.summary()
+        job_manager.complete_job(job_id, result={
+            "events_detected": summary["total_events"],
+            "events_persisted": created_count,
+            "events_by_type": summary["events_by_type"],
+            "events_by_confidence": summary["events_by_confidence"],
+            "observations_analyzed": len(observations_df),
+            "satellites_analyzed": observations_df["sat_no"].nunique(),
+        })
+
+        logger.info(
+            f"Event detection job {job_id} completed: "
+            f"{created_count} events persisted"
+        )
+
+    except Exception as exc:
+        error_msg = f"Event detection failed: {exc}"
+        logger.error(f"Job {job_id}: {error_msg}")
+        logger.debug(traceback.format_exc())
+        job_manager.fail_job(job_id, error_msg)
+
+
+def submit_event_detection(
+    sat_nos: list,
+    time_window_start: "datetime",
+    time_window_end: "datetime",
+    detector_types: list,
+    user_id: Optional[str] = None,
+) -> Job:
+    """
+    Submit an event detection job to run in the background.
+
+    Args:
+        sat_nos: List of NORAD IDs to analyze
+        time_window_start: Start of analysis window
+        time_window_end: End of analysis window
+        detector_types: Detector types to run
+        user_id: Owner user ID for job ownership tracking
+
+    Returns:
+        The created Job instance
+    """
+    job_manager = get_job_manager()
+    job = job_manager.create_job(
+        JobType.EVENT_DETECTION,
+        metadata={
+            "sat_nos": sat_nos,
+            "time_window_start": time_window_start.isoformat(),
+            "time_window_end": time_window_end.isoformat(),
+            "detector_types": detector_types,
+            "user_id": user_id,
+        },
+    )
+
+    executor = get_executor()
+    executor.submit(
+        run_event_detection,
+        job.id,
+        sat_nos,
+        time_window_start,
+        time_window_end,
+        detector_types,
+    )
 
     return job

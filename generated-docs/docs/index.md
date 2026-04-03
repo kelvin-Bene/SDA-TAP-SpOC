@@ -27,7 +27,7 @@ Detailed documentation about the codebase and system architecture.
 - [Architecture](technical/ARCHITECTURE.md) - Code structure and modules
 - [Pipeline](technical/PIPELINE.md) - Data flow documentation
 - [Data Sources](technical/DATA_SOURCES.md) - API integrations
-- [Database](technical/DATABASE.md) - DuckDB storage architecture
+- [Database](technical/DATABASE.md) - PostgreSQL/Supabase (production) + DuckDB (development) storage architecture
 - [Frontend](technical/FRONTEND.md) - React web interface
 - [Backend API](technical/BACKEND_API.md) - FastAPI integration
 - [Configuration](technical/CONFIGURATION.md) - System settings
@@ -99,7 +99,7 @@ The project implements a tiered pipeline system:
 
 ## Current Status
 
-**Overall Progress: ~90%** *(Updated 2026-01-31)*
+**Overall Progress: ~95%** *(Updated 2026-04-01)*
 
 | Phase | Status | Progress |
 |-------|--------|----------|
@@ -107,7 +107,7 @@ The project implements a tiered pipeline system:
 | Data Pipeline (T1-T3, Downsampling, Database) | Complete | 95% |
 | Web Platform (UI, Backend, API) | Complete | 90% |
 | Lewis Alignment (TIER_5, TrackTLE, Object Filters) | Complete | 90% |
-| Authentication | Not Started | 0% |
+| Authentication | Complete | 100% |
 
 See [Project Status](planning/PROJECT_STATUS.md) for detailed breakdown.
 

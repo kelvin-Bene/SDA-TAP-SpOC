@@ -195,9 +195,42 @@ The system expects the following data from UDL:
 
 ---
 
+## Event-Based Dataset Filtering
+
+### Current State: Infrastructure Only
+
+The database includes `events`, `event_types`, and `event_observations` tables to support event-based filtering (maneuvers, breakups, long-duration thrusts). However, no live event data source is currently connected.
+
+**Lewis's Specification:** The original design included an ML model for event detection. Per the benchmarking documentation: the event labeling ML model was "not operating" at the time of development.
+
+**Impact:**
+- The `NE` (No Events) event code works reliably as no events are assumed
+- `MB` (Maneuver Between Observations) and `BU` (Breakup) codes use heuristic fallbacks based on Space-Track breakup event data when available
+- `LL` (Long Duration/Low Thrust) events cannot be detected without dedicated ML model
+- Event-labeled datasets may have reduced accuracy compared to the original vision
+
+**Future Path:** Integration with an operational event detection model or Space-Track event notifications would enable full event-based filtering.
+
+---
+
+## Orekit Dependency for Full Evaluation
+
+### Current State: Optional Java Dependency
+
+Full evaluation (state metrics + residual metrics) requires Java 17 with Orekit for orbit propagation. Without Orekit, only binary classification metrics (TP, FP, TN, FN, F1, precision, recall) are computed.
+
+**Impact:**
+- Production Docker images include Java 17 (eclipse-temurin) for Orekit support
+- If Orekit initialization fails, evaluations are marked as "binary_only"
+- Composite leaderboard scores fall back to F1-only without state/residual components
+- The `/health` endpoint reports `orekit_available` status
+
+---
+
 ## Version History
 
 | Date | Change |
 |------|--------|
+| 2026-04-02 | Added event filtering, Orekit dependency, and sensor limitation sections |
 | 2026-01-31 | Added to generated-docs as part of documentation alignment |
 | 2026-01 | Initial documentation based on alignment analysis |

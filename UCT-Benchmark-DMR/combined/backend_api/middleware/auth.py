@@ -9,6 +9,10 @@ Authentication strategy:
     which uses ES256 asymmetric keys via JWKS, with HS256 fallback.
   - When only SUPABASE_JWT_SECRET is set: uses HS256 symmetric key directly.
   - When neither is set: development mode with a stub user (no enforcement).
+
+TODO: Consolidate with backend_api/auth.py into a single auth module.
+Both paths produce identical CurrentUser results; keeping separate for now
+because consolidation is high-risk for the auth-critical path.
 """
 
 import os
@@ -18,6 +22,8 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from loguru import logger
+
+from backend_api.auth import CurrentUser
 
 # Supabase JWT configuration
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
@@ -30,20 +36,24 @@ JWT_ALGORITHM = "HS256"
 security = HTTPBearer(auto_error=False)
 security_required = HTTPBearer(auto_error=True)
 
-# Flag: use production ES256 JWKS auth when SUPABASE_URL is available
-_use_production_auth = bool(SUPABASE_URL)
 
 
 class AuthUser:
-    """Authenticated user context extracted from JWT."""
+    """Authenticated user context extracted from JWT.
+
+    .. deprecated::
+        Use ``backend_api.auth.CurrentUser`` instead. This class is retained
+        only for backward compatibility and will be removed in a future release.
+    """
 
     def __init__(self, payload: dict[str, Any]):
         self.id: str = payload.get("sub", "")
         self.email: str = payload.get("email", "")
-        self.role: str = payload.get("role", "authenticated")
         self.app_metadata: dict = payload.get("app_metadata", {})
         self.user_metadata: dict = payload.get("user_metadata", {})
-        self.is_admin: bool = self.app_metadata.get("is_admin", False)
+        _am = self.app_metadata
+        self.role: str = _am.get("role", "user") if isinstance(_am, dict) and "role" in _am else payload.get("role", "authenticated")
+        self.is_admin: bool = self.role == "admin"
 
     def __repr__(self) -> str:
         return f"AuthUser(id={self.id}, email={self.email}, role={self.role})"
@@ -66,19 +76,44 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
         HTTPException: If token is invalid or expired
     """
     if not SUPABASE_JWT_SECRET:
-        logger.warning(
-            "SUPABASE_JWT_SECRET not configured — auth enforcement disabled. "
-            "Set this env var in production."
+        # DEMO_MODE: return a read-only demo user without any auth
+        if os.getenv("DEMO_MODE", "").lower() == "true":
+            logger.info("DEMO_MODE active — returning demo user (read-only)")
+            return {
+                "sub": "demo-user",
+                "email": "demo@uct-benchmark.example",
+                "role": "authenticated",
+                "app_metadata": {},
+                "user_metadata": {"display_name": "Demo User"},
+            }
+        # Only allow dev bypass when explicitly opted in
+        if os.getenv("ENVIRONMENT", "").lower() == "development":
+            # Safety: refuse dev bypass if a real SUPABASE_URL is configured
+            if SUPABASE_URL:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="ENVIRONMENT=development is not allowed when SUPABASE_URL is set. "
+                           "Configure SUPABASE_JWT_SECRET or remove ENVIRONMENT=development.",
+                )
+            # Safety: refuse dev bypass if using production database backend
+            if os.getenv("DATABASE_BACKEND", "").lower() in ("postgres", "supabase"):
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Dev auth bypass not available with PostgreSQL backend. "
+                           "Set SUPABASE_JWT_SECRET for authentication.",
+                )
+            logger.warning("Auth disabled — ENVIRONMENT=development. Never use in production.")
+            return {
+                "sub": "dev-user",
+                "email": "dev@localhost",
+                "role": "authenticated",
+                "app_metadata": {},
+                "user_metadata": {},
+            }
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication not configured. Set SUPABASE_URL or SUPABASE_JWT_SECRET.",
         )
-        # Return a minimal payload when auth is not configured (development/demo mode)
-        # Use admin role so all features (e.g. feedback review) are accessible
-        return {
-            "sub": "dev-user",
-            "email": "dev@localhost",
-            "role": "admin",
-            "app_metadata": {"is_admin": True},
-            "user_metadata": {},
-        }
 
     try:
         payload = jwt.decode(
@@ -110,56 +145,59 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
         )
 
 
-def _payload_to_auth_user(payload: dict[str, Any]) -> AuthUser:
+def _payload_to_current_user(payload: dict[str, Any]) -> CurrentUser:
     """
-    Convert a decoded JWT payload (from either auth path) into an AuthUser.
+    Convert a decoded JWT payload (from either auth path) into a CurrentUser.
 
     Handles the role mapping differences between the production auth module
     (which checks app_metadata.role) and the HS256 path (which reads
     top-level role).
     """
-    # Normalise role: production module sets role from app_metadata,
-    # but AuthUser also reads app_metadata in its __init__.
-    # Just pass the payload through so AuthUser can pick up all fields.
-    return AuthUser(payload)
+    user_id = payload.get("sub", "")
+    email = payload.get("email", "")
+    app_metadata = payload.get("app_metadata", {})
+    role = (
+        app_metadata.get("role", "user")
+        if isinstance(app_metadata, dict) and "role" in app_metadata
+        else payload.get("role", "authenticated")
+    )
+    return CurrentUser(id=user_id, email=email, role=role)
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_required),
-) -> AuthUser:
+) -> CurrentUser:
     """
     FastAPI dependency that extracts and validates the current user from JWT.
 
     In production (SUPABASE_URL set): uses ES256 JWKS via backend_api.auth,
     with automatic HS256 fallback.
     In development (only SUPABASE_JWT_SECRET or nothing): uses HS256 directly.
-    In demo mode (DEMO_MODE=true): accepts the dummy "demo-token" from frontend.
 
     Usage:
         @router.get("/protected")
-        async def protected_route(user: AuthUser = Depends(get_current_user)):
+        async def protected_route(user: CurrentUser = Depends(get_current_user)):
             return {"user_id": user.id}
     """
     token = credentials.credentials
 
-    # Demo mode: accept the dummy token sent by the frontend
-    from backend_api.demo import is_demo_mode
-    if is_demo_mode() and token == "demo-token":
-        return AuthUser({
-            "sub": "dev-user",
-            "email": "demo@spoc-benchmark.org",
-            "role": "admin",
-            "app_metadata": {"is_admin": True},
-            "user_metadata": {},
+    # Accept demo-token in demo mode without any JWT validation
+    if os.getenv("DEMO_MODE", "").lower() == "true" and token == "demo-token":
+        logger.info("DEMO_MODE active — accepting demo-token")
+        return _payload_to_current_user({
+            "sub": "demo-user",
+            "email": "demo@uct-benchmark.example",
+            "role": "authenticated",
+            "app_metadata": {},
+            "user_metadata": {"display_name": "Demo User"},
         })
 
-    if _use_production_auth:
+    if bool(os.getenv("SUPABASE_URL", "")):
         # Delegate to production ES256 JWKS auth (with HS256 fallback built in)
         try:
             from backend_api.auth import _decode_jwt, _build_current_user
             payload = _decode_jwt(token)
-            # Convert the production CurrentUser fields into an AuthUser-compatible payload
-            return _payload_to_auth_user(payload)
+            return _payload_to_current_user(payload)
         except HTTPException:
             raise
         except Exception as e:
@@ -172,12 +210,12 @@ async def get_current_user(
     else:
         # HS256-only path (development or SUPABASE_JWT_SECRET-only environments)
         payload = _decode_token_hs256(token)
-        return AuthUser(payload)
+        return _payload_to_current_user(payload)
 
 
 async def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[AuthUser]:
+) -> Optional[CurrentUser]:
     """
     FastAPI dependency for optional authentication.
     Returns None if no token is provided, validates if present.
@@ -189,22 +227,22 @@ async def get_optional_user(
 
     token = credentials.credentials
 
-    # Demo mode: accept the dummy token sent by the frontend
-    from backend_api.demo import is_demo_mode
-    if is_demo_mode() and token == "demo-token":
-        return AuthUser({
-            "sub": "dev-user",
-            "email": "demo@spoc-benchmark.org",
-            "role": "admin",
-            "app_metadata": {"is_admin": True},
-            "user_metadata": {},
+    # Accept demo-token in demo mode without any JWT validation
+    if os.getenv("DEMO_MODE", "").lower() == "true" and token == "demo-token":
+        logger.info("DEMO_MODE active — accepting demo-token (optional auth)")
+        return _payload_to_current_user({
+            "sub": "demo-user",
+            "email": "demo@uct-benchmark.example",
+            "role": "authenticated",
+            "app_metadata": {},
+            "user_metadata": {"display_name": "Demo User"},
         })
 
-    if _use_production_auth:
+    if bool(os.getenv("SUPABASE_URL", "")):
         try:
             from backend_api.auth import _decode_jwt
             payload = _decode_jwt(token)
-            return _payload_to_auth_user(payload)
+            return _payload_to_current_user(payload)
         except HTTPException:
             raise
         except Exception as e:
@@ -216,18 +254,18 @@ async def get_optional_user(
             )
     else:
         payload = _decode_token_hs256(token)
-        return AuthUser(payload)
+        return _payload_to_current_user(payload)
 
 
 async def require_admin(
-    user: AuthUser = Depends(get_current_user),
-) -> AuthUser:
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
     """
     FastAPI dependency that requires admin role.
 
     Usage:
         @router.delete("/admin-only")
-        async def admin_route(user: AuthUser = Depends(require_admin)):
+        async def admin_route(user: CurrentUser = Depends(require_admin)):
             ...
     """
     if not user.is_admin:

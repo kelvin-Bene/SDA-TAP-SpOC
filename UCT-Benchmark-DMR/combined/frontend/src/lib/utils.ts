@@ -25,13 +25,16 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function formatDate(date: Date | string | undefined | null): string {
-  if (!date) return 'N/A';
+  if (date === undefined || date === null) return 'N/A';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return 'N/A';
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   });
 }
 

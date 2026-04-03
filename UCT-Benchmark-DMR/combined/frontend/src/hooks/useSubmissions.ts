@@ -15,6 +15,7 @@ interface SubmissionResponse {
   score?: number;
   job_id?: string;
   queue_position?: number;
+  rank?: number;
 }
 
 interface HistogramResponse {
@@ -72,22 +73,8 @@ function transformSubmission(data: SubmissionResponse): Submission {
     completedAt: data.completed_at,
     queuePosition: data.queue_position,
     results: data.score !== undefined ? {
-      truePositives: 0,
-      trueNegatives: 0,
-      falsePositives: 0,
-      falseNegatives: 0,
-      precision: 0,
-      recall: 0,
       f1Score: data.score,
-      accuracy: 0,
-      specificity: 0,
-      positionRmsKm: 0,
-      velocityRmsKmS: 0,
-      mahalanobisDistance: 0,
-      raResidualRmsArcsec: 0,
-      decResidualRmsArcsec: 0,
-      satelliteResults: [],
-      rank: undefined,
+      rank: data.rank ?? undefined,
     } : undefined,
   };
 }
@@ -120,7 +107,7 @@ function transformResults(data: ResultsResponse): SubmissionResults {
     raResidualHistogram: data.ra_residual_histogram,
     decResidualHistogram: data.dec_residual_histogram,
     positionErrorHistogram: data.position_error_histogram,
-    rank: data.rank ?? 0,
+    rank: data.rank ?? undefined,
     previousRank: data.previous_rank,
   };
 }
@@ -153,6 +140,14 @@ export function useSubmission(id: string) {
       return transformSubmission(response.data as SubmissionResponse);
     },
     enabled: !!id,
+    // Don't retry on 404 — the submission simply doesn't exist
+    retry: (failureCount, error) => {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const status = (error as { response?: { status?: number } }).response?.status;
+        if (status === 404) return false;
+      }
+      return failureCount < 2;
+    },
   });
 }
 
@@ -178,6 +173,9 @@ export function useCreateSubmission() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-statistics'] });
     },
   });
 }
@@ -190,6 +188,15 @@ export function useResults(submissionId: string) {
       return transformResults(response.data as ResultsResponse);
     },
     enabled: !!submissionId,
+    refetchOnMount: true,
+    // Don't retry on 404 — the submission simply doesn't exist
+    retry: (failureCount, error) => {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const status = (error as { response?: { status?: number } }).response?.status;
+        if (status === 404) return false;
+      }
+      return failureCount < 2;
+    },
   });
 }
 

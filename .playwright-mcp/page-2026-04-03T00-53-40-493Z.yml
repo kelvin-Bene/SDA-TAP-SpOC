@@ -1,0 +1,226 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - banner:
+          - generic:
+            - button:
+              - img
+              - generic: Toggle menu
+            - link:
+              - /url: /
+              - generic:
+                - generic:
+                  - img
+              - generic:
+                - generic: SpOC
+                - generic: UCT Benchmark
+            - navigation:
+              - link:
+                - /url: /datasets
+                - text: Datasets
+              - link:
+                - /url: /submit
+                - text: Submit
+              - link:
+                - /url: /leaderboard
+                - text: Leaderboard
+              - link:
+                - /url: /docs
+                - text: Docs
+            - generic:
+              - button:
+                - img
+                - generic: "2"
+                - generic: Notifications
+              - button:
+                - img
+                - generic: User menu
+        - generic:
+          - complementary:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - navigation:
+                      - link:
+                        - /url: /
+                        - img
+                        - text: Dashboard
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Datasets
+                          - img
+                        - generic:
+                          - link:
+                            - /url: /datasets
+                            - text: Browse Datasets
+                          - link:
+                            - /url: /datasets/generate
+                            - text: Generate Dataset
+                          - link:
+                            - /url: /datasets/my-datasets
+                            - text: My Datasets
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Submit
+                          - img
+                        - generic:
+                          - generic:
+                            - link:
+                              - /url: /submit
+                              - text: New Submission
+                            - link:
+                              - /url: /submit/my-submissions
+                              - text: My Submissions
+                      - link:
+                        - /url: /leaderboard
+                        - img
+                        - text: Leaderboard
+                      - link:
+                        - /url: /docs
+                        - img
+                        - text: Documentation
+                    - generic:
+                      - heading [level=4]:
+                        - img
+                        - text: Quick Actions
+                      - link:
+                        - /url: /datasets/generate
+                        - button:
+                          - generic:
+                            - img
+                          - text: Generate Dataset
+                      - link:
+                        - /url: /submit
+                        - button:
+                          - generic:
+                            - img
+                          - text: Upload Submission
+                    - generic:
+                      - heading [level=4]:
+                        - img
+                        - text: Recent
+                      - generic:
+                        - link:
+                          - /url: /results/1
+                          - img
+                          - generic: MyUCTP v2.1 Results
+                        - link:
+                          - /url: /datasets
+                          - img
+                          - generic: LEO-T2-2026-01-15
+              - generic:
+                - generic:
+                  - generic: All systems operational
+          - main:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Submit Algorithm Results
+                  - paragraph: Upload your UCT algorithm results for evaluation against benchmark datasets
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - heading [level=3]: Sample UCTP Files
+                    - paragraph: Download a sample UCTP output file, then submit it below to see evaluation results
+                  - generic:
+                    - generic:
+                      - button [disabled]:
+                        - img
+                        - text: High-Quality Sample
+                        - generic: ~0.94 F1
+                      - button [disabled]:
+                        - img
+                        - text: Medium-Quality Sample
+                        - generic: ~0.78 F1
+                      - button [disabled]:
+                        - img
+                        - text: Low-Quality Sample
+                        - generic: ~0.55 F1
+                    - paragraph: Select a target dataset below first to download sample files.
+                - generic:
+                  - generic:
+                    - heading [level=3]: Upload Submission File
+                    - paragraph: Upload your algorithm output in JSON format (max 50MB)
+                  - generic:
+                    - generic:
+                      - button
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: Drag & drop your submission file here
+                          - paragraph: or browse files
+                        - paragraph: "Accepts: .json (max 50MB)"
+                - generic:
+                  - generic:
+                    - heading [level=3]: Submission Details
+                    - paragraph: Provide information about your algorithm and select the target dataset
+                  - generic:
+                    - generic:
+                      - text: Target Dataset
+                      - combobox [expanded]:
+                        - generic: Select a dataset...
+                        - img
+                    - generic:
+                      - text: Algorithm Name
+                      - textbox:
+                        - /placeholder: e.g., MyUCTP
+                    - generic:
+                      - text: Version
+                      - textbox:
+                        - /placeholder: e.g., v2.1
+                    - generic:
+                      - text: Description (optional)
+                      - textbox:
+                        - /placeholder: Brief description of this submission or changes from previous version...
+                    - generic:
+                      - text: Organization (optional)
+                      - textbox:
+                        - /placeholder: e.g., DMR Lab, TAP Lab
+                      - paragraph: Classification marking label for your organization
+                - generic:
+                  - button: Cancel
+                  - button:
+                    - img
+                    - text: Submit for Evaluation
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic:
+                        - paragraph: Submission Guidelines
+                        - paragraph:
+                          - text: Make sure your submission file follows the required JSON schema. See the
+                          - link:
+                            - /url: /docs
+                            - text: documentation
+                          - text: for detailed format specifications and examples.
+    - list
+    - button:
+      - img
+  - listbox [ref=e196]:
+    - option "LEO-standard-2026-04-03-20260403-005004-3a6b7420" [active] [ref=e197]:
+      - generic [ref=e199]: LEO-standard-2026-04-03-20260403-005004-3a6b7420
+    - option "LEO-Maneuver-T2-Optical" [ref=e200]:
+      - generic [ref=e202]: LEO-Maneuver-T2-Optical
+    - option "MEO-Standard-T2-Radar" [ref=e203]:
+      - generic [ref=e205]: MEO-Standard-T2-Radar
+    - option "GEO-HAMR-T2-Optical" [ref=e206]:
+      - generic [ref=e208]: GEO-HAMR-T2-Optical
+    - option "LEO-Mixed-T3-Fusion" [ref=e209]:
+      - generic [ref=e211]: LEO-Mixed-T3-Fusion
+    - option "GEO-Comms-T2-Optical" [ref=e212]:
+      - generic [ref=e214]: GEO-Comms-T2-Optical
+    - option "MEO-Navigation-T1-Radar" [ref=e215]:
+      - generic [ref=e217]: MEO-Navigation-T1-Radar
+    - option "LEO-Standard-T2-Downsampled" [ref=e218]:
+      - generic [ref=e220]: LEO-Standard-T2-Downsampled
+    - option "LEO-Calibration-T1-Optical" [ref=e221]:
+      - generic [ref=e223]: LEO-Calibration-T1-Optical

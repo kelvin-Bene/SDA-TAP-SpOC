@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,42 +12,142 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Copy, Eye, Loader2, History } from 'lucide-react';
-import { formatDate, formatFileSize } from '@/lib/utils';
-import { useDatasets, useDeleteDataset, transformDataset } from '@/hooks/useDatasets';
+import { Plus, Download, Trash2, Copy, Eye, Loader2, History, AlertCircle } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn, formatDate, formatFileSize } from '@/lib/utils';
+import { downloadBlob } from '@/lib/downloadUtils';
+import { useDatasets, useDeleteDataset, useDownloadDataset, transformDataset } from '@/hooks/useDatasets';
 import { api } from '@/api/client';
+import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/hooks/use-toast';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
-  const { data: datasets, isLoading, error } = useDatasets();
+  const { data: datasets, isLoading, error, refetch } = useDatasets({ mine: true });
   const deleteDataset = useDeleteDataset();
+  const downloadMutation = useDownloadDataset();
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
   const [versionHistory, setVersionHistory] = useState<Dataset[] | null>(null);
   const [versionDataset, setVersionDataset] = useState<Dataset | null>(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const userDatasets = datasets ?? [];
+
+  // Read highlight param from URL (set after successful generation)
+  useEffect(() => {
+    const id = searchParams.get('highlight');
+    if (id) {
+      setHighlightId(id);
+      refetch();
+      // Remove the param from the URL so it doesn't persist on refresh
+      searchParams.delete('highlight');
+      setSearchParams(searchParams, { replace: true });
+      // Clear the highlight after the animation plays
+      const timer = setTimeout(() => setHighlightId(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams, refetch]);
 
   const handleShowVersions = async (dataset: Dataset) => {
     setVersionDataset(dataset);
     setLoadingVersions(true);
     try {
       const response = await api.getDatasetVersions(dataset.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setVersionHistory((response.data ?? []).map((d: any) => transformDataset(d)));
     } catch {
       setVersionHistory([]);
+      toast({
+        title: 'Version history unavailable',
+        description: 'Could not load version history for this dataset.',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingVersions(false);
     }
+  };
+
+  const handleView = (dataset: Dataset) => {
+    navigate(`/datasets/${dataset.id}`);
+  };
+
+  const handleDownload = async (dataset: Dataset) => {
+    setDownloadingId(dataset.id);
+    try {
+      const blob = await downloadMutation.mutateAsync(dataset.id);
+      downloadBlob(blob, `${dataset.name}.json`);
+    } catch (err: unknown) {
+      console.error('Download failed:', err);
+      const axiosErr = err as { response?: { status?: number; data?: unknown } };
+      let serverDetail = '';
+      if (axiosErr?.response?.data instanceof Blob) {
+        try {
+          const text = await axiosErr.response.data.text();
+          const parsed = JSON.parse(text);
+          serverDetail = parsed.detail || '';
+        } catch { /* ignore */ }
+      } else if (axiosErr?.response?.data && typeof axiosErr.response.data === 'object') {
+        serverDetail = (axiosErr.response.data as { detail?: string }).detail || '';
+      }
+      const status = axiosErr?.response?.status;
+      toast({
+        title: 'Download failed',
+        description: status === 404 && serverDetail
+          ? serverDetail
+          : status === 400
+            ? serverDetail || 'This dataset is not available for download.'
+            : 'Failed to download dataset. The server may be unavailable.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleCopyId = (dataset: Dataset) => {
+    navigator.clipboard.writeText(dataset.id).then(() => {
+      toast({
+        title: 'Copied',
+        description: `Dataset ID "${dataset.id}" copied to clipboard.`,
+      });
+    }).catch(() => {
+      toast({
+        title: 'Copy failed',
+        description: 'Could not copy dataset ID to clipboard.',
+        variant: 'destructive',
+      });
+    });
   };
 
   const handleDeleteClick = (dataset: Dataset) => {
     setDatasetToDelete(dataset);
   };
 
-  const handleDeleteConfirm = () => {
-    if (datasetToDelete) {
-      deleteDataset.mutate(datasetToDelete.id);
+  const handleDeleteConfirm = async () => {
+    if (!datasetToDelete) return;
+    try {
+      await deleteDataset.mutateAsync(datasetToDelete.id);
+      toast({
+        title: 'Dataset Deleted',
+        description: `"${datasetToDelete.name}" has been permanently deleted.`,
+      });
+    } catch (err: unknown) {
+      const detail = (err as any)?.response?.data?.detail;
+      toast({
+        title: 'Delete Failed',
+        description: detail || 'Failed to delete dataset. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
       setDatasetToDelete(null);
     }
   };
@@ -86,7 +186,7 @@ export function MyDatasetsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {userDatasets.reduce((acc, d) => acc + d.objectCount, 0)}
+              {userDatasets.filter((d) => d.status !== 'failed').reduce((acc, d) => acc + d.objectCount, 0)}
             </p>
           </CardContent>
         </Card>
@@ -121,23 +221,57 @@ export function MyDatasetsPage() {
               <p>No datasets yet. Generate one to get started.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Regime</TableHead>
-                  <TableHead>Tier</TableHead>
-                  <TableHead>Objects</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead scope="col">Name</TableHead>
+                  <TableHead scope="col">Status</TableHead>
+                  <TableHead scope="col">Version</TableHead>
+                  <TableHead scope="col">Regime</TableHead>
+                  <TableHead scope="col">Tier</TableHead>
+                  <TableHead scope="col">Objects</TableHead>
+                  <TableHead scope="col">Size</TableHead>
+                  <TableHead scope="col">Created</TableHead>
+                  <TableHead scope="col" className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {userDatasets.map((dataset) => (
-                  <TableRow key={dataset.id}>
+                  <TableRow
+                    key={dataset.id}
+                    className={cn(
+                      dataset.status === 'failed' && 'opacity-70',
+                      highlightId === dataset.id && 'animate-highlight-pulse'
+                    )}
+                  >
                     <TableCell className="font-medium">{dataset.name}</TableCell>
+                    <TableCell>
+                      {dataset.status === 'failed' ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="gap-1 cursor-help">
+                                <AlertCircle className="h-3 w-3" />
+                                Failed
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>{dataset.errorMessage || 'Dataset generation failed.'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : dataset.status === 'generating' ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Generating
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-green-600 border-green-600/30">
+                          Available
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-mono">
                         v{dataset.version ?? 1}
@@ -153,45 +287,67 @@ export function MyDatasetsPage() {
                         {dataset.tier}
                       </Badge>
                     </TableCell>
-                    <TableCell>{dataset.objectCount}</TableCell>
-                    <TableCell>{dataset.sizeBytes > 0 ? formatFileSize(dataset.sizeBytes) : '-'}</TableCell>
+                    <TableCell>{dataset.status === 'failed' ? '-' : dataset.objectCount}</TableCell>
+                    <TableCell>{dataset.status === 'failed' ? '-' : dataset.sizeBytes > 0 ? formatFileSize(dataset.sizeBytes) : '-'}</TableCell>
                     <TableCell>{formatDate(dataset.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="Preview dataset">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={dataset.status === 'failed' ? 'Dataset generation failed' : 'View dataset'}
+                          onClick={() => handleView(dataset)}
+                          disabled={dataset.status === 'failed'}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           title="Version history"
-                          aria-label="Version history"
                           onClick={() => handleShowVersions(dataset)}
                         >
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" aria-label="Download dataset">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" aria-label="Copy dataset ID">
-                          <Copy className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={dataset.status === 'failed' ? 'Dataset generation failed' : 'Download dataset'}
+                          onClick={() => handleDownload(dataset)}
+                          disabled={downloadingId === dataset.id || dataset.status === 'failed'}
+                        >
+                          {downloadingId === dataset.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive"
-                          aria-label="Delete dataset"
-                          onClick={() => handleDeleteClick(dataset)}
-                          disabled={deleteDataset.isPending}
+                          title="Copy dataset ID"
+                          onClick={() => handleCopyId(dataset)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Copy className="h-4 w-4" />
                         </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => handleDeleteClick(dataset)}
+                            disabled={deleteDataset.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

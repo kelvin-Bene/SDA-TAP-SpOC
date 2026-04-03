@@ -438,7 +438,7 @@ class ObservationRepository(BaseRepository):
             "is_uct",
             "is_simulated",
             "created_at",
-            # Full EO observation fields (per Benchmarking Documentation)
+            # Full EO observation fields (matching production Supabase schema)
             "classification_marking",
             "id_on_orbit",
             "task_id",
@@ -447,29 +447,13 @@ class ObservationRepository(BaseRepository):
             "sen_x",
             "sen_y",
             "sen_z",
-            "sen_vel_x",
-            "sen_vel_y",
-            "sen_vel_z",
             "exp_duration",
-            "zeroptd",
-            "net_obj_sig",
-            "net_obj_sig_unc",
             "mag",
             "mag_unc",
             "geo_lat",
             "geo_lon",
             "geo_alt",
             "geo_range",
-            "solar_phase_angle",
-            "solar_eq_phase_angle",
-            "solar_dec_angle",
-            "shutter_delay",
-            "raw_file_uri",
-            "created_by",
-            "orig_network",
-            "los_unc",
-            "source",
-            "obs_type",
         ]
 
         # Filter to only columns that exist in DataFrame and are valid

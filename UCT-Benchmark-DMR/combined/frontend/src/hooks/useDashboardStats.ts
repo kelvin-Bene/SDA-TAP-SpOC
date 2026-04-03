@@ -81,7 +81,7 @@ export function useDashboardStats() {
       // Find the submission with best score and its dataset
       const completedWithScores = submissions.filter((s) => s.score !== undefined && s.score !== null);
       const bestSubmission = completedWithScores.reduce<SubmissionResponse | null>(
-        (best, curr) => (!best || (curr.score || 0) > (best.score || 0) ? curr : best),
+        (best, curr) => (!best || (curr.score ?? 0) > (best.score ?? 0) ? curr : best),
         null
       );
 
@@ -99,14 +99,14 @@ export function useDashboardStats() {
       }
 
       const dashboardStats: DashboardStats = {
-        topRank: topEntry?.rank || 0,
+        topRank: topEntry?.rank ?? 0,
         topAlgorithmName: topEntry?.algorithm_name || 'No submissions yet',
-        topF1Score: topEntry?.f1_score || 0,
+        topF1Score: topEntry?.f1_score ?? 0,
 
-        totalSubmissions: stats.total_submissions || 0,
+        totalSubmissions: stats.total_submissions ?? 0,
         processingCount,
-        bestF1Score: stats.best_score || 0,
-        bestDatasetName: bestSubmission?.dataset_name || null,
+        bestF1Score: stats.best_score ?? 0,
+        bestDatasetName: bestSubmission?.dataset_name ?? null,
 
         submissionTrend: stats.submission_trend as 'increasing' | 'decreasing' | 'stable',
         trendPercentage,

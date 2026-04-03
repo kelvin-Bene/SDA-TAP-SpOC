@@ -106,7 +106,7 @@ export function generateLegacyCode(config: LegacyDatasetCodeConfig): string {
 
 // Parse legacy code into config
 export function parseLegacyCode(code: string): LegacyDatasetCodeConfig | null {
-  if (code.length !== 16) return null;
+  if (!validateLegacyCode(code).valid) return null;
   try {
     return {
       objectType: code[0] as LegacyObjectType,
@@ -221,11 +221,14 @@ export interface EOObservation {
 }
 
 // Dataset Types
+export type DatasetStatus = 'created' | 'generating' | 'available' | 'complete' | 'failed';
+
 export interface Dataset {
   id: string;
   name: string;
   regime: OrbitalRegime;
   tier: DataTier;
+  status: DatasetStatus;
   createdAt: string;
   objectCount: number;
   observationCount: number;
@@ -236,6 +239,7 @@ export interface Dataset {
   downloadUrl?: string;
   version?: number;
   parentId?: string;
+  errorMessage?: string;
 }
 
 export interface DatasetFilters {
@@ -253,6 +257,7 @@ export interface DatasetFilters {
     min: number;
     max: number;
   };
+  mine?: boolean;
 }
 
 // Downsampling Options
@@ -328,34 +333,34 @@ export interface Submission {
 
 export interface SubmissionResults {
   // Binary Metrics
-  truePositives: number;
-  trueNegatives: number;  // Requires non-reference observations in dataset
-  falsePositives: number;
-  falseNegatives: number;
-  precision: number;
-  recall: number;
+  truePositives?: number;
+  trueNegatives?: number;  // Requires non-reference observations in dataset
+  falsePositives?: number;
+  falseNegatives?: number;
+  precision?: number;
+  recall?: number;
   f1Score: number;
-  accuracy: number;     // (TP+TN)/(TP+TN+FP+FN)
-  specificity: number;  // TN/(TN+FP)
+  accuracy?: number;     // (TP+TN)/(TP+TN+FP+FN)
+  specificity?: number;  // TN/(TN+FP)
 
   // State Metrics
-  positionRmsKm: number;
-  velocityRmsKmS: number;
-  mahalanobisDistance: number;
+  positionRmsKm?: number;
+  velocityRmsKmS?: number;
+  mahalanobisDistance?: number;
 
   // Residual Analysis
-  raResidualRmsArcsec: number;
-  decResidualRmsArcsec: number;
+  raResidualRmsArcsec?: number;
+  decResidualRmsArcsec?: number;
 
   // Per-satellite breakdown
-  satelliteResults: SatelliteResult[];
+  satelliteResults?: SatelliteResult[];
 
   // Histogram data (real distributions from evaluation pipeline)
   raResidualHistogram?: HistogramData;
   decResidualHistogram?: HistogramData;
   positionErrorHistogram?: HistogramData;
 
-  // Rank info
+  // Rank info (computed by backend based on F1-score within the same dataset)
   rank?: number;
   previousRank?: number;
 }
@@ -404,7 +409,7 @@ export interface User {
   username: string;
   email: string;
   organization: string;
-  role: 'developer' | 'evaluator' | 'admin';
+  role: 'authenticated' | 'evaluator' | 'admin';
   createdAt: string;
   bestRank?: number;
   submissionCount: number;

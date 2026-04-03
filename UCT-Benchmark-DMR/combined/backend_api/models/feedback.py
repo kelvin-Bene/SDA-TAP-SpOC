@@ -17,6 +17,7 @@ class FeedbackCreate(BaseModel):
     recent_actions: Optional[list[dict]] = Field(None, max_length=30)
     console_errors: Optional[list[str]] = Field(None, max_length=10)
     sentry_event_id: Optional[str] = Field(None, max_length=200)
+    app_version: Optional[str] = Field(None, max_length=50)
 
 
 class FeedbackResponse(BaseModel):

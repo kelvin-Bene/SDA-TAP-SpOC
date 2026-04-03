@@ -3,8 +3,6 @@ import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { Session, Provider, AuthError, AuthChangeEvent } from '@supabase/supabase-js';
 
-const DEMO_AUTH_KEY = 'spoc-demo-auth';
-
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -24,15 +22,17 @@ interface AuthState {
 }
 
 function mapSupabaseUser(
-  supabaseUser: { id: string; email?: string; user_metadata?: Record<string, unknown>; created_at?: string }
+  supabaseUser: { id: string; email?: string; user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown>; created_at?: string }
 ): User {
   const metadata = supabaseUser.user_metadata ?? {};
+  // Only trust app_metadata for role (server-side only, not user-editable)
+  const appMetadata = supabaseUser.app_metadata ?? {};
   return {
     id: supabaseUser.id,
     username: (metadata.display_name as string) ?? (metadata.full_name as string) ?? supabaseUser.email?.split('@')[0] ?? 'user',
     email: supabaseUser.email ?? '',
     organization: (metadata.organization as string) ?? '',
-    role: (metadata.role as User['role']) ?? 'developer',
+    role: (appMetadata.role as User['role']) ?? 'authenticated',
     createdAt: supabaseUser.created_at ?? new Date().toISOString(),
     submissionCount: 0,
   };
@@ -51,7 +51,9 @@ function formatAuthError(error: AuthError): string {
   }
 }
 
-export const useAuthStore = create<AuthState>()((set) => ({
+let _authSubscription: { unsubscribe: () => void } | null = null;
+
+export const useAuthStore = create<AuthState>()((set, _get) => ({
   user: null,
   session: null,
   isAuthenticated: false,
@@ -61,29 +63,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   initialize: async () => {
     try {
-      // Demo mode: restore auth from localStorage if available
-      if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        try {
-          const stored = localStorage.getItem(DEMO_AUTH_KEY);
-          if (stored) {
-            const user: User = JSON.parse(stored);
-            set({
-              user,
-              session: null,
-              isAuthenticated: true,
-              isAdmin: user.role === 'admin',
-              isLoading: false,
-            });
-          } else {
-            set({ isLoading: false });
-          }
-        } catch {
-          localStorage.removeItem(DEMO_AUTH_KEY);
-          set({ isLoading: false });
-        }
-        return;
-      }
-
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
@@ -105,8 +84,13 @@ export const useAuthStore = create<AuthState>()((set) => ({
         set({ isLoading: false, isAuthenticated: false });
       }
 
+      // Prevent duplicate listeners (e.g. during HMR)
+      if (_authSubscription) {
+        _authSubscription.unsubscribe();
+      }
+
       // Listen for auth state changes (sign in, sign out, token refresh)
-      supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
         if (newSession?.user) {
           const user = mapSupabaseUser(newSession.user);
           set({
@@ -126,6 +110,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           });
         }
       });
+      _authSubscription = subscription;
     } catch (err) {
       console.error('Auth initialization failed:', err);
       set({ isLoading: false, isAuthenticated: false });
@@ -135,27 +120,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      // Demo mode: bypass Supabase, set mock user directly and persist
-      if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        const demoUser: User = {
-          id: 'dev-user',
-          email: 'demo@spoc-benchmark.org',
-          username: 'Demo User',
-          organization: 'SpOC Demo',
-          role: 'developer',
-          createdAt: new Date().toISOString(),
-          submissionCount: 0,
-        };
-        localStorage.setItem(DEMO_AUTH_KEY, JSON.stringify(demoUser));
-        set({
-          user: demoUser,
-          session: null,
-          isAuthenticated: true,
-          isAdmin: false,
-          isLoading: false,
-        });
-        return;
-      }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         set({ isLoading: false, error: formatAuthError(error) });
@@ -213,17 +177,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   logout: async () => {
     set({ isLoading: true, error: null });
-    if (import.meta.env.VITE_DEMO_MODE === 'true') {
-      localStorage.removeItem(DEMO_AUTH_KEY);
-      set({
-        user: null,
-        session: null,
-        isAuthenticated: false,
-        isAdmin: false,
-        isLoading: false,
-      });
-      return;
-    }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {

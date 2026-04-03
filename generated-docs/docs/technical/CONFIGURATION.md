@@ -465,7 +465,7 @@ These satellites are used for:
 
 ## Environment Variables
 
-Required environment configuration (`.env` file):
+### Core Configuration (`.env` file)
 
 ```bash
 # UDL Authentication
@@ -481,6 +481,32 @@ OREKIT_DATA_PATH=./orekit-data-main
 LOG_LEVEL=INFO
 ```
 
+### v2.0.0 Production Environment Variables
+
+These variables are required (or recommended) for production deployment:
+
+```bash
+# --- Database ---
+DATABASE_BACKEND=postgres          # "duckdb" (default) or "postgres" / "supabase"
+DATABASE_URL=postgresql://...      # Required when DATABASE_BACKEND=postgres
+ENCRYPTION_KEY=<fernet-key>        # Required when DATABASE_BACKEND=postgres (encrypts stored API tokens)
+
+# --- Authentication (Supabase) ---
+SUPABASE_URL=https://<project>.supabase.co   # Supabase project URL (enables ES256 JWKS auth)
+SUPABASE_JWT_SECRET=<jwt-secret>   # Supabase JWT secret (HS256 fallback for dev)
+ALLOW_HS256_FALLBACK=false         # Set to "true" to allow HS256 JWT verification (dev only)
+
+# --- Application ---
+ENVIRONMENT=production             # "development" enables dev-mode auth bypass (no JWT required)
+PORT=8000                          # HTTP port (Railway sets this automatically)
+WEB_WORKERS=1                      # Uvicorn workers (keep at 1 -- JobManager uses in-memory state)
+CORS_ORIGINS=https://your-domain.com  # Comma-separated allowed origins (no wildcards with credentials)
+TRUSTED_PROXY_DEPTH=1              # Number of trusted reverse proxies for X-Forwarded-For
+
+# --- Monitoring ---
+SENTRY_DSN=https://...@sentry.io/... # Optional: Sentry error tracking DSN
+```
+
 ### Token Generation
 
 ```python
@@ -491,6 +517,10 @@ credentials = f"{username}:{password}"
 udl_token = base64.b64encode(credentials.encode()).decode()
 
 # ESA token - generate at https://discosweb.esoc.esa.int/tokens
+
+# Fernet encryption key (for ENCRYPTION_KEY)
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
 ```
 
 ---

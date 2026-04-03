@@ -1,0 +1,310 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [active] [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e58]:
+                - button "Datasets" [ref=e59] [cursor=pointer]:
+                  - generic [ref=e60]:
+                    - img [ref=e61]
+                    - text: Datasets
+                  - img [ref=e65]
+                - generic [ref=e67]:
+                  - link "Browse Datasets" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e70] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e71]:
+                - button "Submit" [ref=e72] [cursor=pointer]:
+                  - generic [ref=e73]:
+                    - img [ref=e74]
+                    - text: Submit
+                  - img [ref=e77]
+                - generic [ref=e79]:
+                  - link "New Submission" [ref=e80] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e81] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e82] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e83]
+                - text: Leaderboard
+              - link "Documentation" [ref=e89] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e90]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e826]:
+          - generic [ref=e827]:
+            - img [ref=e829]
+            - generic [ref=e835]:
+              - heading "Leaderboard" [level=1] [ref=e836]
+              - paragraph [ref=e837]: Compare algorithm performance across submissions
+          - generic [ref=e838]:
+            - generic [ref=e840]:
+              - img [ref=e842]
+              - generic [ref=e848]: "#2"
+              - generic [ref=e849]: TrackForge v1.1
+              - generic [ref=e850]: DARPA UCT Team
+              - generic [ref=e851]: "0.9080"
+              - generic [ref=e852]: F1-Score
+            - generic [ref=e854]:
+              - img [ref=e857]
+              - img [ref=e859]
+              - generic [ref=e865]: "#1"
+              - generic [ref=e866]: OrbitGuard ML v2.1
+              - generic [ref=e867]: SpaceML Lab
+              - generic [ref=e868]: "0.9420"
+              - generic [ref=e869]: F1-Score
+            - generic [ref=e871]:
+              - img [ref=e873]
+              - generic [ref=e876]: "#3"
+              - generic [ref=e877]: TrackForge v1.0
+              - generic [ref=e878]: DARPA UCT Team
+              - generic [ref=e879]: "0.8810"
+              - generic [ref=e880]: F1-Score
+          - generic [ref=e882]:
+            - generic [ref=e883]:
+              - text: Orbital Regime
+              - combobox [ref=e884] [cursor=pointer]:
+                - generic: All Regimes
+                - img [ref=e885]
+            - generic [ref=e887]:
+              - text: Data Tier
+              - combobox [ref=e888] [cursor=pointer]:
+                - generic: All Tiers
+                - img [ref=e889]
+            - generic [ref=e891]:
+              - text: Time Period
+              - combobox [ref=e892] [cursor=pointer]:
+                - generic: All Time
+                - img [ref=e893]
+            - generic [ref=e895]:
+              - text: Dataset
+              - combobox [ref=e896] [cursor=pointer]:
+                - generic: All Datasets
+                - img [ref=e897]
+          - generic [ref=e899]:
+            - tablist [ref=e900]:
+              - tab "Rankings" [selected] [ref=e901] [cursor=pointer]
+              - tab "Performance Trends" [ref=e902] [cursor=pointer]
+            - tabpanel "Rankings" [ref=e903]:
+              - table [ref=e906]:
+                - rowgroup [ref=e907]:
+                  - row "Rank Algorithm Team F1-Score Precision Recall Pos RMS (km) Submitted" [ref=e908]:
+                    - columnheader "Rank" [ref=e909]
+                    - columnheader "Algorithm" [ref=e910]
+                    - columnheader "Team" [ref=e911]
+                    - columnheader "F1-Score" [ref=e912] [cursor=pointer]:
+                      - text: F1-Score
+                      - img [ref=e913]
+                    - columnheader "Precision" [ref=e916] [cursor=pointer]
+                    - columnheader "Recall" [ref=e917] [cursor=pointer]
+                    - columnheader "Pos RMS (km)" [ref=e918] [cursor=pointer]
+                    - columnheader "Submitted" [ref=e919]
+                - rowgroup [ref=e920]:
+                  - row "OrbitGuard ML v2.1 2.1 SpaceML Lab 0.9420 95.5% 92.9% 1.24 Mar 3, 2026" [ref=e921]:
+                    - cell [ref=e922]:
+                      - img [ref=e924]
+                    - cell "OrbitGuard ML v2.1 2.1" [ref=e930]:
+                      - generic [ref=e931]:
+                        - generic [ref=e932]: OrbitGuard ML v2.1
+                        - generic [ref=e933]: "2.1"
+                    - cell "SpaceML Lab" [ref=e934]
+                    - cell "0.9420" [ref=e935]
+                    - cell "95.5%" [ref=e936]:
+                      - generic [ref=e937]: 95.5%
+                    - cell "92.9%" [ref=e938]:
+                      - generic [ref=e939]: 92.9%
+                    - cell "1.24" [ref=e940]
+                    - cell "Mar 3, 2026" [ref=e941]
+                  - row "TrackForge v1.1 1.1 DARPA UCT Team 0.9080 92.0% 89.7% 1.82 Mar 21, 2026" [ref=e942]:
+                    - cell [ref=e943]:
+                      - img [ref=e945]
+                    - cell "TrackForge v1.1 1.1" [ref=e951]:
+                      - generic [ref=e952]:
+                        - generic [ref=e953]: TrackForge v1.1
+                        - generic [ref=e954]: "1.1"
+                    - cell "DARPA UCT Team" [ref=e955]
+                    - cell "0.9080" [ref=e956]
+                    - cell "92.0%" [ref=e957]:
+                      - generic [ref=e958]: 92.0%
+                    - cell "89.7%" [ref=e959]:
+                      - generic [ref=e960]: 89.7%
+                    - cell "1.82" [ref=e961]
+                    - cell "Mar 21, 2026" [ref=e962]
+                  - row "TrackForge v1.0 1.0 DARPA UCT Team 0.8810 89.7% 86.6% 2.87 Mar 6, 2026" [ref=e963]:
+                    - cell [ref=e964]:
+                      - img [ref=e966]
+                    - cell "TrackForge v1.0 1.0" [ref=e969]:
+                      - generic [ref=e970]:
+                        - generic [ref=e971]: TrackForge v1.0
+                        - generic [ref=e972]: "1.0"
+                    - cell "DARPA UCT Team" [ref=e973]
+                    - cell "0.8810" [ref=e974]
+                    - cell "89.7%" [ref=e975]:
+                      - generic [ref=e976]: 89.7%
+                    - cell "86.6%" [ref=e977]:
+                      - generic [ref=e978]: 86.6%
+                    - cell "2.87" [ref=e979]
+                    - cell "Mar 6, 2026" [ref=e980]
+                  - row "4 OrbitGuard ML v2.1 2.1 SpaceML Lab 0.8720 88.9% 85.5% 3.15 Mar 9, 2026" [ref=e981]:
+                    - cell "4" [ref=e982]:
+                      - generic [ref=e984]: "4"
+                    - cell "OrbitGuard ML v2.1 2.1" [ref=e985]:
+                      - generic [ref=e986]:
+                        - generic [ref=e987]: OrbitGuard ML v2.1
+                        - generic [ref=e988]: "2.1"
+                    - cell "SpaceML Lab" [ref=e989]
+                    - cell "0.8720" [ref=e990]
+                    - cell "88.9%" [ref=e991]:
+                      - generic [ref=e992]: 88.9%
+                    - cell "85.5%" [ref=e993]:
+                      - generic [ref=e994]: 85.5%
+                    - cell "3.15" [ref=e995]
+                    - cell "Mar 9, 2026" [ref=e996]
+                  - row "5 AstroIOD v3.2 3.2 NavLab 0.8340 85.1% 81.7% 4.05 Mar 25, 2026" [ref=e997]:
+                    - cell "5" [ref=e998]:
+                      - generic [ref=e1000]: "5"
+                    - cell "AstroIOD v3.2 3.2" [ref=e1001]:
+                      - generic [ref=e1002]:
+                        - generic [ref=e1003]: AstroIOD v3.2
+                        - generic [ref=e1004]: "3.2"
+                    - cell "NavLab" [ref=e1005]
+                    - cell "0.8340" [ref=e1006]
+                    - cell "85.1%" [ref=e1007]:
+                      - generic [ref=e1008]: 85.1%
+                    - cell "81.7%" [ref=e1009]:
+                      - generic [ref=e1010]: 81.7%
+                    - cell "4.05" [ref=e1011]
+                    - cell "Mar 25, 2026" [ref=e1012]
+                  - row "6 AstroIOD v3.2 3.2 NavLab 0.7860 81.0% 76.4% 5.42 Mar 13, 2026" [ref=e1013]:
+                    - cell "6" [ref=e1014]:
+                      - generic [ref=e1016]: "6"
+                    - cell "AstroIOD v3.2 3.2" [ref=e1017]:
+                      - generic [ref=e1018]:
+                        - generic [ref=e1019]: AstroIOD v3.2
+                        - generic [ref=e1020]: "3.2"
+                    - cell "NavLab" [ref=e1021]
+                    - cell "0.7860" [ref=e1022]
+                    - cell "81.0%" [ref=e1023]:
+                      - generic [ref=e1024]: 81.0%
+                    - cell "76.4%" [ref=e1025]:
+                      - generic [ref=e1026]: 76.4%
+                    - cell "5.42" [ref=e1027]
+                    - cell "Mar 13, 2026" [ref=e1028]
+                  - row "7 DeepOrbit v1.5 1.5 StarNet AI 0.7250 74.8% 70.3% 8.71 Mar 15, 2026" [ref=e1029]:
+                    - cell "7" [ref=e1030]:
+                      - generic [ref=e1032]: "7"
+                    - cell "DeepOrbit v1.5 1.5" [ref=e1033]:
+                      - generic [ref=e1034]:
+                        - generic [ref=e1035]: DeepOrbit v1.5
+                        - generic [ref=e1036]: "1.5"
+                    - cell "StarNet AI" [ref=e1037]
+                    - cell "0.7250" [ref=e1038]
+                    - cell "74.8%" [ref=e1039]:
+                      - generic [ref=e1040]: 74.8%
+                    - cell "70.3%" [ref=e1041]:
+                      - generic [ref=e1042]: 70.3%
+                    - cell "8.71" [ref=e1043]
+                    - cell "Mar 15, 2026" [ref=e1044]
+                  - row "8 OrbitGuard ML v2.1 2.1 SpaceML Lab 0.6580 69.1% 62.7% 12.30 Mar 19, 2026" [ref=e1045]:
+                    - cell "8" [ref=e1046]:
+                      - generic [ref=e1048]: "8"
+                    - cell "OrbitGuard ML v2.1 2.1" [ref=e1049]:
+                      - generic [ref=e1050]:
+                        - generic [ref=e1051]: OrbitGuard ML v2.1
+                        - generic [ref=e1052]: "2.1"
+                    - cell "SpaceML Lab" [ref=e1053]
+                    - cell "0.6580" [ref=e1054]
+                    - cell "69.1%" [ref=e1055]:
+                      - generic [ref=e1056]: 69.1%
+                    - cell "62.7%" [ref=e1057]:
+                      - generic [ref=e1058]: 62.7%
+                    - cell "12.30" [ref=e1059]
+                    - cell "Mar 19, 2026" [ref=e1060]
+              - generic [ref=e1061]:
+                - generic [ref=e1062]:
+                  - img [ref=e1063]
+                  - text: Your best submission
+                - generic [ref=e1065]:
+                  - img [ref=e1066]
+                  - text: Gold
+                - generic [ref=e1072]:
+                  - img [ref=e1073]
+                  - text: Silver
+                - generic [ref=e1079]:
+                  - img [ref=e1080]
+                  - text: Bronze
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e289] [cursor=pointer]:
+    - img [ref=e290]

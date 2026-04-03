@@ -1,0 +1,349 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e57]:
+                - button "Datasets" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - img [ref=e60]
+                    - text: Datasets
+                  - img [ref=e64]
+                - generic [ref=e67]:
+                  - link "Browse Datasets" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e70] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e71]:
+                - button "Submit" [ref=e72] [cursor=pointer]:
+                  - generic [ref=e73]:
+                    - img [ref=e74]
+                    - text: Submit
+                  - img [ref=e77]
+                - generic [ref=e79]:
+                  - link "New Submission" [ref=e80] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e81] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e82] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e83]
+                - text: Leaderboard
+              - link "Documentation" [ref=e89] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e90]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e644]:
+          - generic [ref=e645]:
+            - generic [ref=e646]:
+              - heading "My Datasets" [level=1] [ref=e647]
+              - paragraph [ref=e648]: Manage your generated and saved datasets
+            - link "Generate New" [ref=e649] [cursor=pointer]:
+              - /url: /datasets/generate
+              - button "Generate New" [ref=e650]:
+                - img [ref=e651]
+                - text: Generate New
+          - generic [ref=e652]:
+            - generic [ref=e653]:
+              - heading "Total Datasets" [level=3] [ref=e655]
+              - paragraph [ref=e657]: "9"
+            - generic [ref=e658]:
+              - heading "Total Objects" [level=3] [ref=e660]
+              - paragraph [ref=e662]: "88"
+            - generic [ref=e663]:
+              - heading "Storage Used" [level=3] [ref=e665]
+              - paragraph [ref=e667]: 6.04 MB
+          - generic [ref=e668]:
+            - heading "Your Datasets" [level=3] [ref=e670]
+            - table [ref=e673]:
+              - rowgroup [ref=e674]:
+                - row "Name Version Regime Tier Objects Size Created Actions" [ref=e675]:
+                  - columnheader "Name" [ref=e676]
+                  - columnheader "Version" [ref=e677]
+                  - columnheader "Regime" [ref=e678]
+                  - columnheader "Tier" [ref=e679]
+                  - columnheader "Objects" [ref=e680]
+                  - columnheader "Size" [ref=e681]
+                  - columnheader "Created" [ref=e682]
+                  - columnheader "Actions" [ref=e683]
+              - rowgroup [ref=e684]:
+                - row "LEO-standard-2026-04-03-20260403-005004-3a6b7420 v1 LEO T1 16 169.43 KB Apr 3, 2026" [ref=e685]:
+                  - cell "LEO-standard-2026-04-03-20260403-005004-3a6b7420" [ref=e686]
+                  - cell "v1" [ref=e687]:
+                    - generic [ref=e688]: v1
+                  - cell "LEO" [ref=e689]:
+                    - generic [ref=e690]: LEO
+                  - cell "T1" [ref=e691]:
+                    - generic [ref=e692]: T1
+                  - cell "16" [ref=e693]
+                  - cell "169.43 KB" [ref=e694]
+                  - cell "Apr 3, 2026" [ref=e695]
+                  - cell [ref=e696]:
+                    - generic [ref=e697]:
+                      - button [ref=e698] [cursor=pointer]:
+                        - img [ref=e699]
+                      - button "Version history" [ref=e702] [cursor=pointer]:
+                        - img [ref=e703]
+                      - button [ref=e707] [cursor=pointer]:
+                        - img [ref=e708]
+                      - button [ref=e711] [cursor=pointer]:
+                        - img [ref=e712]
+                      - button [ref=e715] [cursor=pointer]:
+                        - img [ref=e716]
+                - row "LEO-Maneuver-T2-Optical v1 LEO T2 8 805.66 KB Mar 31, 2026" [ref=e719]:
+                  - cell "LEO-Maneuver-T2-Optical" [ref=e720]
+                  - cell "v1" [ref=e721]:
+                    - generic [ref=e722]: v1
+                  - cell "LEO" [ref=e723]:
+                    - generic [ref=e724]: LEO
+                  - cell "T2" [ref=e725]:
+                    - generic [ref=e726]: T2
+                  - cell "8" [ref=e727]
+                  - cell "805.66 KB" [ref=e728]
+                  - cell "Mar 31, 2026" [ref=e729]
+                  - cell [ref=e730]:
+                    - generic [ref=e731]:
+                      - button [ref=e732] [cursor=pointer]:
+                        - img [ref=e733]
+                      - button "Version history" [ref=e736] [cursor=pointer]:
+                        - img [ref=e737]
+                      - button [ref=e741] [cursor=pointer]:
+                        - img [ref=e742]
+                      - button [ref=e745] [cursor=pointer]:
+                        - img [ref=e746]
+                      - button [ref=e749] [cursor=pointer]:
+                        - img [ref=e750]
+                - row "MEO-Standard-T2-Radar v1 MEO T2 10 610.35 KB Mar 27, 2026" [ref=e753]:
+                  - cell "MEO-Standard-T2-Radar" [ref=e754]
+                  - cell "v1" [ref=e755]:
+                    - generic [ref=e756]: v1
+                  - cell "MEO" [ref=e757]:
+                    - generic [ref=e758]: MEO
+                  - cell "T2" [ref=e759]:
+                    - generic [ref=e760]: T2
+                  - cell "10" [ref=e761]
+                  - cell "610.35 KB" [ref=e762]
+                  - cell "Mar 27, 2026" [ref=e763]
+                  - cell [ref=e764]:
+                    - generic [ref=e765]:
+                      - button [ref=e766] [cursor=pointer]:
+                        - img [ref=e767]
+                      - button "Version history" [ref=e770] [cursor=pointer]:
+                        - img [ref=e771]
+                      - button [ref=e775] [cursor=pointer]:
+                        - img [ref=e776]
+                      - button [ref=e779] [cursor=pointer]:
+                        - img [ref=e780]
+                      - button [ref=e783] [cursor=pointer]:
+                        - img [ref=e784]
+                - row "GEO-HAMR-T2-Optical v1 GEO T2 6 205.08 KB Mar 23, 2026" [ref=e787]:
+                  - cell "GEO-HAMR-T2-Optical" [ref=e788]
+                  - cell "v1" [ref=e789]:
+                    - generic [ref=e790]: v1
+                  - cell "GEO" [ref=e791]:
+                    - generic [ref=e792]: GEO
+                  - cell "T2" [ref=e793]:
+                    - generic [ref=e794]: T2
+                  - cell "6" [ref=e795]
+                  - cell "205.08 KB" [ref=e796]
+                  - cell "Mar 23, 2026" [ref=e797]
+                  - cell [ref=e798]:
+                    - generic [ref=e799]:
+                      - button [ref=e800] [cursor=pointer]:
+                        - img [ref=e801]
+                      - button "Version history" [ref=e804] [cursor=pointer]:
+                        - img [ref=e805]
+                      - button [ref=e809] [cursor=pointer]:
+                        - img [ref=e810]
+                      - button [ref=e813] [cursor=pointer]:
+                        - img [ref=e814]
+                      - button [ref=e817] [cursor=pointer]:
+                        - img [ref=e818]
+                - row "LEO-Mixed-T3-Fusion v1 LEO T3 15 1.48 MB Mar 19, 2026" [ref=e821]:
+                  - cell "LEO-Mixed-T3-Fusion" [ref=e822]
+                  - cell "v1" [ref=e823]:
+                    - generic [ref=e824]: v1
+                  - cell "LEO" [ref=e825]:
+                    - generic [ref=e826]: LEO
+                  - cell "T3" [ref=e827]:
+                    - generic [ref=e828]: T3
+                  - cell "15" [ref=e829]
+                  - cell "1.48 MB" [ref=e830]
+                  - cell "Mar 19, 2026" [ref=e831]
+                  - cell [ref=e832]:
+                    - generic [ref=e833]:
+                      - button [ref=e834] [cursor=pointer]:
+                        - img [ref=e835]
+                      - button "Version history" [ref=e838] [cursor=pointer]:
+                        - img [ref=e839]
+                      - button [ref=e843] [cursor=pointer]:
+                        - img [ref=e844]
+                      - button [ref=e847] [cursor=pointer]:
+                        - img [ref=e848]
+                      - button [ref=e851] [cursor=pointer]:
+                        - img [ref=e852]
+                - row "GEO-Comms-T2-Optical v1 GEO T2 5 312.5 KB Mar 16, 2026" [ref=e855]:
+                  - cell "GEO-Comms-T2-Optical" [ref=e856]
+                  - cell "v1" [ref=e857]:
+                    - generic [ref=e858]: v1
+                  - cell "GEO" [ref=e859]:
+                    - generic [ref=e860]: GEO
+                  - cell "T2" [ref=e861]:
+                    - generic [ref=e862]: T2
+                  - cell "5" [ref=e863]
+                  - cell "312.5 KB" [ref=e864]
+                  - cell "Mar 16, 2026" [ref=e865]
+                  - cell [ref=e866]:
+                    - generic [ref=e867]:
+                      - button [ref=e868] [cursor=pointer]:
+                        - img [ref=e869]
+                      - button "Version history" [ref=e872] [cursor=pointer]:
+                        - img [ref=e873]
+                      - button [ref=e877] [cursor=pointer]:
+                        - img [ref=e878]
+                      - button [ref=e881] [cursor=pointer]:
+                        - img [ref=e882]
+                      - button [ref=e885] [cursor=pointer]:
+                        - img [ref=e886]
+                - row "MEO-Navigation-T1-Radar v1 MEO T1 8 478.52 KB Mar 12, 2026" [ref=e889]:
+                  - cell "MEO-Navigation-T1-Radar" [ref=e890]
+                  - cell "v1" [ref=e891]:
+                    - generic [ref=e892]: v1
+                  - cell "MEO" [ref=e893]:
+                    - generic [ref=e894]: MEO
+                  - cell "T1" [ref=e895]:
+                    - generic [ref=e896]: T1
+                  - cell "8" [ref=e897]
+                  - cell "478.52 KB" [ref=e898]
+                  - cell "Mar 12, 2026" [ref=e899]
+                  - cell [ref=e900]:
+                    - generic [ref=e901]:
+                      - button [ref=e902] [cursor=pointer]:
+                        - img [ref=e903]
+                      - button "Version history" [ref=e906] [cursor=pointer]:
+                        - img [ref=e907]
+                      - button [ref=e911] [cursor=pointer]:
+                        - img [ref=e912]
+                      - button [ref=e915] [cursor=pointer]:
+                        - img [ref=e916]
+                      - button [ref=e919] [cursor=pointer]:
+                        - img [ref=e920]
+                - row "LEO-Standard-T2-Downsampled v1 LEO T2 10 888.67 KB Mar 8, 2026" [ref=e923]:
+                  - cell "LEO-Standard-T2-Downsampled" [ref=e924]
+                  - cell "v1" [ref=e925]:
+                    - generic [ref=e926]: v1
+                  - cell "LEO" [ref=e927]:
+                    - generic [ref=e928]: LEO
+                  - cell "T2" [ref=e929]:
+                    - generic [ref=e930]: T2
+                  - cell "10" [ref=e931]
+                  - cell "888.67 KB" [ref=e932]
+                  - cell "Mar 8, 2026" [ref=e933]
+                  - cell [ref=e934]:
+                    - generic [ref=e935]:
+                      - button [ref=e936] [cursor=pointer]:
+                        - img [ref=e937]
+                      - button "Version history" [ref=e940] [cursor=pointer]:
+                        - img [ref=e941]
+                      - button [ref=e945] [cursor=pointer]:
+                        - img [ref=e946]
+                      - button [ref=e949] [cursor=pointer]:
+                        - img [ref=e950]
+                      - button [ref=e953] [cursor=pointer]:
+                        - img [ref=e954]
+                - row "LEO-Calibration-T1-Optical v1 LEO T1 10 1.17 MB Mar 5, 2026" [ref=e957]:
+                  - cell "LEO-Calibration-T1-Optical" [ref=e958]
+                  - cell "v1" [ref=e959]:
+                    - generic [ref=e960]: v1
+                  - cell "LEO" [ref=e961]:
+                    - generic [ref=e962]: LEO
+                  - cell "T1" [ref=e963]:
+                    - generic [ref=e964]: T1
+                  - cell "10" [ref=e965]
+                  - cell "1.17 MB" [ref=e966]
+                  - cell "Mar 5, 2026" [ref=e967]
+                  - cell [ref=e968]:
+                    - generic [ref=e969]:
+                      - button [ref=e970] [cursor=pointer]:
+                        - img [ref=e971]
+                      - button "Version history" [ref=e974] [cursor=pointer]:
+                        - img [ref=e975]
+                      - button [ref=e979] [cursor=pointer]:
+                        - img [ref=e980]
+                      - button [ref=e983] [cursor=pointer]:
+                        - img [ref=e984]
+                      - button [ref=e987] [cursor=pointer]:
+                        - img [ref=e988]
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e130] [cursor=pointer]:
+    - img [ref=e131]

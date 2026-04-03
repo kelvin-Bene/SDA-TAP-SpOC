@@ -28,7 +28,7 @@ ENV/
 env/
 .eggs/
 *.egg-info/
-dist/
+/dist/
 build/
 *.egg
 .pytest_cache/
@@ -43,7 +43,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .npm
-dist/
+**/frontend/dist/
 
 # ===== Environment =====
 .env
@@ -63,6 +63,9 @@ dist/
 Thumbs.db
 nul
 
+# ===== CI/CD Build Artifacts =====
+deploy-dist/
+
 # ===== Project Specific =====
 # Exclude data directory but include sample database for students without UDL access
 UCT-Benchmark-DMR/combined/data/*
@@ -71,4 +74,6 @@ UCT-Benchmark-DMR/combined/data/database/*
 !UCT-Benchmark-DMR/combined/data/database/uct_benchmark_sample.duckdb
 UCT-Benchmark-DMR/combined/orekit-data-main/
 validation/results/
-*.lock
+# Lock files for specific tools (NOT package lockfiles — those should be committed)
+uv.lock
+poetry.lock

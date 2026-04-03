@@ -32,8 +32,8 @@ class PropagatorConfig:
 
     # Integrator settings
     integrator_type: str = "DormandPrince853"
-    min_step: float = 0.001  # seconds
-    max_step: float = 300.0  # seconds
+    min_step: float = 0.0001  # seconds (per SSOT Section 20.7)
+    max_step: float = 1000.0  # seconds (per SSOT Section 20.7)
     position_tolerance: float = 1.0  # meters
 
     # Gravity model
@@ -828,7 +828,7 @@ def _add_force_models_to_builder(
 
                 # Create isotropic drag model (area and Cd will be estimated or defaulted)
                 drag_area = config.reference_area if config.reference_area else 1.0  # m^2
-                cd = 2.2  # Typical drag coefficient
+                cd = 2.5  # Drag coefficient (per settings.dragCoef)
                 spacecraft = IsotropicDrag(drag_area, cd)
                 drag_force = DragForce(atmosphere, spacecraft)
                 builder.addForceModel(drag_force)

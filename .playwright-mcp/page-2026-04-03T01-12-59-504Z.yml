@@ -1,0 +1,151 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e57]:
+                - button "Datasets" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - img [ref=e60]
+                    - text: Datasets
+                  - img [ref=e64]
+                - generic [ref=e66]:
+                  - link "Browse Datasets" [ref=e67] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e70]:
+                - button "Submit" [ref=e71] [cursor=pointer]:
+                  - generic [ref=e72]:
+                    - img [ref=e73]
+                    - text: Submit
+                  - img [ref=e76]
+                - generic [ref=e78]:
+                  - link "New Submission" [ref=e79] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e80] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e81] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e82]
+                - text: Leaderboard
+              - link "Documentation" [ref=e88] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e89]
+                - text: Documentation
+            - generic [ref=e91]:
+              - heading "Quick Actions" [level=4] [ref=e92]:
+                - img [ref=e93]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e95] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e96]:
+                  - img [ref=e98]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e99] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e100]:
+                  - img [ref=e102]
+                  - text: Upload Submission
+            - generic [ref=e105]:
+              - heading "Recent" [level=4] [ref=e106]:
+                - img [ref=e107]
+                - text: Recent
+              - generic [ref=e109]:
+                - link "MyUCTP v2.1 Results" [ref=e110] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e111]
+                  - generic [ref=e114]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e115] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e116]
+                  - generic [ref=e118]: LEO-T2-2026-01-15
+          - generic [ref=e124]: All systems operational
+      - main [ref=e125]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - heading "Profile Settings" [level=1] [ref=e134]
+            - paragraph [ref=e135]: Manage your account settings and preferences
+          - generic [ref=e136]:
+            - tablist [ref=e137]:
+              - tab "Profile" [ref=e138] [cursor=pointer]
+              - tab "API Keys" [ref=e139] [cursor=pointer]
+              - tab "Notifications" [ref=e140] [cursor=pointer]
+              - tab "Security" [active] [selected] [ref=e141] [cursor=pointer]
+            - tabpanel "Security" [ref=e283]:
+              - generic [ref=e284]:
+                - generic [ref=e285]:
+                  - heading "Security Settings" [level=3] [ref=e286]
+                  - paragraph [ref=e287]: Manage your account security and authentication
+                - generic [ref=e288]:
+                  - generic [ref=e289]:
+                    - heading "Change Password" [level=4] [ref=e290]
+                    - generic [ref=e291]:
+                      - generic [ref=e292]:
+                        - text: Current Password
+                        - textbox "Current Password" [ref=e293]
+                      - generic [ref=e294]:
+                        - text: New Password
+                        - textbox "New Password" [ref=e295]
+                      - generic [ref=e296]:
+                        - text: Confirm New Password
+                        - textbox "Confirm New Password" [ref=e297]
+                      - button "Update Password" [ref=e298] [cursor=pointer]
+                  - generic [ref=e299]:
+                    - generic [ref=e300]:
+                      - generic [ref=e301]:
+                        - img [ref=e302]
+                        - generic [ref=e304]: Two-Factor Authentication
+                      - paragraph [ref=e305]: Add an extra layer of security to your account
+                    - button "Enable 2FA" [ref=e306] [cursor=pointer]
+                  - generic [ref=e307]:
+                    - heading "Active Sessions" [level=4] [ref=e308]
+                    - generic [ref=e310]:
+                      - generic [ref=e311]:
+                        - paragraph [ref=e312]: Current Session
+                        - paragraph [ref=e313]: demo@spoc-benchmark.org -- This device
+                      - generic [ref=e314]: Active
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e129] [cursor=pointer]:
+    - img [ref=e130]

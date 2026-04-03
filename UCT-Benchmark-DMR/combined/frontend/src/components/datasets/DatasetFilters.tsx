@@ -1,3 +1,5 @@
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { debounce } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,11 +45,27 @@ const sensorOptions: { value: SensorType | 'all'; label: string }[] = [
 ];
 
 export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFiltersProps) {
+  const [localSearch, setLocalSearch] = useState(filters.search || '');
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  const debouncedSearchChange = useMemo(
+    () => debounce((value: string) => {
+      onFiltersChange({ ...filtersRef.current, search: value });
+    }, 300),
+    [onFiltersChange]
+  );
+
+  // Sync local search when filters change externally (e.g., clear button)
+  useEffect(() => {
+    setLocalSearch(filters.search || '');
+  }, [filters.search]);
+
   const hasFilters =
     filters.regime !== 'all' ||
     filters.tier !== 'all' ||
     filters.sensor !== 'all' ||
-    filters.objectCountRange ||
+    (filters.objectCountRange && (filters.objectCountRange.min > 0 || filters.objectCountRange.max < 200)) ||
     filters.search ||
     filters.sortBy;
 
@@ -55,21 +73,24 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
     <Card>
       <CardContent className="pt-6 space-y-4">
         {/* Search and Sort Row */}
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-2 flex-1 min-w-[200px] max-w-[400px]">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-4">
+          <div className="w-full sm:w-auto space-y-2 flex-1 min-w-[200px] max-w-[400px]">
             <Label htmlFor="search-filter">Search</Label>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search-filter"
                 placeholder="Search by dataset name..."
-                value={filters.search || ''}
-                onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+                value={localSearch}
+                onChange={(e) => {
+                  setLocalSearch(e.target.value);
+                  debouncedSearchChange(e.target.value);
+                }}
                 className="pl-9"
               />
             </div>
           </div>
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="sort-filter">Sort By</Label>
             <Select
               value={filters.sortBy || 'created_at'}
@@ -104,9 +125,9 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
         </div>
 
         {/* Filter Dropdowns Row */}
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-4">
           {/* Regime Filter */}
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="regime-filter">Orbital Regime</Label>
             <Select
               value={filters.regime || 'all'}
@@ -128,7 +149,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Tier Filter */}
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="tier-filter">Data Tier</Label>
             <Select
               value={filters.tier || 'all'}
@@ -150,7 +171,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Sensor Filter */}
-          <div className="space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
             <Label htmlFor="sensor-filter">Sensor Type</Label>
             <Select
               value={filters.sensor || 'all'}
@@ -172,13 +193,13 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Object Count Range */}
-          <div className="space-y-2 min-w-[200px] flex-1 max-w-[300px]">
-            <Label>Object Count: {filters.objectCountRange?.min || 10} - {filters.objectCountRange?.max || 100}</Label>
+          <div className="w-full sm:w-auto space-y-2 min-w-[200px] flex-1 max-w-[300px]">
+            <Label>Object Count: {filters.objectCountRange?.min ?? 0} - {filters.objectCountRange?.max ?? 200}</Label>
             <Slider
-              defaultValue={[filters.objectCountRange?.min || 10, filters.objectCountRange?.max || 100]}
-              min={10}
+              value={[filters.objectCountRange?.min ?? 0, filters.objectCountRange?.max ?? 200]}
+              min={0}
               max={200}
-              step={10}
+              step={5}
               onValueChange={(value) =>
                 onFiltersChange({
                   ...filters,

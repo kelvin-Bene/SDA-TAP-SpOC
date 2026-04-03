@@ -2,8 +2,8 @@
 
 ## UCT Benchmark - Data Storage Layer
 
-**Version:** 1.0.0
-**Updated:** January 2026
+**Version:** 2.0.0
+**Updated:** April 2026
 
 ---
 
@@ -13,20 +13,34 @@ This document describes the database and data storage architecture implemented f
 
 ### 1.1 Design Goals
 
-- **Zero Configuration**: No database server installation required
+- **Dual-Backend Support**: PostgreSQL/Supabase for production, DuckDB for local development
 - **Backward Compatible**: Existing JSON/Parquet workflows unchanged
 - **High Performance**: Sub-second queries for interactive use
-- **Portable**: Cross-platform (Windows/Linux)
+- **Portable**: Cross-platform (Windows/Linux) with DuckDB; cloud-ready with PostgreSQL
 - **Version Control**: Dataset versioning and comparison
 
 ### 1.2 Technology Stack
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Database | DuckDB v1.4.1+ | Already a dependency, analytical focus |
+| Production DB | PostgreSQL (via Supabase) | Managed, cloud-hosted, multi-user |
+| Development DB | DuckDB v1.4.1+ | Zero-config, analytical focus, local dev |
+| Adapter Layer | `DatabaseManager` + adapter pattern | Transparent backend switching via `DATABASE_BACKEND` env var |
+| Migrations | Alembic | Schema versioning for PostgreSQL |
 | Bulk Storage | Parquet | Columnar, compressed, DuckDB-native |
 | Export Format | JSON | API compatibility, human-readable |
 | ORM Layer | Custom Repository Pattern | Lightweight, no external dependencies |
+
+### 1.3 Dual-Backend Adapter Pattern
+
+The `DatabaseManager` class in `uct_benchmark/database/connection.py` transparently routes queries to either DuckDB or PostgreSQL based on the `DATABASE_BACKEND` environment variable:
+
+- `DATABASE_BACKEND=duckdb` (default): Uses the local DuckDB file at `data/uct_benchmark.duckdb`
+- `DATABASE_BACKEND=postgres` or `DATABASE_BACKEND=supabase`: Uses PostgreSQL via `DATABASE_URL`
+
+The `postgres_adapter.py` module translates DuckDB-style `?` placeholders to PostgreSQL-style `%s` placeholders, ensuring all router code works identically against both backends.
+
+Alembic migrations (`alembic/versions/`) handle schema changes for PostgreSQL only. DuckDB schema is managed by `schema.py` directly.
 
 ---
 

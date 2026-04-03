@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
@@ -40,6 +41,7 @@ export function LoginPage() {
     setConfirmPassword('');
     setSuccessMessage(null);
     clearError();
+    requestAnimationFrame(() => headingRef.current?.focus());
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,9 +50,11 @@ export function LoginPage() {
     setSuccessMessage(null);
     await login(email, password);
 
-    // If login succeeded (no error set after await), navigate
-    const currentError = useAuthStore.getState().error;
-    if (!currentError) {
+    const state = useAuthStore.getState();
+    if (state.error) {
+      return; // Error is already set in the store, LoginPage will show it
+    }
+    if (state.isAuthenticated) {
       navigate(from, { replace: true });
     }
   };
@@ -61,13 +65,12 @@ export function LoginPage() {
     setSuccessMessage(null);
 
     if (password !== confirmPassword) {
-      // Use the store's error mechanism is not ideal here, so handle locally
       useAuthStore.setState({ error: 'Passwords do not match.' });
       return;
     }
 
-    if (password.length < 6) {
-      useAuthStore.setState({ error: 'Password must be at least 6 characters.' });
+    if (password.length < 8) {
+      useAuthStore.setState({ error: 'Password must be at least 8 characters.' });
       return;
     }
 
@@ -75,10 +78,8 @@ export function LoginPage() {
 
     const currentError = useAuthStore.getState().error;
     if (!currentError) {
-      setSuccessMessage('Check your email for a confirmation link to complete your signup.');
-      setView('login');
-      setPassword('');
-      setConfirmPassword('');
+      // Auto-confirm is enabled — session already exists, navigate directly
+      navigate(from, { replace: true });
     }
   };
 
@@ -128,7 +129,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <CardTitle className="text-3xl font-display font-bold">
+          <CardTitle ref={headingRef} tabIndex={-1} className="text-3xl font-display font-bold">
             <span className="text-gradient-cosmic">SpOC</span>
           </CardTitle>
           <CardDescription className="text-base">
@@ -197,7 +198,7 @@ export function LoginPage() {
 
           {/* Error display */}
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div role="alert" aria-live="assertive" className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <p>{error}</p>
             </div>
@@ -221,6 +222,7 @@ export function LoginPage() {
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="researcher@aerospace.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -242,6 +244,7 @@ export function LoginPage() {
                   <Input
                     id="password"
                     type="password"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -275,6 +278,7 @@ export function LoginPage() {
                   <Input
                     id="signup-email"
                     type="email"
+                    autoComplete="email"
                     placeholder="researcher@aerospace.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -287,11 +291,11 @@ export function LoginPage() {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Min. 6 characters"
+                    autoComplete="new-password"
+                    placeholder="Min. 8 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
                     className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/20 placeholder:text-muted-foreground/50"
                   />
                 </div>
@@ -300,10 +304,10 @@ export function LoginPage() {
                   <Input
                     id="signup-confirm"
                     type="password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength={6}
                     className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/20"
                   />
                 </div>
@@ -403,7 +407,7 @@ export function LoginPage() {
 
       {/* Version tag */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50">
-        SpOC v1.0.0
+        SpOC v{__APP_VERSION__}
       </div>
     </div>
   );

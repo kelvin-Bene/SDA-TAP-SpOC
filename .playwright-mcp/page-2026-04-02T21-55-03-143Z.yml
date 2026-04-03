@@ -1,0 +1,186 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [active] [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e58]:
+                - button "Datasets" [ref=e59] [cursor=pointer]:
+                  - generic [ref=e60]:
+                    - img [ref=e61]
+                    - text: Datasets
+                  - img [ref=e65]
+                - generic [ref=e67]:
+                  - link "Browse Datasets" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e70] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e71]:
+                - button "Submit" [ref=e72] [cursor=pointer]:
+                  - generic [ref=e73]:
+                    - img [ref=e74]
+                    - text: Submit
+                  - img [ref=e77]
+                - generic [ref=e79]:
+                  - link "New Submission" [ref=e80] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e81] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e82] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e83]
+                - text: Leaderboard
+              - link "Documentation" [ref=e89] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e90]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e1084]:
+          - generic [ref=e1085]:
+            - heading "Submit Algorithm Results" [level=1] [ref=e1086]
+            - paragraph [ref=e1087]: Upload your UCT algorithm results for evaluation against benchmark datasets
+          - generic [ref=e1088]:
+            - generic [ref=e1089]:
+              - generic [ref=e1090]:
+                - img [ref=e1091]
+                - heading "Sample UCTP Files" [level=3] [ref=e1093]
+              - paragraph [ref=e1094]: Download a sample UCTP output file, then submit it below to see evaluation results
+            - generic [ref=e1095]:
+              - generic [ref=e1096]:
+                - button "High-Quality Sample ~0.94 F1" [disabled]:
+                  - img
+                  - text: High-Quality Sample
+                  - generic: ~0.94 F1
+                - button "Medium-Quality Sample ~0.78 F1" [disabled]:
+                  - img
+                  - text: Medium-Quality Sample
+                  - generic: ~0.78 F1
+                - button "Low-Quality Sample ~0.55 F1" [disabled]:
+                  - img
+                  - text: Low-Quality Sample
+                  - generic: ~0.55 F1
+              - paragraph [ref=e1097]: Select a target dataset below first to download sample files.
+          - generic [ref=e1098]:
+            - generic [ref=e1099]:
+              - heading "Upload Submission File" [level=3] [ref=e1100]
+              - paragraph [ref=e1101]: Upload your algorithm output in JSON format (max 50MB)
+            - generic [ref=e1103] [cursor=pointer]:
+              - button "Choose File" [ref=e1104]
+              - generic [ref=e1105]:
+                - img [ref=e1107]
+                - generic [ref=e1110]:
+                  - paragraph [ref=e1111]: Drag & drop your submission file here
+                  - paragraph [ref=e1112]: or browse files
+                - paragraph [ref=e1113]: "Accepts: .json (max 50MB)"
+          - generic [ref=e1114]:
+            - generic [ref=e1115]:
+              - heading "Submission Details" [level=3] [ref=e1116]
+              - paragraph [ref=e1117]: Provide information about your algorithm and select the target dataset
+            - generic [ref=e1118]:
+              - generic [ref=e1119]:
+                - text: Target Dataset
+                - combobox "Target Dataset" [ref=e1120] [cursor=pointer]:
+                  - generic: Select a dataset...
+                  - img [ref=e1121]
+              - generic [ref=e1123]:
+                - text: Algorithm Name
+                - textbox "Algorithm Name" [ref=e1124]:
+                  - /placeholder: e.g., MyUCTP
+              - generic [ref=e1125]:
+                - text: Version
+                - textbox "Version" [ref=e1126]:
+                  - /placeholder: e.g., v2.1
+              - generic [ref=e1127]:
+                - text: Description (optional)
+                - textbox "Description (optional)" [ref=e1128]:
+                  - /placeholder: Brief description of this submission or changes from previous version...
+              - generic [ref=e1129]:
+                - text: Organization (optional)
+                - textbox "Organization (optional)" [ref=e1130]:
+                  - /placeholder: e.g., DMR Lab, TAP Lab
+                - paragraph [ref=e1131]: Classification marking label for your organization
+          - generic [ref=e1132]:
+            - button "Cancel" [ref=e1133] [cursor=pointer]
+            - button "Submit for Evaluation" [ref=e1134] [cursor=pointer]:
+              - img [ref=e1135]
+              - text: Submit for Evaluation
+          - generic [ref=e1140]:
+            - img [ref=e1141]
+            - generic [ref=e1143]:
+              - paragraph [ref=e1144]: Submission Guidelines
+              - paragraph [ref=e1145]:
+                - text: Make sure your submission file follows the required JSON schema. See the
+                - link "documentation" [ref=e1146] [cursor=pointer]:
+                  - /url: /docs
+                - text: for detailed format specifications and examples.
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e289] [cursor=pointer]:
+    - img [ref=e290]

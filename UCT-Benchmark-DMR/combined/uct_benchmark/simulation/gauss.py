@@ -154,7 +154,7 @@ def angularCheckTriplets(ra1, dec1, ra2, dec2, lower_threshold=1, upper_threshol
     u2 = radec2unit(ra2, dec2)
 
     # Determine the angular separation with the unit vectors
-    ang = np.rad2deg(np.arccos(np.dot(u1.ravel(), u2.ravel())))
+    ang = np.rad2deg(np.arccos(np.clip(np.dot(u1.ravel(), u2.ravel()), -1.0, 1.0)))
 
     # Determine if within threshold and return flag number
     if ang < lower_threshold:
@@ -222,8 +222,8 @@ def gibbs(r1, r2, r3, ut):
     eps = (np.dot(r1.ravel(), c23.ravel())) / (np.linalg.norm(r1) * np.linalg.norm(c23))
 
     # Find the angles between the position vectors
-    theta_12 = np.rad2deg(np.arccos((np.dot(r1.ravel(), r2.ravel())) / (r1n * r2n)))
-    theta_23 = np.rad2deg(np.arccos((np.dot(r2.ravel(), r3.ravel())) / (r2n * r3n)))
+    theta_12 = np.rad2deg(np.arccos(np.clip(np.dot(r1.ravel(), r2.ravel()) / (r1n * r2n), -1.0, 1.0)))
+    theta_23 = np.rad2deg(np.arccos(np.clip(np.dot(r2.ravel(), r3.ravel()) / (r2n * r3n), -1.0, 1.0)))
 
     # Determine if Gibbs requirement for coplanaraity and angle differences are met
     v2 = np.empty((3, 1))
@@ -450,8 +450,8 @@ def gauss(obs):
                 r1n = np.linalg.norm(r1)
                 r2n = np.linalg.norm(r2)
                 r3n = np.linalg.norm(r3)
-                ang1 = np.arccos(np.dot(r1.ravel(), r2.ravel()) / (r1n * r2n))
-                ang3 = np.arccos(np.dot(r3.ravel(), r2.ravel()) / (r3n * r2n))
+                ang1 = np.arccos(np.clip(np.dot(r1.ravel(), r2.ravel()) / (r1n * r2n), -1.0, 1.0))
+                ang3 = np.arccos(np.clip(np.dot(r3.ravel(), r2.ravel()) / (r3n * r2n), -1.0, 1.0))
                 f1 = 1 - (r1n / p) * (1 - np.cos(ang1))
                 f3 = 1 - (r3n / p) * (1 - np.cos(ang3))
                 g1 = r1n * r2n * np.sin(-ang1) / np.sqrt(mu * p)
@@ -580,7 +580,7 @@ def cullStates(states):
 
     # Cull states outside one standard deviation from the mean
     states_culled = (
-        states[(states["a"] >= a_mean - 0.25 * a_std) & (states["a"] <= a_mean + 0.25 * a_std)]
+        states[(states["a"] >= a_mean - 2.0 * a_std) & (states["a"] <= a_mean + 2.0 * a_std)]
         .copy()
         .reset_index(drop=True)
     )

@@ -16,6 +16,7 @@ export interface FeedbackPayload {
   recent_actions?: UserAction[];
   console_errors?: string[];
   sentry_event_id?: string;
+  app_version?: string;
 }
 
 export interface FeedbackResponse {

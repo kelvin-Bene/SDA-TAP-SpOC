@@ -2,7 +2,6 @@ import axios from 'axios';
 import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -11,14 +10,9 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor for auth token
+// Request interceptor for auth token - uses Supabase session JWT
 apiClient.interceptors.request.use(
   async (config) => {
-    if (isDemoMode) {
-      // Demo mode: send a dummy Bearer token so the backend stub auth accepts it
-      config.headers.Authorization = 'Bearer demo-token';
-      return config;
-    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
@@ -37,15 +31,26 @@ apiClient.interceptors.request.use(
 // U11: Token refresh mutex — prevents parallel 401 responses from triggering
 // multiple concurrent refresh attempts
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
+
+// Max retry counter to prevent infinite refresh loops
+let refreshFailureCount = 0;
+let lastRefreshFailureTime = 0;
+const MAX_REFRESH_FAILURES = 3;
+const REFRESH_FAILURE_WINDOW_MS = 60000;
 
 function onRefreshed(token: string) {
-  refreshSubscribers.forEach(cb => cb(token));
+  refreshSubscribers.forEach(sub => sub.resolve(token));
   refreshSubscribers = [];
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+function onRefreshFailed(err: unknown) {
+  refreshSubscribers.forEach(sub => sub.reject(err));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(resolve: (token: string) => void, reject: (err: unknown) => void) {
+  refreshSubscribers.push({ resolve, reject });
 }
 
 // Response interceptor for error handling
@@ -54,15 +59,31 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isDemoMode) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Reset failure counter if outside the time window
+      const now = Date.now();
+      if (now - lastRefreshFailureTime > REFRESH_FAILURE_WINDOW_MS) {
+        refreshFailureCount = 0;
+      }
+
+      // If too many recent refresh failures, sign out immediately
+      if (refreshFailureCount >= MAX_REFRESH_FAILURES) {
+        const { useAuthStore } = await import('@/stores/authStore');
+        useAuthStore.getState().logout();
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Another request is already refreshing — queue this one
-        return new Promise((resolve) => {
-          addRefreshSubscriber((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            originalRequest._retry = true;
-            resolve(apiClient(originalRequest));
-          });
+        return new Promise((resolve, reject) => {
+          addRefreshSubscriber(
+            (token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              originalRequest._retry = true;
+              resolve(apiClient(originalRequest));
+            },
+            reject,
+          );
         });
       }
 
@@ -72,18 +93,26 @@ apiClient.interceptors.response.use(
       try {
         const { data, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !data.session) {
-          await supabase.auth.signOut();
-          window.location.href = '/login';
+          refreshFailureCount++;
+          lastRefreshFailureTime = Date.now();
+          onRefreshFailed(error);
+          const { useAuthStore } = await import('@/stores/authStore');
+          useAuthStore.getState().logout();
           return Promise.reject(error);
         }
 
+        // Reset counter on successful refresh
+        refreshFailureCount = 0;
         const newToken = data.session.access_token;
         onRefreshed(newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch {
-        await supabase.auth.signOut();
-        window.location.href = '/login';
+        refreshFailureCount++;
+        lastRefreshFailureTime = Date.now();
+        onRefreshFailed(error);
+        const { useAuthStore } = await import('@/stores/authStore');
+        useAuthStore.getState().logout();
         return Promise.reject(error);
       } finally {
         isRefreshing = false;
@@ -195,4 +224,36 @@ export const api = {
 
   refreshToken: () =>
     apiClient.post('/auth/refresh'),
+
+  // Credentials
+  getCredentials: () =>
+    apiClient.get('/credentials/'),
+
+  getCredential: (serviceName: string) =>
+    apiClient.get(`/credentials/${serviceName}`),
+
+  saveCredential: (serviceName: string, data: { primary: string; secondary?: string }) =>
+    apiClient.put(`/credentials/${serviceName}`, data),
+
+  deleteCredential: (serviceName: string) =>
+    apiClient.delete(`/credentials/${serviceName}`),
+
+  testCredential: (serviceName: string) =>
+    apiClient.post(`/credentials/${serviceName}/test`),
+
+  // Events
+  getEvents: (params?: Record<string, string>) =>
+    apiClient.get('/events/', { params }),
+
+  getEvent: (id: string) =>
+    apiClient.get(`/events/${id}`),
+
+  getEventTypes: () =>
+    apiClient.get('/events/types'),
+
+  detectEvents: (config: unknown) =>
+    apiClient.post('/events/detect', config),
+
+  deleteEvent: (id: string) =>
+    apiClient.delete(`/events/${id}`),
 };

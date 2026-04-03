@@ -1,13 +1,19 @@
 """Results retrieval endpoints."""
 
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 from loguru import logger
+
+from backend_api.auth import CurrentUser
+from backend_api.middleware.auth import get_current_user
+from backend_api.middleware.rate_limit import limiter
 
 from backend_api.database import get_db
 from backend_api.models import (
@@ -47,9 +53,13 @@ async def list_results(
     algorithm_name: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """List all submission results with optional filtering."""
+    limit = max(0, min(limit, 500))
+    offset = max(0, offset)
+
     query = """
         SELECT
             s.id as submission_id,
@@ -71,6 +81,10 @@ async def list_results(
     """
     params = []
 
+    if not user.is_admin:
+        query += " AND s.user_id = ?"
+        params.append(user.id)
+
     if dataset_id:
         query += " AND s.dataset_id = ?"
         params.append(int(dataset_id))
@@ -78,8 +92,9 @@ async def list_results(
         query += " AND s.status = ?"
         params.append(status)
     if algorithm_name:
-        query += " AND s.algorithm_name ILIKE ?"
-        params.append(f"%{algorithm_name}%")
+        safe_name = algorithm_name.replace("%", "\\%").replace("_", "\\_")
+        query += " AND LOWER(s.algorithm_name) LIKE LOWER(?)"
+        params.append(f"%{safe_name}%")
 
     query += " ORDER BY s.completed_at DESC, sr.f1_score DESC"
     query += " LIMIT ? OFFSET ?"
@@ -95,6 +110,7 @@ async def list_results(
 @router.get("/{submission_id}", response_model=SubmissionResults)
 async def get_results(
     submission_id: str,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -106,9 +122,20 @@ async def get_results(
     Returns:
         Complete results including binary metrics, state metrics, and per-satellite breakdown
     """
-    # Get submission and results
+    # Get submission and results.
+    # Rank is computed via a subquery over all completed submissions in the same
+    # dataset so that RANK() OVER sees more than one row.  Submissions without
+    # results (still processing) are included via LEFT JOIN and receive a NULL rank.
     result = db.execute(
         """
+        WITH dataset_ranks AS (
+            SELECT
+                s.id,
+                RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
+            FROM submissions s
+            INNER JOIN submission_results sr ON s.id = sr.submission_id
+            WHERE s.dataset_id = (SELECT dataset_id FROM submissions WHERE id = ?)
+        )
         SELECT
             s.id,
             s.dataset_id,
@@ -127,12 +154,14 @@ async def get_results(
             sr.ra_residual_rms_arcsec,
             sr.dec_residual_rms_arcsec,
             sr.raw_results,
-            sr.processing_time_seconds
+            sr.processing_time_seconds,
+            dr.rank
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE s.id = ?
+        LEFT JOIN dataset_ranks dr ON s.id = dr.id
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id),),
+        (int(submission_id), int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -174,20 +203,8 @@ async def get_results(
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"Failed to parse raw_results JSON for submission {submission_id}: {e}")
 
-    # Calculate rank (optional - based on F1 score for same dataset)
-    rank = None
-    if row_dict.get("f1_score") is not None:
-        rank_result = db.execute(
-            """
-            SELECT COUNT(*) + 1
-            FROM submission_results sr2
-            JOIN submissions s2 ON sr2.submission_id = s2.id
-            WHERE s2.dataset_id = (SELECT dataset_id FROM submissions WHERE id = ?)
-              AND sr2.f1_score > ?
-            """,
-            (int(submission_id), row_dict["f1_score"]),
-        ).fetchone()
-        rank = rank_result[0] if rank_result else None
+    # Extract rank from the window function in the main query
+    rank = row_dict.get("rank")
 
     return SubmissionResults(
         submission_id=str(row_dict["id"]),
@@ -218,6 +235,7 @@ async def get_results(
 @router.get("/{submission_id}/metrics")
 async def get_detailed_metrics(
     submission_id: str,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -229,9 +247,10 @@ async def get_detailed_metrics(
     Returns:
         Per-satellite and per-track metrics breakdown
     """
-    # Verify submission exists
+    # Verify submission exists and user owns it
     submission = db.execute(
-        "SELECT id, status FROM submissions WHERE id = ?", (int(submission_id),)
+        "SELECT id, status FROM submissions WHERE id = ? AND (user_id = ? OR ? = TRUE)",
+        (int(submission_id), user.id, user.is_admin),
     ).fetchone()
 
     if submission is None:
@@ -267,6 +286,7 @@ async def get_detailed_metrics(
 @router.get("/{submission_id}/visualization")
 async def get_visualization_data(
     submission_id: str,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -278,9 +298,10 @@ async def get_visualization_data(
     Returns:
         Data formatted for orbit plots, error distributions, and temporal analysis
     """
-    # Verify submission exists
+    # Verify submission exists and user owns it
     submission = db.execute(
-        "SELECT id, status FROM submissions WHERE id = ?", (int(submission_id),)
+        "SELECT id, status FROM submissions WHERE id = ? AND (user_id = ? OR ? = TRUE)",
+        (int(submission_id), user.id, user.is_admin),
     ).fetchone()
 
     if submission is None:
@@ -318,6 +339,7 @@ async def get_visualization_data(
 async def export_results(
     submission_id: str,
     format: str = "json",
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -332,17 +354,40 @@ async def export_results(
     """
     from fastapi.responses import JSONResponse
 
-    # Get full results
+    # Get full results with explicit columns to avoid name collisions
     result = db.execute(
         """
         SELECT
-            s.*,
-            sr.*
+            s.id as submission_id,
+            s.dataset_id,
+            s.algorithm_name,
+            s.version,
+            s.description,
+            s.status,
+            s.created_at as submitted_at,
+            s.completed_at,
+            sr.id as result_id,
+            sr.f1_score,
+            sr.precision,
+            sr.recall,
+            sr.accuracy,
+            sr.specificity,
+            sr.true_positives,
+            sr.false_positives,
+            sr.true_negatives,
+            sr.false_negatives,
+            sr.position_rms_km,
+            sr.velocity_rms_km_s,
+            sr.mahalanobis_distance,
+            sr.ra_residual_rms_arcsec,
+            sr.dec_residual_rms_arcsec,
+            sr.raw_results,
+            sr.processing_time_seconds
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
-        WHERE s.id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id),),
+        (int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -356,6 +401,7 @@ async def export_results(
     row_dict.pop("file_path", None)
 
     # Convert non-JSON-serializable types
+    import math
     from decimal import Decimal
 
     for key, value in row_dict.items():
@@ -363,6 +409,8 @@ async def export_results(
             row_dict[key] = value.isoformat()
         elif isinstance(value, Decimal):
             row_dict[key] = float(value)
+        elif isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            row_dict[key] = None
 
     if format == "json":
         return JSONResponse(
@@ -391,9 +439,12 @@ async def export_results(
 
 
 @router.get("/{submission_id}/report")
+@limiter.limit("5/minute")
 async def generate_report(
+    request: Request,
     submission_id: str,
     format: str = "pdf",
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -424,9 +475,9 @@ async def generate_report(
         FROM submissions s
         LEFT JOIN submission_results sr ON s.id = sr.submission_id
         LEFT JOIN datasets d ON s.dataset_id = d.id
-        WHERE s.id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR ? = TRUE)
         """,
-        (int(submission_id),),
+        (int(submission_id), user.id, user.is_admin),
     )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
@@ -515,6 +566,7 @@ async def generate_report(
                     path=str(output_path),
                     media_type="application/pdf",
                     filename=f"report_{submission_id}.pdf",
+                    background=BackgroundTask(shutil.rmtree, output_dir, ignore_errors=True),
                 )
             else:
                 raise HTTPException(
@@ -541,6 +593,7 @@ async def generate_report(
                     path=str(output_path),
                     media_type="text/html",
                     filename=f"report_{submission_id}.html",
+                    background=BackgroundTask(shutil.rmtree, output_dir, ignore_errors=True),
                 )
             else:
                 raise HTTPException(

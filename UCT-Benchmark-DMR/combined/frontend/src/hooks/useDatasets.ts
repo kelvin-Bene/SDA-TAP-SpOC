@@ -41,16 +41,18 @@ interface DatasetResponse {
   job_id?: string;
   version?: number;
   parent_id?: string;
+  error_message?: string;
 }
 
 // Transform backend response to frontend type
 export function transformDataset(data: DatasetResponse): Dataset {
   return {
-    id: data.id,
+    id: String(data.id),
     name: data.name,
     description: data.description,
     regime: data.regime as Dataset['regime'],
     tier: data.tier as Dataset['tier'],
+    status: (data.status || 'created') as Dataset['status'],
     createdAt: data.created_at,
     objectCount: data.satellite_count,
     observationCount: data.observation_count,
@@ -59,6 +61,7 @@ export function transformDataset(data: DatasetResponse): Dataset {
     sensorTypes: data.sensor_types as Dataset['sensorTypes'],
     version: data.version,
     parentId: data.parent_id,
+    errorMessage: data.error_message,
   };
 }
 
@@ -83,17 +86,25 @@ export function useDatasets(filters?: DatasetFilters) {
       if (filters?.sortOrder) {
         params.order = filters.sortOrder;
       }
+      if (filters?.mine) {
+        params.mine = 'true';
+      }
 
       const response = await api.getDatasets(params);
       const datasets = response.data as DatasetResponse[];
 
-      // Transform and filter
+      // Transform and apply client-side filters for fields the API doesn't support
       return datasets
         .map(transformDataset)
         .filter((d) => {
-          // Additional client-side filtering if needed
+          // Sensor filter is intentionally client-side — the API doesn't support
+          // sensor filtering as a query parameter, so we filter after fetching.
           if (filters?.sensor && filters.sensor !== 'all') {
-            return d.sensorTypes.includes(filters.sensor);
+            if (!d.sensorTypes.includes(filters.sensor)) return false;
+          }
+          if (filters?.objectCountRange) {
+            const { min, max } = filters.objectCountRange;
+            if (d.objectCount < min || d.objectCount > max) return false;
           }
           return true;
         });
@@ -119,8 +130,13 @@ export function useGenerateDataset() {
   return useMutation({
     mutationFn: async (config: DatasetGenerationConfig) => {
       // Transform frontend config to backend format
+      // Date inputs produce date-only strings like "2026-03-01". new Date() parses
+      // these as UTC midnight (start of day). For the end date, we want end-of-day
+      // so the user's selected last day is fully included in the query range.
       const startDate = new Date(config.startDate);
       const endDate = new Date(config.endDate);
+      // Shift end date to 23:59:59 UTC so the entire last day is included
+      endDate.setUTCHours(23, 59, 59, 0);
 
       // Validate dates
       if (isNaN(startDate.getTime())) {
@@ -228,6 +244,7 @@ export function useGenerateDataset() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
   });
 }

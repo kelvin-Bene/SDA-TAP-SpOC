@@ -42,11 +42,29 @@ export function DatasetBrowserPage() {
       console.error('Download failed:', err);
       // U6: Differentiate network vs server errors for better user guidance
       const isNetworkError = err instanceof Error && ('code' in err || err.message === 'Network Error');
+      // Extract server error detail from axios error response (may be a Blob)
+      let serverDetail = '';
+      const axiosErr = err as { response?: { status?: number; data?: unknown } };
+      if (axiosErr?.response?.data instanceof Blob) {
+        try {
+          const text = await axiosErr.response.data.text();
+          const parsed = JSON.parse(text);
+          serverDetail = parsed.detail || '';
+        } catch { /* ignore parse errors */ }
+      } else if (axiosErr?.response?.data && typeof axiosErr.response.data === 'object') {
+        serverDetail = (axiosErr.response.data as { detail?: string }).detail || '';
+      }
+
+      const status = axiosErr?.response?.status;
       toast({
         title: 'Download failed',
         description: isNetworkError
           ? 'Network error — check your connection and try again.'
-          : 'Failed to download dataset. The server may be unavailable.',
+          : status === 404 && serverDetail
+            ? serverDetail
+            : status === 400
+              ? serverDetail || 'This dataset is not available for download.'
+              : 'Failed to download dataset. The server may be unavailable.',
         variant: 'destructive',
       });
     }
@@ -100,6 +118,7 @@ export function DatasetBrowserPage() {
             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
             size="icon"
             onClick={() => setViewMode('grid')}
+            aria-label="Grid view"
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -107,6 +126,7 @@ export function DatasetBrowserPage() {
             variant={viewMode === 'list' ? 'secondary' : 'ghost'}
             size="icon"
             onClick={() => setViewMode('list')}
+            aria-label="List view"
           >
             <List className="h-4 w-4" />
           </Button>
@@ -114,19 +134,39 @@ export function DatasetBrowserPage() {
       </div>
 
       {/* Error State */}
-      {error && (
-        <div className="text-center py-12">
-          <p className="text-destructive mb-2">Failed to load datasets.</p>
-          <Button variant="outline" onClick={() => refetch()}>
-            Try Again
-          </Button>
-        </div>
-      )}
+      {error && (() => {
+        const axiosErr = error as { response?: { status?: number } };
+        const status = axiosErr?.response?.status;
+        let errorMessage = 'Failed to load datasets. Please check your connection and try again.';
+        if (status === 401 || status === 403) {
+          errorMessage = 'You are not authorized to view datasets. Please log in again.';
+        } else if (status && status >= 500) {
+          errorMessage = 'The server encountered an error. Please try again later.';
+        }
+        return (
+          <div className="text-center py-12">
+            <p className="text-destructive mb-2">{errorMessage}</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border p-4 space-y-3 animate-pulse">
+              <div className="h-5 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+              <div className="flex gap-2">
+                <div className="h-6 bg-muted rounded w-16" />
+                <div className="h-6 bg-muted rounded w-16" />
+              </div>
+              <div className="h-4 bg-muted rounded w-full" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -136,7 +176,7 @@ export function DatasetBrowserPage() {
           className={cn(
             'grid gap-4',
             viewMode === 'grid'
-              ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+              ? 'sm:grid-cols-2 lg:grid-cols-3'
               : 'grid-cols-1'
           )}
         >

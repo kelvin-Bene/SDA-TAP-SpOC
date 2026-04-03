@@ -4,6 +4,7 @@
 
 
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -107,25 +108,41 @@ def discoswebQuery(token, params, data="objects", version=2):
 
     auth = {"Authorization": f"Bearer {token}", "DiscosWeb-Api-Version": str(version)}
 
-    # Perform query
-    resp = requests.get(
-        f"{base_url}/api/{data}",
-        headers=auth,
-        params={"filter": params},
-    )
+    # Perform query with 429 retry
+    max_retries = 2
+    for attempt in range(1 + max_retries):
+        resp = requests.get(
+            f"{base_url}/api/{data}",
+            headers=auth,
+            params={"filter": params},
+            timeout=30,
+        )
 
-    if resp.status_code != 200:
-        if resp.status_code == 429:
-            raise requests.exceptions.HTTPError(
-                resp, "Query failed due to API rate limit (429). Slow down!"
-            )
-        else:
-            raise requests.exceptions.HTTPError(
-                resp,
-                f"Query failed for unknown reason ({resp.status_code}); "
-                "double-check login info and query parameters.",
-            )
-    return pd.DataFrame(resp.json()["data"])
+        if resp.status_code == 429 and attempt < max_retries:
+            retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+            wait = min(retry_after, 30)
+            logger.warning(f"ESA rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+            time.sleep(wait)
+            continue
+
+        if resp.status_code != 200:
+            if resp.status_code == 429:
+                raise requests.exceptions.HTTPError(
+                    resp, "Query failed due to API rate limit (429) after retries."
+                )
+            else:
+                raise requests.exceptions.HTTPError(
+                    resp,
+                    f"Query failed for unknown reason ({resp.status_code}); "
+                    "double-check login info and query parameters.",
+                )
+        try:
+            body = resp.json()
+        except ValueError as e:
+            raise ValueError(f"DiscoWeb response is not valid JSON: {e}")
+        if "data" not in body:
+            raise ValueError(f"DiscoWeb response missing 'data' key; keys={list(body.keys())}")
+        return pd.DataFrame(body["data"])
 
 
 def scrape_udl_data():
@@ -150,7 +167,16 @@ def scrape_udl_data():
         url = f"{UDL_BASE_URL}?satNo={range_param}"
 
         try:
-            resp = requests.get(url, headers={"Authorization": basic_auth})
+            max_retries = 2
+            for attempt in range(1 + max_retries):
+                resp = requests.get(url, headers={"Authorization": basic_auth}, timeout=30)
+                if resp.status_code == 429 and attempt < max_retries:
+                    retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                    wait = min(retry_after, 30)
+                    logger.warning(f"UDL rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                break
             resp.raise_for_status()
             udl_data_frames.append(pd.DataFrame(resp.json()))
         except requests.RequestException as e:
@@ -170,7 +196,7 @@ def scrape_esa_data():
     esa_token = os.environ.get("ESA_TOKEN")
 
     if not esa_token:
-        logger.warning("Using placeholder ESA token. Replace with actual token.")
+        raise ValueError("ESA_TOKEN environment variable is not set. Cannot query ESA DiscoWeb API without a valid token.")
 
     max_iterations = int(np.ceil(MAX_SATELLITES / BATCH_SIZE))
     esa_data_frames = []

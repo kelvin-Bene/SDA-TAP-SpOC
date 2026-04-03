@@ -2,17 +2,16 @@
 
 import json
 import re
-import time
 import uuid
-from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from loguru import logger
 
-from backend_api.middleware.auth import AuthUser as CurrentUser, get_current_user, get_optional_user
+from backend_api.auth import CurrentUser, get_current_user, get_optional_user
 from backend_api.database import get_db
+from backend_api.middleware.rate_limit import limiter
 from backend_api.models.feedback import (
     FeedbackCreate,
     FeedbackListItem,
@@ -22,39 +21,6 @@ from backend_api.models.feedback import (
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
-
-
-# ---------------------------------------------------------------------------
-# Lightweight in-process rate limiter (no slowapi dependency required)
-# ---------------------------------------------------------------------------
-
-class _RateLimiter:
-    """Simple per-IP sliding-window rate limiter."""
-
-    def __init__(self) -> None:
-        self._hits: dict[str, list[float]] = defaultdict(list)
-
-    def check(self, key: str, max_hits: int, window_seconds: int) -> None:
-        """Raise 429 if *key* has exceeded *max_hits* within *window_seconds*."""
-        now = time.monotonic()
-        timestamps = self._hits[key]
-        # Prune expired entries
-        self._hits[key] = [t for t in timestamps if now - t < window_seconds]
-        if len(self._hits[key]) >= max_hits:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Try again later.",
-            )
-        self._hits[key].append(now)
-
-
-_limiter = _RateLimiter()
-
-
-def _rate_limit(request: Request, max_hits: int = 5, window_seconds: int = 60) -> None:
-    """Apply rate limiting based on client IP."""
-    client_ip = request.client.host if request.client else "unknown"
-    _limiter.check(client_ip, max_hits, window_seconds)
 
 
 # ---------------------------------------------------------------------------
@@ -75,9 +41,10 @@ def _sanitize_description(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/feedback", response_model=FeedbackResponse, status_code=201)
+@limiter.limit("5/minute")
 async def submit_feedback(
-    body: FeedbackCreate,
     request: Request,
+    body: FeedbackCreate,
     user: Optional[CurrentUser] = Depends(get_optional_user),
     db: DatabaseManager = Depends(get_db),
 ) -> FeedbackResponse:
@@ -87,8 +54,6 @@ async def submit_feedback(
     Authentication is optional -- anonymous submissions are accepted.
     Rate-limited to 5 requests per minute per IP.
     """
-    # Rate limit
-    _rate_limit(request)
 
     feedback_id = str(uuid.uuid4())
 
@@ -98,6 +63,13 @@ async def submit_feedback(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Description must not be empty after sanitization.",
+        )
+
+    # Screenshot size defense-in-depth (max ~5MB base64)
+    if body.screenshot_base64 and len(body.screenshot_base64) > 5_000_000:
+        raise HTTPException(
+            status_code=400,
+            detail="Screenshot too large (max 5MB)",
         )
 
     # Screenshot handling: store base64 as-is for now (storage integration later)
@@ -127,12 +99,12 @@ async def submit_feedback(
                 id, description, severity, screenshot_url,
                 page_url, user_agent, viewport,
                 recent_actions, console_errors, sentry_event_id,
-                reporter_id, reporter_email, status, created_at
+                reporter_id, reporter_email, status, app_version, created_at
             ) VALUES (
                 ?, ?, ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
-                ?, ?, ?, ?
+                ?, ?, ?, ?, ?
             )
             """,
             (
@@ -149,7 +121,8 @@ async def submit_feedback(
                 reporter_id,
                 reporter_email,
                 "open",
-                datetime.utcnow().isoformat(),
+                body.app_version,
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
     except Exception as e:
@@ -161,8 +134,7 @@ async def submit_feedback(
 
     logger.info(
         f"Feedback {feedback_id} submitted "
-        f"(severity={body.severity}, user={reporter_email or 'anonymous'}, "
-        f"page={body.page_url or 'n/a'}, description={description[:120]})"
+        f"(severity={body.severity}, user={reporter_email or 'anonymous'})"
     )
 
     return FeedbackResponse(
@@ -193,6 +165,10 @@ async def list_feedback(
 
     Admin only. Supports filtering by status, severity, and date range.
     """
+    # Clamp pagination parameters to safe ranges
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
     if user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -355,40 +331,48 @@ async def update_feedback(
             detail="Failed to look up feedback.",
         )
 
-    # Build dynamic SET clause
-    set_parts: list[str] = []
-    params: list = []
+    now = datetime.now(timezone.utc).isoformat()
 
-    if body.status is not None:
-        set_parts.append("status = ?")
-        params.append(body.status)
-
-    if body.resolution is not None:
-        set_parts.append("resolution = ?")
-        params.append(body.resolution)
-
-    if not set_parts:
+    if body.status is not None and body.resolution is not None:
+        try:
+            db.execute(
+                "UPDATE feedback SET status = ?, resolution = ?, updated_at = ? WHERE id = ?",
+                (body.status, body.resolution, now, feedback_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to update feedback {feedback_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update feedback.",
+            )
+    elif body.status is not None:
+        try:
+            db.execute(
+                "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?",
+                (body.status, now, feedback_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to update feedback {feedback_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update feedback.",
+            )
+    elif body.resolution is not None:
+        try:
+            db.execute(
+                "UPDATE feedback SET resolution = ?, updated_at = ? WHERE id = ?",
+                (body.resolution, now, feedback_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to update feedback {feedback_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update feedback.",
+            )
+    else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update.",
-        )
-
-    set_parts.append("updated_at = ?")
-    params.append(datetime.utcnow().isoformat())
-    params.append(feedback_id)
-
-    set_clause = ", ".join(set_parts)
-
-    try:
-        db.execute(
-            f"UPDATE feedback SET {set_clause} WHERE id = ?",
-            tuple(params),
-        )
-    except Exception as e:
-        logger.error(f"Failed to update feedback {feedback_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update feedback.",
         )
 
     logger.info(f"Feedback {feedback_id} updated by admin {user.email}")

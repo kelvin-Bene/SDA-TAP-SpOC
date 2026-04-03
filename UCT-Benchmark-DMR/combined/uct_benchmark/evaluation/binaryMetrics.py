@@ -167,9 +167,16 @@ def binaryMetrics(
             # Add these to false positives
             false_positives += non_ref_matched_to_ref
 
-    # Prepare binary class vectors for sklearn metrics
-    y_true = merged["match"].astype(int)
-    y_pred = merged["satNo_pred"].notna().astype(int)
+    # Build binary class vectors from the confusion matrix counts so that
+    # sklearn metrics are mathematically consistent with the manual ones.
+    # Previous code derived y_true/y_pred from different columns of `merged`,
+    # producing semantically mismatched vectors (e.g. FN mapped to sklearn-TN).
+    tp = int(true_positives)
+    fp = int(false_positives)
+    tn = int(true_negatives)
+    fn = int(false_negatives)
+    y_true = [1] * tp + [1] * fn + [0] * fp + [0] * tn
+    y_pred = [1] * tp + [0] * fn + [1] * fp + [0] * tn
 
     # --- Compute metrics with True Negatives ---
     # Custom accuracy including TN: (TP+TN)/(TP+TN+FP+FN)

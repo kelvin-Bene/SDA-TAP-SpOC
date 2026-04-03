@@ -1,22 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Trophy, Medal, Award, Star, Loader2 } from 'lucide-react';
+import { ArrowRight, Star, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getRankIcon } from '@/lib/rankUtils';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
-
-function getRankIcon(rank: number) {
-  switch (rank) {
-    case 1:
-      return <Trophy className="h-5 w-5 text-yellow-500" />;
-    case 2:
-      return <Medal className="h-5 w-5 text-gray-400" />;
-    case 3:
-      return <Award className="h-5 w-5 text-amber-600" />;
-    default:
-      return <span className="w-5 text-center font-mono">{rank}</span>;
-  }
-}
 
 export function LeaderboardSnapshot() {
   const { data: leaderboard, isLoading, error } = useLeaderboard();

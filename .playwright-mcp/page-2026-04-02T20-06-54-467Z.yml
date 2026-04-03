@@ -1,0 +1,31 @@
+- generic [ref=e2]:
+  - generic [ref=e56]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - img [ref=e68]
+        - heading "SpOC" [level=3] [ref=e76]
+        - paragraph [ref=e77]: UCT Algorithm Benchmarking Platform
+      - generic [ref=e78]:
+        - alert [ref=e92]:
+          - img [ref=e93]
+          - paragraph [ref=e95]: Invalid email or password. Please try again.
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - text: Email
+            - textbox "Email" [ref=e81]:
+              - /placeholder: researcher@aerospace.org
+              - text: demo@spoc-benchmark.org
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - generic [ref=e84]: Password
+              - button "Forgot password?" [ref=e85] [cursor=pointer]
+            - textbox "Password" [ref=e86]: demo
+          - button "Sign in" [ref=e87] [cursor=pointer]
+      - paragraph [ref=e89]:
+        - text: Don't have an account?
+        - button "Sign up" [ref=e90] [cursor=pointer]
+    - generic [ref=e91]: SpOC v1.3.0
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e53] [cursor=pointer]:
+    - img [ref=e54]

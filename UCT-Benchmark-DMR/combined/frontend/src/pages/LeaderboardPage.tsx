@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -9,8 +11,10 @@ import {
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown, Loader2, Crown, Sparkles, Upload, Info } from 'lucide-react';
+import { Tooltip as RankTooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn, formatDate } from '@/lib/utils';
+import { getRankIcon } from '@/lib/rankUtils';
 import {
   LineChart,
   Line,
@@ -25,19 +29,6 @@ import { useLeaderboard, useLeaderboardHistory } from '@/hooks/useLeaderboard';
 import { useDatasets } from '@/hooks/useDatasets';
 import type { LeaderboardFilters } from '@/types';
 
-function getRankIcon(rank: number) {
-  switch (rank) {
-    case 1:
-      return <Trophy className="h-5 w-5 text-yellow-500" />;
-    case 2:
-      return <Medal className="h-5 w-5 text-gray-400" />;
-    case 3:
-      return <Award className="h-5 w-5 text-amber-600" />;
-    default:
-      return <span className="w-5 text-center font-mono font-semibold text-muted-foreground">{rank}</span>;
-  }
-}
-
 export function LeaderboardPage() {
   const [filters, setFilters] = useState<LeaderboardFilters>({
     regime: 'all',
@@ -45,6 +36,7 @@ export function LeaderboardPage() {
     period: 'all',
     datasetId: 'all',
   });
+  const [activeTab, setActiveTab] = useState('rankings');
   const [sortColumn, setSortColumn] = useState<'f1Score' | 'precision' | 'recall' | 'positionRmsKm'>('f1Score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -60,7 +52,7 @@ export function LeaderboardPage() {
       const direction = sortDirection === 'desc' ? -1 : 1;
       if (sortColumn === 'positionRmsKm') {
         // Lower is better for position RMS
-        return direction * (aVal - bVal) * -1;
+        return direction * (aVal - bVal);
       }
       return direction * (aVal - bVal);
     });
@@ -131,7 +123,7 @@ export function LeaderboardPage() {
 
       {/* Top 3 Podium */}
       {topThree.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
           {/* Second place */}
           {topThree[1] && (
             <div className="relative mt-8">
@@ -265,7 +257,7 @@ export function LeaderboardPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="rankings" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-white/5 border border-white/10">
           <TabsTrigger value="rankings" className="data-[state=active]:bg-white/10">Rankings</TabsTrigger>
           <TabsTrigger value="trends" className="data-[state=active]:bg-white/10">Performance Trends</TabsTrigger>
@@ -273,7 +265,7 @@ export function LeaderboardPage() {
 
         {/* Rankings Tab */}
         <TabsContent value="rankings">
-          <div className="rounded-xl border border-white/10 bg-card overflow-hidden">
+          <div className="rounded-xl border border-white/10 bg-card overflow-hidden overflow-x-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -283,42 +275,74 @@ export function LeaderboardPage() {
                 Failed to load leaderboard data
               </div>
             ) : sortedLeaderboard.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-12 space-y-4">
                 <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No submissions yet. Be the first to submit!</p>
+                <Link to="/submit">
+                  <Button className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Submit Algorithm
+                  </Button>
+                </Link>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="w-[80px]">Rank</TableHead>
-                    <TableHead>Algorithm</TableHead>
-                    <TableHead>Team</TableHead>
+                    <TableHead scope="col" className="w-[80px]">
+                      <span className="flex items-center">
+                        Rank
+                        <TooltipProvider>
+                          <RankTooltip>
+                            <TooltipTrigger><Info className="h-3 w-3 ml-1 text-muted-foreground" /></TooltipTrigger>
+                            <TooltipContent>Rank is based on F1 score</TooltipContent>
+                          </RankTooltip>
+                        </TooltipProvider>
+                      </span>
+                    </TableHead>
+                    <TableHead scope="col">Algorithm</TableHead>
+                    <TableHead scope="col">Team</TableHead>
                     <TableHead
+                      scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('f1Score')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('f1Score'); } }}
                     >
                       F1-Score <SortIndicator column="f1Score" />
                     </TableHead>
                     <TableHead
+                      scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('precision')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('precision'); } }}
                     >
                       Precision <SortIndicator column="precision" />
                     </TableHead>
                     <TableHead
+                      scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('recall')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('recall'); } }}
                     >
                       Recall <SortIndicator column="recall" />
                     </TableHead>
                     <TableHead
-                      className="cursor-pointer hover:text-foreground transition-colors"
+                      scope="col"
+                      className="hidden sm:table-cell cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
                       onClick={() => handleSort('positionRmsKm')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('positionRmsKm'); } }}
                     >
                       Pos RMS (km) <SortIndicator column="positionRmsKm" />
                     </TableHead>
-                    <TableHead>Submitted</TableHead>
+                    <TableHead scope="col" className="hidden sm:table-cell">Submitted</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -362,10 +386,10 @@ export function LeaderboardPage() {
                       <TableCell>
                         <span className="font-mono">{(entry.recall * 100).toFixed(1)}%</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <span className="font-mono">{entry.positionRmsKm.toFixed(2)}</span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                         {formatDate(entry.submittedAt)}
                       </TableCell>
                     </TableRow>

@@ -29,9 +29,11 @@ FIGURES_DIR = REPORTS_DIR / "figures"
 try:
     from tqdm import tqdm
 
-    # Only remove handler if it exists
-    if len(logger._core.handlers) > 0:
-        logger.remove(0)
+    # Remove all existing handlers safely (handler IDs may not start at 0)
+    try:
+        logger.remove()
+    except ValueError:
+        pass
     logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 except ModuleNotFoundError:
     pass
@@ -181,9 +183,9 @@ lowPercentage = (0.0, 0.05, 0.1)
 # What is considered low orbital coverage (percentage), defined differently for LEO, MEO, and GEO
 # Orbit coverage is taken over a timespan of 3 orbital periods
 # Determined from taking bottom 25 percentile of orbit coverage from real observation data over a 10 day window
-lowCoverage_LEO = 0.0213
-lowCoverage_MEO = 0.0449
-lowCoverage_GEO = 0.41656  # 41.656% as fraction (to match LEO/MEO scale)
+lowCoverage_LEO = 0.0213   # 2.13% as fraction
+lowCoverage_MEO = 0.0449   # 4.49% as fraction
+lowCoverage_GEO = 0.41656  # 41.656% as fraction
 # orbital coverage below which is too small to include in datasets
 # (set arbitrarily, arbitrarily assumed to be the same for all regimes) #
 tooLowtoInclude = 0.001
@@ -698,9 +700,9 @@ LEGACY_SENSOR_REVERSE = {v: k for k, v in LEGACY_SENSOR_MAP.items()}
 
 # Legacy Quality Level values (Positions 11-13: A/S/N each)
 # Per Louis's Benchmarking Documentation, A/S/N refer to percentage of objects with LOW quality:
-# A (Advanced): 0-33% of objects have LOW quality metrics (high-quality/easy dataset)
-# S (Standard): 34-66% of objects have LOW quality metrics (mixed/medium dataset)
-# N (Novice): 67-100% of objects have LOW quality metrics (challenging/hard dataset)
+# A = All/sparse = >90% of objects have LOW quality (harder dataset for algorithms)
+# S = Standard = 40-60% of objects have LOW quality (mixed dataset)
+# N = None/dense = <10% of objects have LOW quality (easier dataset for algorithms)
 LEGACY_QUALITY_LEVELS = ["A", "S", "N"]
 
 # Quality level thresholds for coverage, track gap, and observation count

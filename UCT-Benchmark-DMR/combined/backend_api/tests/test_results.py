@@ -13,7 +13,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend_api.auth import CurrentUser
+from backend_api.auth import get_current_user as prod_get_current_user
+from backend_api.middleware.auth import get_current_user as mw_get_current_user
 from uct_benchmark.database.connection import DatabaseManager
+
+# Mock authenticated user for dependency overrides
+_mock_user = CurrentUser(id="test-user-id", email="test@example.com", role="admin")
 
 # =============================================================================
 # FIXTURES
@@ -27,7 +33,8 @@ def db_with_results():
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "test_results.duckdb"
 
-    db = DatabaseManager(db_path=db_path)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    db = DatabaseManager(db_path=db_path, backend="duckdb")
     db.initialize()
 
     # Create sample dataset
@@ -128,6 +135,10 @@ def client_with_results(db_with_results: DatabaseManager) -> TestClient:
     # Import app after setting up the database
     from backend_api.main import app
 
+    # Override auth dependencies so requests are not rejected with 401
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
+
     # Mock the init/close functions to prevent lifespan from changing our db
     with patch("backend_api.main.init_database", return_value=db_with_results):
         with patch("backend_api.main.close_database"):
@@ -136,7 +147,9 @@ def client_with_results(db_with_results: DatabaseManager) -> TestClient:
                     with TestClient(app) as client:
                         yield client
 
-    # Restore original
+    # Clean up overrides and restore original db
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
 
 
@@ -401,7 +414,8 @@ def db_empty():
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "test_empty.duckdb"
 
-    db = DatabaseManager(db_path=db_path)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    db = DatabaseManager(db_path=db_path, backend="duckdb")
     db.initialize()
 
     yield db
@@ -422,6 +436,9 @@ def client_empty(db_empty: DatabaseManager) -> TestClient:
 
     from backend_api.main import app
 
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
+
     with patch("backend_api.main.init_database", return_value=db_empty):
         with patch("backend_api.main.close_database"):
             with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
@@ -429,6 +446,8 @@ def client_empty(db_empty: DatabaseManager) -> TestClient:
                     with TestClient(app) as client:
                         yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
 
 
@@ -438,7 +457,8 @@ def db_with_multiple_datasets():
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "test_multi.duckdb"
 
-    db = DatabaseManager(db_path=db_path)
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND from env
+    db = DatabaseManager(db_path=db_path, backend="duckdb")
     db.initialize()
 
     # Create multiple datasets
@@ -497,6 +517,9 @@ def client_with_multiple_datasets(db_with_multiple_datasets: DatabaseManager) ->
 
     from backend_api.main import app
 
+    app.dependency_overrides[mw_get_current_user] = lambda: _mock_user
+    app.dependency_overrides[prod_get_current_user] = lambda: _mock_user
+
     with patch("backend_api.main.init_database", return_value=db_with_multiple_datasets):
         with patch("backend_api.main.close_database"):
             with patch("backend_api.main.init_job_manager", return_value=MagicMock()):
@@ -504,6 +527,8 @@ def client_with_multiple_datasets(db_with_multiple_datasets: DatabaseManager) ->
                     with TestClient(app) as client:
                         yield client
 
+    app.dependency_overrides.pop(mw_get_current_user, None)
+    app.dependency_overrides.pop(prod_get_current_user, None)
     db_module._db_manager = original_db
 
 

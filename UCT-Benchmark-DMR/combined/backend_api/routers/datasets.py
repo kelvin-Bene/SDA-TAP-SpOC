@@ -1,18 +1,25 @@
 """Dataset management endpoints."""
 
+import asyncio
 import json
+import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
 from loguru import logger
 
+from backend_api.auth import CurrentUser, get_current_user
+from backend_api.middleware.auth import require_admin
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_dataset_generation
 from backend_api.middleware.rate_limit import limiter
+from backend_api.routers.auth import get_user_tokens
+from backend_api.utils.token_validation import validate_udl_token
 from backend_api.models import (
     DatasetCreate,
     DatasetDetail,
@@ -36,9 +43,31 @@ from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
 
+_last_cleanup_time: float = 0.0
+_CLEANUP_INTERVAL = 300  # Run cleanup at most every 5 minutes
+
+
+def _maybe_cleanup_stuck_datasets(db) -> None:
+    """Mark datasets stuck in 'generating' for >15 min as failed. Rate-limited."""
+    global _last_cleanup_time
+    now = time.monotonic()
+    if now - _last_cleanup_time < _CLEANUP_INTERVAL:
+        return
+    _last_cleanup_time = now
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
+        db.execute(
+            """UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+               WHERE status = 'generating'
+                 AND created_at < ?""",
+            (cutoff,),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to clean up stuck datasets: {e}")
+
 
 @router.get("/config")
-async def get_dataset_config():
+async def get_dataset_config(current_user: CurrentUser = Depends(get_current_user)):
     """
     Return dataset configuration values from backend settings.
 
@@ -127,10 +156,11 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
         size_bytes=estimated_size,
-        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf", "fusion"]],
         job_id=None,  # Could store this in generation_params
         version=int(row_dict.get("version") or 1),
         parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
+        error_message=row_dict.get("error_message"),
     )
 
 
@@ -144,6 +174,8 @@ async def list_datasets(
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     order: Optional[str] = None,
+    mine: Optional[bool] = None,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -158,6 +190,7 @@ async def list_datasets(
         search: Text search on dataset name and code
         sort_by: Column to sort by (name, created_at, satellite_count, observation_count)
         order: Sort order (asc, desc)
+        mine: If true, only return datasets owned by the current user
 
     Returns:
         List of dataset summaries
@@ -166,9 +199,15 @@ async def list_datasets(
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
 
+    _maybe_cleanup_stuck_datasets(db)
+
     # Build query with optional filters
     query = "SELECT * FROM datasets WHERE 1=1"
     params = []
+
+    if mine and current_user:
+        query += " AND user_id = ?"
+        params.append(current_user.id)
 
     if status:
         query += " AND status = ?"
@@ -181,6 +220,9 @@ async def list_datasets(
     if tier:
         query += " AND tier = ?"
         params.append(tier)
+
+    if search and len(search) > 200:
+        raise HTTPException(status_code=400, detail="Search query too long (max 200 characters)")
 
     if search:
         query += " AND (LOWER(name) LIKE ? OR LOWER(COALESCE(code, '')) LIKE ?)"
@@ -204,6 +246,7 @@ async def list_datasets(
 @router.get("/{dataset_id}", response_model=DatasetDetail)
 async def get_dataset(
     dataset_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -263,10 +306,6 @@ async def get_dataset(
         except (json.JSONDecodeError, TypeError):
             pass
 
-    # Fallback: use actual_satellite_ids when generation_params lacks satIDs
-    if not satellites and actual_satellite_ids:
-        satellites = actual_satellite_ids
-
     return DatasetDetail(
         id=str(row_dict["id"]),
         name=row_dict["name"],
@@ -279,7 +318,7 @@ async def get_dataset(
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
         size_bytes=estimated_size,
-        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf", "fusion"]],
         satellites=satellites,
         parameters=params,
         time_window_start=row_dict.get("time_window_start"),
@@ -302,6 +341,9 @@ async def get_dataset(
 @router.get("/{dataset_id}/versions", response_model=List[DatasetSummary])
 async def get_dataset_versions(
     dataset_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -318,33 +360,37 @@ async def get_dataset_versions(
     Returns:
         List of dataset summaries representing all versions
     """
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
     id_int = validate_dataset_id(dataset_id)
 
-    # First get the target dataset to find its lineage
+    # First get the target dataset to find its lineage.
+    # Use code column for lineage matching; legacy_code may not exist in all DB backends.
     target = db.execute(
-        "SELECT id, legacy_code, parent_id, code FROM datasets WHERE id = ?", (id_int,)
+        "SELECT id, parent_id, code FROM datasets WHERE id = ?", (id_int,)
     ).fetchone()
 
     if target is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    target_legacy_code = target[1]
-    target_parent_id = target[2]
-    target_code = target[3]
+    target_parent_id = target[1]
+    target_code = target[2]
 
-    # Find all related versions:
-    # 1. Same legacy_code (regenerated datasets)
-    # 2. Parent/child chain (versioned datasets)
-    version_ids = {id_int}
-
-    # Follow parent chain upward
-    current_id = target_parent_id
-    while current_id:
-        version_ids.add(current_id)
-        parent_row = db.execute(
-            "SELECT parent_id FROM datasets WHERE id = ?", (current_id,)
-        ).fetchone()
-        current_id = parent_row[0] if parent_row else None
+    # Find all related versions using recursive CTE to avoid N+1 queries.
+    # Traverses parent chain upward and child chain downward in a single query.
+    # Also matches by code column for regenerated datasets sharing the same code.
+    ancestor_cte = (
+        "WITH RECURSIVE ancestors AS ("
+        "  SELECT id, parent_id FROM datasets WHERE id = ?"
+        "  UNION ALL"
+        "  SELECT d.id, d.parent_id FROM datasets d"
+        "  JOIN ancestors a ON d.id = a.parent_id"
+        ") "
+        "SELECT id FROM ancestors"
+    )
+    ancestor_rows = db.execute(ancestor_cte, (id_int,)).fetchall()
+    version_ids = {row[0] for row in ancestor_rows}
 
     # Find children (datasets with this ID as parent)
     children = db.execute(
@@ -353,37 +399,53 @@ async def get_dataset_versions(
     for child in children:
         version_ids.add(child[0])
 
-    # Also find by matching legacy_code if available
-    if target_legacy_code:
+    # Match by code column (works on all DB backends, covers regenerated datasets)
+    if target_code:
         code_matches = db.execute(
-            "SELECT id FROM datasets WHERE legacy_code = ?", (target_legacy_code,)
+            "SELECT id FROM datasets WHERE code = ?", (target_code,)
         ).fetchall()
         for match in code_matches:
             version_ids.add(match[0])
 
+    # Also match by legacy_code if the column exists and has a value
+    try:
+        probe = db.execute(
+            "SELECT legacy_code FROM datasets WHERE id = ? LIMIT 1", (id_int,)
+        ).fetchone()
+        target_legacy_code = probe[0] if probe else None
+        if target_legacy_code:
+            legacy_matches = db.execute(
+                "SELECT id FROM datasets WHERE legacy_code = ?", (target_legacy_code,)
+            ).fetchall()
+            for match in legacy_matches:
+                version_ids.add(match[0])
+    except Exception:
+        pass  # legacy_code column may not exist in all backends
+
     # Query all version datasets
     placeholders = ",".join(["?" for _ in version_ids])
     result = db.execute(
-        f"SELECT * FROM datasets WHERE id IN ({placeholders}) ORDER BY version DESC, created_at DESC",
-        tuple(version_ids),
+        f"SELECT * FROM datasets WHERE id IN ({placeholders}) ORDER BY version DESC, created_at DESC LIMIT ? OFFSET ?",
+        tuple(version_ids) + (limit, offset),
     )
     columns = [desc[0] for desc in result.description]
     rows = result.fetchall()
 
+    # Deduplicate by version number — keep first (latest created_at per ORDER BY)
+    # Skip dedup for null versions to preserve legacy datasets without version numbers
+    seen_versions = set()
+    deduped_rows = []
+    version_col_idx = columns.index("version") if "version" in columns else None
+    for row in rows:
+        v = row[version_col_idx] if version_col_idx is not None else None
+        if v is None or v not in seen_versions:
+            if v is not None:
+                seen_versions.add(v)
+            deduped_rows.append(row)
+    rows = deduped_rows
+
     return [_row_to_dataset_summary(row, columns) for row in rows]
 
-
-@router.post("/debug")
-async def debug_request(request: Request):
-    """Debug endpoint to log raw request body."""
-    body = await request.body()
-    try:
-        data = json.loads(body)
-        logger.info(f"Debug endpoint received: {json.dumps(data, indent=2, default=str)}")
-        return {"received": data}
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON: {e}")
-        return {"error": str(e), "raw": body.decode()}
 
 
 @router.post("/", response_model=DatasetSummary, status_code=201)
@@ -391,6 +453,7 @@ async def debug_request(request: Request):
 async def create_dataset(
     request: Request,
     dataset_request: DatasetCreate,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -408,6 +471,31 @@ async def create_dataset(
     logger.info(
         f"Creating dataset with: name={dataset_request.name}, regime={dataset_request.regime}, tier={dataset_request.tier}"
     )
+
+    # Fetch and validate user's API tokens
+    tokens = get_user_tokens(db, user.id)
+    if tokens["udl_token"] is None:
+        # Check if token exists but decryption failed vs never set
+        raw = db.execute(
+            "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
+        ).fetchone()
+        if raw and raw[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="UDL API token required. Set it in Profile Settings.",
+        )
+
+    valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
+
+    if not tokens.get("esa_token"):
+        logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
+
     # Prepare generation parameters (name will be set after uniqueness check)
     generation_params = {
         "regime": dataset_request.regime.value,
@@ -466,17 +554,17 @@ async def create_dataset(
         logger.info(f"Non-ref observations enabled: ratio={dataset_request.non_ref_ratio}")
 
     # Add object type and event codes (per Louis's 16-character code spec)
-    generation_params["object_type_code"] = getattr(dataset_request, "object_type_code", "U")
-    generation_params["event_code"] = getattr(dataset_request, "event_code", "NE")
+    generation_params["object_type_code"] = dataset_request.object_type_code
+    generation_params["event_code"] = dataset_request.event_code
 
     # Add window selection option (per Louis's bisecting search spec)
-    generation_params["use_window_selection"] = getattr(dataset_request, "use_window_selection", False)
+    generation_params["use_window_selection"] = dataset_request.use_window_selection
     if generation_params["use_window_selection"]:
         logger.info("Window selection algorithm enabled")
 
     # Record target percentage and TrackTLE options for full provenance
-    generation_params["target_percentage"] = getattr(dataset_request, "target_percentage", "UN")
-    generation_params["output_tracktle"] = getattr(dataset_request, "output_tracktle", False)
+    generation_params["target_percentage"] = dataset_request.target_percentage
+    generation_params["output_tracktle"] = dataset_request.output_tracktle
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
@@ -512,22 +600,20 @@ async def create_dataset(
     except Exception as e:
         logger.debug(f"Version tracking lookup failed (non-critical): {e}")
 
-    # Use transaction to ensure atomicity of dataset creation
-    # If any step fails, rollback to prevent partial/corrupted records
+    # Single INSERT — auto-commit handles atomicity (no explicit transaction needed).
+    # Explicit BEGIN/COMMIT is avoided because it conflicts with connection pooling
+    # where each execute() may use a different connection from the pool.
     job = None
     dataset_id = None
 
     try:
-        # Start transaction
-        db.execute("BEGIN TRANSACTION")
-
         # Create dataset record in database using RETURNING to get the ID
         result = db.execute(
             """
             INSERT INTO datasets (
                 name, code, tier, orbital_regime, status, generation_params,
-                version, parent_id, created_at
-            ) VALUES (?, ?, ?, ?, 'generating', ?, ?, ?, CURRENT_TIMESTAMP)
+                version, parent_id, user_id, created_at
+            ) VALUES (?, ?, ?, ?, 'generating', ?, ?, ?, ?, CURRENT_TIMESTAMP)
             RETURNING id
             """,
             (
@@ -538,14 +624,31 @@ async def create_dataset(
                 json.dumps(generation_params),
                 version,
                 parent_id,
+                user.id,
             ),
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job for dataset generation
-        job = submit_dataset_generation(dataset_id, generation_params)
+    except Exception as e:
+        logger.error(f"Failed to create dataset: {e}")
 
-        # Update dataset with job_id
+        # Check for UNIQUE constraint violation (extremely unlikely with UUID, but handle it)
+        error_str = str(e).lower()
+        if "unique" in error_str or "duplicate" in error_str:
+            raise HTTPException(
+                status_code=409, detail="Dataset name conflict occurred. Please try again."
+            )
+
+        raise HTTPException(status_code=500, detail="Failed to create dataset. Please try again.")
+
+    # Submit background job AFTER commit so the worker can see the dataset row
+    try:
+        job = submit_dataset_generation(
+            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
+            user_id=user.id,
+        )
+
+        # Update dataset with job_id (outside transaction, non-critical)
         db.execute(
             """
             UPDATE datasets
@@ -557,37 +660,14 @@ async def create_dataset(
                 dataset_id,
             ),
         )
-
-        # Commit transaction
-        db.execute("COMMIT")
-
     except Exception as e:
-        # Rollback on any failure
-        try:
-            db.execute("ROLLBACK")
-        except Exception as rollback_error:
-            logger.warning(f"Rollback failed: {rollback_error}")
-
-        # Cancel the job if it was created
-        if job is not None:
-            try:
-                from backend_api.jobs import get_job_manager
-
-                job_manager = get_job_manager()
-                job_manager.fail_job(job.id, "Dataset creation failed, job cancelled")
-            except Exception as cancel_error:
-                logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
-
-        logger.error(f"Failed to create dataset: {e}")
-
-        # Check for UNIQUE constraint violation (extremely unlikely with UUID, but handle it)
-        error_str = str(e).lower()
-        if "unique" in error_str or "duplicate" in error_str:
-            raise HTTPException(
-                status_code=409, detail="Dataset name conflict occurred. Please try again."
-            )
-
-        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+        # Dataset row exists but job failed to start -- mark as failed
+        logger.error(f"Failed to submit generation job for dataset {dataset_id}: {e}")
+        db.execute(
+            "UPDATE datasets SET status = 'failed' WHERE id = ?",
+            (dataset_id,),
+        )
+        raise HTTPException(status_code=500, detail="Failed to start dataset generation. Please try again or contact support.")
 
     return DatasetSummary(
         id=str(dataset_id),
@@ -611,6 +691,7 @@ async def get_dataset_observations(
     dataset_id: str,
     limit: int = 100,
     offset: int = 0,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -715,7 +796,7 @@ async def get_dataset_observations(
 
 
 @router.post("/{dataset_id}/link-observations")
-async def link_observations(dataset_id: str, db=Depends(get_db)):
+async def link_observations(dataset_id: str, user: CurrentUser = Depends(get_current_user), db=Depends(get_db)):
     """
     Manually link observations to a dataset.
 
@@ -726,12 +807,18 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
     id_int = validate_dataset_id(dataset_id)
 
     # Get dataset info
-    dataset = db.execute(
-        "SELECT id, name, observation_count FROM datasets WHERE id = ?", (id_int,)
-    ).fetchone()
+    result = db.execute(
+        "SELECT id, name, observation_count, user_id FROM datasets WHERE id = ?", (id_int,)
+    )
+    dataset = result.fetchone()
 
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
+
+    dataset_dict = dict(zip([desc[0] for desc in result.description], dataset))
+    if dataset_dict.get("user_id") != user.id and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this dataset")
+
     obs_count = dataset[2] or 0
 
     # Check if already linked
@@ -745,20 +832,34 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
             "linked": existing_links,
         }
 
-    # Get recent observations that match the dataset's time window
-    # Since we don't have explicit time window, link the most recent observations
-    # up to the observation_count
+    # Get observations that were created during this dataset's generation window.
+    # We filter by created_at between the dataset's created_at and +1 hour to avoid
+    # accidentally linking observations from a completely different dataset.
     if obs_count <= 0:
         return {"message": "Dataset has no observations to link", "linked": 0}
 
-    # Get observation IDs from the observations table (most recent ones)
+    # Fetch dataset's created_at to scope the time window
+    ds_time_result = db.execute(
+        "SELECT created_at FROM datasets WHERE id = ?", (id_int,)
+    )
+    ds_time_row = ds_time_result.fetchone()
+    if ds_time_row is None or ds_time_row[0] is None:
+        return {"message": "Dataset has no created_at timestamp to scope observations", "linked": 0}
+
+    dataset_created_at = ds_time_row[0]
+
+    # Get observation IDs scoped to this dataset's generation time window
+    if isinstance(dataset_created_at, str):
+        dataset_created_at = datetime.fromisoformat(dataset_created_at)
+    end_time = dataset_created_at + timedelta(hours=1)
     result = db.execute(
         """
         SELECT id FROM observations
-        ORDER BY created_at DESC
+        WHERE created_at >= ? AND created_at <= ?
+        ORDER BY created_at ASC
         LIMIT ?
         """,
-        (obs_count,),
+        (dataset_created_at, end_time, obs_count),
     )
     obs_ids = [row[0] for row in result.fetchall()]
 
@@ -775,13 +876,14 @@ async def link_observations(dataset_id: str, db=Depends(get_db)):
         }
     except Exception as e:
         logger.error(f"Failed to link observations: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to link observations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to link observations. Please try again or contact support.")
 
 
 @router.patch("/{dataset_id}/coverage")
 async def update_dataset_coverage(
     dataset_id: str,
     coverage: float,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -800,11 +902,15 @@ async def update_dataset_coverage(
     if not 0 <= coverage <= 1:
         raise HTTPException(status_code=400, detail="Coverage must be between 0 and 1")
 
-    result = db.execute("SELECT id, name FROM datasets WHERE id = ?", (id_int,))
+    result = db.execute("SELECT id, name, user_id FROM datasets WHERE id = ?", (id_int,))
     row = result.fetchone()
 
     if row is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
+
+    row_dict = dict(zip([desc[0] for desc in result.description], row))
+    if row_dict.get("user_id") != user.id and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this dataset")
 
     db.execute(
         "UPDATE datasets SET avg_coverage = ? WHERE id = ?",
@@ -817,6 +923,7 @@ async def update_dataset_coverage(
 @router.delete("/{dataset_id}")
 async def delete_dataset(
     dataset_id: str,
+    user = Depends(require_admin),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -849,115 +956,12 @@ async def delete_dataset(
     return {"message": f"Dataset '{dataset_name}' (ID: {dataset_id}) deleted successfully"}
 
 
-@router.get("/{dataset_id}/sample-submission")
-async def get_sample_submission(
-    dataset_id: str,
-    quality: str = "high",
-    db: DatabaseManager = Depends(get_db),
-):
-    """
-    Generate a mock UCTP output file for demo mode.
-
-    Returns a downloadable JSON file with synthetic UCTP results
-    at the specified quality level.
-
-    Args:
-        dataset_id: The dataset ID
-        quality: Quality level - 'high', 'medium', or 'low'
-    """
-    import random as _random
-
-    from backend_api.demo import is_demo_mode
-
-    if not is_demo_mode():
-        raise HTTPException(status_code=404, detail="Not found")
-
-    id_int = validate_dataset_id(dataset_id)
-
-    # Get dataset observations
-    rows = db.execute(
-        """
-        SELECT o.id, o.sat_no, o.ob_time, o.ra, o.declination
-        FROM observations o
-        JOIN dataset_observations dso ON o.id = dso.observation_id
-        WHERE dso.dataset_id = ?
-        ORDER BY o.ob_time
-        LIMIT 2000
-        """,
-        (id_int,),
-    ).fetchall()
-
-    if not rows:
-        raise HTTPException(status_code=404, detail="No observations found for this dataset")
-
-    # Quality determines match rate and error magnitude
-    quality_params = {
-        "high": {"match_rate": 0.95, "pos_err": 0.5, "vel_err": 0.01},
-        "medium": {"match_rate": 0.75, "pos_err": 5.0, "vel_err": 0.1},
-        "low": {"match_rate": 0.50, "pos_err": 20.0, "vel_err": 0.5},
-    }
-    params = quality_params.get(quality, quality_params["medium"])
-
-    rng = _random.Random(id_int + hash(quality))
-    uctp_results = []
-
-    # Group observations by sat_no
-    grouped: dict[int, list] = {}
-    for row in rows:
-        obs_id, sat_no, ob_time, ra, dec = row
-        grouped.setdefault(sat_no, []).append((obs_id, ob_time, ra, dec))
-
-    for sat_no, obs_list in grouped.items():
-        # Decide if this satellite is correctly matched
-        if rng.random() > params["match_rate"]:
-            continue
-
-        # Generate a state vector with controlled error
-        base_x = rng.uniform(-8000, 8000)
-        base_y = rng.uniform(-8000, 8000)
-        base_z = rng.uniform(-8000, 8000)
-
-        uctp_results.append({
-            "sourcedData": [obs[0] for obs in obs_list],
-            "epoch": obs_list[0][1] if isinstance(obs_list[0][1], str) else str(obs_list[0][1]),
-            "xpos": round(base_x + rng.gauss(0, params["pos_err"]), 6),
-            "ypos": round(base_y + rng.gauss(0, params["pos_err"]), 6),
-            "zpos": round(base_z + rng.gauss(0, params["pos_err"]), 6),
-            "xvel": round(rng.uniform(-7.5, 7.5) + rng.gauss(0, params["vel_err"]), 9),
-            "yvel": round(rng.uniform(-7.5, 7.5) + rng.gauss(0, params["vel_err"]), 9),
-            "zvel": round(rng.uniform(-7.5, 7.5) + rng.gauss(0, params["vel_err"]), 9),
-        })
-
-    # Add some false positives for low/medium quality
-    if quality in ("low", "medium"):
-        num_fp = int(len(uctp_results) * (0.15 if quality == "medium" else 0.30))
-        for _ in range(num_fp):
-            uctp_results.append({
-                "sourcedData": [f"false-{rng.randint(10000, 99999)}"],
-                "epoch": str(rows[0][2]),
-                "xpos": round(rng.uniform(-10000, 10000), 6),
-                "ypos": round(rng.uniform(-10000, 10000), 6),
-                "zpos": round(rng.uniform(-10000, 10000), 6),
-                "xvel": round(rng.uniform(-8, 8), 9),
-                "yvel": round(rng.uniform(-8, 8), 9),
-                "zvel": round(rng.uniform(-8, 8), 9),
-            })
-
-    from fastapi.responses import Response
-
-    content = json.dumps(uctp_results, indent=2)
-    filename = f"sample_uctp_dataset{dataset_id}_{quality}.json"
-
-    return Response(
-        content=content,
-        media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
 @router.get("/{dataset_id}/download")
+@limiter.limit("10/minute")
 async def download_dataset(
+    request: Request,
     dataset_id: str,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -982,10 +986,42 @@ async def download_dataset(
 
     row_dict = dict(zip(columns, row))
 
-    if row_dict.get("status") != "available":
+    # Ownership check: only the dataset owner or an admin can download
+    if row_dict.get("user_id") != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to download this dataset")
+
+    if row_dict.get("status") not in ("available", "complete"):
         raise HTTPException(status_code=400, detail="Dataset is not available for download")
 
-    # Get observations
+    # Check observation count before loading to prevent OOM
+    count_result = db.execute(
+        "SELECT COUNT(*) FROM dataset_observations do_link "
+        "JOIN observations o ON do_link.observation_id = o.id "
+        "WHERE do_link.dataset_id = ?",
+        (id_int,),
+    ).fetchone()
+    obs_count = count_result[0] if count_result else 0
+    MAX_DOWNLOAD_ROWS = 500_000
+    if obs_count > MAX_DOWNLOAD_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Dataset too large for direct download ({obs_count:,} observations, max {MAX_DOWNLOAD_ROWS:,}). Contact admin for bulk export.",
+        )
+
+    # Check for empty dataset before starting the streaming query
+    if obs_count == 0:
+        expected = row_dict.get("observation_count", 0)
+        if expected and expected > 0:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Dataset '{row_dict['name']}' reports {expected} observations but none "
+                    "were found in the database. The observation data may not have been "
+                    "persisted correctly during generation. Try regenerating this dataset."
+                ),
+            )
+
+    # Get observations (streamed in batches to avoid OOM)
     obs_result = db.execute(
         """
         SELECT o.*, dso.assigned_track_id, dso.assigned_object_id
@@ -998,7 +1034,6 @@ async def download_dataset(
     )
 
     obs_columns = [desc[0] for desc in obs_result.description]
-    obs_rows = obs_result.fetchall()
 
     # Map DB snake_case columns to Benchmarking Documentation camelCase names
     DB_TO_DOC_FIELD_MAP = {
@@ -1025,57 +1060,77 @@ async def download_dataset(
         "sen_x": "senx",
         "sen_y": "seny",
         "sen_z": "senz",
-        "sen_vel_x": "senvelx",
-        "sen_vel_y": "senvely",
-        "sen_vel_z": "senvelz",
         "exp_duration": "expDuration",
-        "net_obj_sig": "netObjSig",
-        "net_obj_sig_unc": "netObjSigUnc",
         "mag_unc": "magUnc",
         "geo_lat": "geolat",
         "geo_lon": "geolon",
         "geo_alt": "geoalt",
         "geo_range": "georange",
-        "solar_phase_angle": "solarPhaseAngle",
-        "solar_eq_phase_angle": "solarEqPhaseAngle",
-        "solar_dec_angle": "solarDecAngle",
-        "shutter_delay": "shutterDelay",
-        "raw_file_uri": "rawFileURI",
-        "created_by": "createdBy",
-        "orig_network": "origNetwork",
-        "los_unc": "losUnc",
-        "obs_type": "type",
     }
 
-    observations = []
-    for obs_row in obs_rows:
+    import math
+    from datetime import datetime as _dt, date as _date
+
+    def _make_serializable(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {k: _make_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [_make_serializable(i) for i in obj]
+        elif isinstance(obj, Decimal):
+            f = float(obj)
+            return None if math.isnan(f) or math.isinf(f) else f
+        elif isinstance(obj, float):
+            return None if math.isnan(obj) or math.isinf(obj) else obj
+        elif isinstance(obj, _dt):
+            return obj.isoformat()
+        elif isinstance(obj, _date):
+            return obj.isoformat()
+        return obj
+
+    def _transform_row(obs_row: tuple) -> dict:
         obs_dict = dict(zip(obs_columns, obs_row))
-        # Convert non-JSON-serializable types (Decimal, datetime) to primitives
-        for key, value in list(obs_dict.items()):
-            if hasattr(value, "isoformat"):
-                obs_dict[key] = value.isoformat()
-            elif isinstance(value, Decimal):
-                obs_dict[key] = float(value)
-        # Rename DB columns to doc-matching camelCase names
+        if obs_dict.get("ob_time"):
+            obs_dict["ob_time"] = (
+                obs_dict["ob_time"].isoformat()
+                if hasattr(obs_dict["ob_time"], "isoformat")
+                else str(obs_dict["ob_time"])
+            )
         obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
-        observations.append(obs_dict)
+        return _make_serializable(obs_dict)
 
-    # Build export data
-    export_data = {
-        "dataset": {
-            "id": row_dict["id"],
-            "name": row_dict["name"],
-            "regime": row_dict.get("orbital_regime"),
-            "tier": row_dict.get("tier"),
-            "observation_count": row_dict.get("observation_count"),
-            "satellite_count": row_dict.get("satellite_count"),
-            "created_at": str(row_dict["created_at"]) if row_dict.get("created_at") else None,
-        },
-        "observations": observations,
-    }
+    dataset_metadata = _make_serializable({
+        "id": row_dict["id"],
+        "name": row_dict["name"],
+        "regime": row_dict.get("orbital_regime"),
+        "tier": row_dict.get("tier"),
+        "observation_count": row_dict.get("observation_count"),
+        "satellite_count": row_dict.get("satellite_count"),
+        "created_at": str(row_dict["created_at"]) if row_dict.get("created_at") else None,
+    })
 
-    return JSONResponse(
-        content=export_data,
+    BATCH_SIZE = 5_000
+
+    def _stream_observations():
+        """Stream the JSON response in batches to avoid loading all rows into memory."""
+        yield '{"dataset": '
+        yield json.dumps(dataset_metadata)
+        yield ', "observations": ['
+
+        first = True
+        while True:
+            batch = obs_result.fetchmany(BATCH_SIZE)
+            if not batch:
+                break
+            for obs_row in batch:
+                if not first:
+                    yield ","
+                first = False
+                yield json.dumps(_transform_row(obs_row))
+
+        yield "]}"
+
+    return StreamingResponse(
+        _stream_observations(),
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{row_dict["name"]}.json"'},
     )
@@ -1089,6 +1144,7 @@ async def download_dataset(
 @router.post("/legacy", response_model=DatasetSummary, status_code=201)
 async def create_dataset_from_legacy_code(
     request: LegacyDatasetCreate,
+    user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -1136,7 +1192,7 @@ async def create_dataset_from_legacy_code(
     downsample_config = parsed.get_downsample_config()
 
     # Generate dataset name
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     short_uuid = str(uuid.uuid4())[:8]
     dataset_name = request.name or f"{legacy_code}-{timestamp}-{short_uuid}"
 
@@ -1188,6 +1244,29 @@ async def create_dataset_from_legacy_code(
 
     logger.info(f"Creating dataset from legacy code: {legacy_code}")
 
+    # Fetch and validate user's API tokens (same check as create_dataset)
+    tokens = get_user_tokens(db, user.id)
+    if tokens["udl_token"] is None:
+        raw = db.execute(
+            "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
+        ).fetchone()
+        if raw and raw[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="UDL API token required. Set it in Profile Settings.",
+        )
+
+    valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
+
+    if not tokens.get("esa_token"):
+        logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
+
     # Map regime to OrbitalRegime enum
     regime_map = {"LEO": OrbitalRegime.LEO, "MEO": OrbitalRegime.MEO, "GEO": OrbitalRegime.GEO, "HEO": OrbitalRegime.HEO}
     regime = regime_map.get(parsed.orbital_regime, OrbitalRegime.LEO)
@@ -1196,13 +1275,13 @@ async def create_dataset_from_legacy_code(
     tier_map = {"A": DataTier.T1, "S": DataTier.T2, "N": DataTier.T3}
     tier = tier_map.get(parsed.orbit_coverage, DataTier.T2)
 
-    # Use transaction for atomicity
+    # Individual statements use auto-commit — no explicit transaction needed.
+    # Explicit BEGIN/COMMIT is avoided because it conflicts with connection pooling
+    # where each execute() may use a different connection from the pool.
     job = None
     dataset_id = None
 
     try:
-        db.execute("BEGIN TRANSACTION")
-
         # Create dataset with legacy code fields
         result = db.execute(
             """
@@ -1234,23 +1313,19 @@ async def create_dataset_from_legacy_code(
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job
-        job = submit_dataset_generation(dataset_id, generation_params)
+        # Submit background job (pass validated tokens)
+        job = submit_dataset_generation(
+            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
+            user_id=user.id,
+        )
 
-        # Update with job_id
+        # Update with job_id (separate auto-committed statement)
         db.execute(
             "UPDATE datasets SET generation_params = ? WHERE id = ?",
             (json.dumps({**generation_params, "job_id": job.id}), dataset_id),
         )
 
-        db.execute("COMMIT")
-
     except Exception as e:
-        try:
-            db.execute("ROLLBACK")
-        except Exception as rollback_error:
-            logger.warning(f"Rollback failed during legacy dataset creation: {rollback_error}")
-
         if job is not None:
             try:
                 from backend_api.jobs import get_job_manager
@@ -1260,7 +1335,7 @@ async def create_dataset_from_legacy_code(
                 logger.warning(f"Failed to cancel orphaned job {job.id}: {cancel_error}")
 
         logger.error(f"Failed to create dataset from legacy code: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create dataset: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create dataset. Please try again or contact support.")
 
     return DatasetSummary(
         id=str(dataset_id),
@@ -1284,6 +1359,7 @@ async def create_dataset_from_legacy_code(
 @router.get("/code/{legacy_code}", response_model=DatasetDetail)
 async def get_dataset_by_legacy_code(
     legacy_code: str,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -1350,10 +1426,6 @@ async def get_dataset_by_legacy_code(
         except (json.JSONDecodeError, TypeError):
             pass
 
-    # Fallback: use actual_satellite_ids when generation_params lacks satIDs
-    if not satellites and actual_satellite_ids:
-        satellites = actual_satellite_ids
-
     return DatasetDetail(
         id=str(row_dict["id"]),
         name=row_dict["name"],
@@ -1366,7 +1438,7 @@ async def get_dataset_by_legacy_code(
         satellite_count=row_dict.get("satellite_count") or 0,
         coverage=float(row_dict.get("avg_coverage") or 0),
         size_bytes=estimated_size,
-        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf"]],
+        sensor_types=[SensorType(s) for s in sensor_types if s in ["optical", "radar", "rf", "fusion"]],
         satellites=satellites,
         parameters=params,
         time_window_start=row_dict.get("time_window_start"),
@@ -1397,7 +1469,7 @@ async def get_dataset_by_legacy_code(
 
 
 @router.get("/validate/{code}", response_model=LegacyCodeValidation)
-async def validate_code(code: str):
+async def validate_code(code: str, current_user: CurrentUser = Depends(get_current_user)):
     """
     Validate a dataset code in either legacy or enhanced format.
 

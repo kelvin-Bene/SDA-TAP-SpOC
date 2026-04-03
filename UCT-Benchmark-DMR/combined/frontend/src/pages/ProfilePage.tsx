@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   User,
   Building2,
-  Key,
   Shield,
-  Copy,
-  RefreshCw,
-  Check,
-  Eye,
-  EyeOff,
   Loader2,
+  ArrowRight,
+  KeyRound,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLeaderboardStatistics } from '@/hooks/useLeaderboard';
@@ -28,30 +25,11 @@ import { api } from '@/api/client';
 export function ProfilePage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Editable fields initialized from auth user data
   const [displayName, setDisplayName] = useState(user?.username ?? '');
   const [organization, setOrganization] = useState(user?.organization ?? '');
-  const [udlToken, setUdlToken] = useState('');
-  const [esaToken, setEsaToken] = useState('');
-  const [showUdlToken, setShowUdlToken] = useState(false);
-  const [showEsaToken, setShowEsaToken] = useState(false);
-  const [udlTokenMask, setUdlTokenMask] = useState('');
-  const [esaTokenMask, setEsaTokenMask] = useState('');
-
-  // Fetch profile from backend to get masked token values
-  useEffect(() => {
-    api.getCurrentUser().then((res) => {
-      const profile = res.data;
-      if (profile.udl_token) setUdlTokenMask(profile.udl_token);
-      if (profile.esa_token) setEsaTokenMask(profile.esa_token);
-    }).catch(() => {
-      // Ignore -- profile may not exist yet
-    });
-  }, []);
 
   // Fetch real stats from API
   const { data: stats } = useLeaderboardStatistics();
@@ -60,26 +38,6 @@ export function ProfilePage() {
   // Calculate user stats from real data
   const totalSubmissions = submissions.length;
 
-  const placeholderApiKey = 'sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-
-  const handleCopyApiKey = () => {
-    navigator.clipboard.writeText(placeholderApiKey);
-    setCopiedKey(true);
-    toast({
-      title: 'API Key Copied',
-      description: 'Your API key has been copied to the clipboard.',
-    });
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
-
-  const handleRegenerateKey = () => {
-    toast({
-      title: 'API Key Regenerated',
-      description: 'Your new API key has been generated. Update your applications.',
-      variant: 'destructive',
-    });
-  };
-
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -87,28 +45,19 @@ export function ProfilePage() {
         display_name: displayName,
         organization,
       };
-      // Only send tokens when the user has typed a new value
-      if (udlToken) payload.udl_token = udlToken;
-      if (esaToken) payload.esa_token = esaToken;
 
-      const res = await api.updateProfile(payload);
-      const profile = res.data;
-
-      // Update masks from response and clear raw inputs
-      if (profile.udl_token) setUdlTokenMask(profile.udl_token);
-      if (profile.esa_token) setEsaTokenMask(profile.esa_token);
-      setUdlToken('');
-      setEsaToken('');
+      await api.updateProfile(payload);
 
       toast({
         title: 'Profile Updated',
         description: 'Your profile information has been saved.',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to update profile:', error);
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       toast({
         title: 'Update Failed',
-        description: 'Failed to save profile changes. Please try again.',
+        description: String(detail || 'Failed to save profile changes. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -149,13 +98,15 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
+              <div className="space-y-6">
               {/* Avatar */}
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
                   <User className="h-10 w-10 text-primary" />
                 </div>
                 <div>
-                  <Button variant="outline" size="sm">Change Avatar</Button>
+                  <Button variant="outline" size="sm" disabled title="Avatar uploads coming soon">Change Avatar</Button>
                   <p className="text-xs text-muted-foreground mt-1">JPG, PNG or GIF. 1MB max.</p>
                 </div>
               </div>
@@ -199,64 +150,25 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              {/* API Token Fields */}
+              {/* API Credentials Link */}
               <Separator />
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium">Data Source API Tokens</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Your API tokens are stored securely and used for dataset generation.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="udl-token">UDL API Token</Label>
-                  <div className="flex gap-2">
-                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
-                    <div className="relative flex-1">
-                      <Input
-                        id="udl-token"
-                        type={showUdlToken ? 'text' : 'password'}
-                        placeholder={udlTokenMask || 'Enter your UDL API token'}
-                        value={udlToken}
-                        onChange={(e) => setUdlToken(e.target.value)}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowUdlToken(!showUdlToken)}
-                      >
-                        {showUdlToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <KeyRound className="h-5 w-5 text-cosmic-cyan" />
+                    <div>
+                      <p className="font-medium text-sm">Data Source API Credentials</p>
+                      <p className="text-xs text-muted-foreground">
+                        Manage your API tokens and service credentials in Settings.
+                      </p>
                     </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="esa-token">ESA API Token</Label>
-                  <div className="flex gap-2">
-                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
-                    <div className="relative flex-1">
-                      <Input
-                        id="esa-token"
-                        type={showEsaToken ? 'text' : 'password'}
-                        placeholder={esaTokenMask || 'Enter your ESA API token'}
-                        value={esaToken}
-                        onChange={(e) => setEsaToken(e.target.value)}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowEsaToken(!showEsaToken)}
-                      >
-                        {showEsaToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
+                  <Link to="/settings">
+                    <Button variant="outline" size="sm" className="gap-2">
+                      Settings
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
 
@@ -277,7 +189,7 @@ export function ProfilePage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -288,6 +200,8 @@ export function ProfilePage() {
                   )}
                 </Button>
               </div>
+              </div>
+            </form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -302,67 +216,12 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Key className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Production API Key</span>
-                    <Badge variant="success">Active</Badge>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                  >
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-muted px-3 py-2 rounded font-mono text-sm">
-                    {showApiKey ? placeholderApiKey : '\u2022'.repeat(40)}
-                  </code>
-                  <Button variant="outline" size="icon" onClick={handleCopyApiKey}>
-                    {copiedKey ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Created: Jan 15, 2026 -- Last used: 2 hours ago
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Regenerate API Key</p>
+              <div className="relative">
+                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
+                <div className="opacity-50 pointer-events-none">
                   <p className="text-sm text-muted-foreground">
-                    This will invalidate your current key
+                    Programmatic API access with key management, usage tracking, and rate limits will be available in a future release.
                   </p>
-                </div>
-                <Button variant="destructive" className="gap-2" onClick={handleRegenerateKey}>
-                  <RefreshCw className="h-4 w-4" />
-                  Regenerate
-                </Button>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-2">API Usage</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  API usage tracking coming soon
-                </p>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">Requests Today</p>
-                    <p className="text-2xl font-bold text-muted-foreground">--</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">This Month</p>
-                    <p className="text-2xl font-bold text-muted-foreground">--</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">Rate Limit</p>
-                    <p className="text-2xl font-bold">Unlimited</p>
-                  </div>
                 </div>
               </div>
             </CardContent>
@@ -379,6 +238,9 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="relative">
+                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
+                <div className="opacity-50 pointer-events-none">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -424,6 +286,8 @@ export function ProfilePage() {
               <div className="flex justify-end">
                 <Button>Save Preferences</Button>
               </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -438,25 +302,30 @@ export function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="relative">
+                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
+                <div className="opacity-50 pointer-events-none">
               {/* Change Password */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Change Password</h4>
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" />
+              <form onSubmit={(e) => e.preventDefault()}>
+                <div className="space-y-4">
+                  <h4 className="font-medium">Change Password</h4>
+                  <div className="space-y-4 max-w-md">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <Input id="current-password" type="password" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <Input id="new-password" type="password" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <Input id="confirm-password" type="password" />
+                    </div>
+                    <Button type="submit">Update Password</Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" />
-                  </div>
-                  <Button>Update Password</Button>
                 </div>
-              </div>
+              </form>
 
               <Separator />
 
@@ -489,6 +358,8 @@ export function ProfilePage() {
                     </div>
                     <Badge variant="success">Active</Badge>
                   </div>
+                </div>
+              </div>
                 </div>
               </div>
             </CardContent>

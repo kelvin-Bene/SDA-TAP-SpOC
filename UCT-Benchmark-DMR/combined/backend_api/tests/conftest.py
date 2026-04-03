@@ -4,6 +4,14 @@ Shared test fixtures for backend API tests.
 Supports both DuckDB (default) and PostgreSQL backends.
 Set TEST_DATABASE_BACKEND=postgres and TEST_DATABASE_URL=postgresql://...
 to run tests against PostgreSQL.
+
+NOTE: Default tests use DuckDB in-memory, which may not catch PostgreSQL-specific
+SQL dialect issues (JSONB operators, ILIKE, INTERVAL, etc.). For production
+confidence, run periodically against PostgreSQL:
+
+    TEST_DATABASE_BACKEND=postgres \
+    TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/uct_test \
+    pytest backend_api/tests/ -v
 """
 
 import json

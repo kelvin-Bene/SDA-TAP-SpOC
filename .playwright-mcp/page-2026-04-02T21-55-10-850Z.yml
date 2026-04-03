@@ -1,0 +1,109 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e57]:
+                - button "Datasets" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - img [ref=e60]
+                    - text: Datasets
+                  - img [ref=e64]
+                - generic [ref=e66]:
+                  - link "Browse Datasets" [ref=e67] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e70]:
+                - button "Submit" [ref=e71] [cursor=pointer]:
+                  - generic [ref=e72]:
+                    - img [ref=e73]
+                    - text: Submit
+                  - img [ref=e76]
+                - generic [ref=e78]:
+                  - link "New Submission" [ref=e79] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e80] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e81] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e82]
+                - text: Leaderboard
+              - link "Documentation" [ref=e88] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e89]
+                - text: Documentation
+            - generic [ref=e91]:
+              - heading "Quick Actions" [level=4] [ref=e92]:
+                - img [ref=e93]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e95] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e96]:
+                  - img [ref=e98]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e99] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e100]:
+                  - img [ref=e102]
+                  - text: Upload Submission
+            - generic [ref=e105]:
+              - heading "Recent" [level=4] [ref=e106]:
+                - img [ref=e107]
+                - text: Recent
+              - generic [ref=e109]:
+                - link "MyUCTP v2.1 Results" [ref=e110] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e111]
+                  - generic [ref=e114]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e115] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e116]
+                  - generic [ref=e118]: LEO-T2-2026-01-15
+          - generic [ref=e124]: All systems operational
+      - main [ref=e125]:
+        - img [ref=e128]
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e130] [cursor=pointer]:
+    - img [ref=e131]

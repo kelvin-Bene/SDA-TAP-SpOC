@@ -4,15 +4,20 @@ Authentication router for UCT Benchmark API.
 Provides endpoints for JWT verification and user profile management.
 """
 
+import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from backend_api.middleware.auth import AuthUser as CurrentUser, get_current_user
+from backend_api.auth import CurrentUser, get_current_user
+from backend_api.middleware.audit import audit_log
+from backend_api.middleware.rate_limit import limiter
 from backend_api.database import get_db
+from backend_api.utils.crypto import decrypt_token, encrypt_token
+from backend_api.utils.token_validation import validate_esa_token, validate_udl_token
 from uct_benchmark.database.connection import DatabaseManager
 
 router = APIRouter()
@@ -73,7 +78,9 @@ class VerifyResponse(BaseModel):
 
 
 @router.post("/verify", response_model=VerifyResponse)
+@limiter.limit("10/minute")
 async def verify_token(
+    request: Request,
     user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
@@ -85,6 +92,12 @@ async def verify_token(
     """
     profile = _get_or_create_profile(db, user)
 
+    # Decrypt tokens before masking for display
+    raw_udl = profile.get("udl_token")
+    raw_esa = profile.get("esa_token")
+    decrypted_udl = decrypt_token(raw_udl) if raw_udl else None
+    decrypted_esa = decrypt_token(raw_esa) if raw_esa else None
+
     return VerifyResponse(
         authenticated=True,
         user=UserProfile(
@@ -93,8 +106,8 @@ async def verify_token(
             role=profile["role"],
             display_name=profile.get("display_name"),
             organization=profile.get("organization"),
-            udl_token=_mask_token(profile.get("udl_token")),
-            esa_token=_mask_token(profile.get("esa_token")),
+            udl_token=_mask_token(decrypted_udl),
+            esa_token=_mask_token(decrypted_esa),
             created_at=profile.get("created_at"),
             updated_at=profile.get("updated_at"),
         ),
@@ -114,21 +127,29 @@ async def get_me(
     """
     profile = _get_or_create_profile(db, user)
 
+    # Decrypt tokens before masking for display
+    raw_udl = profile.get("udl_token")
+    raw_esa = profile.get("esa_token")
+    decrypted_udl = decrypt_token(raw_udl) if raw_udl else None
+    decrypted_esa = decrypt_token(raw_esa) if raw_esa else None
+
     return UserProfile(
         id=profile["id"],
         email=profile["email"],
         role=profile["role"],
         display_name=profile.get("display_name"),
         organization=profile.get("organization"),
-        udl_token=_mask_token(profile.get("udl_token")),
-        esa_token=_mask_token(profile.get("esa_token")),
+        udl_token=_mask_token(decrypted_udl),
+        esa_token=_mask_token(decrypted_esa),
         created_at=profile.get("created_at"),
         updated_at=profile.get("updated_at"),
     )
 
 
 @router.patch("/me", response_model=UserProfile)
+@limiter.limit("10/minute")
 async def update_me(
+    request: Request,
     updates: ProfileUpdate,
     user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
@@ -141,6 +162,17 @@ async def update_me(
     """
     # Ensure the profile exists first
     _get_or_create_profile(db, user)
+
+    # Validate tokens before saving
+    if updates.udl_token is not None:
+        valid, err = await asyncio.to_thread(validate_udl_token, updates.udl_token)
+        if not valid:
+            raise HTTPException(status_code=400, detail={"udl_token": err})
+
+    if updates.esa_token is not None:
+        valid, err = await asyncio.to_thread(validate_esa_token, updates.esa_token)
+        if not valid:
+            raise HTTPException(status_code=400, detail={"esa_token": err})
 
     # Build dynamic SET clause based on provided fields
     set_parts: list[str] = []
@@ -156,11 +188,11 @@ async def update_me(
 
     if updates.udl_token is not None:
         set_parts.append("udl_token = ?")
-        params.append(updates.udl_token)
+        params.append(encrypt_token(updates.udl_token))
 
     if updates.esa_token is not None:
         set_parts.append("esa_token = ?")
-        params.append(updates.esa_token)
+        params.append(encrypt_token(updates.esa_token))
 
     if not set_parts:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -173,6 +205,35 @@ async def update_me(
         f"UPDATE profiles SET {set_clause} WHERE id = ?",
         tuple(params),
     )
+
+    # Audit log the profile update
+    update_data = updates.model_dump(exclude_unset=True)
+    updated_fields = list(update_data.keys())
+    audit_log(
+        action="profile.update",
+        user_id=user.id,
+        resource_type="profile",
+        resource_id=user.id,
+        details=f"fields={updated_fields}",
+    )
+
+    # Audit log token changes specifically (security-sensitive)
+    if updates.udl_token is not None:
+        audit_log(
+            action="token.update",
+            user_id=user.id,
+            resource_type="udl_token",
+            resource_id=user.id,
+            details="UDL token updated",
+        )
+    if updates.esa_token is not None:
+        audit_log(
+            action="token.update",
+            user_id=user.id,
+            resource_type="esa_token",
+            resource_id=user.id,
+            details="ESA token updated",
+        )
 
     # Return the updated profile
     result = db.execute(
@@ -188,8 +249,11 @@ async def update_me(
 
     row_dict = dict(zip(columns, row))
     row_dict["id"] = str(row_dict["id"])
-    row_dict["udl_token"] = _mask_token(row_dict.get("udl_token"))
-    row_dict["esa_token"] = _mask_token(row_dict.get("esa_token"))
+    # Decrypt before masking
+    raw_udl = row_dict.get("udl_token")
+    raw_esa = row_dict.get("esa_token")
+    row_dict["udl_token"] = _mask_token(decrypt_token(raw_udl) if raw_udl else None)
+    row_dict["esa_token"] = _mask_token(decrypt_token(raw_esa) if raw_esa else None)
     return UserProfile(**row_dict)
 
 
@@ -249,3 +313,47 @@ def _get_or_create_profile(db: DatabaseManager, user: CurrentUser) -> dict:
     profile = dict(zip(columns, row))
     profile["id"] = str(profile["id"])
     return profile
+
+
+def get_user_tokens(db: DatabaseManager, user_id: str) -> dict:
+    """Fetch and decrypt a user's API tokens.
+
+    Resolution order for each service:
+      1. credentials table (encrypted, per-user) via CredentialService.resolve
+      2. profiles table (legacy storage, encrypted)
+      3. None
+    """
+    from backend_api.services.credential_service import CredentialService
+
+    tokens: dict = {"udl_token": None, "esa_token": None}
+
+    # Try credentials table first for UDL
+    try:
+        udl_val = CredentialService.resolve(db, user_id, "udl")
+        if udl_val:
+            tokens["udl_token"] = udl_val
+    except Exception as e:
+        logger.debug(f"Credential resolve failed for udl: {e}")
+
+    # Try credentials table first for ESA
+    try:
+        esa_val = CredentialService.resolve(db, user_id, "esa")
+        if esa_val:
+            tokens["esa_token"] = esa_val
+    except Exception as e:
+        logger.debug(f"Credential resolve failed for esa: {e}")
+
+    # Fall back to profiles table for any that are still None
+    if tokens["udl_token"] is None or tokens["esa_token"] is None:
+        result = db.execute(
+            "SELECT udl_token, esa_token FROM profiles WHERE id = ?",
+            (user_id,),
+        )
+        row = result.fetchone()
+        if row:
+            if tokens["udl_token"] is None and row[0]:
+                tokens["udl_token"] = decrypt_token(row[0])
+            if tokens["esa_token"] is None and row[1]:
+                tokens["esa_token"] = decrypt_token(row[1])
+
+    return tokens

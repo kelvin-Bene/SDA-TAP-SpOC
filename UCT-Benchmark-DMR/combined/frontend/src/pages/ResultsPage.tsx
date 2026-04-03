@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { downloadBlob } from '@/lib/downloadUtils';
@@ -39,36 +40,34 @@ export function ResultsPage() {
   const { toast } = useToast();
 
   // Use real API hooks
-  const { data: results, isLoading: loadingResults, error: resultsError } = useResults(submissionId || '');
-  const { data: submission, isLoading: loadingSubmission } = useSubmission(submissionId || '');
+  const { data: results, isLoading: loadingResults, error: resultsError, refetch: refetchResults } = useResults(submissionId || '');
+  const { data: submission, isLoading: loadingSubmission, error: submissionError } = useSubmission(submissionId || '');
   const exportMutation = useExportResults();
   const reportMutation = useDownloadReport();
 
   const isLoading = loadingResults || loadingSubmission;
 
-  // Memoized histogram data — must be before early returns to satisfy hook ordering rules
-  const hasRealResiduals = !!(results?.raResidualHistogram && results?.decResidualHistogram);
+  // ALL hooks must be above early returns to avoid React error #310
   const residualData = useMemo(() => {
-    if (!hasRealResiduals || !results) return null;
-    const labels = results.raResidualHistogram!.labels;
-    const raBins = results.raResidualHistogram!.counts;
-    const decBins = results.decResidualHistogram!.counts;
+    if (!results?.raResidualHistogram || !results?.decResidualHistogram) return null;
+    const labels = results.raResidualHistogram.labels;
+    const raBins = results.raResidualHistogram.counts;
+    const decBins = results.decResidualHistogram.counts;
     return labels.map((label, i) => ({
       range: label,
       ra: raBins[i] ?? 0,
       dec: decBins[i] ?? 0,
     }));
-  }, [hasRealResiduals, results?.raResidualHistogram, results?.decResidualHistogram]);
+  }, [results?.raResidualHistogram, results?.decResidualHistogram]);
 
-  const hasRealPosErrors = !!results?.positionErrorHistogram;
   const positionErrorData = useMemo(() => {
-    if (!hasRealPosErrors || !results) return null;
-    const hist = results.positionErrorHistogram!;
+    if (!results?.positionErrorHistogram) return null;
+    const hist = results.positionErrorHistogram;
     return hist.labels.map((label, i) => ({
       range: label,
       count: hist.counts[i] ?? 0,
     }));
-  }, [hasRealPosErrors, results?.positionErrorHistogram]);
+  }, [results?.positionErrorHistogram]);
 
   const handleDownloadReport = async () => {
     if (!submissionId) return;
@@ -108,6 +107,25 @@ export function ResultsPage() {
     }
   };
 
+  const handleExportCsv = async () => {
+    if (!submissionId) return;
+    try {
+      const blob = await exportMutation.mutateAsync({
+        submissionId,
+        format: 'csv',
+      });
+
+      downloadBlob(blob, `results_${submissionId}.csv`);
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export CSV. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -117,6 +135,27 @@ export function ResultsPage() {
   }
 
   if (resultsError || !results) {
+    // Determine the specific error scenario for a helpful message
+    const is404 = resultsError && typeof resultsError === 'object' && 'response' in resultsError
+      && (resultsError as { response?: { status?: number } }).response?.status === 404;
+    const isSubmission404 = submissionError && typeof submissionError === 'object' && 'response' in submissionError
+      && (submissionError as { response?: { status?: number } }).response?.status === 404;
+    const isNetworkError = resultsError && !is404;
+
+    let title = 'Results Not Found';
+    let description = 'The results for this submission could not be loaded.';
+
+    if (isSubmission404 || is404) {
+      title = 'Submission Not Found';
+      description = `No submission exists with ID "${submissionId}". It may have been deleted, or the link may be incorrect.`;
+    } else if (submission && submission.status !== 'completed') {
+      title = 'Results Not Ready';
+      description = `This submission is currently "${submission.status}". Results will be available once evaluation is complete.`;
+    } else if (isNetworkError) {
+      title = 'Failed to Load Results';
+      description = 'A network error occurred while fetching the results. Please check your connection and try again.';
+    }
+
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -125,16 +164,25 @@ export function ResultsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Results Not Found</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         </div>
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground">
-              The results for this submission are not available yet or the submission doesn't exist.
-            </p>
-            <Link to="/submit/my-submissions" className="mt-4 inline-block">
-              <Button>Back to Submissions</Button>
-            </Link>
+          <CardContent className="pt-6 space-y-4">
+            <p className="text-muted-foreground">{description}</p>
+            <div className="flex gap-3">
+              <Link to="/submit/my-submissions">
+                <Button variant="outline">Back to Submissions</Button>
+              </Link>
+              {!isSubmission404 && !is404 && (
+                <Button
+                  onClick={() => refetchResults()}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -144,8 +192,6 @@ export function ResultsPage() {
   // Only show previous comparisons when real data exists
   const hasPreviousRank = results.previousRank !== undefined && results.previousRank !== null;
   const rankChange = hasPreviousRank ? (results.previousRank as number) - (results.rank || 0) : 0;
-
-  // (residualData and positionErrorData are memoized above, before early returns)
 
   return (
     <div className="space-y-6">
@@ -175,13 +221,21 @@ export function ResultsPage() {
             )}
             Download Report
           </Button>
+          <Button variant="outline" className="gap-2" onClick={handleExportCsv} disabled={exportMutation.isPending}>
+            {exportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            CSV
+          </Button>
           <Button className="gap-2" onClick={handleExport} disabled={exportMutation.isPending}>
             {exportMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export Results
+            Export JSON
           </Button>
         </div>
       </div>
@@ -208,9 +262,9 @@ export function ResultsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide">Precision</p>
-                <p className="text-3xl font-bold mt-1">{(results.precision * 100).toFixed(1)}%</p>
+                <p className="text-3xl font-bold mt-1">{((results.precision ?? 0) * 100).toFixed(1)}%</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {results.truePositives} TP / {results.truePositives + results.falsePositives} predicted
+                  {results.truePositives ?? 0} TP / {(results.truePositives ?? 0) + (results.falsePositives ?? 0)} predicted
                 </p>
               </div>
             </div>
@@ -222,9 +276,9 @@ export function ResultsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide">Recall</p>
-                <p className="text-3xl font-bold mt-1">{(results.recall * 100).toFixed(1)}%</p>
+                <p className="text-3xl font-bold mt-1">{((results.recall ?? 0) * 100).toFixed(1)}%</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {results.truePositives} TP / {results.truePositives + results.falseNegatives} actual
+                  {results.truePositives ?? 0} TP / {(results.truePositives ?? 0) + (results.falseNegatives ?? 0)} actual
                 </p>
               </div>
             </div>
@@ -294,11 +348,18 @@ export function ResultsPage() {
                     <p className="text-2xl font-bold text-orange-600">{results.falsePositives}</p>
                     <p className="text-xs text-muted-foreground">False Positive</p>
                   </div>
-                  <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-4">
-                    <p className="text-2xl font-bold text-muted-foreground">—</p>
+                  <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-4">
+                    <p className="text-2xl font-bold text-blue-600">
+                      {results.trueNegatives != null ? results.trueNegatives : 'N/A'}
+                    </p>
                     <p className="text-xs text-muted-foreground">True Negative</p>
                   </div>
                 </div>
+                {results.trueNegatives != null && results.trueNegatives > 0 && (
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Total non-reference observations: {(results.trueNegatives ?? 0) + (results.falsePositives ?? 0)}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -312,24 +373,24 @@ export function ResultsPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Precision</span>
-                    <span className="font-mono font-semibold">{(results.precision * 100).toFixed(2)}%</span>
+                    <span className="font-mono font-semibold">{((results.precision ?? 0) * 100).toFixed(2)}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full"
-                      style={{ width: `${results.precision * 100}%` }}
+                      style={{ width: `${(results.precision ?? 0) * 100}%` }}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Recall</span>
-                    <span className="font-mono font-semibold">{(results.recall * 100).toFixed(2)}%</span>
+                    <span className="font-mono font-semibold">{((results.recall ?? 0) * 100).toFixed(2)}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-stellar-cyan rounded-full"
-                      style={{ width: `${results.recall * 100}%` }}
+                      style={{ width: `${(results.recall ?? 0) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -345,6 +406,34 @@ export function ResultsPage() {
                     />
                   </div>
                 </div>
+                {results.accuracy != null && results.accuracy > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Accuracy</span>
+                      <span className="font-mono font-semibold">{((results.accuracy ?? 0) * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-green-500 rounded-full"
+                        style={{ width: `${(results.accuracy ?? 0) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {results.specificity != null && results.specificity > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Specificity</span>
+                      <span className="font-mono font-semibold">{((results.specificity ?? 0) * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-violet-500 rounded-full"
+                        style={{ width: `${(results.specificity ?? 0) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -362,12 +451,12 @@ export function ResultsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-lg border p-4">
                     <p className="text-sm text-muted-foreground">Position RMS</p>
-                    <p className="text-3xl font-bold">{results.positionRmsKm.toFixed(2)}</p>
+                    <p className="text-3xl font-bold">{results.positionRmsKm?.toFixed(2) ?? '-'}</p>
                     <p className="text-sm text-muted-foreground">km</p>
                   </div>
                   <div className="rounded-lg border p-4">
                     <p className="text-sm text-muted-foreground">Velocity RMS</p>
-                    <p className="text-3xl font-bold">{results.velocityRmsKmS.toFixed(3)}</p>
+                    <p className="text-3xl font-bold">{results.velocityRmsKmS?.toFixed(3) ?? '-'}</p>
                     <p className="text-sm text-muted-foreground">km/s</p>
                   </div>
                 </div>
@@ -375,11 +464,9 @@ export function ResultsPage() {
                   <p className="text-sm text-muted-foreground">Mahalanobis Distance</p>
                   <p className="text-3xl font-bold">{results.mahalanobisDistance ? results.mahalanobisDistance.toFixed(2) : '-'}</p>
                   <p className="text-sm text-muted-foreground">
-                    {results.mahalanobisDistance
-                      ? results.mahalanobisDistance < 2
-                        ? 'Good covariance realism'
-                        : 'Check covariance scaling'
-                      : ''}
+                    {results.mahalanobisDistance && results.mahalanobisDistance < 2
+                      ? 'Good covariance realism'
+                      : 'Check covariance scaling'}
                   </p>
                 </div>
               </CardContent>
@@ -392,6 +479,7 @@ export function ResultsPage() {
               </CardHeader>
               <CardContent>
                 {positionErrorData ? (
+                  <div className="min-w-[250px]">
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={positionErrorData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -401,6 +489,7 @@ export function ResultsPage() {
                       <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center h-[200px] text-muted-foreground">
                     No position error histogram data available
@@ -422,6 +511,7 @@ export function ResultsPage() {
               <CardContent>
                 {residualData ? (
                   <>
+                    <div className="min-w-[250px]">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={residualData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -431,6 +521,7 @@ export function ResultsPage() {
                         <Bar dataKey="ra" fill="#06B6D4" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                    </div>
                     <p className="text-sm text-muted-foreground mt-2 text-center">
                       RMS: {results.raResidualRmsArcsec?.toFixed(2) || '-'} arcsec
                     </p>
@@ -451,6 +542,7 @@ export function ResultsPage() {
               <CardContent>
                 {residualData ? (
                   <>
+                    <div className="min-w-[250px]">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={residualData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -460,6 +552,7 @@ export function ResultsPage() {
                         <Bar dataKey="dec" fill="#10B981" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                    </div>
                     <p className="text-sm text-muted-foreground mt-2 text-center">
                       RMS: {results.decResidualRmsArcsec?.toFixed(2) || '-'} arcsec
                     </p>
@@ -482,7 +575,7 @@ export function ResultsPage() {
                 <CardTitle>Per-Satellite Breakdown</CardTitle>
                 <CardDescription>Detailed results for each satellite</CardDescription>
               </div>
-              {results.satelliteResults.length > 5 && (
+              {(results.satelliteResults?.length ?? 0) > 5 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -504,7 +597,7 @@ export function ResultsPage() {
               )}
             </CardHeader>
             <CardContent>
-              {results.satelliteResults.length > 0 ? (
+              {(results.satelliteResults?.length ?? 0) > 0 ? (
                 <>
                   <Table>
                     <TableHeader>
@@ -518,7 +611,7 @@ export function ResultsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.satelliteResults
+                      {(results.satelliteResults ?? [])
                         .slice(0, expandedSatellites ? undefined : 5)
                         .map((sat) => (
                           <TableRow key={sat.satelliteId}>
@@ -588,9 +681,9 @@ export function ResultsPage() {
                         ))}
                     </TableBody>
                   </Table>
-                  {!expandedSatellites && results.satelliteResults.length > 5 && (
+                  {!expandedSatellites && (results.satelliteResults?.length ?? 0) > 5 && (
                     <p className="text-sm text-muted-foreground text-center mt-4">
-                      Showing 5 of {results.satelliteResults.length} satellites
+                      Showing 5 of {results.satelliteResults?.length ?? 0} satellites
                     </p>
                   )}
                 </>

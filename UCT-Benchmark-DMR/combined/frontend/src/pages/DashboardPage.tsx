@@ -7,10 +7,22 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 
+const ANNOUNCEMENTS = [
+  {
+    tag: 'NEW',
+    tagColor: 'cosmic-cyan',
+    text: 'T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!',
+  },
+  {
+    tag: 'UPDATE',
+    tagColor: 'stellar-purple',
+    text: 'Evaluation metrics now include covariance realism checks. See the documentation for details.',
+  },
+];
+
 export function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats();
-  const user = useAuthStore(state => state.user);
-  const displayName = user?.username?.split(' ')[0] ?? 'researcher';
+  const { user } = useAuthStore();
 
   // Format values for display
   const rankDisplay = stats?.topRank ? `#${stats.topRank}` : '--';
@@ -18,9 +30,9 @@ export function DashboardPage() {
   const processingSubtitle = stats?.processingCount
     ? `${stats.processingCount} processing`
     : 'none processing';
-  const f1Display = stats?.bestF1Score ? stats.bestF1Score.toFixed(4) : '--';
+  const f1Display = stats?.bestF1Score != null ? stats.bestF1Score.toFixed(4) : '--';
   const f1Subtitle = stats?.bestDatasetName || 'No submissions yet';
-  const improvementDisplay = stats?.improvementVsAverage
+  const improvementDisplay = stats?.improvementVsAverage != null
     ? `${stats.improvementVsAverage > 0 ? '+' : ''}${stats.improvementVsAverage}%`
     : '--';
 
@@ -35,10 +47,12 @@ export function DashboardPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-2 text-cosmic-cyan text-sm font-medium mb-2">
             <Sparkles className="h-4 w-4" />
-            Welcome back
+            {user?.createdAt && (Date.now() - new Date(user.createdAt).getTime()) < 5 * 60 * 1000
+              ? 'Welcome'
+              : 'Welcome back'}
           </div>
           <h1 className="text-4xl font-display font-bold tracking-tight mb-2">
-            Good to see you, <span className="text-gradient-cosmic">{displayName}</span>
+            Good to see you, <span className="text-gradient-cosmic">{user?.username || 'researcher'}</span>
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
             Track your algorithm performance, explore benchmark datasets, and climb the leaderboard.
@@ -67,7 +81,7 @@ export function DashboardPage() {
         <StatCard
           title="Top Rank"
           value={isLoading ? '\u2014' : rankDisplay}
-          subtitle={isLoading ? 'Loading...' : (stats?.topAlgorithmName || 'No submissions yet')}
+          subtitle={isLoading ? 'Loading...' : (stats?.topAlgorithmName || 'No rank yet')}
           icon={<Trophy className="h-5 w-5" />}
           accentColor="cyan"
         />
@@ -88,7 +102,7 @@ export function DashboardPage() {
         <StatCard
           title="vs. Average"
           value={isLoading ? '\u2014' : improvementDisplay}
-          change={stats?.improvementVsAverage || 0}
+          change={stats?.improvementVsAverage ?? 0}
           changeLabel="above average"
           icon={<TrendingUp className="h-5 w-5" />}
           accentColor="green"
@@ -174,22 +188,16 @@ export function DashboardPage() {
             <h3 className="font-display font-semibold text-lg">Announcements</h3>
           </div>
           <ul className="space-y-3">
-            <li className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
-              <span className="shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30">
-                NEW
-              </span>
-              <span className="text-sm text-muted-foreground">
-                T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!
-              </span>
-            </li>
-            <li className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
-              <span className="shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-stellar-purple/20 text-stellar-purple border border-stellar-purple/30">
-                UPDATE
-              </span>
-              <span className="text-sm text-muted-foreground">
-                Evaluation metrics now include covariance realism checks. See the documentation for details.
-              </span>
-            </li>
+            {ANNOUNCEMENTS.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
+                <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-${item.tagColor}/20 text-${item.tagColor} border border-${item.tagColor}/30`}>
+                  {item.tag}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {item.text}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       </div>

@@ -24,11 +24,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import aiohttp
 import numpy as np
 
+# initialize orekit and JVM (optional — only needed for T2+ tiers with TLE propagation)
 import pandas as pd
 import requests
 from loguru import logger
 
-# Orekit initialization — optional, only needed for T2+ tiers (TLE propagation)
 OREKIT_AVAILABLE = False
 TLE = None
 TLEPropagator = None
@@ -908,18 +908,34 @@ def addManeuverFlags(obs_df: pd.DataFrame, token: str, hours_threshold: int = 24
     if "maneuverTime" in maneuvers.columns:
         maneuvers["maneuverTime"] = pd.to_datetime(maneuvers["maneuverTime"])
 
-        # Create threshold timedelta
+        # Vectorized merge_asof approach: O(n log n) instead of O(n*m) per-row apply
         threshold = pd.Timedelta(hours=hours_threshold)
 
-        # Check each observation against maneuvers
-        def is_near_maneuver(row):
-            sat_maneuvers = maneuvers[maneuvers["satNo"] == row["satNo"]]
-            if sat_maneuvers.empty:
-                return False
-            time_diffs = abs(sat_maneuvers["maneuverTime"] - row["obTime"])
-            return (time_diffs <= threshold).any()
+        # Sort both DataFrames by time for merge_asof
+        obs_sorted = obs_df.sort_values("obTime").reset_index()
+        man_sorted = (
+            maneuvers[["satNo", "maneuverTime"]]
+            .drop_duplicates()
+            .sort_values("maneuverTime")
+        )
 
-        obs_df["nearManeuver"] = obs_df.apply(is_near_maneuver, axis=1)
+        # Ensure satNo types match for the merge key
+        obs_sorted["satNo"] = obs_sorted["satNo"].astype(str)
+        man_sorted["satNo"] = man_sorted["satNo"].astype(str)
+
+        # Find nearest maneuver for each observation, matched by satellite
+        merged = pd.merge_asof(
+            obs_sorted,
+            man_sorted.rename(columns={"maneuverTime": "_man_time"}),
+            left_on="obTime",
+            right_on="_man_time",
+            by="satNo",
+            direction="nearest",
+            tolerance=threshold,
+        )
+
+        # Flag rows where a maneuver was found within the tolerance
+        obs_df["nearManeuver"] = merged.set_index("index")["_man_time"].notna().reindex(obs_df.index).fillna(False)
     else:
         obs_df["nearManeuver"] = False
 
@@ -1036,43 +1052,56 @@ def UDLQuery(token, service, params, count=False, history=False):
     start_time = time.perf_counter()
     logger.info(f"Performing UDL query on service '{service}' with parameters={params}...")
 
-    try:
-        resp = requests.get(url, headers={"Authorization": basicAuth}, params=params)
-        elapsed = time.perf_counter() - start_time
+    max_retries = 2
+    for attempt in range(1 + max_retries):
+        try:
+            resp = requests.get(url, headers={"Authorization": basicAuth}, params=params, timeout=30)
+            elapsed = time.perf_counter() - start_time
 
-        # If call worked, return data
-        if resp.status_code != 200:
-            error_msg = None
-            if resp.status_code == 400:
-                error_msg = "Query failed due to bad parameters."
-            elif resp.status_code == 401:
-                error_msg = "Query failed due to invalid login."
-            elif resp.status_code == 500:
-                error_msg = "Query failed due to internal error; if UDL isn't down, likely a time-out for excessive data request."
+            # Retry on 429 rate limit
+            if resp.status_code == 429 and attempt < max_retries:
+                retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                wait = min(retry_after, 30)
+                logger.warning(f"UDL rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait)
+                start_time = time.perf_counter()
+                continue
+
+            # If call worked, return data
+            if resp.status_code != 200:
+                error_msg = None
+                if resp.status_code == 400:
+                    error_msg = "Query failed due to bad parameters."
+                elif resp.status_code == 401:
+                    error_msg = "Query failed due to invalid login."
+                elif resp.status_code == 429:
+                    error_msg = "Query failed due to API rate limit (429). Try again shortly."
+                elif resp.status_code == 500:
+                    error_msg = "Query failed due to internal error; if UDL isn't down, likely a time-out for excessive data request."
+                else:
+                    error_msg = "Query failed for unknown reason."
+
+                _log_api_call(service, params, 0, elapsed, success=False, error_msg=error_msg)
+                raise requests.exceptions.HTTPError(resp, error_msg)
+
+            result = resp.json()
+            response_size = result if count else len(result)
+            _log_api_call(
+                service,
+                params,
+                response_size if isinstance(response_size, int) else len(result),
+                elapsed,
+            )
+
+            if not count:
+                return pd.DataFrame(result)
             else:
-                error_msg = "Query failed for unknown reason."
+                return result
 
-            _log_api_call(service, params, 0, elapsed, success=False, error_msg=error_msg)
-            raise requests.exceptions.HTTPError(resp, error_msg)
-
-        result = resp.json()
-        response_size = result if count else len(result)
-        _log_api_call(
-            service,
-            params,
-            response_size if isinstance(response_size, int) else len(result),
-            elapsed,
-        )
-
-        if not count:
-            return pd.DataFrame(result)
-        else:
-            return result
-
-    except requests.exceptions.RequestException as e:
-        elapsed = time.perf_counter() - start_time
-        _log_api_call(service, params, 0, elapsed, success=False, error_msg=str(e))
-        raise
+        except requests.exceptions.RequestException as e:
+            elapsed = time.perf_counter() - start_time
+            _log_api_call(service, params, 0, elapsed, success=False, error_msg=str(e))
+            raise
 
 
 def TLEToSV(line1, line2):
@@ -1240,7 +1269,8 @@ def spacetrackQuery(token, params, request="satcat", controller="basicspacedata"
     requestLogin = "/ajaxauth/login"
     requestCmdAction = "/" + controller + "/query"
     requestFind = "/class/" + request
-    requestFind.join(f"/{k.upper()}/{v}" for k, v in params.items())
+    for k, v in params.items():
+        requestFind += f"/{k.upper()}/{v}"
 
     # Spacetrack requires lowercase
     if any(k.lower() == "format" for k in params):
@@ -1323,6 +1353,7 @@ def discoswebQuery(token, params, data="objects", version=2):
         f"{URL}/api/{data}",
         headers=auth,
         params={"filter": params},
+        timeout=30,
     )
 
     if resp.status_code != 200:
@@ -1337,7 +1368,17 @@ def discoswebQuery(token, params, data="objects", version=2):
                 + str(resp.status_code)
                 + "); double-check login info and query parameters.",
             )
-    result = pd.DataFrame(resp.json()["data"])
+    try:
+        body = resp.json()
+    except ValueError as e:
+        raise ValueError(f"DiscoWeb response is not valid JSON: {e}")
+    if "data" not in body:
+        raise ValueError(f"DiscoWeb response missing 'data' key; keys={list(body.keys())}")
+    result = pd.DataFrame(body["data"])
+    # Evict oldest entries if cache is too large
+    if len(_discosweb_cache) >= 100:
+        oldest_key = next(iter(_discosweb_cache))
+        del _discosweb_cache[oldest_key]
     # Cache for future calls
     _discosweb_cache[cache_key] = result
     return result
@@ -1392,6 +1433,7 @@ def celestrakQuery(params, table="gp"):
     resp = requests.get(
         URL,
         params=params,
+        timeout=30,
     )
 
     if resp.status_code != 200:
@@ -1422,9 +1464,9 @@ def datetimeToUDL(time, micro=6):
     if not isinstance(micro, int):
         raise TypeError(f"Expected micro to  be an int, got {type(micro).__name__}) instead.")
 
-    micro = max(micro, 6)
+    micro = min(micro, 6)
 
-    return time.strftime("%Y-%m-%dT%H:%M:%S.") + str(time.microsecond)[0:micro] + "Z"
+    return time.strftime("%Y-%m-%dT%H:%M:%S.") + str(time.microsecond).zfill(6)[0:micro] + "Z"
 
 
 def UDLToDatetime(time):
@@ -1441,7 +1483,8 @@ def UDLToDatetime(time):
         TypeError: If input types are incorrect.
     """
 
-    return datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
+    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
+    return dt.replace(tzinfo=datetime.timezone.utc)
 
 
 async def _asyncUDLQuery(token, service, params, count=False, history=False, max_retries=3):
@@ -1484,6 +1527,13 @@ async def _asyncUDLQuery(token, service, params, count=False, history=False, max
                     if response.status == 200:
                         data = await response.json()
                         return data if count else pd.DataFrame(data)
+                    elif response.status == 429 and attempt < max_retries - 1:
+                        # Retry on 429 rate limit with Retry-After or exponential backoff
+                        retry_after = int(response.headers.get("Retry-After", 2 ** attempt))
+                        wait = min(retry_after, 30)
+                        logger.warning(f"UDL rate limited (429). Retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait)
+                        continue
                     elif response.status == 500 and attempt < max_retries - 1:
                         # Retry on 500 errors (server overload/timeout)
                         await asyncio.sleep(2**attempt)  # Exponential backoff
@@ -1531,15 +1581,30 @@ async def _batchUDLQuery(
 
     # Filter out exceptions and log them
     valid_results = []
+    fail_count = 0
     for i, result in enumerate(results):
         if isinstance(result, Exception):
             logger.warning(f"Query {i} failed: {result}")
+            fail_count += 1
         else:
             valid_results.append(result)
+
+    total = len(results)
+    success_count = len(valid_results)
+    logger.info(f"Batch query results: {success_count}/{total} succeeded, {fail_count}/{total} failed")
 
     if not valid_results:
         raise RuntimeError("All batch queries failed")
 
+    success_rate = success_count / total if total > 0 else 0
+    if success_rate < 0.5:
+        raise RuntimeError(
+            f"Batch query failure rate too high: {fail_count}/{total} failed "
+            f"(success rate {success_rate:.1%} < 50% threshold)"
+        )
+
+    if not valid_results:
+        return pd.DataFrame()
     return sum(valid_results) if count else pd.concat(valid_results, ignore_index=True)
 
 
@@ -1875,7 +1940,7 @@ def generateDataset(
         )
         obs_truth_data = _fetch_observations_windowed(
             UDL_token,
-            regime,
+            satIDs,
             actual_start_time,
             actual_end_time,
             window_size_minutes,
@@ -1894,6 +1959,35 @@ def generateDataset(
 
     # Convert observation times to datetime objects
     obs_truth_data["obTime"] = [UDLToDatetime(t) for t in obs_truth_data["obTime"]]
+
+    # Post-fetch date filter: ensure observations are within the requested range.
+    # The UDL API may return observations slightly outside the requested window,
+    # and fallback strategies may widen the query range. Filter strictly here.
+    #
+    # UDLToDatetime returns naive (no tz) datetimes while actual_start/end may
+    # be timezone-aware (UTC). Strip tz info for a safe comparison -- all times
+    # in this pipeline are UTC.
+    filter_start = actual_start_time.replace(tzinfo=None) if hasattr(actual_start_time, 'tzinfo') and actual_start_time.tzinfo else actual_start_time
+    filter_end = actual_end_time.replace(tzinfo=None) if hasattr(actual_end_time, 'tzinfo') and actual_end_time.tzinfo else actual_end_time
+    pre_filter_count = len(obs_truth_data)
+    obs_truth_data = obs_truth_data[
+        (obs_truth_data["obTime"] >= filter_start) &
+        (obs_truth_data["obTime"] <= filter_end)
+    ].copy()
+    post_filter_count = len(obs_truth_data)
+    if pre_filter_count != post_filter_count:
+        logger.warning(
+            f"Post-fetch date filter removed {pre_filter_count - post_filter_count} "
+            f"observations outside [{filter_start}, {filter_end}]"
+        )
+
+    if obs_truth_data.empty:
+        raise ValueError(
+            f"No observation data within the requested date range "
+            f"[{filter_start} to {filter_end}] for satellites {list(satIDs)}. "
+            "The UDL API returned data but all observations were outside the requested range. "
+            "Try expanding the date range."
+        )
 
     # Cull satIDs list to only include those for which data was actually returned
     requested_sats = len(satIDs)
@@ -2030,24 +2124,24 @@ def generateDataset(
         ]
         elset_truth_data = asyncUDLBatchQuery(UDL_token, "elset", params_list, dt)
 
-        # If time-ranged TLE query returned empty, fall back to elset/current
-        if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
-            logger.warning(
-                f"Time-ranged TLE query returned no data for {len(satIDs)} sats, "
-                "falling back to elset/current"
-            )
-            elset_truth_data = UDLQuery(
-                UDL_token,
-                "elset/current",
-                {"satNo": ",".join(map(str, satIDs))},
-            )
+    # If time-ranged TLE query returned empty, fall back to elset/current
+    # (latest TLE is usually sufficient for orbit determination)
+    if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
+        logger.warning(
+            f"Time-ranged TLE query returned no data for {len(satIDs)} sats, "
+            "falling back to elset/current"
+        )
+        elset_truth_data = UDLQuery(
+            UDL_token,
+            "elset/current",
+            {"satNo": ",".join(map(str, satIDs))},
+        )
 
     # If still no data after fallback, fail gracefully
     if elset_truth_data.empty or "satNo" not in elset_truth_data.columns:
         raise ValueError(
-            f"No element set (TLE) data returned from UDL for any of the "
-            f"{len(satIDs)} satellites in the requested time window. "
-            f"The UDL may not have data for this date range."
+            f"No element set (TLE) data returned from UDL for any of the {len(satIDs)} satellites "
+            f"in the requested time window. The UDL may not have data for this date range."
         )
 
     # If a satellite has no TLE data, drop it from list, state vectors, and obs
@@ -2330,6 +2424,15 @@ def generateDataset(
         elif isinstance(simulation_config, dict):
             simulation_config["enabled"] = True
         logger.info(f"Tier {determined_tier}: auto-enabled simulation")
+
+    if determined_tier == "T4":
+        # T4 spec: downsample + simulate obs + simulate new objects.
+        # "Simulate new objects" is not yet implemented; T4 currently
+        # behaves identically to T3 (downsample + simulate obs only).
+        logger.warning(
+            "T4 'simulate new objects' not yet implemented. "
+            "T4 currently behaves identically to T3 (downsample + simulate obs only)."
+        )
 
     if determined_tier == "T1":
         # T1: no manipulation needed — disable both
@@ -2847,29 +2950,13 @@ def generateDataset(
                         "senx": "sen_x",
                         "seny": "sen_y",
                         "senz": "sen_z",
-                        "senvelx": "sen_vel_x",
-                        "senvely": "sen_vel_y",
-                        "senvelz": "sen_vel_z",
                         "expDuration": "exp_duration",
-                        "zeroptd": "zeroptd",
-                        "netObjSig": "net_obj_sig",
-                        "netObjSigUnc": "net_obj_sig_unc",
                         "mag": "mag",
                         "magUnc": "mag_unc",
                         "geolat": "geo_lat",
                         "geolon": "geo_lon",
                         "geoalt": "geo_alt",
                         "georange": "geo_range",
-                        "solarPhaseAngle": "solar_phase_angle",
-                        "solarEqPhaseAngle": "solar_eq_phase_angle",
-                        "solarDecAngle": "solar_dec_angle",
-                        "shutterDelay": "shutter_delay",
-                        "rawFileURI": "raw_file_uri",
-                        "createdBy": "created_by",
-                        "origNetwork": "orig_network",
-                        "losUnc": "los_unc",
-                        "source": "source",
-                        "type": "obs_type",
                         "senlat": "send_lat",
                         "senlon": "send_long",
                         "senalt": "send_alt",

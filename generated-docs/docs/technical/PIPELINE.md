@@ -359,15 +359,15 @@ Creates PDF report containing:
 
 | Phase | File | Purpose |
 |-------|------|---------|
-| 1 | `Create_Dataset.py` | Main driver for dataset creation |
-| 1 | `windowCheck.py` | Window selection algorithm |
-| 1 | `windowTools.py` | GUI and code generation |
+| 1 | `apiIntegration.py` → `generateDataset()` | Main driver for dataset creation |
+| 1 | `windowSelection.py` | Window selection algorithm (with TIER_5 support) |
+| 1 | `dataset_schema.py` | Dataset code generation |
 | 1 | `basicScoringFunction.py` | Data quality scoring |
 | 1 | `apiIntegration.py` | API calls and data saving |
 | 1 | `dataManipulation.py` | **T1/T2 Downsampling** (3-stage pipeline) |
 | 1 | `simulateObservations.py` | **T3 Simulation** (epoch selection + obs generation) |
 | 1 | `propagator.py` | Orbit propagation for simulation |
-| 2 | `MainMVP.py` | UCTP execution driver |
+| 2 | `Evaluation.py` | UCTP execution and evaluation driver |
 | 2 | `dummyUCTP.py` | Test UCTP implementation |
 | 3 | `Evaluation.py` | Main evaluation driver |
 | 3 | `orbitAssociation.py` | Orbit matching |

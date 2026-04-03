@@ -1,0 +1,394 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - banner:
+          - generic:
+            - button:
+              - img
+              - generic: Toggle menu
+            - link:
+              - /url: /
+              - generic:
+                - generic:
+                  - img
+              - generic:
+                - generic: SpOC
+                - generic: UCT Benchmark
+            - navigation:
+              - link:
+                - /url: /datasets
+                - text: Datasets
+              - link:
+                - /url: /submit
+                - text: Submit
+              - link:
+                - /url: /leaderboard
+                - text: Leaderboard
+              - link:
+                - /url: /docs
+                - text: Docs
+            - generic:
+              - button:
+                - img
+                - generic: "2"
+                - generic: Notifications
+              - button:
+                - img
+                - generic: User menu
+        - generic:
+          - complementary:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - navigation:
+                      - link:
+                        - /url: /
+                        - img
+                        - text: Dashboard
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Datasets
+                          - img
+                        - generic:
+                          - link:
+                            - /url: /datasets
+                            - text: Browse Datasets
+                          - link:
+                            - /url: /datasets/generate
+                            - text: Generate Dataset
+                          - link:
+                            - /url: /datasets/my-datasets
+                            - text: My Datasets
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Submit
+                          - img
+                        - generic:
+                          - link:
+                            - /url: /submit
+                            - text: New Submission
+                          - link:
+                            - /url: /submit/my-submissions
+                            - text: My Submissions
+                      - link:
+                        - /url: /leaderboard
+                        - img
+                        - text: Leaderboard
+                      - link:
+                        - /url: /docs
+                        - img
+                        - text: Documentation
+                    - generic:
+                      - heading [level=4]:
+                        - img
+                        - text: Quick Actions
+                      - link:
+                        - /url: /datasets/generate
+                        - button:
+                          - generic:
+                            - img
+                          - text: Generate Dataset
+                      - link:
+                        - /url: /submit
+                        - button:
+                          - generic:
+                            - img
+                          - text: Upload Submission
+                    - generic:
+                      - heading [level=4]:
+                        - img
+                        - text: Recent
+                      - generic:
+                        - link:
+                          - /url: /results/1
+                          - img
+                          - generic: MyUCTP v2.1 Results
+                        - link:
+                          - /url: /datasets
+                          - img
+                          - generic: LEO-T2-2026-01-15
+              - generic:
+                - generic:
+                  - generic: All systems operational
+          - main:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - text: Welcome back
+                    - heading [level=1]: Good to see you, Demo
+                    - paragraph: Track your algorithm performance, explore benchmark datasets, and climb the leaderboard.
+                    - generic:
+                      - link:
+                        - /url: /datasets/generate
+                        - button:
+                          - img
+                          - text: Generate Dataset
+                      - link:
+                        - /url: /submit
+                        - button:
+                          - img
+                          - text: Submit Algorithm
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: Top Rank
+                        - paragraph: "#1"
+                        - generic:
+                          - generic: OrbitGuard ML v2.1
+                      - generic:
+                        - img
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: Submissions
+                        - paragraph: "8"
+                        - generic:
+                          - generic: none processing
+                      - generic:
+                        - img
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: Best F1-Score
+                        - paragraph: "0.9420"
+                        - generic:
+                          - generic: LEO-Calibration-T1-Optical
+                      - generic:
+                        - img
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: vs. Average
+                        - paragraph: +14.1%
+                        - generic:
+                          - generic:
+                            - img
+                            - text: "14.1"
+                            - generic: above average
+                      - generic:
+                        - img
+                - generic:
+                  - link:
+                    - /url: /datasets
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - heading [level=3]: Browse Datasets
+                        - paragraph: Explore benchmark datasets across all orbital regimes
+                        - generic:
+                          - text: View datasets
+                          - img
+                  - link:
+                    - /url: /leaderboard
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - heading [level=3]: Leaderboard
+                        - paragraph: See how your algorithms compare to others
+                        - generic:
+                          - text: View rankings
+                          - img
+                  - link:
+                    - /url: /docs
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - heading [level=3]: Documentation
+                        - paragraph: Learn about metrics, formats, and best practices
+                        - generic:
+                          - text: Read docs
+                          - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Recent Submissions
+                      - link:
+                        - /url: /submit/my-submissions
+                        - button:
+                          - text: View All
+                          - img
+                    - generic:
+                      - generic:
+                        - link:
+                          - /url: /results/8
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: AstroIOD v3.2 3.2
+                                  - generic:
+                                    - img
+                                    - text: Complete
+                                - paragraph: LEO-Maneuver-T2-Optical
+                              - generic:
+                                - paragraph: "0.834"
+                                - paragraph: F1-Score
+                            - generic:
+                              - generic: "Position RMS: 0.00 km"
+                              - generic: "Rank: #0"
+                        - link:
+                          - /url: /results/7
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: TrackForge v1.1 1.1
+                                  - generic:
+                                    - img
+                                    - text: Complete
+                                - paragraph: MEO-Standard-T2-Radar
+                              - generic:
+                                - paragraph: "0.908"
+                                - paragraph: F1-Score
+                            - generic:
+                              - generic: "Position RMS: 0.00 km"
+                              - generic: "Rank: #0"
+                        - link:
+                          - /url: /results/6
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: OrbitGuard ML v2.1 2.1
+                                  - generic:
+                                    - img
+                                    - text: Complete
+                                - paragraph: LEO-Mixed-T3-Fusion
+                              - generic:
+                                - paragraph: "0.658"
+                                - paragraph: F1-Score
+                            - generic:
+                              - generic: "Position RMS: 0.00 km"
+                              - generic: "Rank: #0"
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Leaderboard
+                      - link:
+                        - /url: /leaderboard
+                        - button:
+                          - text: View Full
+                          - img
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - img
+                            - generic:
+                              - generic:
+                                - generic: OrbitGuard ML v2.1
+                              - paragraph: SpaceML Lab
+                          - generic:
+                            - paragraph: "0.9420"
+                            - paragraph: F1-Score
+                        - generic:
+                          - generic:
+                            - img
+                            - generic:
+                              - generic:
+                                - generic: TrackForge v1.1
+                              - paragraph: DARPA UCT Team
+                          - generic:
+                            - paragraph: "0.9080"
+                            - paragraph: F1-Score
+                        - generic:
+                          - generic:
+                            - img
+                            - generic:
+                              - generic:
+                                - generic: TrackForge v1.0
+                              - paragraph: DARPA UCT Team
+                          - generic:
+                            - paragraph: "0.8810"
+                            - paragraph: F1-Score
+                        - generic:
+                          - generic:
+                            - generic: "4"
+                            - generic:
+                              - generic:
+                                - generic: OrbitGuard ML v2.1
+                              - paragraph: SpaceML Lab
+                          - generic:
+                            - paragraph: "0.8720"
+                            - paragraph: F1-Score
+                        - generic:
+                          - generic:
+                            - generic: "5"
+                            - generic:
+                              - generic:
+                                - generic: AstroIOD v3.2
+                              - paragraph: NavLab
+                          - generic:
+                            - paragraph: "0.8340"
+                            - paragraph: F1-Score
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - heading [level=3]: Announcements
+                    - list:
+                      - listitem:
+                        - generic: NEW
+                        - generic: T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!
+                      - listitem:
+                        - generic: UPDATE
+                        - generic: Evaluation metrics now include covariance realism checks. See the documentation for details.
+    - list
+    - button:
+      - img
+  - dialog "Send Feedback" [ref=e409]:
+    - generic [ref=e410]:
+      - heading "Send Feedback" [level=2] [ref=e411]
+      - paragraph [ref=e412]: Help us improve by reporting bugs, suggesting features, or asking questions.
+    - generic [ref=e413]:
+      - generic [ref=e414]:
+        - text: Type
+        - radiogroup [ref=e415]:
+          - generic [ref=e416]:
+            - radio "Bug" [checked] [ref=e417] [cursor=pointer]:
+              - img [ref=e419]
+            - generic [ref=e421] [cursor=pointer]:
+              - img [ref=e422]
+              - text: Bug
+          - generic [ref=e431]:
+            - radio "Suggestion" [ref=e432] [cursor=pointer]
+            - generic [ref=e433] [cursor=pointer]:
+              - img [ref=e434]
+              - text: Suggestion
+          - generic [ref=e436]:
+            - radio "Question" [ref=e437] [cursor=pointer]
+            - generic [ref=e438] [cursor=pointer]:
+              - img [ref=e439]
+              - text: Question
+      - generic [ref=e442]:
+        - generic [ref=e443]:
+          - generic [ref=e444]: Description
+          - generic [ref=e445]: 0/5000
+        - textbox "Description" [active] [ref=e446]:
+          - /placeholder: Describe what happened or what you'd like to see...
+      - generic [ref=e447]:
+        - text: Screenshot (auto-captured)
+        - img "Auto-captured screenshot" [ref=e448]
+      - button "Context (auto-collected)" [ref=e450] [cursor=pointer]:
+        - generic [ref=e451]: Context (auto-collected)
+        - img [ref=e452]
+    - generic [ref=e454]:
+      - button "Cancel" [ref=e455] [cursor=pointer]
+      - button "Submit Ctrl+Enter" [disabled]:
+        - text: Submit
+        - generic: Ctrl+Enter
+    - button "Close" [ref=e456] [cursor=pointer]:
+      - img [ref=e457]
+      - generic [ref=e460]: Close

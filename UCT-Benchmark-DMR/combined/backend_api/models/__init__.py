@@ -402,6 +402,8 @@ class DatasetSummary(BaseModel):
     # Version tracking (per Louis's transcript.md requirement)
     version: int = 1
     parent_id: Optional[str] = None
+    # Error message for failed datasets
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -474,29 +476,13 @@ class DatasetObservation(BaseModel):
     sen_x: Optional[float] = None
     sen_y: Optional[float] = None
     sen_z: Optional[float] = None
-    sen_vel_x: Optional[float] = None
-    sen_vel_y: Optional[float] = None
-    sen_vel_z: Optional[float] = None
     exp_duration: Optional[float] = None
-    zeroptd: Optional[float] = None
-    net_obj_sig: Optional[float] = None
-    net_obj_sig_unc: Optional[float] = None
     mag: Optional[float] = None
     mag_unc: Optional[float] = None
     geo_lat: Optional[float] = None
     geo_lon: Optional[float] = None
     geo_alt: Optional[float] = None
     geo_range: Optional[float] = None
-    solar_phase_angle: Optional[float] = None
-    solar_eq_phase_angle: Optional[float] = None
-    solar_dec_angle: Optional[float] = None
-    shutter_delay: Optional[float] = None
-    raw_file_uri: Optional[str] = None
-    created_by: Optional[str] = None
-    orig_network: Optional[str] = None
-    los_unc: Optional[float] = None
-    source: Optional[str] = None
-    obs_type: Optional[str] = None
 
 
 # ============================================================
@@ -532,6 +518,7 @@ class SubmissionSummary(BaseModel):
     score: Optional[float] = None
     job_id: Optional[str] = None
     queue_position: Optional[int] = None
+    rank: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -684,6 +671,7 @@ class LeaderboardEntry(BaseModel):
     precision: float
     recall: float
     position_rms_km: float
+    composite_score: Optional[float] = None
     submission_id: str
     submitted_at: datetime
     is_current_user: bool = False

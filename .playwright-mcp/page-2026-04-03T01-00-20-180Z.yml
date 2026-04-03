@@ -1,0 +1,228 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - banner [ref=e5]:
+        - generic [ref=e6]:
+          - button "Toggle menu" [ref=e7] [cursor=pointer]:
+            - img [ref=e8]
+            - generic [ref=e9]: Toggle menu
+          - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e15]
+            - generic [ref=e22]:
+              - generic [ref=e23]: SpOC
+              - generic [ref=e24]: UCT Benchmark
+          - navigation [ref=e25]:
+            - link "Datasets" [ref=e26] [cursor=pointer]:
+              - /url: /datasets
+              - text: Datasets
+            - link "Submit" [ref=e27] [cursor=pointer]:
+              - /url: /submit
+              - text: Submit
+            - link "Leaderboard" [ref=e28] [cursor=pointer]:
+              - /url: /leaderboard
+              - text: Leaderboard
+            - link "Docs" [ref=e29] [cursor=pointer]:
+              - /url: /docs
+              - text: Docs
+          - generic [ref=e30]:
+            - button "2 Notifications" [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+              - generic [ref=e35]: "2"
+              - generic [ref=e36]: Notifications
+            - button "User menu" [ref=e37] [cursor=pointer]:
+              - img [ref=e39]
+              - generic [ref=e42]: User menu
+      - generic [ref=e43]:
+        - complementary [ref=e44]:
+          - generic [ref=e46]:
+            - generic [ref=e49]:
+              - navigation [ref=e50]:
+                - link "Dashboard" [ref=e51] [cursor=pointer]:
+                  - /url: /
+                  - img [ref=e52]
+                  - text: Dashboard
+                - generic [ref=e57]:
+                  - button "Datasets" [ref=e58] [cursor=pointer]:
+                    - generic [ref=e59]:
+                      - img [ref=e60]
+                      - text: Datasets
+                    - img [ref=e64]
+                  - generic [ref=e66]:
+                    - link "Browse Datasets" [ref=e67] [cursor=pointer]:
+                      - /url: /datasets
+                    - link "Generate Dataset" [ref=e68] [cursor=pointer]:
+                      - /url: /datasets/generate
+                    - link "My Datasets" [ref=e69] [cursor=pointer]:
+                      - /url: /datasets/my-datasets
+                - generic [ref=e70]:
+                  - button "Submit" [ref=e71] [cursor=pointer]:
+                    - generic [ref=e72]:
+                      - img [ref=e73]
+                      - text: Submit
+                    - img [ref=e76]
+                  - generic [ref=e78]:
+                    - link "New Submission" [ref=e79] [cursor=pointer]:
+                      - /url: /submit
+                    - link "My Submissions" [ref=e80] [cursor=pointer]:
+                      - /url: /submit/my-submissions
+                - link "Leaderboard" [ref=e81] [cursor=pointer]:
+                  - /url: /leaderboard
+                  - img [ref=e82]
+                  - text: Leaderboard
+                - link "Documentation" [ref=e88] [cursor=pointer]:
+                  - /url: /docs
+                  - img [ref=e89]
+                  - text: Documentation
+              - generic [ref=e91]:
+                - heading "Quick Actions" [level=4] [ref=e92]:
+                  - img [ref=e93]
+                  - text: Quick Actions
+                - link "Generate Dataset" [ref=e95] [cursor=pointer]:
+                  - /url: /datasets/generate
+                  - button "Generate Dataset" [ref=e96]:
+                    - img [ref=e98]
+                    - text: Generate Dataset
+                - link "Upload Submission" [ref=e99] [cursor=pointer]:
+                  - /url: /submit
+                  - button "Upload Submission" [ref=e100]:
+                    - img [ref=e102]
+                    - text: Upload Submission
+              - generic [ref=e105]:
+                - heading "Recent" [level=4] [ref=e106]:
+                  - img [ref=e107]
+                  - text: Recent
+                - generic [ref=e109]:
+                  - link "MyUCTP v2.1 Results" [ref=e110] [cursor=pointer]:
+                    - /url: /results/1
+                    - img [ref=e111]
+                    - generic [ref=e114]: MyUCTP v2.1 Results
+                  - link "LEO-T2-2026-01-15" [ref=e115] [cursor=pointer]:
+                    - /url: /datasets
+                    - img [ref=e116]
+                    - generic [ref=e118]: LEO-T2-2026-01-15
+            - generic [ref=e124]: All systems operational
+        - main [ref=e125]:
+          - generic [ref=e132]:
+            - generic [ref=e133]:
+              - generic [ref=e134]:
+                - generic [ref=e135]:
+                  - link [ref=e136] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+                    - button [ref=e137]:
+                      - img [ref=e138]
+                  - heading "OrbitGuard ML v2.1 2.1" [level=1] [ref=e140]
+                - paragraph [ref=e141]: Results for LEO-Calibration-T1-Optical
+              - generic [ref=e142]:
+                - button "Download Report" [ref=e143] [cursor=pointer]:
+                  - img [ref=e144]
+                  - text: Download Report
+                - button "Export Results" [ref=e147] [cursor=pointer]:
+                  - img [ref=e148]
+                  - text: Export Results
+            - generic [ref=e151]:
+              - generic [ref=e154]:
+                - generic [ref=e155]:
+                  - paragraph [ref=e156]: F1-Score
+                  - paragraph [ref=e157]: "0.9420"
+                  - paragraph [ref=e158]: 94.2% accuracy
+                - img [ref=e159]
+              - generic [ref=e166]:
+                - paragraph [ref=e167]: Precision
+                - paragraph [ref=e168]: 95.5%
+                - paragraph [ref=e169]: 1365 TP / 1429 predicted
+              - generic [ref=e173]:
+                - paragraph [ref=e174]: Recall
+                - paragraph [ref=e175]: 92.9%
+                - paragraph [ref=e176]: 1365 TP / 1469 actual
+              - generic [ref=e180]:
+                - paragraph [ref=e181]: Rank
+                - paragraph [ref=e182]: "#1"
+                - paragraph [ref=e183]: on this dataset
+            - generic [ref=e184]:
+              - tablist [ref=e185]:
+                - tab "Binary Metrics" [ref=e186] [cursor=pointer]
+                - tab "State Metrics" [ref=e187] [cursor=pointer]
+                - tab "Residual Analysis" [ref=e188] [cursor=pointer]
+                - tab "Per-Satellite" [active] [selected] [ref=e189] [cursor=pointer]
+              - tabpanel "Per-Satellite" [ref=e435]:
+                - generic [ref=e436]:
+                  - generic [ref=e437]:
+                    - generic [ref=e438]:
+                      - heading "Per-Satellite Breakdown" [level=3] [ref=e439]
+                      - paragraph [ref=e440]: Detailed results for each satellite
+                    - button "Expand All" [ref=e441] [cursor=pointer]:
+                      - img [ref=e442]
+                      - text: Expand All
+                  - generic [ref=e444]:
+                    - table [ref=e446]:
+                      - rowgroup [ref=e447]:
+                        - row "Satellite ID Status Obs Used Pos Error (km) Vel Error (km/s) Confidence" [ref=e448]:
+                          - columnheader "Satellite ID" [ref=e449]
+                          - columnheader "Status" [ref=e450]
+                          - columnheader "Obs Used" [ref=e451]
+                          - columnheader "Pos Error (km)" [ref=e452]
+                          - columnheader "Vel Error (km/s)" [ref=e453]
+                          - columnheader "Confidence" [ref=e454]
+                      - rowgroup [ref=e455]:
+                        - row "25544 TP 27/29 0.80 0.057 1.00" [ref=e456]:
+                          - cell "25544" [ref=e457]
+                          - cell "TP" [ref=e458]:
+                            - generic [ref=e459]:
+                              - img [ref=e460]
+                              - text: TP
+                          - cell "27/29" [ref=e463]:
+                            - generic [ref=e464]: 27/29
+                          - cell "0.80" [ref=e465]
+                          - cell "0.057" [ref=e466]
+                          - cell "1.00" [ref=e467]
+                        - row "22314 TP 30/34 1.33 0.089 0.90" [ref=e468]:
+                          - cell "22314" [ref=e469]
+                          - cell "TP" [ref=e470]:
+                            - generic [ref=e471]:
+                              - img [ref=e472]
+                              - text: TP
+                          - cell "30/34" [ref=e475]:
+                            - generic [ref=e476]: 30/34
+                          - cell "1.33" [ref=e477]
+                          - cell "0.089" [ref=e478]
+                          - cell "0.90" [ref=e479]
+                        - row "43873 TP 27/27 1.64 0.090 0.99" [ref=e480]:
+                          - cell "43873" [ref=e481]
+                          - cell "TP" [ref=e482]:
+                            - generic [ref=e483]:
+                              - img [ref=e484]
+                              - text: TP
+                          - cell "27/27" [ref=e487]:
+                            - generic [ref=e488]: 27/27
+                          - cell "1.64" [ref=e489]
+                          - cell "0.090" [ref=e490]
+                          - cell "0.99" [ref=e491]
+                        - row "39504 TP 20/20 0.96 0.049 0.84" [ref=e492]:
+                          - cell "39504" [ref=e493]
+                          - cell "TP" [ref=e494]:
+                            - generic [ref=e495]:
+                              - img [ref=e496]
+                              - text: TP
+                          - cell "20/20" [ref=e499]:
+                            - generic [ref=e500]: 20/20
+                          - cell "0.96" [ref=e501]
+                          - cell "0.049" [ref=e502]
+                          - cell "0.84" [ref=e503]
+                        - row "27944 TP 27/31 1.72 0.137 0.96" [ref=e504]:
+                          - cell "27944" [ref=e505]
+                          - cell "TP" [ref=e506]:
+                            - generic [ref=e507]:
+                              - img [ref=e508]
+                              - text: TP
+                          - cell "27/31" [ref=e511]:
+                            - generic [ref=e512]: 27/31
+                          - cell "1.72" [ref=e513]
+                          - cell "0.137" [ref=e514]
+                          - cell "0.96" [ref=e515]
+                    - paragraph [ref=e516]: Showing 5 of 10 satellites
+    - region "Notifications (F8)":
+      - list
+    - button "Send feedback" [ref=e129] [cursor=pointer]:
+      - img [ref=e130]
+  - generic [ref=e295]: "1"

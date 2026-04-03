@@ -6,7 +6,6 @@ import {
   Upload,
   Eye,
   Download,
-  Trash2,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
@@ -24,9 +23,10 @@ export function MySubmissionsPage() {
   const exportMutation = useExportResults();
 
   const completedCount = submissions.filter((s) => s.status === 'completed').length;
-  const pendingCount = submissions.filter((s) =>
+  const queuedCount = submissions.filter((s) =>
     ['queued', 'processing', 'validating'].includes(s.status)
   ).length;
+  const failedCount = submissions.filter((s) => s.status === 'failed').length;
 
   const handleExport = async (submission: Submission) => {
     try {
@@ -71,7 +71,7 @@ export function MySubmissionsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Submissions</CardTitle>
@@ -90,10 +90,18 @@ export function MySubmissionsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Queued</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-blue-600">{pendingCount}</p>
+            <p className="text-2xl font-bold text-blue-600">{queuedCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Failed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">{failedCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -123,16 +131,17 @@ export function MySubmissionsPage() {
               </Link>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Algorithm</TableHead>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>F1-Score</TableHead>
-                  <TableHead>Rank</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead scope="col">Algorithm</TableHead>
+                  <TableHead scope="col">Dataset</TableHead>
+                  <TableHead scope="col">Status</TableHead>
+                  <TableHead scope="col">F1-Score</TableHead>
+                  <TableHead scope="col">Rank</TableHead>
+                  <TableHead scope="col">Submitted</TableHead>
+                  <TableHead scope="col" className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -208,15 +217,20 @@ export function MySubmissionsPage() {
                         >
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" aria-label="Delete submission">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {submission.status === 'failed' && (
+                          <Link to={`/submit?dataset=${encodeURIComponent(submission.datasetId)}&algorithm=${encodeURIComponent(submission.algorithmName)}&version=${encodeURIComponent(submission.version)}`}>
+                            <Button variant="ghost" size="icon" title="Re-submit with same parameters">
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

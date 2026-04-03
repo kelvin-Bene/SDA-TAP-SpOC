@@ -1,0 +1,142 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e57]:
+                - button "Datasets" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - img [ref=e60]
+                    - text: Datasets
+                  - img [ref=e64]
+                - generic [ref=e66]:
+                  - link "Browse Datasets" [ref=e67] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e70]:
+                - button "Submit" [ref=e71] [cursor=pointer]:
+                  - generic [ref=e72]:
+                    - img [ref=e73]
+                    - text: Submit
+                  - img [ref=e76]
+                - generic [ref=e78]:
+                  - link "New Submission" [ref=e79] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e80] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e81] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e82]
+                - text: Leaderboard
+              - link "Documentation" [ref=e88] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e89]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - heading "Documentation" [level=1] [ref=e135]
+            - paragraph [ref=e136]: Learn how to use the SpOC UCT Benchmark Platform
+          - generic [ref=e137]:
+            - tablist [ref=e138]:
+              - tab "Getting Started" [ref=e139] [cursor=pointer]:
+                - img [ref=e140]
+                - text: Getting Started
+              - tab "Dataset Format" [active] [selected] [ref=e145] [cursor=pointer]:
+                - img [ref=e146]
+                - text: Dataset Format
+              - tab "Submission Format" [ref=e151] [cursor=pointer]:
+                - img [ref=e152]
+                - text: Submission Format
+              - tab "Evaluation Metrics" [ref=e155] [cursor=pointer]:
+                - img [ref=e156]
+                - text: Evaluation Metrics
+            - tabpanel "Dataset Format" [ref=e204]:
+              - generic [ref=e205]:
+                - generic [ref=e206]:
+                  - heading "Dataset Format Specification" [level=3] [ref=e207]:
+                    - img [ref=e208]
+                    - text: Dataset Format Specification
+                  - paragraph [ref=e213]: Understand the structure of benchmark datasets
+                - generic [ref=e214]:
+                  - heading "Dataset Structure" [level=3] [ref=e215]
+                  - paragraph [ref=e216]: "Each benchmark dataset is provided as a JSON file containing two main sections: observations and the truth catalog."
+                  - heading "Observations Schema" [level=4] [ref=e217]
+                  - generic [ref=e218]: "{ \"observations\": [ { \"obsId\": \"string\", // Unique observation identifier \"time\": \"ISO8601 datetime\", // Observation epoch \"ra\": number, // Right Ascension (degrees) \"dec\": number, // Declination (degrees) \"raRate\": number, // RA rate (deg/sec) - optional \"decRate\": number, // Dec rate (deg/sec) - optional \"raSigma\": number, // RA uncertainty (arcsec) \"decSigma\": number, // Dec uncertainty (arcsec) \"sensorId\": \"string\", // Sensor identifier \"trackId\": \"string\" // Track grouping identifier } ] }"
+                  - heading "Truth Catalog Schema" [level=4] [ref=e219]
+                  - generic [ref=e220]: "{ \"truthCatalog\": [ { \"satId\": \"string\", // NORAD catalog ID or synthetic ID \"epoch\": \"ISO8601 datetime\", // State epoch \"state\": [x, y, z, vx, vy, vz], // ECI state vector (km, km/s) \"covariance\": [...] // 6x6 covariance matrix (optional) } ] }"
+                  - heading "Association Ground Truth" [level=4] [ref=e221]
+                  - generic [ref=e222]: "{ \"associations\": { \"trackId_001\": \"satId_25544\", \"trackId_002\": \"satId_25545\", ... } }"
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e130] [cursor=pointer]:
+    - img [ref=e131]

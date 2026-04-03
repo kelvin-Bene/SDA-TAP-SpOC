@@ -1,41 +1,88 @@
-{
-  "algorithm": "TestUCTP",
-  "version": "1.0.0",
-  "predictions": [
-    {
-      "satellite_id": 22314,
-      "predicted_orbit": {
-        "epoch": "2026-01-26T12:00:00Z",
-        "position_km": [6978.1, 0.0, 0.0],
-        "velocity_km_s": [0.0, 7.5, 0.0]
-      },
-      "confidence": 0.95,
-      "observations_used": 50
-    },
-    {
-      "satellite_id": 27566,
-      "predicted_orbit": {
-        "epoch": "2026-01-26T12:00:00Z",
-        "position_km": [7000.0, 100.0, 50.0],
-        "velocity_km_s": [0.1, 7.4, 0.05]
-      },
-      "confidence": 0.88,
-      "observations_used": 35
-    },
-    {
-      "satellite_id": 39070,
-      "predicted_orbit": {
-        "epoch": "2026-01-26T12:00:00Z",
-        "position_km": [6900.0, -50.0, 100.0],
-        "velocity_km_s": [-0.05, 7.55, -0.02]
-      },
-      "confidence": 0.92,
-      "observations_used": 80
-    }
-  ],
-  "processing_time_seconds": 45.2,
-  "metadata": {
-    "computed_at": "2026-01-29T18:00:00Z",
-    "notes": "Test submission for E2E testing"
+[
+  {
+    "idStateVector": 0,
+    "grouped_ops": [
+      "obs-0-0",
+      "obs-0-1",
+      "obs-0-2",
+      "obs-0-3",
+      "obs-0-4",
+      "obs-0-5"
+    ],
+    "source_data_types": [
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO"
+    ],
+    "classificationMarking": "U//PR-LSAS-SV",
+    "epoch": "2026-01-22T10:40:58.261093",
+    "uct": true,
+    "line1": "1 25544U 98067A   26022.44512761  .00016717  00000-0  10270-3 0  9002",
+    "line2": "2 25544  51.6416 247.4627 0006703  12.4611 347.6503 15.49985763999999",
+    "referenceFrame": "TEME",
+    "source": "TestAlgorithm",
+    "dataMode": "NOMINAL",
+    "algorithm": "v1.0"
+  },
+  {
+    "idStateVector": 1,
+    "grouped_ops": [
+      "obs-1-0",
+      "obs-1-1",
+      "obs-1-2",
+      "obs-1-3",
+      "obs-1-4",
+      "obs-1-5",
+      "obs-1-6",
+      "obs-1-7"
+    ],
+    "source_data_types": [
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO"
+    ],
+    "classificationMarking": "U//PR-LSAS-SV",
+    "epoch": "2026-01-22T10:40:58.261093",
+    "uct": true,
+    "line1": "1 25544U 98067A   26022.44512761  .00016717  00000-0  10270-3 0  9003",
+    "line2": "2 25544  51.6416 247.4627 0006703  12.4611 347.6503 15.49985763999998",
+    "referenceFrame": "TEME",
+    "source": "TestAlgorithm",
+    "dataMode": "NOMINAL",
+    "algorithm": "v1.0"
+  },
+  {
+    "idStateVector": 2,
+    "grouped_ops": [
+      "obs-2-0",
+      "obs-2-1",
+      "obs-2-2",
+      "obs-2-3",
+      "obs-2-4"
+    ],
+    "source_data_types": [
+      "EO",
+      "EO",
+      "EO",
+      "EO",
+      "EO"
+    ],
+    "classificationMarking": "U//PR-LSAS-SV",
+    "epoch": "2026-01-22T10:40:58.261093",
+    "uct": true,
+    "line1": "1 25544U 98067A   26022.44512761  .00016717  00000-0  10270-3 0  9004",
+    "line2": "2 25544  51.6416 247.4627 0006703  12.4611 347.6503 15.49985763999997",
+    "referenceFrame": "TEME",
+    "source": "TestAlgorithm",
+    "dataMode": "NOMINAL",
+    "algorithm": "v1.0"
   }
-}
+]

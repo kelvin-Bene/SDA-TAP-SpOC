@@ -151,6 +151,49 @@ pytest tests/ --cov=uct_benchmark --cov-report=html
 pytest tests/test_api_enhancements.py -v
 ```
 
+## Authentication
+
+The API uses Supabase JWT authentication:
+
+- **Production** (`SUPABASE_URL` set): ES256 asymmetric key verification via JWKS endpoint
+- **Development** (`ENVIRONMENT=development`): Auth disabled with a stub user
+- **HS256 fallback**: Available in non-production environments when `ALLOW_HS256_FALLBACK=true`
+
+### Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `SUPABASE_URL` | Supabase project URL (enables production auth) |
+| `VITE_SUPABASE_URL` | Same URL for frontend |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key for frontend |
+| `SUPABASE_JWT_SECRET` | HS256 secret (fallback only) |
+
+### Roles
+
+User roles are managed via Supabase `app_metadata.role`:
+- `authenticated` (default) - Standard user access
+- `admin` - Full access to all data and management endpoints
+
+## API Reference
+
+Interactive API documentation is available at `/docs` (Swagger UI) when running in development mode.
+
+### Key Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/datasets/` | List and filter datasets |
+| `POST` | `/api/v1/datasets/` | Create a new dataset |
+| `GET` | `/api/v1/datasets/{id}` | Get dataset details |
+| `POST` | `/api/v1/submissions/` | Submit algorithm output for evaluation |
+| `GET` | `/api/v1/results/{submission_id}` | View evaluation results |
+| `GET` | `/api/v1/leaderboard/` | Leaderboard rankings |
+| `GET` | `/api/v1/jobs/` | Background job status |
+| `POST` | `/api/v1/feedback` | Submit user feedback |
+| `GET` | `/health` | Health check endpoint |
+
+All data endpoints require a valid Supabase JWT Bearer token.
+
 ## Documentation
 
 ### Local Documentation (`docs/`)

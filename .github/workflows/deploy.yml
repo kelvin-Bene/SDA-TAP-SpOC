@@ -1,8 +1,12 @@
-name: Deploy Demo to Railway
+name: Deploy Production to Railway
 
 on:
   push:
-    branches: [demo]
+    branches: [master]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -15,14 +19,31 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install backend dependencies
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: pip install ".[test]" 2>/dev/null || pip install "." && pip install pytest
+        run: pip install ".[dev]"
 
-      - name: Run backend tests (non-Orekit)
+      - name: Run backend API tests (strict)
         working-directory: ./UCT-Benchmark-DMR/combined
-        run: pytest tests/ -v --timeout=60 -k "not orekit and not simulation_full" --ignore=tests/e2e || true
+        run: |
+          pip install pytest-cov
+          pytest backend_api/tests/test_auth.py \
+            backend_api/tests/test_feedback.py \
+            backend_api/tests/test_jobs.py \
+            backend_api/tests/test_leaderboard.py \
+            backend_api/tests/test_crypto.py \
+            backend_api/tests/test_middleware.py \
+            backend_api/tests/test_workers.py \
+            -v --cov=backend_api --cov-report=term-missing --timeout=60
+
+      - name: Run pipeline tests (legacy, non-blocking)
+        working-directory: ./UCT-Benchmark-DMR/combined
+        run: |
+          pytest tests/ -v --timeout=60 \
+            -k "not orekit and not simulation_full" \
+            --ignore=tests/e2e || echo "::warning::Some legacy pipeline tests failed (pre-existing)"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,22 +58,42 @@ jobs:
           npm ci
           npx tsc --noEmit
 
+      - name: Run frontend unit tests
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
+        run: npx vitest run --reporter=verbose
+
   deploy-backend:
-    name: Deploy Backend (demo)
+    name: Deploy Backend (production)
     runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm i -g @railway/cli
+        run: npm i -g @railway/cli@4.36.0
       - name: Deploy
         working-directory: ./UCT-Benchmark-DMR/combined
         run: railway up --service backend --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEMO }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+      - name: Verify backend deployment
+        env:
+          BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+        if: env.BACKEND_URL != ''
+        run: |
+          echo "Waiting 60s for Railway async deploy..."
+          sleep 60
+          for i in $(seq 1 12); do
+            if curl -sf "${BACKEND_URL}/health" > /dev/null 2>&1; then
+              echo "Backend health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/12 failed, waiting 15s..."
+            sleep 15
+          done
+          echo "::warning::Backend health check didn't pass in time (Railway async deploy may still be building)"
 
   deploy-frontend:
-    name: Deploy Frontend (demo)
+    name: Deploy Frontend (production)
     runs-on: ubuntu-latest
     needs: deploy-backend
     steps:
@@ -63,25 +104,43 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: UCT-Benchmark-DMR/combined/frontend/package-lock.json
-      - name: Build Frontend (demo — nginx proxies to backend, no VITE_API_BASE_URL)
+      - name: Build Frontend
         working-directory: ./UCT-Benchmark-DMR/combined/frontend
         run: |
           npm ci
           npm run build
         env:
-          VITE_DEMO_MODE: "true"
-          VITE_FEEDBACK_ENABLED: "true"
+          VITE_API_BASE_URL: ${{ secrets.PROD_BACKEND_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: Prepare deploy directory
         run: |
+          rm -rf deploy-dist
           mkdir -p deploy-dist
           cp -r UCT-Benchmark-DMR/combined/frontend/dist deploy-dist/
           cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template deploy-dist/
           cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist/Dockerfile
           cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist/
       - name: Install Railway CLI
-        run: npm i -g @railway/cli
+        run: npm i -g @railway/cli@4.36.0
       - name: Deploy
         working-directory: ./deploy-dist
         run: railway up --service frontend --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEMO }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+      - name: Verify frontend deployment
+        env:
+          FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
+        if: env.FRONTEND_URL != ''
+        run: |
+          echo "Waiting 60s for Railway async deploy..."
+          sleep 60
+          for i in $(seq 1 12); do
+            if curl -sf "${FRONTEND_URL}" > /dev/null 2>&1; then
+              echo "Frontend health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/12 failed, waiting 15s..."
+            sleep 15
+          done
+          echo "::warning::Frontend health check didn't pass in time (Railway async deploy may still be building)"

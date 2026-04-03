@@ -1,5 +1,5 @@
 """
-UCT Benchmark API - FastAPI backend for the frontend demo UI.
+UCT Benchmark API - FastAPI backend.
 
 This module provides REST endpoints for:
 - Dataset management (list, create, retrieve)
@@ -11,35 +11,48 @@ This module provides REST endpoints for:
 Note: Auto-links observations when retrieving dataset observations.
 """
 
+import glob
 import json
 import os
-from contextlib import asynccontextmanager
+import shutil
+import tempfile
+import time
+from contextlib import asynccontextmanager, contextmanager
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import sys
+
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Configurable log level via LOG_LEVEL env var (default: INFO)
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logger.remove()
+logger.add(sys.stderr, level=_log_level)
+
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+
+_SENSITIVE_FIELDS = {"password", "token", "secret", "api_key", "screenshot_base64"}
 
 from .database import close_database, init_database
 from .jobs import init_job_manager
 from .jobs.workers import shutdown_executor
 from .middleware.auth import get_current_user
-from .middleware.logging import RequestLoggingMiddleware
+from .middleware.logging import RequestLoggingMiddleware, get_request_id
 from .middleware.rate_limit import limiter
 from .routers import auth as auth_router
-from .routers import datasets, feedback, jobs, leaderboard, results, submissions
+from .routers import credentials, datasets, events, feedback, jobs, leaderboard, results, submissions
 
 # Module-level flag to skip lifespan initialization during testing
 # Set to True when using create_test_app() to prevent double database initialization
 _skip_lifespan_init = False
 
 
-def get_cors_origins() -> list[str]:
+def get_cors_origins() -> tuple[list[str], bool]:
     """
     Get CORS origins from environment or use defaults for development.
 
@@ -47,14 +60,10 @@ def get_cors_origins() -> list[str]:
         CORS_ORIGINS: Comma-separated list of allowed origins (e.g., "https://example.com,https://app.example.com")
 
     Returns:
-        List of allowed origin URLs
+        Tuple of (origin list, is_explicit) where is_explicit indicates
+        that CORS_ORIGINS was explicitly configured (production).
     """
-    env_origins = os.getenv("CORS_ORIGINS")
-    if env_origins:
-        return [origin.strip() for origin in env_origins.split(",") if origin.strip()]
-
-    # Default development origins
-    return [
+    _dev_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:5173",
@@ -62,6 +71,20 @@ def get_cors_origins() -> list[str]:
         "http://127.0.0.1:3001",
         "http://127.0.0.1:5173",
     ]
+
+    env_origins = os.getenv("CORS_ORIGINS")
+    if env_origins:
+        origins = [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+        if "*" in origins:
+            logger.error(
+                "CORS_ORIGINS contains '*' which is incompatible with "
+                "allow_credentials=True. Falling back to defaults."
+            )
+            return _dev_origins, False
+        return origins, True
+
+    # Default development origins
+    return _dev_origins, False
 
 
 @asynccontextmanager
@@ -89,12 +112,57 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting UCT Benchmark API...")
 
+    # Clean up stale temp directories from previous crashed report generations
+    try:
+        temp_dir = tempfile.gettempdir()
+        stale_cutoff = time.time() - 3600  # 1 hour
+        cleaned = 0
+        for d in glob.glob(os.path.join(temp_dir, "tmp*")):
+            if os.path.isdir(d) and os.path.getmtime(d) < stale_cutoff:
+                shutil.rmtree(d, ignore_errors=True)
+                cleaned += 1
+        if cleaned:
+            logger.info(f"Cleaned {cleaned} stale temp directories")
+    except Exception as e:
+        logger.debug(f"Temp cleanup skipped: {e}")
+
+    # Initialize Sentry error tracking (if configured)
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if sentry_dsn:
+        try:
+            import sentry_sdk
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                traces_sample_rate=0.1,
+                environment="production" if os.getenv("CORS_ORIGINS") else "development",
+            )
+            logger.info("Sentry error tracking initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Sentry: {e}")
+    else:
+        logger.debug("SENTRY_DSN not set — error tracking disabled")
+
     # Initialize database
     db = init_database()
     if db.backend == "duckdb":
         logger.info(f"Database initialized (DuckDB): {db.db_path}")
     else:
         logger.info("Database initialized (PostgreSQL): connection pool ready")
+        # Verify connection works and log diagnostics
+        try:
+            result = db.execute("SELECT 1").fetchone()
+            logger.info(f"PostgreSQL connection verified: SELECT 1 = {result}")
+            tables = db.adapter.get_tables()
+            logger.info(f"Database tables found: {tables}")
+        except Exception as e:
+            logger.error(f"PostgreSQL connection test FAILED: {e}")
+
+    # Verify critical modules are importable
+    try:
+        import uct_benchmark.data.dataManipulation  # noqa: F401
+        logger.info("Module uct_benchmark.data loaded successfully")
+    except ImportError as e:
+        logger.error(f"CRITICAL: Failed to import uct_benchmark.data: {e}")
 
     # Initialize job manager with DB persistence for crash recovery
     job_manager = init_job_manager(db=db)
@@ -120,11 +188,16 @@ async def lifespan(app: FastAPI):
     logger.info("Cleanup complete")
 
 
+_is_production = bool(os.getenv("CORS_ORIGINS"))
+
 app = FastAPI(
     title="UCT Benchmark API",
-    version="1.0.0",
-    description="Backend API for the UCT Benchmark demo UI",
+    version="2.0.0",
+    description="Backend API for the UCT Benchmark platform",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
 
 # Rate limiting (slowapi) — attach limiter to app state and register error handler
@@ -133,13 +206,32 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses (S6)."""
+    """Add security headers to all responses (S6).
+
+    IMPORTANT: This middleware must NOT re-raise exceptions. When an exception
+    escapes a BaseHTTPMiddleware, the outer CORSMiddleware never gets to inject
+    CORS headers, causing browsers to report CORS errors instead of the real
+    error. We catch all exceptions and return a JSON error response.
+    """
 
     async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except Exception:
+            # Convert unhandled exceptions to a proper response so CORS
+            # headers can still be injected by the outer CORSMiddleware.
+            # The RequestLoggingMiddleware (inner) should already catch most
+            # exceptions, but this is a safety net.
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+        # X-XSS-Protection intentionally omitted — it is deprecated and can
+        # introduce vulnerabilities.  CSP (configured in nginx) is the modern
+        # replacement.
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         # HSTS only in production (when CORS_ORIGINS is set to non-localhost)
@@ -155,7 +247,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Log details server-side but return sanitized error to client (S7)."""
     body = await request.body()
     logger.error(f"Validation error for {request.method} {request.url}")
-    logger.error(f"Request body: {body.decode()}")
+    # Sanitize request body: redact sensitive fields, fallback to byte length
+    try:
+        body_json = json.loads(body)
+        if isinstance(body_json, dict):
+            for key in body_json:
+                if any(sf in key.lower() for sf in _SENSITIVE_FIELDS):
+                    body_json[key] = "***REDACTED***"
+        logger.error(f"Request body: {json.dumps(body_json)}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        logger.error(f"Request body: <{len(body)} bytes, non-JSON>")
     logger.error(f"Validation errors: {json.dumps(exc.errors(), indent=2, default=str)}")
 
     # Sanitize: only return field names and error types, not raw input values
@@ -166,40 +267,72 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "msg": err.get("msg"),
             "type": err.get("type"),
         })
-    return JSONResponse(
+    request_id = get_request_id()
+    response = JSONResponse(
         status_code=422,
         content={"detail": sanitized},
     )
+    if request_id:
+        response.headers["X-Request-ID"] = request_id
+    return response
 
 
-# Security headers middleware (S6) — added first so it wraps all responses
-app.add_middleware(SecurityHeadersMiddleware)
+# ──────────────────────────────────────────────────────────────────────
+# Middleware registration order
+# ──────────────────────────────────────────────────────────────────────
+# Starlette builds the middleware stack as:
+#   [ServerErrorMiddleware] + user_middleware + [ExceptionMiddleware]
+# then iterates reversed() to wrap the app. This means the FIRST
+# add_middleware() call becomes the OUTERMOST user middleware.
+#
+# CORS must be outermost so it can inject Access-Control-Allow-Origin
+# headers into ALL responses — including error responses from inner
+# middleware and exception handlers. If CORS is inner, exceptions that
+# propagate through BaseHTTPMiddleware bypass CORSMiddleware.send()
+# and the browser sees a missing CORS header (reporting a CORS error
+# instead of the real error like 401 or 500).
+#
+# Execution order (outermost to innermost):
+#   ServerErrorMiddleware -> CORSMiddleware -> SecurityHeaders ->
+#   RequestLogging -> ExceptionMiddleware -> Router
+# ──────────────────────────────────────────────────────────────────────
 
-# Request logging with correlation IDs
-app.add_middleware(RequestLoggingMiddleware)
-
-# Configure CORS - use environment variable in production (S11)
-cors_origins = get_cors_origins()
-if not os.getenv("CORS_ORIGINS"):
+# CORS — registered FIRST so it is the outermost user middleware (S11)
+cors_origins, _cors_explicit = get_cors_origins()
+if not _cors_explicit:
     logger.warning(
-        "CORS_ORIGINS not set — using localhost defaults. "
-        "Set CORS_ORIGINS env var for production."
+        "CORS_ORIGINS not set — using localhost defaults with credentials disabled. "
+        "The frontend WILL NOT be able to communicate with this backend in production. "
+        "Set CORS_ORIGINS=<your-frontend-url> in Railway env vars."
     )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=_cors_explicit,  # Only allow credentials when origins are explicitly configured
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
-# Include routers with JWT auth dependency (S1)
-# All API routes require valid Supabase JWT — / and /health remain public
+# Security headers middleware (S6) — inner to CORS so CORS headers are always present
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request logging with correlation IDs — innermost user middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+# 3-tier auth: public routers have no global auth dep; authenticated routers require JWT (S1)
 _auth_deps = [Depends(get_current_user)]
+
+# Data routers — require valid Supabase JWT (private data, no unauthenticated access)
 app.include_router(
     datasets.router, prefix="/api/v1/datasets", tags=["Datasets"],
     dependencies=_auth_deps,
 )
+app.include_router(
+    leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"],
+    dependencies=_auth_deps,
+)
+
+# Authenticated routers — require valid Supabase JWT for all endpoints
 app.include_router(
     submissions.router, prefix="/api/v1/submissions", tags=["Submissions"],
     dependencies=_auth_deps,
@@ -209,11 +342,15 @@ app.include_router(
     dependencies=_auth_deps,
 )
 app.include_router(
-    leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"],
+    jobs.router, prefix="/api/v1/jobs", tags=["Jobs"],
     dependencies=_auth_deps,
 )
 app.include_router(
-    jobs.router, prefix="/api/v1/jobs", tags=["Jobs"],
+    credentials.router, prefix="/api/v1/credentials", tags=["Credentials"],
+    dependencies=_auth_deps,
+)
+app.include_router(
+    events.router, prefix="/api/v1/events", tags=["Events"],
     dependencies=_auth_deps,
 )
 
@@ -233,23 +370,41 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with component status."""
     from .database import get_db
+    import shutil
 
+    components = {}
+
+    # Database
     try:
         db = get_db()
-        # Quick database check
         db.execute("SELECT 1").fetchone()
-        db_status = "connected"
+        components["database"] = "connected"
     except Exception as e:
-        # Log the actual error for debugging, but don't expose details to clients
         logger.warning(f"Health check database error: {e}")
-        db_status = "error"
+        components["database"] = "error"
 
-    return {
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "database": db_status,
-    }
+    # Disk space
+    try:
+        usage = shutil.disk_usage("/")
+        free_mb = usage.free / (1024 * 1024)
+        components["disk_space"] = "ok" if free_mb > 100 else "low"
+    except Exception:
+        components["disk_space"] = "unknown"
+
+    # Orekit (Java) availability for state/residual metrics
+    try:
+        import orekit_jpype  # noqa: F401
+        components["orekit"] = "available"
+    except ImportError:
+        components["orekit"] = "unavailable"
+
+    is_healthy = components.get("database") == "connected"
+    return JSONResponse(
+        status_code=200 if is_healthy else 503,
+        content={"status": "healthy" if is_healthy else "degraded", "components": components},
+    )
 
 
 def create_test_app() -> FastAPI:
@@ -291,3 +446,24 @@ def reset_test_mode():
     """
     global _skip_lifespan_init
     _skip_lifespan_init = False
+
+
+@contextmanager
+def test_mode():
+    """
+    Context manager for test mode that auto-resets on exit.
+
+    Usage:
+        with test_mode() as test_app:
+            test_app.dependency_overrides[get_db] = override_get_db
+            with TestClient(test_app) as client:
+                # Run tests
+                pass
+        # _skip_lifespan_init is automatically reset
+    """
+    global _skip_lifespan_init
+    _skip_lifespan_init = True
+    try:
+        yield app
+    finally:
+        _skip_lifespan_init = False

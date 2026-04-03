@@ -1,0 +1,190 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - banner [ref=e5]:
+        - generic [ref=e6]:
+          - button "Toggle menu" [ref=e7] [cursor=pointer]:
+            - img [ref=e8]
+            - generic [ref=e9]: Toggle menu
+          - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e15]
+            - generic [ref=e22]:
+              - generic [ref=e23]: SpOC
+              - generic [ref=e24]: UCT Benchmark
+          - navigation [ref=e25]:
+            - link "Datasets" [ref=e26] [cursor=pointer]:
+              - /url: /datasets
+              - text: Datasets
+            - link "Submit" [ref=e27] [cursor=pointer]:
+              - /url: /submit
+              - text: Submit
+            - link "Leaderboard" [ref=e28] [cursor=pointer]:
+              - /url: /leaderboard
+              - text: Leaderboard
+            - link "Docs" [ref=e29] [cursor=pointer]:
+              - /url: /docs
+              - text: Docs
+          - generic [ref=e30]:
+            - button "2 Notifications" [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+              - generic [ref=e35]: "2"
+              - generic [ref=e36]: Notifications
+            - button "User menu" [ref=e37] [cursor=pointer]:
+              - img [ref=e39]
+              - generic [ref=e42]: User menu
+      - generic [ref=e43]:
+        - complementary [ref=e44]:
+          - generic [ref=e46]:
+            - generic [ref=e49]:
+              - navigation [ref=e50]:
+                - link "Dashboard" [ref=e51] [cursor=pointer]:
+                  - /url: /
+                  - img [ref=e52]
+                  - text: Dashboard
+                - generic [ref=e57]:
+                  - button "Datasets" [ref=e58] [cursor=pointer]:
+                    - generic [ref=e59]:
+                      - img [ref=e60]
+                      - text: Datasets
+                    - img [ref=e64]
+                  - generic [ref=e66]:
+                    - link "Browse Datasets" [ref=e67] [cursor=pointer]:
+                      - /url: /datasets
+                    - link "Generate Dataset" [ref=e68] [cursor=pointer]:
+                      - /url: /datasets/generate
+                    - link "My Datasets" [ref=e69] [cursor=pointer]:
+                      - /url: /datasets/my-datasets
+                - generic [ref=e70]:
+                  - button "Submit" [ref=e71] [cursor=pointer]:
+                    - generic [ref=e72]:
+                      - img [ref=e73]
+                      - text: Submit
+                    - img [ref=e76]
+                  - generic [ref=e78]:
+                    - link "New Submission" [ref=e79] [cursor=pointer]:
+                      - /url: /submit
+                    - link "My Submissions" [ref=e80] [cursor=pointer]:
+                      - /url: /submit/my-submissions
+                - link "Leaderboard" [ref=e81] [cursor=pointer]:
+                  - /url: /leaderboard
+                  - img [ref=e82]
+                  - text: Leaderboard
+                - link "Documentation" [ref=e88] [cursor=pointer]:
+                  - /url: /docs
+                  - img [ref=e89]
+                  - text: Documentation
+              - generic [ref=e91]:
+                - heading "Quick Actions" [level=4] [ref=e92]:
+                  - img [ref=e93]
+                  - text: Quick Actions
+                - link "Generate Dataset" [ref=e95] [cursor=pointer]:
+                  - /url: /datasets/generate
+                  - button "Generate Dataset" [ref=e96]:
+                    - img [ref=e98]
+                    - text: Generate Dataset
+                - link "Upload Submission" [ref=e99] [cursor=pointer]:
+                  - /url: /submit
+                  - button "Upload Submission" [ref=e100]:
+                    - img [ref=e102]
+                    - text: Upload Submission
+              - generic [ref=e105]:
+                - heading "Recent" [level=4] [ref=e106]:
+                  - img [ref=e107]
+                  - text: Recent
+                - generic [ref=e109]:
+                  - link "MyUCTP v2.1 Results" [ref=e110] [cursor=pointer]:
+                    - /url: /results/1
+                    - img [ref=e111]
+                    - generic [ref=e114]: MyUCTP v2.1 Results
+                  - link "LEO-T2-2026-01-15" [ref=e115] [cursor=pointer]:
+                    - /url: /datasets
+                    - img [ref=e116]
+                    - generic [ref=e118]: LEO-T2-2026-01-15
+            - generic [ref=e124]: All systems operational
+        - main [ref=e125]:
+          - generic [ref=e132]:
+            - generic [ref=e133]:
+              - generic [ref=e134]:
+                - generic [ref=e135]:
+                  - link [ref=e136] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+                    - button [ref=e137]:
+                      - img [ref=e138]
+                  - heading "OrbitGuard ML v2.1 2.1" [level=1] [ref=e140]
+                - paragraph [ref=e141]: Results for LEO-Calibration-T1-Optical
+              - generic [ref=e142]:
+                - button "Download Report" [ref=e143] [cursor=pointer]:
+                  - img [ref=e144]
+                  - text: Download Report
+                - button "Export Results" [ref=e147] [cursor=pointer]:
+                  - img [ref=e148]
+                  - text: Export Results
+            - generic [ref=e151]:
+              - generic [ref=e154]:
+                - generic [ref=e155]:
+                  - paragraph [ref=e156]: F1-Score
+                  - paragraph [ref=e157]: "0.9420"
+                  - paragraph [ref=e158]: 94.2% accuracy
+                - img [ref=e159]
+              - generic [ref=e166]:
+                - paragraph [ref=e167]: Precision
+                - paragraph [ref=e168]: 95.5%
+                - paragraph [ref=e169]: 1365 TP / 1429 predicted
+              - generic [ref=e173]:
+                - paragraph [ref=e174]: Recall
+                - paragraph [ref=e175]: 92.9%
+                - paragraph [ref=e176]: 1365 TP / 1469 actual
+              - generic [ref=e180]:
+                - paragraph [ref=e181]: Rank
+                - paragraph [ref=e182]: "#1"
+                - paragraph [ref=e183]: on this dataset
+            - generic [ref=e184]:
+              - tablist [ref=e185]:
+                - tab "Binary Metrics" [ref=e186] [cursor=pointer]
+                - tab "State Metrics" [active] [selected] [ref=e187] [cursor=pointer]
+                - tab "Residual Analysis" [ref=e188] [cursor=pointer]
+                - tab "Per-Satellite" [ref=e189] [cursor=pointer]
+              - tabpanel "State Metrics" [ref=e238]:
+                - generic [ref=e239]:
+                  - generic [ref=e240]:
+                    - generic [ref=e241]:
+                      - heading "State Vector Accuracy" [level=3] [ref=e242]
+                      - paragraph [ref=e243]: Position and velocity error metrics
+                    - generic [ref=e244]:
+                      - generic [ref=e245]:
+                        - generic [ref=e246]:
+                          - paragraph [ref=e247]: Position RMS
+                          - paragraph [ref=e248]: "1.24"
+                          - paragraph [ref=e249]: km
+                        - generic [ref=e250]:
+                          - paragraph [ref=e251]: Velocity RMS
+                          - paragraph [ref=e252]: "0.082"
+                          - paragraph [ref=e253]: km/s
+                      - generic [ref=e254]:
+                        - paragraph [ref=e255]: Mahalanobis Distance
+                        - paragraph [ref=e256]: "0.00"
+                        - paragraph [ref=e257]: Check covariance scaling
+                  - generic [ref=e258]:
+                    - generic [ref=e259]:
+                      - heading "Position Error Distribution" [level=3] [ref=e260]
+                      - paragraph [ref=e261]: Histogram of position errors (km)
+                    - img [ref=e265]:
+                      - generic [ref=e270]:
+                        - generic [ref=e272]: 0-1
+                        - generic [ref=e274]: 1-2
+                        - generic [ref=e276]: 2-3
+                        - generic [ref=e278]: 3-4
+                        - generic [ref=e280]: 4-5
+                        - generic [ref=e282]: 5+
+                      - generic [ref=e284]:
+                        - generic [ref=e286]: "0"
+                        - generic [ref=e288]: "2"
+                        - generic [ref=e290]: "4"
+                        - generic [ref=e292]: "6"
+                        - generic [ref=e294]: "8"
+    - region "Notifications (F8)":
+      - list
+    - button "Send feedback" [ref=e129] [cursor=pointer]:
+      - img [ref=e130]
+  - generic [ref=e295]: "0"

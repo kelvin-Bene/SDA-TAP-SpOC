@@ -9,12 +9,12 @@ dependencies = [
     "aiohttp>=3.13.0",
     "astropy>=7.1.1",
     "customtkinter>=5.2.2",
-    "loguru",
-    "matplotlib",
+    "loguru>=0.7.0",
+    "matplotlib>=3.8.0",
     "nest-asyncio",
-    "numpy",
+    "numpy>=1.26.0",
     "orekit-jpype>=13.1.2.1",
-    "pandas",
+    "pandas>=2.1.0",
     "polars>=1.35.1",
     "pyarrow>=22.0.0",
     "python-dotenv",
@@ -28,9 +28,13 @@ dependencies = [
     "uvicorn>=0.27.0",
     "python-multipart>=0.0.6",
     # Database (PostgreSQL only)
-    "pg8000>=1.30.0",
+    "psycopg2-binary>=2.9.9",
+    # Migrations
+    "alembic>=1.13.0",
+    "sqlalchemy>=2.0.0",
     # Auth & Security
     "PyJWT[crypto]>=2.8.0",
+    "cryptography>=41.0.0",
     "supabase>=2.0.0",
     "slowapi>=0.1.9",
     # Monitoring
@@ -43,8 +47,10 @@ dev = [
     "pytest-cov",
     "pytest-asyncio",
     "pytest-timeout",
+    "pytest-mock",
     "ruff>=0.14.0",
     "httpx",
+    "duckdb>=1.0.0",
     "testcontainers[postgres]>=4.0.0",
 ]
 docs = [

@@ -7,6 +7,8 @@ Run with: uv run pytest backend_api/tests/test_integration.py -v
 """
 
 import json
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Generator
 from unittest.mock import MagicMock, patch
@@ -14,46 +16,74 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend_api.auth import CurrentUser
+from backend_api.auth import get_current_user as prod_get_current_user
 from backend_api.jobs import JobStatus, get_job_manager, init_job_manager
+from backend_api.middleware.auth import get_current_user as mw_get_current_user
 from uct_benchmark.database.connection import DatabaseManager
 
 
 @pytest.fixture
 def integration_db() -> Generator[DatabaseManager, None, None]:
-    """Create a fresh in-memory database for integration testing."""
-    db = DatabaseManager(in_memory=True)
-    db.initialize()
+    """Create a fresh file-backed DuckDB database for integration testing.
+
+    Uses a temp file instead of :memory: because DuckDB in-memory databases
+    are per-connection and Starlette's TestClient dispatches requests on a
+    background thread which would get a separate (empty) in-memory database.
+    """
+    temp_dir = tempfile.mkdtemp()
+    db_path = Path(temp_dir) / "test_integration.duckdb"
+    # Explicitly use duckdb backend to avoid picking up DATABASE_BACKEND=postgres from .env
+    db = DatabaseManager(backend="duckdb", db_path=db_path)
+    db.initialize(force=True)
     yield db
     db.close()
+    shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 @pytest.fixture
 def integration_client(integration_db: DatabaseManager) -> Generator[TestClient, None, None]:
     """Create a test client for integration tests."""
+    import backend_api.database as db_module
     from backend_api.database import get_db
-    from backend_api.main import app
+    from backend_api.main import create_test_app, reset_test_mode
 
-    def override_get_db():
-        return integration_db
+    mock_user = CurrentUser(id="integration-test-user", email="test@example.com", role="admin")
 
-    app.dependency_overrides[get_db] = override_get_db
+    # Set the global _db_manager so health_check (which calls get_db() directly) works
+    original_db = db_module._db_manager
+    db_module._db_manager = integration_db
+
+    test_app = create_test_app()
+    test_app.dependency_overrides[get_db] = lambda: integration_db
+    test_app.dependency_overrides[mw_get_current_user] = lambda: mock_user
+    test_app.dependency_overrides[prod_get_current_user] = lambda: mock_user
 
     # Initialize job manager
     init_job_manager()
 
-    with TestClient(app) as client:
+    with TestClient(test_app) as client:
         yield client
 
-    app.dependency_overrides.clear()
+    test_app.dependency_overrides.clear()
+    db_module._db_manager = original_db
+    reset_test_mode()
 
 
 class TestDatasetGenerationFlow:
     """Integration tests for the dataset generation workflow."""
 
+    @patch("backend_api.routers.datasets.validate_udl_token", return_value=(True, None))
+    @patch(
+        "backend_api.routers.datasets.get_user_tokens",
+        return_value={"udl_token": "mock-udl-token", "esa_token": "mock-esa-token"},
+    )
     @patch("backend_api.jobs.workers.run_dataset_generation")
     def test_create_dataset_starts_job(
         self,
         mock_generation: MagicMock,
+        mock_get_user_tokens: MagicMock,
+        mock_validate: MagicMock,
         integration_client: TestClient,
     ):
         """Test that creating a dataset starts a background job."""
@@ -68,12 +98,12 @@ class TestDatasetGenerationFlow:
                 "timeframe": 1,
                 "timeunit": "days",
                 "sensors": ["optical"],
-                "coverage": 0.8,
+                "coverage": "standard",  # coverage is a string field
                 "include_hamr": False,
             },
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         dataset = response.json()
         assert dataset["status"] == "generating"
         assert dataset["job_id"] is not None
@@ -87,10 +117,17 @@ class TestDatasetGenerationFlow:
         assert job["id"] == job_id
         assert job["job_type"] == "dataset_generation"
 
+    @patch("backend_api.routers.datasets.validate_udl_token", return_value=(True, None))
+    @patch(
+        "backend_api.routers.datasets.get_user_tokens",
+        return_value={"udl_token": "mock-udl-token", "esa_token": "mock-esa-token"},
+    )
     @patch("backend_api.jobs.workers.run_dataset_generation")
     def test_dataset_flow_with_job_completion(
         self,
         mock_generation: MagicMock,
+        mock_get_user_tokens: MagicMock,
+        mock_validate: MagicMock,
         integration_client: TestClient,
         integration_db: DatabaseManager,
     ):
@@ -109,6 +146,7 @@ class TestDatasetGenerationFlow:
             },
         )
 
+        assert response.status_code == 201  # POST /datasets returns 201 Created
         dataset = response.json()
         dataset_id = dataset["id"]
         job_id = dataset["job_id"]
@@ -160,9 +198,15 @@ class TestSubmissionEvaluationFlow:
             """
         )
 
-        # Create submission file
+        # Create submission file with valid UCTP format (JSON array of orbit records)
+        uctp_record = {
+            "sourcedData": ["obs-1", "obs-2"],
+            "epoch": "2024-01-01T00:00:00Z",
+            "xpos": 6778.0, "ypos": 0.0, "zpos": 0.0,
+            "xvel": 0.0, "yvel": 7.8, "zvel": 0.0,
+        }
         submission_file = tmp_path / "test_submission.json"
-        submission_file.write_text(json.dumps({"predictions": [{"obs_id": "1", "track_id": 1}]}))
+        submission_file.write_text(json.dumps([uctp_record]))
 
         # Create submission
         with open(submission_file, "rb") as f:
@@ -176,7 +220,7 @@ class TestSubmissionEvaluationFlow:
                 files={"file": ("submission.json", f, "application/json")},
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 201  # POST /submissions returns 201 Created
         submission = response.json()
         assert submission["status"] == "queued"
         assert submission["job_id"] is not None
@@ -202,9 +246,15 @@ class TestSubmissionEvaluationFlow:
             """
         )
 
-        # Create submission file
+        # Create submission file with valid UCTP format (JSON array of orbit records)
+        uctp_record = {
+            "sourcedData": ["obs-1"],
+            "epoch": "2024-01-01T00:00:00Z",
+            "xpos": 6778.0, "ypos": 0.0, "zpos": 0.0,
+            "xvel": 0.0, "yvel": 7.8, "zvel": 0.0,
+        }
         submission_file = tmp_path / "submission.json"
-        submission_file.write_text(json.dumps({"predictions": []}))
+        submission_file.write_text(json.dumps([uctp_record]))
 
         # Create submission
         with open(submission_file, "rb") as f:
@@ -297,7 +347,9 @@ class TestLeaderboardIntegration:
         response = integration_client.get("/api/v1/leaderboard/")
         assert response.status_code == 200
 
-        leaderboard = response.json()
+        # LeaderboardResponse has shape: {"entries": [...], "total_entries": N, ...}
+        data = response.json()
+        leaderboard = data["entries"]
         assert len(leaderboard) >= 2
 
         # Should be sorted by F1 score descending
@@ -343,7 +395,8 @@ class TestLeaderboardIntegration:
         # Filter by LEO
         leo_response = integration_client.get("/api/v1/leaderboard/?regime=LEO")
         assert leo_response.status_code == 200
-        leo_leaderboard = leo_response.json()
+        # LeaderboardResponse has shape: {"entries": [...], ...}
+        leo_leaderboard = leo_response.json()["entries"]
         assert len(leo_leaderboard) == 1
         assert leo_leaderboard[0]["algorithm_name"] == "LEOAlgo"
 

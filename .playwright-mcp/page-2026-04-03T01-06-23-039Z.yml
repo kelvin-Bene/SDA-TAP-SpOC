@@ -1,0 +1,145 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e57]:
+                - button "Datasets" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - img [ref=e60]
+                    - text: Datasets
+                  - img [ref=e64]
+                - generic [ref=e66]:
+                  - link "Browse Datasets" [ref=e67] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e70]:
+                - button "Submit" [ref=e71] [cursor=pointer]:
+                  - generic [ref=e72]:
+                    - img [ref=e73]
+                    - text: Submit
+                  - img [ref=e76]
+                - generic [ref=e78]:
+                  - link "New Submission" [ref=e79] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e80] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e81] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e82]
+                - text: Leaderboard
+              - link "Documentation" [ref=e88] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e89]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - heading "Documentation" [level=1] [ref=e135]
+            - paragraph [ref=e136]: Learn how to use the SpOC UCT Benchmark Platform
+          - generic [ref=e137]:
+            - tablist [ref=e138]:
+              - tab "Getting Started" [ref=e139] [cursor=pointer]:
+                - img [ref=e140]
+                - text: Getting Started
+              - tab "Dataset Format" [ref=e145] [cursor=pointer]:
+                - img [ref=e146]
+                - text: Dataset Format
+              - tab "Submission Format" [active] [selected] [ref=e151] [cursor=pointer]:
+                - img [ref=e152]
+                - text: Submission Format
+              - tab "Evaluation Metrics" [ref=e155] [cursor=pointer]:
+                - img [ref=e156]
+                - text: Evaluation Metrics
+            - tabpanel "Submission Format" [ref=e223]:
+              - generic [ref=e224]:
+                - generic [ref=e225]:
+                  - heading "Submission Format Specification" [level=3] [ref=e226]:
+                    - img [ref=e227]
+                    - text: Submission Format Specification
+                  - paragraph [ref=e230]: Format your algorithm output for evaluation
+                - generic [ref=e231]:
+                  - heading "Submission Structure" [level=3] [ref=e232]
+                  - paragraph [ref=e233]: Your submission should be a JSON file containing your algorithm's track associations and state estimates for each identified object.
+                  - heading "Required Schema" [level=4] [ref=e234]
+                  - generic [ref=e235]: "{ \"metadata\": { \"algorithmName\": \"string\", \"version\": \"string\", \"datasetId\": \"string\", \"timestamp\": \"ISO8601 datetime\" }, \"results\": [ { \"objectId\": \"string\", // Your algorithm's object ID \"trackIds\": [\"string\"], // Associated track IDs \"state\": { \"epoch\": \"ISO8601 datetime\", \"position\": [x, y, z], // km in ECI \"velocity\": [vx, vy, vz], // km/s in ECI \"covariance\": [...] // 6x6 matrix (km^2, km^2/s, km^2/s^2) }, \"confidence\": number // 0.0 to 1.0 } ] }"
+                  - heading "Validation Rules" [level=4] [ref=e236]
+                  - list [ref=e237]:
+                    - listitem [ref=e238]: All referenced track IDs must exist in the dataset
+                    - listitem [ref=e239]: State vectors must be in Earth-Centered Inertial (ECI) frame
+                    - listitem [ref=e240]: Covariance matrices must be positive semi-definite
+                    - listitem [ref=e241]: Position magnitudes must be physically reasonable (above Earth surface)
+                    - listitem [ref=e242]: Velocity magnitudes must be consistent with orbital mechanics
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e130] [cursor=pointer]:
+    - img [ref=e131]

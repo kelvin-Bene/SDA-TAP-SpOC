@@ -1,0 +1,231 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "2 Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: "2"
+            - generic [ref=e36]: Notifications
+          - button "User menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e39]
+            - generic [ref=e42]: User menu
+    - generic [ref=e43]:
+      - complementary [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e49]:
+            - navigation [ref=e50]:
+              - link "Dashboard" [ref=e51] [cursor=pointer]:
+                - /url: /
+                - img [ref=e52]
+                - text: Dashboard
+              - generic [ref=e57]:
+                - button "Datasets" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - img [ref=e60]
+                    - text: Datasets
+                  - img [ref=e64]
+                - generic [ref=e67]:
+                  - link "Browse Datasets" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e69] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e70] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e71]:
+                - button "Submit" [ref=e72] [cursor=pointer]:
+                  - generic [ref=e73]:
+                    - img [ref=e74]
+                    - text: Submit
+                  - img [ref=e77]
+                - generic [ref=e79]:
+                  - link "New Submission" [ref=e80] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e81] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e82] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e83]
+                - text: Leaderboard
+              - link "Documentation" [ref=e89] [cursor=pointer]:
+                - /url: /docs
+                - img [ref=e90]
+                - text: Documentation
+            - generic [ref=e92]:
+              - heading "Quick Actions" [level=4] [ref=e93]:
+                - img [ref=e94]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e96] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e100] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e101]:
+                  - img [ref=e103]
+                  - text: Upload Submission
+            - generic [ref=e106]:
+              - heading "Recent" [level=4] [ref=e107]:
+                - img [ref=e108]
+                - text: Recent
+              - generic [ref=e110]:
+                - link "MyUCTP v2.1 Results" [ref=e111] [cursor=pointer]:
+                  - /url: /results/1
+                  - img [ref=e112]
+                  - generic [ref=e115]: MyUCTP v2.1 Results
+                - link "LEO-T2-2026-01-15" [ref=e116] [cursor=pointer]:
+                  - /url: /datasets
+                  - img [ref=e117]
+                  - generic [ref=e119]: LEO-T2-2026-01-15
+          - generic [ref=e125]: All systems operational
+      - main [ref=e126]:
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - heading "Generate Dataset" [level=1] [ref=e135]
+            - paragraph [ref=e136]: Configure parameters to generate a custom benchmark dataset
+          - tablist [ref=e138]:
+            - tab "Standard Wizard" [selected] [ref=e139] [cursor=pointer]
+            - tab "Legacy Code (16-char)" [ref=e140] [cursor=pointer]
+          - generic [ref=e141]:
+            - generic [ref=e143]:
+              - img [ref=e270]
+              - generic [ref=e150]: Regime
+            - generic [ref=e153]:
+              - img [ref=e154]
+              - generic [ref=e157]: Quality
+            - generic [ref=e160]:
+              - img [ref=e161]
+              - generic [ref=e163]: Objects
+            - generic [ref=e166]:
+              - img [ref=e167]
+              - generic [ref=e170]: Advanced
+            - generic [ref=e173]:
+              - img [ref=e174]
+              - generic [ref=e178]: Review
+          - generic [ref=e179]:
+            - generic [ref=e272]:
+              - heading "Data Quality Parameters" [level=3] [ref=e273]
+              - paragraph [ref=e274]: Configure observation coverage, density, and gap characteristics
+            - generic [ref=e275]:
+              - generic [ref=e276]:
+                - generic [ref=e277]:
+                  - generic [ref=e278]: Orbital Coverage
+                  - button [ref=e279] [cursor=pointer]:
+                    - img [ref=e280]
+                - radiogroup [ref=e282]:
+                  - generic [ref=e283] [cursor=pointer]:
+                    - radio "High (>5%)" [ref=e284]
+                    - text: High (>5%)
+                  - generic [ref=e285] [cursor=pointer]:
+                    - radio "Standard (<0.02%-5%)" [checked] [ref=e286]:
+                      - img [ref=e288]
+                    - text: Standard (<0.02%-5%)
+                  - generic [ref=e290] [cursor=pointer]:
+                    - radio "Low (<0.02%)" [ref=e291]
+                    - text: Low (<0.02%)
+                  - generic [ref=e292] [cursor=pointer]:
+                    - radio "Mixed" [ref=e293]
+                    - text: Mixed
+                - paragraph [ref=e294]: "Selected: Standard coverage simulates typical operational conditions."
+              - generic [ref=e295]:
+                - generic [ref=e296]:
+                  - generic [ref=e297]:
+                    - generic [ref=e298]: Observation Density
+                    - button [ref=e299] [cursor=pointer]:
+                      - img [ref=e300]
+                  - generic [ref=e302]: 50 obs/sat/3-days
+                - slider [ref=e307]
+                - generic [ref=e308]:
+                  - generic [ref=e309]: Sparse (10)
+                  - generic [ref=e310]: Standard (50)
+                  - generic [ref=e311]: Dense (150)
+              - generic [ref=e312]:
+                - generic [ref=e313]:
+                  - generic [ref=e314]: Track Gap Target
+                  - button [ref=e315] [cursor=pointer]:
+                    - img [ref=e316]
+                - generic [ref=e318]:
+                  - button "1" [ref=e319] [cursor=pointer]
+                  - button "2" [ref=e320] [cursor=pointer]
+                  - button "3" [ref=e321] [cursor=pointer]
+                  - button "4" [ref=e322] [cursor=pointer]
+                  - button "5+" [ref=e323] [cursor=pointer]
+                - paragraph [ref=e324]: 2 orbital periods selected
+              - generic [ref=e325]:
+                - generic [ref=e326]:
+                  - generic [ref=e327]: Sensor Type
+                  - button [ref=e328] [cursor=pointer]:
+                    - img [ref=e329]
+                - radiogroup [ref=e331]:
+                  - generic [ref=e332] [cursor=pointer]:
+                    - radio "OPOptical" [checked] [ref=e333]:
+                      - img [ref=e335]
+                    - generic [ref=e337]: OPOptical
+                  - generic [ref=e338] [cursor=pointer]:
+                    - radio "RARadar" [ref=e339]
+                    - generic [ref=e340]: RARadar
+                  - generic [ref=e341] [cursor=pointer]:
+                    - radio "RFRF" [ref=e342]
+                    - generic [ref=e343]: RFRF
+                  - generic [ref=e344] [cursor=pointer]:
+                    - radio "FUFusion (All)" [ref=e345]
+                    - generic [ref=e346]: FUFusion (All)
+                  - generic [ref=e347] [cursor=pointer]:
+                    - radio "OROptical + Radar" [ref=e348]
+                    - generic [ref=e349]: OROptical + Radar
+                  - generic [ref=e350] [cursor=pointer]:
+                    - radio "RRRadar + RF" [ref=e351]
+                    - generic [ref=e352]: RRRadar + RF
+              - generic [ref=e353]:
+                - generic [ref=e354]:
+                  - generic [ref=e355]: Event Type
+                  - button [ref=e356] [cursor=pointer]:
+                    - img [ref=e357]
+                - radiogroup [ref=e359]:
+                  - generic [ref=e360] [cursor=pointer]:
+                    - radio "NENo Events (Normal)" [checked] [ref=e361]:
+                      - img [ref=e363]
+                    - generic [ref=e365]: NENo Events (Normal)
+                  - generic [ref=e366] [cursor=pointer]:
+                    - radio "MBManeuver Between" [ref=e367]
+                    - generic [ref=e368]: MBManeuver Between
+                  - generic [ref=e369] [cursor=pointer]:
+                    - radio "BUBreakup Event" [ref=e370]
+                    - generic [ref=e371]: BUBreakup Event
+                  - generic [ref=e372] [cursor=pointer]:
+                    - radio "LLLong-thrust Low-thrust" [ref=e373]
+                    - generic [ref=e374]: LLLong-thrust Low-thrust
+            - generic [ref=e266]:
+              - button "Back" [ref=e375] [cursor=pointer]:
+                - img [ref=e376]
+                - text: Back
+              - button "Next" [active] [ref=e267] [cursor=pointer]:
+                - text: Next
+                - img [ref=e268]
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e130] [cursor=pointer]:
+    - img [ref=e131]

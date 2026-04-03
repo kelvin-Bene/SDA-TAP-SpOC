@@ -1,0 +1,24 @@
+[  186207ms] [LOG] Generation result: {id: 9, name: LEO-standard-2026-04-03, description: null, regime: LEO, tier: T1} @ https://frontend-demo-1542.up.railway.app/assets/DatasetGeneratorPage-DxckSUpa.js:15
+[  288814ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'toLocaleDateString')
+    at DU (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:248:20468)
+    at https://frontend-demo-1542.up.railway.app/assets/MyDatasetsPage-D7hjCPFJ.js:1:5346
+    at Array.map (<anonymous>)
+    at re (https://frontend-demo-1542.up.railway.app/assets/MyDatasetsPage-D7hjCPFJ.js:1:4725)
+    at ch (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:39:16998)
+    at Od (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:3139)
+    at t0 (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:44737)
+    at Xw (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:39727)
+    at Ok (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:39655)
+    at Ml (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:39508) @ https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:40
+[  288814ms] [ERROR] ErrorBoundary caught an error: TypeError: Cannot read properties of undefined (reading 'toLocaleDateString')
+    at DU (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:248:20468)
+    at https://frontend-demo-1542.up.railway.app/assets/MyDatasetsPage-D7hjCPFJ.js:1:5346
+    at Array.map (<anonymous>)
+    at re (https://frontend-demo-1542.up.railway.app/assets/MyDatasetsPage-D7hjCPFJ.js:1:4725)
+    at ch (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:39:16998)
+    at Od (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:3139)
+    at t0 (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:44737)
+    at Xw (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:39727)
+    at Ok (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:39655)
+    at Ml (https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:41:39508) {componentStack: 
+    at re (https://frontend-demo-1542.up.railway.…up.railway.app/assets/index-XSRkwWIT.js:68:30429)} @ https://frontend-demo-1542.up.railway.app/assets/index-XSRkwWIT.js:247

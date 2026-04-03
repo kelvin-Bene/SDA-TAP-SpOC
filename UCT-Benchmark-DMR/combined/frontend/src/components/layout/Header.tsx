@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Menu,
   Bell,
@@ -7,7 +7,8 @@ import {
   Settings,
   Moon,
   Sun,
-  Orbit,
+  Monitor,
+  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,8 +18,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/components/theme-provider';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -28,7 +33,8 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { theme, setTheme } = useTheme();
-  const user = useAuthStore(state => state.user);
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
@@ -46,18 +52,24 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 mr-8 group">
-          {/* Animated orbital logo */}
-          <div className="relative w-10 h-10 flex items-center justify-center">
-            {/* Outer orbit ring */}
-            <div className="absolute inset-0 border border-cosmic-cyan/30 rounded-full animate-orbit-slow" />
-            {/* Inner orbit ring */}
-            <div className="absolute inset-1 border border-stellar-purple/20 rounded-full animate-orbit-reverse" />
-            {/* Center icon */}
-            <div className="relative z-10 w-6 h-6 rounded-full bg-gradient-to-br from-cosmic-cyan to-cosmic-blue flex items-center justify-center shadow-glow-cyan group-hover:shadow-glow-lg transition-shadow duration-300">
-              <Orbit className="h-3.5 w-3.5 text-white" />
-            </div>
-            {/* Orbiting dot */}
-            <div className="absolute w-2 h-2 rounded-full bg-cosmic-cyan shadow-glow-cyan animate-orbit" style={{ top: '0', left: '50%', marginLeft: '-4px' }} />
+          {/* SVG orbital globe logo */}
+          <div className="relative w-10 h-10 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+            <svg viewBox="0 0 40 40" className="h-9 w-9 drop-shadow-[0_0_8px_hsl(var(--cosmic-cyan)/0.4)]">
+              {/* Globe outline */}
+              <circle cx="20" cy="20" r="16" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="1.5" opacity="0.9" />
+              {/* Equator */}
+              <ellipse cx="20" cy="20" rx="16" ry="5" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="0.8" opacity="0.4" />
+              {/* Orbit path 1 */}
+              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="1" opacity="0.6" transform="rotate(-30 20 20)" />
+              {/* Orbit path 2 */}
+              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--stellar-purple))" strokeWidth="1" opacity="0.5" transform="rotate(45 20 20)" />
+              {/* Orbit path 3 */}
+              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--cosmic-blue))" strokeWidth="1" opacity="0.5" transform="rotate(90 20 20)" />
+              {/* Satellite dot */}
+              <circle cx="36" cy="20" r="2" fill="hsl(var(--cosmic-cyan))" className="animate-orbit" style={{ transformOrigin: '20px 20px' }}>
+                <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+              </circle>
+            </svg>
           </div>
           <div className="hidden sm:block">
             <span className="font-display font-bold text-lg tracking-tight">
@@ -72,9 +84,13 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Primary Navigation */}
         <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
           {[
-            { to: '/datasets', label: 'Datasets' },
-            { to: '/submit', label: 'Submit' },
-            { to: '/leaderboard', label: 'Leaderboard' },
+            ...(user
+              ? [
+                  { to: '/datasets', label: 'Datasets' },
+                  { to: '/submit', label: 'Submit' },
+                  { to: '/leaderboard', label: 'Leaderboard' },
+                ]
+              : []),
             { to: '/docs', label: 'Docs' },
           ].map((link) => (
             <Link
@@ -90,95 +106,103 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Right Side Actions */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hover:bg-white/5">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-gradient-to-r from-cosmic-cyan to-cosmic-blue border-0 animate-pulse-glow">
-                  2
-                </Badge>
-                <span className="sr-only">Notifications</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 glass border-white/10">
-              <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
-                <div className="font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-aurora-green" />
-                  Submission Complete
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  MyUCTP v2.1 evaluation finished. F1-Score: 0.923
-                </div>
-                <div className="text-xs text-muted-foreground">2 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 focus:bg-white/5 cursor-pointer">
-                <div className="font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cosmic-cyan" />
-                  New Dataset Available
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  LEO-T2-2026-01-15 is ready for download
-                </div>
-                <div className="text-xs text-muted-foreground">5 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="text-center text-sm text-cosmic-cyan hover:text-cosmic-cyan focus:text-cosmic-cyan focus:bg-white/5 cursor-pointer justify-center">
-                View all notifications
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {user ? (
+            <>
+              {/* Notifications — only when authenticated */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative hover:bg-white/5">
+                    <Bell className="h-5 w-5" />
+                    <span className="sr-only">Notifications</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 glass border-white/10">
+                  <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                    <Bell className="h-8 w-8 text-muted-foreground/50 mb-3" />
+                    <p className="text-sm font-medium text-muted-foreground">No notifications yet</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      We'll notify you when something important happens.
+                    </p>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/5 relative group">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cosmic-cyan/20 to-stellar-purple/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <User className="h-5 w-5 relative z-10" />
-                <span className="sr-only">User menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 glass border-white/10">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none font-display">{user?.username ?? 'researcher'}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.email ?? 'researcher@aerospace.org'}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
-                <Link to="/profile" className="flex items-center">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
-                <Link to="/profile" className="flex items-center">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="focus:bg-white/5 cursor-pointer"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="mr-2 h-4 w-4" />
-                ) : (
-                  <Moon className="mr-2 h-4 w-4" />
-                )}
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              {/* User Menu — only when authenticated */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/5 relative group">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cosmic-cyan/20 to-stellar-purple/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <User className="h-5 w-5 relative z-10" />
+                    <span className="sr-only">User menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 glass border-white/10">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none font-display">{user?.username ?? 'User'}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user?.email ?? ''}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+                    <Link to="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+                    <Link to="/settings" className="flex items-center">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">
+                      <Palette className="mr-2 h-4 w-4" />
+                      Theme
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="glass border-white/10">
+                      <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
+                        <DropdownMenuRadioItem value="light" className="focus:bg-white/5 cursor-pointer">
+                          <Sun className="mr-2 h-4 w-4" /> Light
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="dark" className="focus:bg-white/5 cursor-pointer">
+                          <Moon className="mr-2 h-4 w-4" /> Dark
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="system" className="focus:bg-white/5 cursor-pointer">
+                          <Monitor className="mr-2 h-4 w-4" /> System
+                        </DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                    }}
+                    className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            /* Sign In button — shown when not authenticated */
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-cosmic-cyan/30 hover:bg-cosmic-cyan/10 hover:border-cosmic-cyan/50 transition-all duration-200"
+              onClick={() => navigate('/login')}
+            >
+              Sign In
+            </Button>
+          )}
         </div>
       </div>
     </header>

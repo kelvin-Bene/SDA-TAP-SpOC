@@ -7,6 +7,8 @@ for long-running operations like dataset generation and evaluation.
 
 import threading
 import uuid
+
+from loguru import logger
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -27,6 +29,7 @@ class JobType(str, Enum):
 
     DATASET_GENERATION = "dataset_generation"
     EVALUATION = "evaluation"
+    EVENT_DETECTION = "event_detection"
 
 
 @dataclass
@@ -40,7 +43,7 @@ class Job:
     stage: Optional[str] = None  # Current stage description for progress display
     result: Optional[Any] = None
     error: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -338,8 +341,8 @@ class DatabaseJobManager(JobManager):
                     job.completed_at.isoformat() if job.completed_at else None,
                 ),
             )
-        except Exception:
-            pass  # DB persistence is best-effort; in-memory is primary
+        except Exception as e:
+            logger.warning(f"Job DB persistence failed for {job.id}: {e}")
 
     def create_job(self, job_type: JobType, metadata: Optional[Dict[str, Any]] = None) -> Job:
         job = super().create_job(job_type, metadata)

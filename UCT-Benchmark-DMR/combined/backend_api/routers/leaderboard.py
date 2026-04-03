@@ -1,10 +1,16 @@
-"""Leaderboard endpoints."""
+"""Leaderboard endpoints.
 
-from datetime import datetime, timezone
+SEC-06: Leaderboard data is intentionally public for all authenticated users.
+All submissions, algorithm names, and rankings are visible to support the
+benchmark competition. No user PII is exposed through these endpoints.
+"""
+
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
 
+from backend_api.auth import CurrentUser, get_current_user
 from backend_api.database import get_db
 from backend_api.models import LeaderboardEntry, LeaderboardResponse
 from uct_benchmark.database.connection import DatabaseManager
@@ -19,6 +25,7 @@ async def get_leaderboard(
     tier: Optional[str] = None,
     period: Optional[str] = None,  # all, month, week
     limit: int = 50,  # S10: clamped below
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -52,7 +59,7 @@ async def get_leaderboard(
             sr.precision,
             sr.recall,
             sr.position_rms_km,
-            s.classification_marking
+            sr.composite_score
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         JOIN datasets d ON s.dataset_id = d.id
@@ -74,12 +81,16 @@ async def get_leaderboard(
         params.append(tier)
 
     if period == "week":
-        query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'"
+        week_cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        query += " AND s.completed_at >= ?"
+        params.append(week_cutoff)
     elif period == "month":
-        query += " AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'"
+        month_cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        query += " AND s.completed_at >= ?"
+        params.append(month_cutoff)
 
-    # Order by F1 score descending and limit
-    query += " ORDER BY sr.f1_score DESC LIMIT ?"
+    # Order by composite score (falls back to F1 if composite not yet computed)
+    query += " ORDER BY COALESCE(sr.composite_score, sr.f1_score) DESC LIMIT ?"
     params.append(limit)
 
     result = db.execute(query, tuple(params))
@@ -94,12 +105,13 @@ async def get_leaderboard(
             LeaderboardEntry(
                 rank=rank,
                 algorithm_name=row_dict["algorithm_name"],
-                team=row_dict.get("classification_marking"),
+                team=None,  # Would need user/team table
                 version=row_dict.get("version", "1.0"),
                 f1_score=float(row_dict.get("f1_score") or 0),
                 precision=float(row_dict.get("precision") or 0),
                 recall=float(row_dict.get("recall") or 0),
                 position_rms_km=float(row_dict.get("position_rms_km") or 0),
+                composite_score=float(row_dict["composite_score"]) if row_dict.get("composite_score") is not None else None,
                 submission_id=str(row_dict["submission_id"]),
                 submitted_at=row_dict.get("completed_at") or datetime.now(timezone.utc),
                 is_current_user=False,  # Would need auth context
@@ -134,6 +146,7 @@ async def get_leaderboard(
 async def get_leaderboard_history(
     dataset_id: Optional[str] = None,
     days: int = 30,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -146,11 +159,12 @@ async def get_leaderboard_history(
     Returns:
         Historical ranking data for trend visualization
     """
-    # S2/B1+S10: Clamp to safe int range — eliminates SQL injection since int
-    # cannot contain SQL metacharacters, and INTERVAL doesn't support parameterization
+    # S2/B1+S10: Clamp to safe int range, then compute cutoff in Python
+    # to avoid any f-string interpolation into SQL
     days = max(1, min(int(days), 365))
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    query = f"""
+    query = """
         SELECT
             DATE(s.completed_at) as date,
             s.algorithm_name,
@@ -158,9 +172,9 @@ async def get_leaderboard_history(
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         WHERE s.status = 'completed'
-          AND s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '{days} days'
+          AND s.completed_at >= ?
     """
-    params: list = []
+    params: list = [cutoff.isoformat()]
 
     if dataset_id:
         query += " AND s.dataset_id = ?"
@@ -193,6 +207,7 @@ async def get_leaderboard_history(
 @router.get("/statistics")
 async def get_leaderboard_statistics(
     dataset_id: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
     db: DatabaseManager = Depends(get_db),
 ):
     """
@@ -245,15 +260,19 @@ async def get_leaderboard_statistics(
     row_dict = dict(zip(columns, row))
 
     # Determine trend (compare last week to previous week)
+    now = datetime.now(timezone.utc)
+    one_week_ago = (now - timedelta(days=7)).isoformat()
+    two_weeks_ago = (now - timedelta(days=14)).isoformat()
     trend_query = f"""
         SELECT
-            SUM(CASE WHEN s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as this_week,
-            SUM(CASE WHEN s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
-                 AND s.completed_at < CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as last_week
+            SUM(CASE WHEN s.completed_at >= ? THEN 1 ELSE 0 END) as this_week,
+            SUM(CASE WHEN s.completed_at >= ?
+                 AND s.completed_at < ? THEN 1 ELSE 0 END) as last_week
         {base_query}
     """
+    trend_params = [one_week_ago, two_weeks_ago, one_week_ago] + list(params)
 
-    trend_result = db.execute(trend_query, tuple(params))
+    trend_result = db.execute(trend_query, tuple(trend_params))
     trend_row = trend_result.fetchone()
 
     trend = "stable"

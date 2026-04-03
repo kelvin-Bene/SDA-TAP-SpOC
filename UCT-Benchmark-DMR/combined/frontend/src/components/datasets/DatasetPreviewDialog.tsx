@@ -9,14 +9,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Satellite, Database, Calendar, History, Loader2 } from 'lucide-react';
+import { Download, Satellite, Database, Calendar, History, Loader2, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { formatFileSize, formatDate } from '@/lib/utils';
 import type { Dataset } from '@/types';
 import { useDatasetVersions } from '@/hooks/useDatasets';
-import {
-  BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, ResponsiveContainer, Tooltip,
-} from 'recharts';
 
 interface DatasetPreviewDialogProps {
   dataset: Dataset | null;
@@ -41,7 +38,7 @@ export function DatasetPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             {dataset.name}
@@ -57,7 +54,7 @@ export function DatasetPreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="mt-4">
+        <Tabs defaultValue="overview" className="mt-4 min-h-0 flex-1 overflow-y-auto">
           <TabsList className={`grid w-full ${hasVersionHistory ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="statistics">Statistics</TabsTrigger>
@@ -117,23 +114,14 @@ export function DatasetPreviewDialog({
           </TabsContent>
 
           <TabsContent value="statistics" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground mb-2">Observation Density</p>
-                <div className="h-24 flex items-end gap-1">
-                  {[35, 45, 60, 75, 85, 70, 55, 40].map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-primary/20 rounded-t"
-                      style={{ height: `${h}%` }}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">Avg: 50 obs/satellite/3-days</p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground mb-2">Track Gap Distribution</p>
-                <ResponsiveContainer width="100%" height={96}>
+            {/* Track Gap Distribution */}
+            <div>
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Track Gap Distribution
+              </h4>
+              <div className="rounded-lg border bg-muted/50 p-3">
+                <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={[
                     { gap: '0-1', count: 80 },
                     { gap: '1-2', count: 60 },
@@ -144,19 +132,21 @@ export function DatasetPreviewDialog({
                     { gap: '6-7', count: 4 },
                     { gap: '7+', count: 2 },
                   ]}>
-                    <XAxis dataKey="gap" tick={{ fontSize: 10 }} />
-                    <YAxis hide />
+                    <XAxis dataKey="gap" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="hsl(192 91% 52% / 0.5)" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="count" fill="hsl(217, 91%, 60%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-                <p className="text-xs text-muted-foreground mt-2">Median gap: 2.3 orbital periods</p>
+                <p className="text-xs text-muted-foreground text-center mt-1">Gap duration (hours)</p>
               </div>
             </div>
-            <div className="rounded-lg border p-4">
-              <p className="text-sm text-muted-foreground mb-2">Sensor Type Distribution</p>
-              <div className="flex items-center gap-4">
-                <ResponsiveContainer width={96} height={96}>
+
+            {/* Sensor Type Distribution */}
+            <div>
+              <h4 className="text-sm font-medium mb-2">Sensor Type Distribution</h4>
+              <div className="rounded-lg border bg-muted/50 p-3 flex items-center gap-6">
+                <ResponsiveContainer width={100} height={100}>
                   <PieChart>
                     <Pie
                       data={[
@@ -169,26 +159,27 @@ export function DatasetPreviewDialog({
                       innerRadius={20}
                       outerRadius={40}
                       dataKey="value"
+                      strokeWidth={1}
                     >
-                      <Cell fill="hsl(217 91% 60%)" />
-                      <Cell fill="hsl(142 76% 45%)" />
-                      <Cell fill="hsl(45 93% 47%)" />
+                      <Cell fill="hsl(217, 91%, 60%)" />
+                      <Cell fill="hsl(142, 76%, 45%)" />
+                      <Cell fill="hsl(45, 93%, 47%)" />
                     </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex flex-col gap-1.5 text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(217 91% 60%)' }} />
-                    <span>Optical: 65%</span>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(217, 91%, 60%)' }} />
+                    Optical (65%)
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142 76% 45%)' }} />
-                    <span>Radar: 25%</span>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(142, 76%, 45%)' }} />
+                    Radar (25%)
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(45 93% 47%)' }} />
-                    <span>RF: 10%</span>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(45, 93%, 47%)' }} />
+                    RF (10%)
                   </div>
                 </div>
               </div>
@@ -268,7 +259,7 @@ export function DatasetPreviewDialog({
           )}
         </Tabs>
 
-        <DialogFooter className="mt-6">
+        <DialogFooter className="mt-6 flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>

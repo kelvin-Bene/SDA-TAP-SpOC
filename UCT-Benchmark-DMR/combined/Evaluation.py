@@ -23,6 +23,8 @@ from uct_benchmark.simulation.propagator import (
 )
 from uct_benchmark.utils.generateCov import generateCov
 from uct_benchmark.utils.generatePDF import generatePDF
+from uct_benchmark.utils.unitConversion import unitConversion
+from loguru import logger
 
 
 # === Main Execution Block ===
@@ -37,10 +39,43 @@ if __name__ == "__main__":
         "./data/output_dataset.json"
     )
 
+    # Extract non-reference observations for True Negative calculation
+    # Non-reference observations are those in obs_data that are NOT in the reference set
+    ref_obs_ids = set(ref_obs["id"].unique())
+    non_ref_obs = obs_data[~obs_data["id"].isin(ref_obs_ids)].copy()
+    if not non_ref_obs.empty:
+        # Add source_norad_id column (required by binaryMetrics) -- these are unknown
+        # in the decorrelated output, so we mark them as -1 (non-reference placeholder)
+        if "source_norad_id" not in non_ref_obs.columns:
+            non_ref_obs["source_norad_id"] = -1
+        logger.info(
+            f"Found {len(non_ref_obs)} non-reference observations for TN calculation"
+        )
+    else:
+        non_ref_obs = None
+        logger.info("No non-reference observations found in dataset")
+
     # Load uctp_output df
     uctp_output = pd.read_json("./data/uctp_output.json")
     uctp_output["epoch"] = pd.to_datetime(uctp_output["epoch"])
     uctp_output = generateCov(uctp_output)
+
+    # Convert UCTP output state vectors to J2000 if needed
+    if "referenceFrame" in uctp_output.columns:
+        non_j2000 = uctp_output[
+            ~uctp_output["referenceFrame"].isin(["J2000", "EME2000"])
+        ]
+        if not non_j2000.empty:
+            frames_found = non_j2000["referenceFrame"].unique().tolist()
+            logger.info(
+                f"Converting {len(non_j2000)} UCTP state vectors from "
+                f"{frames_found} to J2000"
+            )
+            uctp_output = unitConversion(uctp_output)
+        else:
+            logger.info("All UCTP state vectors already in J2000/EME2000 frame")
+    else:
+        logger.info("No referenceFrame column in UCTP output; assuming J2000")
 
     # Perform orbit association
     print("Associating orbits")
@@ -48,9 +83,11 @@ if __name__ == "__main__":
         ref_sv, uctp_output, ephemerisPropagator
     )
 
-    # Obtain binary metrics
+    # Obtain binary metrics (with True Negatives from non-reference observations)
     print("Computing binary metrics")
-    binary_results = binaryMetrics(ref_obs, associated_orbits)
+    binary_results = binaryMetrics(
+        ref_obs, associated_orbits, non_ref_observations=non_ref_obs
+    )
 
     # Obtain orbit state metrics
     print("Computing state metrics")
