@@ -10,9 +10,14 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor for auth token - uses Supabase session JWT
+// Request interceptor for auth token - uses Supabase session JWT or demo token
 apiClient.interceptors.request.use(
   async (config) => {
+    // Demo mode: use static demo token
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      config.headers.Authorization = 'Bearer demo-token';
+      return config;
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
