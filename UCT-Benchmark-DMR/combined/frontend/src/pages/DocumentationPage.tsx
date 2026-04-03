@@ -119,7 +119,7 @@ export function DocumentationPage() {
               </p>
 
               <h4>Observations Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
 {`{
   "observations": [
     {
@@ -139,7 +139,7 @@ export function DocumentationPage() {
               </pre>
 
               <h4>Truth Catalog Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
 {`{
   "truthCatalog": [
     {
@@ -153,7 +153,7 @@ export function DocumentationPage() {
               </pre>
 
               <h4>Association Ground Truth</h4>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
 {`{
   "associations": {
     "trackId_001": "satId_25544",
@@ -186,7 +186,7 @@ export function DocumentationPage() {
               </p>
 
               <h4>Required Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
 {`{
   "metadata": {
     "algorithmName": "string",

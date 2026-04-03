@@ -194,7 +194,7 @@ export function MySubmissionsPage() {
                       <div className="flex justify-end gap-1">
                         {submission.status === 'completed' && (
                           <Link to={`/results/${submission.id}`}>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" aria-label="View results">
                               <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
@@ -202,12 +202,13 @@ export function MySubmissionsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Download results"
                           disabled={submission.status !== 'completed'}
                           onClick={() => handleExport(submission)}
                         >
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive">
+                        <Button variant="ghost" size="icon" className="text-destructive" aria-label="Delete submission">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>

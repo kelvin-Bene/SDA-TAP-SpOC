@@ -44,7 +44,7 @@ interface DatasetResponse {
 }
 
 // Transform backend response to frontend type
-function transformDataset(data: DatasetResponse): Dataset {
+export function transformDataset(data: DatasetResponse): Dataset {
   return {
     id: data.id,
     name: data.name,

@@ -138,6 +138,7 @@ export function DatasetPreviewDialog({
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">Median gap: 2.3 orbital periods</p>
+                <p className="text-xs text-muted-foreground/60 mt-1 italic">Sample distribution - detailed visualization coming soon</p>
               </div>
             </div>
             <div className="rounded-lg border p-4">
@@ -156,6 +157,7 @@ export function DatasetPreviewDialog({
                   <span className="text-sm">RF: 10%</span>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground/60 mt-2 italic">Sample distribution - detailed visualization coming soon</p>
             </div>
           </TabsContent>
 

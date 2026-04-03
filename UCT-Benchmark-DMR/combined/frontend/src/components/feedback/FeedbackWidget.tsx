@@ -156,7 +156,7 @@ function FeedbackWidgetInner() {
         onClick={handleOpen}
         size="icon"
         className={cn(
-          'fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg',
+          'fixed bottom-6 left-6 z-40 h-12 w-12 rounded-full shadow-lg',
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'transition-transform hover:scale-105'
         )}

@@ -138,7 +138,7 @@ MOCK_DATASETS: list[dict] = [
 MOCK_SUBMISSIONS: list[dict] = [
     {
         "dataset_idx": 0,
-        "algorithm_name": "OrbitGuard ML v2.1",
+        "algorithm_name": "OrbitGuard ML",
         "version": "2.1",
         "classification_marking": "SpaceML Lab",
         "f1": 0.942, "precision": 0.955, "recall": 0.929,
@@ -146,7 +146,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 0,
-        "algorithm_name": "TrackForge v1.0",
+        "algorithm_name": "TrackForge",
         "version": "1.0",
         "classification_marking": "DARPA UCT Team",
         "f1": 0.881, "precision": 0.897, "recall": 0.866,
@@ -154,7 +154,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 1,
-        "algorithm_name": "OrbitGuard ML v2.1",
+        "algorithm_name": "OrbitGuard ML",
         "version": "2.1",
         "classification_marking": "SpaceML Lab",
         "f1": 0.872, "precision": 0.889, "recall": 0.855,
@@ -162,7 +162,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 2,
-        "algorithm_name": "AstroIOD v3.2",
+        "algorithm_name": "AstroIOD",
         "version": "3.2",
         "classification_marking": "NavLab",
         "f1": 0.786, "precision": 0.810, "recall": 0.764,
@@ -170,7 +170,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 3,
-        "algorithm_name": "DeepOrbit v1.5",
+        "algorithm_name": "DeepOrbit",
         "version": "1.5",
         "classification_marking": "StarNet AI",
         "f1": 0.725, "precision": 0.748, "recall": 0.703,
@@ -178,7 +178,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 4,
-        "algorithm_name": "OrbitGuard ML v2.1",
+        "algorithm_name": "OrbitGuard ML",
         "version": "2.1",
         "classification_marking": "SpaceML Lab",
         "f1": 0.658, "precision": 0.691, "recall": 0.627,
@@ -186,7 +186,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 6,
-        "algorithm_name": "TrackForge v1.1",
+        "algorithm_name": "TrackForge",
         "version": "1.1",
         "classification_marking": "DARPA UCT Team",
         "f1": 0.908, "precision": 0.920, "recall": 0.897,
@@ -194,7 +194,7 @@ MOCK_SUBMISSIONS: list[dict] = [
     },
     {
         "dataset_idx": 7,
-        "algorithm_name": "AstroIOD v3.2",
+        "algorithm_name": "AstroIOD",
         "version": "3.2",
         "classification_marking": "NavLab",
         "f1": 0.834, "precision": 0.851, "recall": 0.817,
@@ -378,6 +378,10 @@ def generate_submission_results(
             bins[idx] += 1
         return {"labels": ["-3", "-2", "-1", "0", "1", "2", "3"], "counts": bins}
 
+    ra_rms = round(math.sqrt(sum(s["ra_residual_arcsec"]**2 for s in per_satellite) / len(per_satellite)), 4) if per_satellite else 0.0
+    dec_rms = round(math.sqrt(sum(s["dec_residual_arcsec"]**2 for s in per_satellite) / len(per_satellite)), 4) if per_satellite else 0.0
+    mahalanobis = round(rng.uniform(0.8, 2.5), 2)
+
     raw_results = {
         "binary": {
             "true_positives": tp,
@@ -393,6 +397,9 @@ def generate_submission_results(
         "state": {
             "position_rms_km": position_rms_km,
             "velocity_rms_km_s": velocity_rms_km_s,
+            "ra_residual_rms_arcsec": ra_rms,
+            "dec_residual_rms_arcsec": dec_rms,
+            "mahalanobis_distance": mahalanobis,
         },
         "per_satellite": per_satellite,
         "position_error_histogram": {
@@ -416,5 +423,8 @@ def generate_submission_results(
         "accuracy": round(accuracy, 4),
         "position_rms_km": position_rms_km,
         "velocity_rms_km_s": velocity_rms_km_s,
+        "ra_residual_rms_arcsec": ra_rms,
+        "dec_residual_rms_arcsec": dec_rms,
+        "mahalanobis_distance": mahalanobis,
         "raw_results": raw_results,
     }

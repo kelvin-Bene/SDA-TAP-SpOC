@@ -1326,7 +1326,7 @@ export function DatasetGeneratorPage() {
                       >
                         <RadioGroupItem value={opt.value} id={`sensor-type-${opt.value}`} />
                         <div>
-                          <span className="font-mono mr-1">{opt.value}</span>
+                          <span className="font-mono mr-2">{opt.value}</span>{' '}
                           <span>{opt.label}</span>
                         </div>
                       </Label>
@@ -1370,7 +1370,7 @@ export function DatasetGeneratorPage() {
                       >
                         <RadioGroupItem value={opt.value} id={`event-type-${opt.value}`} />
                         <div>
-                          <span className="font-mono mr-1">{opt.value}</span>
+                          <span className="font-mono mr-2">{opt.value}</span>{' '}
                           <span>{opt.label}</span>
                         </div>
                       </Label>

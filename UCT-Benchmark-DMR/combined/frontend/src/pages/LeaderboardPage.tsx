@@ -70,8 +70,9 @@ export function LeaderboardPage() {
   const topThree = sortedLeaderboard.slice(0, 3);
 
   // Transform history data for chart
-  const trendData = useMemo(() => {
+  const { trendData, algDisplayNames } = useMemo(() => {
     const byMonth: Record<string, Record<string, number>> = {};
+    const displayNames: Record<string, string> = {};
 
     historyData.forEach((entry) => {
       const month = entry.date.substring(0, 7); // YYYY-MM
@@ -79,17 +80,20 @@ export function LeaderboardPage() {
         byMonth[month] = {};
       }
       const algKey = entry.algorithmName.replace(/\s+/g, '');
+      displayNames[algKey] = entry.algorithmName;
       if (!byMonth[month][algKey] || entry.bestF1 > byMonth[month][algKey]) {
         byMonth[month][algKey] = entry.bestF1;
       }
     });
 
-    return Object.entries(byMonth)
+    const data = Object.entries(byMonth)
       .map(([month, scores]) => ({
-        month: month.substring(5), // MM only
+        month, // YYYY-MM format
         ...scores,
       }))
       .sort((a, b) => a.month.localeCompare(b.month));
+
+    return { trendData: data, algDisplayNames: displayNames };
   }, [historyData]);
 
   const handleSort = (column: typeof sortColumn) => {
@@ -422,6 +426,7 @@ export function LeaderboardPage() {
                           key={alg}
                           type="monotone"
                           dataKey={alg}
+                          name={algDisplayNames[alg] || alg}
                           stroke={[
                             'hsl(192 91% 52%)',  // cosmic-cyan
                             'hsl(265 89% 66%)',  // stellar-purple

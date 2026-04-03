@@ -480,8 +480,8 @@ async def create_dataset(
 
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
-    # Format: {user_name}-{YYYYMMDD}-{HHMMSS}-{short_uuid}
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    # Format: {user_name}-{YYYYMMDD}-{short_uuid}
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     short_uuid = str(uuid.uuid4())[:8]
     dataset_name = f"{dataset_request.name}-{timestamp}-{short_uuid}"
     logger.info(f"Generated unique dataset name: {dataset_name}")

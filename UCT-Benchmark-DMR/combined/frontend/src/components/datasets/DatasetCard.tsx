@@ -125,7 +125,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
       {/* Header */}
       <div className="p-5 pb-3">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <h3 className="font-display font-semibold truncate text-foreground group-hover:text-gradient-cosmic transition-colors">
+          <h3 className="font-display font-semibold truncate text-foreground group-hover:text-gradient-cosmic transition-colors" title={dataset.name}>
             {dataset.name}
           </h3>
         </div>
@@ -182,10 +182,10 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
               <span className="text-muted-foreground">obs</span>
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">Coverage:</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-muted-foreground text-xs truncate">Coverage:</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden flex-shrink-0">
                 <div
                   className={cn('h-full rounded-full', regime.bgColor.replace('/10', ''))}
                   style={{
@@ -197,12 +197,12 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
                   }}
                 />
               </div>
-              <span className="font-semibold text-xs">{(dataset.coverage * 100).toFixed(0)}%</span>
+              <span className="font-semibold text-xs truncate">{(dataset.coverage * 100).toFixed(0)}%</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">Size:</span>
-            <span className="font-semibold text-xs">{formatFileSize(dataset.sizeBytes)}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-muted-foreground text-xs truncate">Size:</span>
+            <span className="font-semibold text-xs truncate">{formatFileSize(dataset.sizeBytes)}</span>
           </div>
         </div>
 

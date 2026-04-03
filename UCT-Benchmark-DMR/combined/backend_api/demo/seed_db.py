@@ -240,8 +240,10 @@ def _seed_submission_results(db, submission_ids: list[int]) -> None:
                 submission_id, true_positives, true_negatives,
                 false_positives, false_negatives,
                 precision, recall, f1_score, specificity, accuracy,
-                position_rms_km, velocity_rms_km_s, raw_results
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                position_rms_km, velocity_rms_km_s,
+                ra_residual_rms_arcsec, dec_residual_rms_arcsec,
+                mahalanobis_distance, raw_results
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 results["submission_id"],
@@ -256,6 +258,9 @@ def _seed_submission_results(db, submission_ids: list[int]) -> None:
                 results["accuracy"],
                 results["position_rms_km"],
                 results["velocity_rms_km_s"],
+                results["ra_residual_rms_arcsec"],
+                results["dec_residual_rms_arcsec"],
+                results["mahalanobis_distance"],
                 json.dumps(results["raw_results"]),
             ),
         )

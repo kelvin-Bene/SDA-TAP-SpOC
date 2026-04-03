@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Plus, Download, Trash2, Copy, Eye, Loader2, History } from 'lucide-react';
 import { formatDate, formatFileSize } from '@/lib/utils';
-import { useDatasets, useDeleteDataset } from '@/hooks/useDatasets';
+import { useDatasets, useDeleteDataset, transformDataset } from '@/hooks/useDatasets';
 import { api } from '@/api/client';
 import type { Dataset } from '@/types';
 
@@ -32,7 +32,7 @@ export function MyDatasetsPage() {
     setLoadingVersions(true);
     try {
       const response = await api.getDatasetVersions(dataset.id);
-      setVersionHistory(response.data ?? []);
+      setVersionHistory((response.data ?? []).map((d: Record<string, unknown>) => transformDataset(d as Parameters<typeof transformDataset>[0])));
     } catch {
       setVersionHistory([]);
     } finally {
@@ -157,27 +157,29 @@ export function MyDatasetsPage() {
                     <TableCell>{formatDate(dataset.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" aria-label="Preview dataset">
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           title="Version history"
+                          aria-label="Version history"
                           onClick={() => handleShowVersions(dataset)}
                         >
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" aria-label="Download dataset">
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" aria-label="Copy dataset ID">
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="text-destructive"
+                          aria-label="Delete dataset"
                           onClick={() => handleDeleteClick(dataset)}
                           disabled={deleteDataset.isPending}
                         >

@@ -264,7 +264,23 @@ export function SubmitPage() {
 
   const handleSubmit = async () => {
     setSubmitAttempted(true);
-    if (!file || !datasetId || !algorithmName || !version) return;
+
+    // Validation feedback — tell the user exactly what's missing
+    if (!file || !datasetId || !algorithmName || !version) {
+      const missing: string[] = [];
+      if (!file) missing.push('submission file');
+      if (!datasetId) missing.push('target dataset');
+      if (!algorithmName) missing.push('algorithm name');
+      if (!version) missing.push('version');
+      toast({
+        title: 'Missing required fields',
+        description: `Please provide: ${missing.join(', ')}`,
+        variant: 'destructive',
+      });
+      // Scroll to top to show inline errors
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (!canSubmit) return;
 
     try {
