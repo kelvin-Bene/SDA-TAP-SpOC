@@ -79,8 +79,8 @@ def _seed_datasets(db) -> list[int]:
                 name, orbital_regime, tier, observation_count, satellite_count,
                 avg_coverage, status, created_at, updated_at,
                 time_window_start, time_window_end,
-                generation_params, actual_satellite_ids
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                generation_params, actual_satellite_ids, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 ds["name"],
@@ -96,6 +96,7 @@ def _seed_datasets(db) -> list[int]:
                 time_window_end,
                 gen_params,
                 json.dumps([]),
+                "demo-user",
             ),
         )
 
@@ -201,8 +202,8 @@ def _seed_submissions(db, dataset_ids: list[int]) -> list[int]:
             """
             INSERT INTO submissions (
                 dataset_id, algorithm_name, version, classification_marking,
-                status, created_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                status, created_at, completed_at, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 dataset_id,
@@ -212,6 +213,7 @@ def _seed_submissions(db, dataset_ids: list[int]) -> list[int]:
                 "completed",
                 created_at,
                 completed_at,
+                "demo-user",
             ),
         )
 
