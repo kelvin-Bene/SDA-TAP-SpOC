@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Globe,
   Database,
   Plus,
   Upload,
@@ -33,6 +34,11 @@ const navItems: NavItem[] = [
     title: 'Dashboard',
     href: '/',
     icon: LayoutDashboard,
+  },
+  {
+    title: 'Orbit Map',
+    href: '/orbit-map',
+    icon: Globe,
   },
   {
     title: 'Datasets',
