@@ -217,11 +217,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         try:
             response: Response = await call_next(request)
-        except Exception:
+        except Exception as exc:
             # Convert unhandled exceptions to a proper response so CORS
             # headers can still be injected by the outer CORSMiddleware.
             # The RequestLoggingMiddleware (inner) should already catch most
             # exceptions, but this is a safety net.
+            logger.error(f"Unhandled exception in {request.method} {request.url.path}: {exc}", exc_info=True)
             response = JSONResponse(
                 status_code=500,
                 content={"detail": "Internal server error"},
