@@ -62,6 +62,17 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   error: null,
 
   initialize: async () => {
+    // Demo mode: skip Supabase auth, auto-login as demo user
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      set({
+        user: { id: 'demo', username: 'Demo User', email: 'demo@spoc-benchmark.org', organization: 'SpOC Demo', role: 'authenticated' as const, createdAt: new Date().toISOString(), submissionCount: 0 },
+        session: null,
+        isAuthenticated: true,
+        isAdmin: false,
+        isLoading: false,
+      });
+      return;
+    }
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
 
