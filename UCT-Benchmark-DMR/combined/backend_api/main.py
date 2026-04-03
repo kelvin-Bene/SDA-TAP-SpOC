@@ -199,10 +199,27 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses (S6)."""
+    """Add security headers to all responses (S6).
+
+    IMPORTANT: This middleware must NOT re-raise exceptions. When an exception
+    escapes a BaseHTTPMiddleware, the outer CORSMiddleware never gets to inject
+    CORS headers, causing browsers to report CORS errors instead of the real
+    error. We catch all exceptions and return a JSON error response.
+    """
 
     async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except Exception:
+            # Convert unhandled exceptions to a proper response so CORS
+            # headers can still be injected by the outer CORSMiddleware.
+            # The RequestLoggingMiddleware (inner) should already catch most
+            # exceptions, but this is a safety net.
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         # X-XSS-Protection intentionally omitted — it is deprecated and can
@@ -253,18 +270,33 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return response
 
 
-# Security headers middleware (S6) — added first so it wraps all responses
-app.add_middleware(SecurityHeadersMiddleware)
+# ──────────────────────────────────────────────────────────────────────
+# Middleware registration order
+# ──────────────────────────────────────────────────────────────────────
+# Starlette builds the middleware stack as:
+#   [ServerErrorMiddleware] + user_middleware + [ExceptionMiddleware]
+# then iterates reversed() to wrap the app. This means the FIRST
+# add_middleware() call becomes the OUTERMOST user middleware.
+#
+# CORS must be outermost so it can inject Access-Control-Allow-Origin
+# headers into ALL responses — including error responses from inner
+# middleware and exception handlers. If CORS is inner, exceptions that
+# propagate through BaseHTTPMiddleware bypass CORSMiddleware.send()
+# and the browser sees a missing CORS header (reporting a CORS error
+# instead of the real error like 401 or 500).
+#
+# Execution order (outermost to innermost):
+#   ServerErrorMiddleware -> CORSMiddleware -> SecurityHeaders ->
+#   RequestLogging -> ExceptionMiddleware -> Router
+# ──────────────────────────────────────────────────────────────────────
 
-# Request logging with correlation IDs
-app.add_middleware(RequestLoggingMiddleware)
-
-# Configure CORS - use environment variable in production (S11)
+# CORS — registered FIRST so it is the outermost user middleware (S11)
 cors_origins, _cors_explicit = get_cors_origins()
 if not _cors_explicit:
     logger.warning(
         "CORS_ORIGINS not set — using localhost defaults with credentials disabled. "
-        "Set CORS_ORIGINS env var for production."
+        "The frontend WILL NOT be able to communicate with this backend in production. "
+        "Set CORS_ORIGINS=<your-frontend-url> in Railway env vars."
     )
 app.add_middleware(
     CORSMiddleware,
@@ -273,6 +305,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+# Security headers middleware (S6) — inner to CORS so CORS headers are always present
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request logging with correlation IDs — innermost user middleware
+app.add_middleware(RequestLoggingMiddleware)
 
 # 3-tier auth: public routers have no global auth dep; authenticated routers require JWT (S1)
 _auth_deps = [Depends(get_current_user)]

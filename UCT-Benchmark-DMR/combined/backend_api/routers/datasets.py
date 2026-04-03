@@ -431,6 +431,19 @@ async def get_dataset_versions(
     columns = [desc[0] for desc in result.description]
     rows = result.fetchall()
 
+    # Deduplicate by version number — keep first (latest created_at per ORDER BY)
+    # Skip dedup for null versions to preserve legacy datasets without version numbers
+    seen_versions = set()
+    deduped_rows = []
+    version_col_idx = columns.index("version") if "version" in columns else None
+    for row in rows:
+        v = row[version_col_idx] if version_col_idx is not None else None
+        if v is None or v not in seen_versions:
+            if v is not None:
+                seen_versions.add(v)
+            deduped_rows.append(row)
+    rows = deduped_rows
+
     return [_row_to_dataset_summary(row, columns) for row in rows]
 
 

@@ -47,7 +47,9 @@ export function DashboardPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-2 text-cosmic-cyan text-sm font-medium mb-2">
             <Sparkles className="h-4 w-4" />
-            Welcome back
+            {user?.createdAt && (Date.now() - new Date(user.createdAt).getTime()) < 5 * 60 * 1000
+              ? 'Welcome'
+              : 'Welcome back'}
           </div>
           <h1 className="text-4xl font-display font-bold tracking-tight mb-2">
             Good to see you, <span className="text-gradient-cosmic">{user?.username || 'researcher'}</span>
@@ -79,7 +81,7 @@ export function DashboardPage() {
         <StatCard
           title="Top Rank"
           value={isLoading ? '\u2014' : rankDisplay}
-          subtitle={stats?.topAlgorithmName || 'Loading...'}
+          subtitle={isLoading ? 'Loading...' : (stats?.topAlgorithmName || 'No rank yet')}
           icon={<Trophy className="h-5 w-5" />}
           accentColor="cyan"
         />

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Database, Satellite, Calendar } from 'lucide-react';
@@ -101,10 +102,11 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-xl border border-white/10 bg-card transition-all duration-300 group',
+        'relative overflow-hidden rounded-xl border border-white/10 bg-card transition-all duration-300 group cursor-pointer',
         'hover:border-white/20',
         regime.glowColor
       )}
+      onClick={() => onPreview?.(dataset)}
     >
       {/* Top accent line based on regime */}
       <div
@@ -125,9 +127,13 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
       {/* Header */}
       <div className="p-5 pb-3">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <h3 className="font-display font-semibold truncate text-foreground group-hover:text-gradient-cosmic transition-colors">
+          <Link
+            to={`/datasets/${dataset.id}`}
+            className="font-display font-semibold truncate text-foreground group-hover:text-gradient-cosmic transition-colors hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
             {dataset.name}
-          </h3>
+          </Link>
         </div>
 
         {/* Badges */}
@@ -214,7 +220,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
       </div>
 
       {/* Actions */}
-      <div className="border-t border-white/10 p-3 flex gap-2 bg-white/[0.02]">
+      <div className="border-t border-white/10 p-3 flex gap-2 bg-white/[0.02]" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="sm"
