@@ -278,11 +278,19 @@ def seed_if_empty(db) -> None:
             db.adapter.convert_placeholders("SELECT COUNT(*) FROM datasets"),
             (),
         )
-        # Check if seed completed fully (submissions exist = seed finished)
+        # Check if seed completed fully (submissions with team field = seed v2 finished)
         sub_row = db.execute("SELECT COUNT(*) FROM submissions").fetchone()
         if row and row[0] > 0 and sub_row and sub_row[0] > 0:
-            logger.info("Demo data already present, skipping seed")
-            return
+            # Check if team column is populated (v2 seed)
+            try:
+                team_row = db.execute("SELECT team FROM submissions WHERE team IS NOT NULL LIMIT 1").fetchone()
+                if team_row:
+                    logger.info("Demo data already present (with teams), skipping seed")
+                    return
+                logger.info("Demo data exists but missing team names — re-seeding...")
+            except Exception:
+                logger.info("Team column check failed — re-seeding...")
+            # Fall through to re-seed
         # Partial seed detected — clean up and re-seed
         if row and row[0] > 0:
             logger.info("Partial seed detected — cleaning up for re-seed...")
