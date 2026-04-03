@@ -32,7 +32,8 @@ export function MyDatasetsPage() {
     setLoadingVersions(true);
     try {
       const response = await api.getDatasetVersions(dataset.id);
-      setVersionHistory((response.data ?? []).map((d: Record<string, unknown>) => transformDataset(d as Parameters<typeof transformDataset>[0])));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setVersionHistory((response.data ?? []).map((d: any) => transformDataset(d)));
     } catch {
       setVersionHistory([]);
     } finally {
