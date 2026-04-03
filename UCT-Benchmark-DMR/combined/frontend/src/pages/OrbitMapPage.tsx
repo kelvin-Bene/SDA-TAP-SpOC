@@ -6,6 +6,8 @@ import {
   Plus, Minus, Crosshair,
 } from 'lucide-react';
 import { api } from '@/api/client';
+import * as Cesium from 'cesium';
+import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 // ── Orbital regime definitions ────────────────────────────────────────────────
 const REGIMES = [
@@ -186,8 +188,6 @@ export function OrbitMapPage() {
 
     async function initCesium() {
       try {
-        const Cesium = await import('cesium');
-        await import('cesium/Build/Cesium/Widgets/widgets.css');
         if (destroyed || !containerRef.current) return;
 
         const token = import.meta.env.VITE_CESIUM_ION_TOKEN;
