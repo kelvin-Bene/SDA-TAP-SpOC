@@ -84,7 +84,7 @@ export function SettingsPage() {
 
   // Summary stats
   const configuredCount = services?.filter(
-    (s) => s.source === 'database' || s.source === 'environment',
+    (s) => s.source === 'db' || s.source === 'env',
   ).length ?? 0;
   const totalCount = services?.length ?? 0;
 

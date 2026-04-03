@@ -8,7 +8,7 @@ export interface CredentialServiceInfo {
   is_configured: boolean;
   last_validated: string | null;
   validation_status: 'untested' | 'valid' | 'invalid' | 'error' | 'not_configured';
-  source: 'database' | 'environment' | 'none';
+  source: 'db' | 'env' | 'none';
   has_env_fallback: boolean;
   created_at: string | null;
   updated_at: string | null;

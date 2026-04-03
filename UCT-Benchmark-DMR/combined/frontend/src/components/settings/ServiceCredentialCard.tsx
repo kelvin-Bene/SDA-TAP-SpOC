@@ -34,10 +34,10 @@ interface ServiceCredentialCardProps {
 }
 
 function getStatusBadge(service: CredentialServiceInfo) {
-  if (service.source === 'database') {
+  if (service.source === 'db') {
     return <Badge variant="success" className="text-xs">Configured (DB)</Badge>;
   }
-  if (service.source === 'environment') {
+  if (service.source === 'env') {
     return <Badge className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">Configured (Env)</Badge>;
   }
   return <Badge variant="outline" className="text-xs text-muted-foreground">Not Configured</Badge>;
@@ -120,7 +120,7 @@ export function ServiceCredentialCard({
                 <TestTube className="h-4 w-4" />
               )}
             </Button>
-            {service.source === 'database' && (
+            {service.source === 'db' && (
               <Button
                 variant="ghost"
                 size="icon"
