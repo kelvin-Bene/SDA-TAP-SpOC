@@ -18,11 +18,11 @@ export function HeroSection() {
   return (
     <section
       id="mission"
-      className="relative min-h-screen flex flex-col pt-16 overflow-hidden"
+      className="relative flex flex-col pt-24 pb-16 overflow-hidden"
     >
-      {/* Centered hero content */}
-      <div className="flex-1 flex items-center">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 lg:py-0">
+      {/* Hero content */}
+      <div>
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left column */}
             <div className="flex flex-col gap-6">
@@ -76,8 +76,8 @@ export function HeroSection() {
         </div>
       </div>
 
-      {/* Stat strip — pinned to bottom of hero section */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-12">
+      {/* Stat strip */}
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-16">
         <div
           ref={statsRef}
           className="grid grid-cols-3 gap-6 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left"
