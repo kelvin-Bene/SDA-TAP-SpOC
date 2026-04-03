@@ -1594,18 +1594,28 @@ async def _batchUDLQuery(
     logger.info(f"Batch query results: {success_count}/{total} succeeded, {fail_count}/{total} failed")
 
     if not valid_results:
-        raise RuntimeError("All batch queries failed")
+        # Return empty DataFrame instead of crashing -- callers handle empty results
+        logger.warning("All batch queries failed -- returning empty DataFrame")
+        return 0 if count else pd.DataFrame()
 
     success_rate = success_count / total if total > 0 else 0
     if success_rate < 0.5:
-        raise RuntimeError(
-            f"Batch query failure rate too high: {fail_count}/{total} failed "
-            f"(success rate {success_rate:.1%} < 50% threshold)"
+        logger.warning(
+            f"Batch query success rate low: {success_count}/{total} succeeded "
+            f"({success_rate:.1%}). Continuing with available data."
         )
 
-    if not valid_results:
+    if count:
+        return sum(valid_results)
+
+    # Filter out empty DataFrames before concat to avoid column mismatches.
+    # When a satellite has no data, UDL returns an empty JSON array which
+    # becomes an empty DataFrame. Concatenating these with real data can
+    # produce rows with NaN in critical columns like 'satNo'.
+    non_empty = [df for df in valid_results if isinstance(df, pd.DataFrame) and not df.empty]
+    if not non_empty:
         return pd.DataFrame()
-    return sum(valid_results) if count else pd.concat(valid_results, ignore_index=True)
+    return pd.concat(non_empty, ignore_index=True)
 
 
 def asyncUDLBatchQuery(token, service, params_list, dt=0.1, count=False, history=False):
@@ -1933,7 +1943,12 @@ def generateDataset(
     # Per Feb 19, 2026 transcript: automatic fallback between strategies.
     # If satellite-based query (FAST/HYBRID) returns no results, fall back to
     # time-based WINDOWED query using observation time instead of satellite number.
-    if (obs_truth_data.empty or "obTime" not in obs_truth_data.columns) and search_strategy != "windowed":
+    _has_obs_data = (
+        not obs_truth_data.empty
+        and "obTime" in obs_truth_data.columns
+        and "satNo" in obs_truth_data.columns
+    )
+    if not _has_obs_data and search_strategy != "windowed":
         logger.warning(
             f"Strategy '{search_strategy}' returned no results for satellites {list(satIDs)}. "
             f"Falling back to WINDOWED strategy using time-based query."
@@ -1948,13 +1963,41 @@ def generateDataset(
             report_progress,
             DatasetStage,
         )
+        _has_obs_data = (
+            not obs_truth_data.empty
+            and "obTime" in obs_truth_data.columns
+            and "satNo" in obs_truth_data.columns
+        )
 
-    # Check for empty observation data
-    if obs_truth_data.empty or "obTime" not in obs_truth_data.columns:
+    # =========================================================================
+    # RESILIENT SATELLITE FILTERING
+    # =========================================================================
+    # Instead of failing when some satellites have no data, identify which
+    # satellites actually returned observations and continue with those.
+    # This is the #1 failure mode in production -- randomly selected satellites
+    # often have no recent observation data in UDL.
+    requested_sats = len(satIDs)
+
+    if not _has_obs_data:
+        # Total failure: not a single satellite returned usable data.
         raise ValueError(
-            f"No observation data returned for satellites {satIDs}. "
-            "The selected satellites may not have recent observation data. "
-            "Try increasing the timeframe or selecting different satellites."
+            f"No observation data returned for any of the {requested_sats} "
+            f"requested satellites {list(satIDs)}. "
+            f"None of these satellites have recent observation data in UDL "
+            f"for the requested time range. "
+            f"Try increasing the timeframe, selecting a different date range, "
+            f"or choosing different satellites."
+        )
+
+    # Identify which satellites actually have observation data
+    sats_with_data = set(obs_truth_data["satNo"].unique())
+    sats_without_data = set(map(int, satIDs)) - set(map(int, sats_with_data))
+
+    if sats_without_data:
+        logger.warning(
+            f"{len(sats_without_data)}/{requested_sats} satellites returned no "
+            f"observation data and will be skipped: {sorted(sats_without_data)}. "
+            f"Continuing with {len(sats_with_data)} satellites that have data."
         )
 
     # Convert observation times to datetime objects
@@ -1992,7 +2035,6 @@ def generateDataset(
         )
 
     # Cull satIDs list to only include those for which data was actually returned
-    requested_sats = len(satIDs)
     satIDs = obs_truth_data["satNo"].unique()
     obs_sats = len(satIDs)
 
@@ -2018,6 +2060,14 @@ def generateDataset(
     ]
 
     state_truth_data = asyncUDLBatchQuery(UDL_token, "statevector", params_list, dt)
+
+    # Guard: state vector query may return empty or lack satNo column
+    if state_truth_data.empty or "satNo" not in state_truth_data.columns:
+        raise ValueError(
+            f"No state vector data returned from UDL for the {obs_sats} satellites "
+            f"that had observation data. This is unexpected -- these satellites have "
+            f"observations but no state vectors. Try a different time range."
+        )
 
     # Remove duplicate state vectors and prioritize ones with covariance
     if state_truth_data["satNo"].nunique() < len(state_truth_data):
