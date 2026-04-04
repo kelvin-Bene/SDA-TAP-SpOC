@@ -724,12 +724,141 @@ def run_evaluation_pipeline(
         job_manager.fail_job(job_id, error_msg)
 
 
+def run_demo_generation(
+    job_id: str,
+    dataset_id: int,
+    config: Dict[str, Any],
+) -> None:
+    """
+    Mock dataset generation for demo environments without UDL/ESA tokens.
+
+    Simulates the generation pipeline with realistic delays and writes
+    plausible metadata to the database so the UI looks correct.
+    """
+    import random
+    import time
+
+    job_manager = get_job_manager()
+    job_manager.start_job(job_id)
+
+    try:
+        from backend_api.database import get_db
+
+        db = get_db()
+
+        regime = config.get("regime", "LEO")
+        object_count = config.get("object_count", 5)
+        timeframe = config.get("timeframe", 7)
+
+        # Simulated progress stages with realistic delays
+        job_manager.update_job(job_id, progress=5, stage="Initializing pipeline...")
+        time.sleep(0.8)
+
+        job_manager.update_job(job_id, progress=15, stage="Selecting satellites...")
+        time.sleep(1.0)
+
+        job_manager.update_job(job_id, progress=30, stage="Fetching observations...")
+        time.sleep(2.0)
+
+        job_manager.update_job(job_id, progress=50, stage="Fetching state vectors...")
+        time.sleep(1.5)
+
+        job_manager.update_job(job_id, progress=65, stage="Fetching element sets...")
+        time.sleep(1.5)
+
+        job_manager.update_job(job_id, progress=80, stage="Building truth data...")
+        time.sleep(1.0)
+
+        job_manager.update_job(job_id, progress=90, stage="Persisting to database...")
+        time.sleep(0.5)
+
+        # Generate plausible mock metadata
+        satellite_count = object_count
+        obs_per_sat = random.randint(15, 60)
+        observation_count = satellite_count * obs_per_sat
+        avg_coverage = round(random.uniform(0.7, 0.95), 3)
+        estimated_size_bytes = observation_count * 500
+
+        # Mock satellite NORAD IDs
+        base_norad = {"LEO": 25544, "MEO": 26360, "GEO": 36411, "HEO": 28884}
+        start_id = base_norad.get(regime, 25544)
+        mock_sat_ids = list(range(start_id, start_id + satellite_count))
+
+        from datetime import datetime, timedelta
+
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(days=timeframe)
+
+        db.execute(
+            """
+            UPDATE datasets
+            SET status = 'available',
+                observation_count = ?,
+                satellite_count = ?,
+                avg_coverage = ?,
+                time_window_start = ?,
+                time_window_end = ?,
+                avg_obs_count = ?,
+                max_track_gap = ?,
+                downsampling_applied = ?,
+                simulation_applied = ?,
+                simulated_obs_count = ?,
+                actual_satellite_ids = ?,
+                performance_metadata = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                observation_count, satellite_count, avg_coverage,
+                start_time.isoformat(), end_time.isoformat(),
+                obs_per_sat, round(random.uniform(1.5, 4.0), 2),
+                False, False, 0,
+                json.dumps(mock_sat_ids),
+                json.dumps({"mode": "demo", "regime": regime}),
+                dataset_id,
+            ),
+        )
+
+        job_manager.update_job(job_id, progress=100, stage="Complete")
+        result = {
+            "dataset_id": dataset_id,
+            "observation_count": observation_count,
+            "satellite_count": satellite_count,
+            "actual_satellites": mock_sat_ids,
+            "mode": "demo",
+        }
+        job_manager.complete_job(job_id, result)
+        logger.info(f"Demo dataset generation completed for job {job_id}")
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Demo generation failed for job {job_id}: {error_msg}")
+
+        try:
+            from backend_api.database import get_db
+            db = get_db()
+            try:
+                db._connection.rollback()
+            except Exception:
+                pass
+            db.execute(
+                "UPDATE datasets SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (dataset_id,),
+            )
+        except Exception:
+            pass
+
+        job_manager.fail_job(job_id, error_msg)
+
+
 def submit_dataset_generation(
     dataset_id: int,
     config: Dict[str, Any],
 ) -> Job:
     """
     Submit a dataset generation job to run in the background.
+
+    Falls back to mock generation when UDL_TOKEN is not set (demo mode).
 
     Args:
         dataset_id: The database ID for the dataset
@@ -745,7 +874,13 @@ def submit_dataset_generation(
     )
 
     executor = get_executor()
-    executor.submit(run_dataset_generation, job.id, dataset_id, config)
+
+    # Use mock generation when no UDL token is available (demo environments)
+    if os.getenv("UDL_TOKEN"):
+        executor.submit(run_dataset_generation, job.id, dataset_id, config)
+    else:
+        logger.info(f"No UDL_TOKEN set — using demo generation for dataset {dataset_id}")
+        executor.submit(run_demo_generation, job.id, dataset_id, config)
 
     return job
 
