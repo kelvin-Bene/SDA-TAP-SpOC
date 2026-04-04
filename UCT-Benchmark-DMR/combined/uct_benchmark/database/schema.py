@@ -627,6 +627,67 @@ CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials(user_id);
 """
 
 # ============================================================
+# ============================================================
+# AUDIT & LOGGING TABLES
+# ============================================================
+
+AUDIT_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS audit_log (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(64),
+    action VARCHAR(50) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id VARCHAR(100),
+    details TEXT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+API_CALL_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS api_call_log (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(64),
+    method VARCHAR(10),
+    path VARCHAR(500),
+    status_code INTEGER,
+    request_body_size INTEGER,
+    response_body_size INTEGER,
+    duration_ms FLOAT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CREDENTIAL_ACCESS_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS credential_access_log (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(64),
+    service_name VARCHAR(50),
+    action VARCHAR(50),
+    source VARCHAR(20),
+    success BOOLEAN,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+SYSTEM_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS system_log (
+    id SERIAL PRIMARY KEY,
+    level VARCHAR(20),
+    component VARCHAR(100),
+    message TEXT,
+    details TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+
+# ============================================================
 # SCHEMA VERSION TRACKING
 # ============================================================
 
@@ -767,6 +828,15 @@ def _initialize_duckdb_schema(db: "DatabaseManager") -> None:
     # Credentials table (encrypted per-user API credentials)
     db.execute(CREDENTIALS_TABLE)
     db.execute(CREDENTIALS_INDEXES)
+
+    # Audit and logging tables
+    try:
+        db.execute(AUDIT_LOG_TABLE)
+        db.execute(API_CALL_LOG_TABLE)
+        db.execute(CREDENTIAL_ACCESS_LOG_TABLE)
+        db.execute(SYSTEM_LOG_TABLE)
+    except Exception:
+        pass  # Audit tables are optional — SERIAL type may not work on DuckDB
 
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
@@ -911,6 +981,15 @@ def _initialize_postgres_schema_fallback(db: "DatabaseManager") -> None:
     # Credentials table (encrypted per-user API credentials)
     db.execute(CREDENTIALS_TABLE)
     db.execute(CREDENTIALS_INDEXES)
+
+    # Audit and logging tables
+    try:
+        db.execute(AUDIT_LOG_TABLE)
+        db.execute(API_CALL_LOG_TABLE)
+        db.execute(CREDENTIAL_ACCESS_LOG_TABLE)
+        db.execute(SYSTEM_LOG_TABLE)
+    except Exception:
+        pass  # Audit tables are optional — SERIAL type may not work on DuckDB
 
     # Migrate existing DBs (adds new columns if missing)
     _migrate_to_1_2_0(db)
