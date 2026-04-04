@@ -70,7 +70,7 @@ export function LandingNav() {
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Button asChild size="sm" className="bg-gradient-cosmic hover:opacity-90 text-white border-0">
+          <Button asChild size="default" className="bg-gradient-cosmic hover:opacity-90 text-white border-0">
             <Link to="/login">
               <LogIn className="h-4 w-4 mr-2" />
               Sign In

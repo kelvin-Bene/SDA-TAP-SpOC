@@ -50,7 +50,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         </Button>
 
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 mr-8 group">
+        <Link to="/" className="flex items-center gap-3 mr-3 lg:mr-8 group">
           {/* Animated orbital logo */}
           <div className="relative w-10 h-10 flex items-center justify-center">
             {/* Outer orbit ring */}

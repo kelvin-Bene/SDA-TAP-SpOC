@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export function MainLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background space-bg">

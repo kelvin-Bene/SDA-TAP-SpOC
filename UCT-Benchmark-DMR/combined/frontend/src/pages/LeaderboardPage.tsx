@@ -124,27 +124,10 @@ export function LeaderboardPage() {
 
       {/* Top 3 Podium */}
       {topThree.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
-          {/* Second place */}
-          {topThree[1] && (
-            <div className="relative mt-8">
-              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-card p-5 text-center transition-all duration-300 hover:border-gray-400/30 group">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Medal className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                <div className="text-2xl font-display font-bold text-gray-400">#2</div>
-                <div className="font-semibold mt-2 truncate">{topThree[1].algorithmName}</div>
-                <div className="text-xs text-muted-foreground">{topThree[1].team}</div>
-                <div className="mt-3 text-xl font-mono font-bold text-gray-400">
-                  {topThree[1].f1Score.toFixed(4)}
-                </div>
-                <div className="text-xs text-muted-foreground">F1-Score</div>
-              </div>
-            </div>
-          )}
-
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
           {/* First place */}
           {topThree[0] && (
-            <div className="relative">
+            <div className="relative order-first sm:order-2">
               <div className="relative overflow-hidden rounded-xl border border-yellow-500/30 bg-gradient-to-b from-yellow-500/10 to-card p-6 text-center transition-all duration-300 hover:border-yellow-500/50 hover:shadow-[0_0_30px_-5px_hsl(45_93%_47%_/_0.3)] group">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -162,9 +145,26 @@ export function LeaderboardPage() {
             </div>
           )}
 
+          {/* Second place */}
+          {topThree[1] && (
+            <div className="relative order-2 sm:order-1 mt-0 sm:mt-8">
+              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-card p-5 text-center transition-all duration-300 hover:border-gray-400/30 group">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Medal className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                <div className="text-2xl font-display font-bold text-gray-400">#2</div>
+                <div className="font-semibold mt-2 truncate">{topThree[1].algorithmName}</div>
+                <div className="text-xs text-muted-foreground">{topThree[1].team}</div>
+                <div className="mt-3 text-xl font-mono font-bold text-gray-400">
+                  {topThree[1].f1Score.toFixed(4)}
+                </div>
+                <div className="text-xs text-muted-foreground">F1-Score</div>
+              </div>
+            </div>
+          )}
+
           {/* Third place */}
           {topThree[2] && (
-            <div className="relative mt-8">
+            <div className="relative order-3 sm:order-3 mt-0 sm:mt-8">
               <div className="relative overflow-hidden rounded-xl border border-white/10 bg-card p-5 text-center transition-all duration-300 hover:border-amber-600/30 group">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Award className="h-10 w-10 text-amber-600 mx-auto mb-3" />
@@ -240,14 +240,14 @@ export function LeaderboardPage() {
       </div>
 
       <Tabs defaultValue="rankings" className="space-y-4">
-        <TabsList className="bg-white/5 border border-white/10">
-          <TabsTrigger value="rankings" className="data-[state=active]:bg-white/10">Rankings</TabsTrigger>
-          <TabsTrigger value="trends" className="data-[state=active]:bg-white/10">Performance Trends</TabsTrigger>
+        <TabsList className="bg-white/[0.03] border border-white/[0.06] p-1 rounded-xl">
+          <TabsTrigger value="rankings" className="rounded-lg data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan">Rankings</TabsTrigger>
+          <TabsTrigger value="trends" className="rounded-lg data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan">Performance Trends</TabsTrigger>
         </TabsList>
 
         {/* Rankings Tab */}
         <TabsContent value="rankings">
-          <div className="rounded-xl border border-white/10 bg-card overflow-hidden">
+          <div className="rounded-xl border border-white/10 bg-card overflow-hidden overflow-x-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -350,7 +350,7 @@ export function LeaderboardPage() {
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground mt-4">
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 fill-cosmic-cyan text-cosmic-cyan" />
               Your best submission
@@ -372,7 +372,7 @@ export function LeaderboardPage() {
 
         {/* Trends Tab */}
         <TabsContent value="trends">
-          <Card className="border-white/10 bg-card">
+          <Card className="bg-white/[0.02] border-white/[0.06]">
             <CardHeader>
               <CardTitle className="font-display">F1-Score Trends (Top Algorithms)</CardTitle>
             </CardHeader>

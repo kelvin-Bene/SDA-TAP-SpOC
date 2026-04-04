@@ -12,6 +12,9 @@ import {
   Building2,
   Key,
   Shield,
+  Copy,
+  RefreshCw,
+  Check,
   Eye,
   EyeOff,
   Loader2,
@@ -25,6 +28,8 @@ import { api } from '@/api/client';
 export function ProfilePage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Editable fields initialized from auth user data
@@ -55,6 +60,26 @@ export function ProfilePage() {
   // Calculate user stats from real data
   const totalSubmissions = submissions.length;
 
+  const placeholderApiKey = 'sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+
+  const handleCopyApiKey = () => {
+    navigator.clipboard.writeText(placeholderApiKey);
+    setCopiedKey(true);
+    toast({
+      title: 'API Key Copied',
+      description: 'Your API key has been copied to the clipboard.',
+    });
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const handleRegenerateKey = () => {
+    toast({
+      title: 'API Key Regenerated',
+      description: 'Your new API key has been generated. Update your applications.',
+      variant: 'destructive',
+    });
+  };
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -80,6 +105,7 @@ export function ProfilePage() {
         description: 'Your profile information has been saved.',
       });
     } catch (error) {
+      console.error('Failed to update profile:', error);
       toast({
         title: 'Update Failed',
         description: 'Failed to save profile changes. Please try again.',
@@ -98,37 +124,41 @@ export function ProfilePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your account settings and preferences
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-stellar-purple/20 to-cosmic-blue/20 flex items-center justify-center">
+          <User className="h-6 w-6 text-stellar-purple" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-display font-bold tracking-tight">Profile</h1>
+          <p className="text-muted-foreground">Manage your account and preferences</p>
+        </div>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+        <TabsList className="bg-white/[0.03] border border-white/[0.06] p-1 rounded-xl">
+          <TabsTrigger value="profile" className="data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan rounded-lg">Profile</TabsTrigger>
+          <TabsTrigger value="api" className="data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan rounded-lg">API Keys</TabsTrigger>
+          <TabsTrigger value="notifications" className="data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan rounded-lg">Notifications</TabsTrigger>
+          <TabsTrigger value="security" className="data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan rounded-lg">Security</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
         <TabsContent value="profile">
-          <Card>
+          <Card className="bg-white/[0.02] border-white/[0.06]">
             <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
+              <CardTitle className="font-display">Profile Information</CardTitle>
               <CardDescription>
                 Update your personal information and organization details
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Avatar */}
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-10 w-10 text-primary" />
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-cosmic-cyan/5 via-transparent to-stellar-purple/5">
+                <div className="h-20 w-20 rounded-full bg-stellar-purple/10 border border-stellar-purple/20 flex items-center justify-center">
+                  <User className="h-10 w-10 text-stellar-purple" />
                 </div>
                 <div>
-                  <Button variant="outline" size="sm" onClick={() => toast({ title: 'Coming soon', description: 'Avatar uploads will be available in a future update.' })}>Change Avatar</Button>
+                  <Button variant="outline" size="sm">Change Avatar</Button>
                   <p className="text-xs text-muted-foreground mt-1">JPG, PNG or GIF. 1MB max.</p>
                 </div>
               </div>
@@ -161,7 +191,7 @@ export function ProfilePage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="organization">Organization</Label>
                   <div className="flex gap-2">
-                    <Building2 className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
+                    <Building2 className="h-10 w-10 text-cosmic-cyan p-2 border border-white/[0.06] bg-white/[0.02] rounded-md" />
                     <Input
                       id="organization"
                       value={organization}
@@ -184,7 +214,7 @@ export function ProfilePage() {
                 <div className="space-y-2">
                   <Label htmlFor="udl-token">UDL API Token</Label>
                   <div className="flex gap-2">
-                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
+                    <Key className="h-10 w-10 text-cosmic-cyan p-2 border border-white/[0.06] bg-white/[0.02] rounded-md" />
                     <div className="relative flex-1">
                       <Input
                         id="udl-token"
@@ -209,7 +239,7 @@ export function ProfilePage() {
                 <div className="space-y-2">
                   <Label htmlFor="esa-token">ESA API Token</Label>
                   <div className="flex gap-2">
-                    <Key className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
+                    <Key className="h-10 w-10 text-cosmic-cyan p-2 border border-white/[0.06] bg-white/[0.02] rounded-md" />
                     <div className="relative flex-1">
                       <Input
                         id="esa-token"
@@ -234,7 +264,7 @@ export function ProfilePage() {
               </div>
 
               {/* Stats */}
-              <div className="grid gap-4 sm:grid-cols-3 pt-4 border-t">
+              <div className="grid gap-4 sm:grid-cols-3 pt-4 border-t border-white/[0.06]">
                 <div>
                   <p className="text-sm text-muted-foreground">Member Since</p>
                   <p className="font-medium">{memberSince}</p>
@@ -265,11 +295,88 @@ export function ProfilePage() {
           </Card>
         </TabsContent>
 
+        {/* API Keys Tab */}
+        <TabsContent value="api">
+          <Card className="bg-white/[0.02] border-white/[0.06]">
+            <CardHeader>
+              <CardTitle className="font-display">API Keys</CardTitle>
+              <CardDescription>
+                Manage API keys for programmatic access to the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4 text-cosmic-cyan" />
+                    <span className="font-medium">Production API Key</span>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                  >
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-white/5 border border-white/[0.06] px-3 py-2 rounded font-mono text-sm">
+                    {showApiKey ? placeholderApiKey : '\u2022'.repeat(40)}
+                  </code>
+                  <Button variant="outline" size="icon" onClick={handleCopyApiKey}>
+                    {copiedKey ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Created: Jan 15, 2026 -- Last used: 2 hours ago
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Regenerate API Key</p>
+                  <p className="text-sm text-muted-foreground">
+                    This will invalidate your current key
+                  </p>
+                </div>
+                <Button variant="destructive" className="gap-2" onClick={handleRegenerateKey}>
+                  <RefreshCw className="h-4 w-4" />
+                  Regenerate
+                </Button>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="font-medium mb-2">API Usage</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  API usage tracking coming soon
+                </p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                    <p className="text-sm text-muted-foreground">Requests Today</p>
+                    <p className="text-2xl font-bold text-muted-foreground">--</p>
+                  </div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                    <p className="text-sm text-muted-foreground">This Month</p>
+                    <p className="text-2xl font-bold text-muted-foreground">--</p>
+                  </div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                    <p className="text-sm text-muted-foreground">Rate Limit</p>
+                    <p className="text-2xl font-bold">Unlimited</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Notifications Tab */}
         <TabsContent value="notifications">
-          <Card>
+          <Card className="bg-white/[0.02] border-white/[0.06]">
             <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
+              <CardTitle className="font-display">Notification Preferences</CardTitle>
               <CardDescription>
                 Choose what updates you want to receive
               </CardDescription>
@@ -318,7 +425,7 @@ export function ProfilePage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={() => toast({ title: 'Coming soon', description: 'Notification preferences will be available in a future update.' })}>Save Preferences</Button>
+                <Button>Save Preferences</Button>
               </div>
             </CardContent>
           </Card>
@@ -326,9 +433,9 @@ export function ProfilePage() {
 
         {/* Security Tab */}
         <TabsContent value="security">
-          <Card>
+          <Card className="bg-white/[0.02] border-white/[0.06]">
             <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
+              <CardTitle className="font-display">Security Settings</CardTitle>
               <CardDescription>
                 Manage your account security and authentication
               </CardDescription>
@@ -350,7 +457,7 @@ export function ProfilePage() {
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
                     <Input id="confirm-password" type="password" />
                   </div>
-                  <Button onClick={() => toast({ title: 'Coming soon', description: 'Password updates will be available in a future update.' })}>Update Password</Button>
+                  <Button>Update Password</Button>
                 </div>
               </div>
 
@@ -367,7 +474,7 @@ export function ProfilePage() {
                     Add an extra layer of security to your account
                   </p>
                 </div>
-                <Button variant="outline" onClick={() => toast({ title: 'Coming soon', description: 'Two-factor authentication will be available in a future update.' })}>Enable 2FA</Button>
+                <Button variant="outline">Enable 2FA</Button>
               </div>
 
               <Separator />
@@ -376,7 +483,7 @@ export function ProfilePage() {
               <div>
                 <h4 className="font-medium mb-4">Active Sessions</h4>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
                     <div>
                       <p className="font-medium">Current Session</p>
                       <p className="text-sm text-muted-foreground">

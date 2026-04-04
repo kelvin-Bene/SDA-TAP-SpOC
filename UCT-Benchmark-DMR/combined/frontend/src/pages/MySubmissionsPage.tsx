@@ -49,11 +49,14 @@ export function MySubmissionsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Submissions</h1>
-          <p className="text-muted-foreground mt-1">
-            Track your algorithm submissions and view results
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cosmic-cyan/20 to-cosmic-blue/20 flex items-center justify-center">
+            <Upload className="h-6 w-6 text-cosmic-cyan" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-display font-bold tracking-tight">My Submissions</h1>
+            <p className="text-muted-foreground mt-1">Track your algorithm submissions and view results</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" onClick={() => refetch()}>
@@ -71,7 +74,7 @@ export function MySubmissionsPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06] border-t-2 border-t-stellar-purple/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Submissions</CardTitle>
           </CardHeader>
@@ -79,28 +82,28 @@ export function MySubmissionsPage() {
             <p className="text-2xl font-bold">{submissions.length}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06] border-t-2 border-t-aurora-green/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">{completedCount}</p>
+            <p className="text-2xl font-bold text-aurora-green">{completedCount}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06] border-t-2 border-t-cosmic-cyan/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-blue-600">{pendingCount}</p>
+            <p className="text-2xl font-bold text-cosmic-cyan">{pendingCount}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Submissions Table */}
-      <Card>
+      <Card className="bg-white/[0.02] border-white/[0.06]">
         <CardHeader>
-          <CardTitle>Submission History</CardTitle>
+          <CardTitle className="font-display">Submission History</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -122,9 +125,10 @@ export function MySubmissionsPage() {
               </Link>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-white/10 hover:bg-transparent">
                   <TableHead>Algorithm</TableHead>
                   <TableHead>Dataset</TableHead>
                   <TableHead>Status</TableHead>
@@ -136,7 +140,7 @@ export function MySubmissionsPage() {
               </TableHeader>
               <TableBody>
                 {submissions.map((submission) => (
-                  <TableRow key={submission.id}>
+                  <TableRow key={submission.id} className="border-white/5">
                     <TableCell>
                       <div>
                         <span className="font-medium">{submission.algorithmName}</span>
@@ -154,7 +158,7 @@ export function MySubmissionsPage() {
                         )}
                         {submission.errorMessage && (
                           <p
-                            className="text-xs text-red-600 truncate max-w-[200px]"
+                            className="text-xs text-red-400 truncate max-w-[200px]"
                             title={submission.errorMessage}
                           >
                             {submission.errorMessage}
@@ -177,7 +181,7 @@ export function MySubmissionsPage() {
                           <span className="font-semibold">#{submission.results.rank}</span>
                           {submission.results.previousRank != null &&
                             submission.results.previousRank > submission.results.rank && (
-                              <span className="text-xs text-green-600">
+                              <span className="text-xs text-aurora-green">
                                 (+{submission.results.previousRank - submission.results.rank})
                               </span>
                             )}
@@ -215,6 +219,7 @@ export function MySubmissionsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

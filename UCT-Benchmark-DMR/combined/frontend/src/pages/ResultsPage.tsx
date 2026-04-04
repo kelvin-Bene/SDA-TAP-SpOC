@@ -151,20 +151,23 @@ export function ResultsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Link to="/submit/my-submissions">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold tracking-tight">
+        <div className="flex items-center gap-3">
+          <Link to="/submit/my-submissions">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cosmic-cyan/20 to-cosmic-blue/20 flex items-center justify-center">
+            <Target className="h-6 w-6 text-cosmic-cyan" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-display font-bold tracking-tight">
               {submission?.algorithmName || 'Submission'} {submission?.version || ''}
             </h1>
+            <p className="text-muted-foreground">
+              Results for {submission?.datasetName || `Dataset ${submission?.datasetId}`}
+            </p>
           </div>
-          <p className="text-muted-foreground ml-10">
-            Results for {submission?.datasetName || `Dataset ${submission?.datasetId}`}
-          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" onClick={handleDownloadReport} disabled={reportMutation.isPending}>
@@ -188,7 +191,7 @@ export function ResultsPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06]">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -198,12 +201,14 @@ export function ResultsPage() {
                   {(results.f1Score * 100).toFixed(1)}% accuracy
                 </p>
               </div>
-              <Target className="h-8 w-8 text-primary" />
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-cyan/20 to-cosmic-cyan/5 flex items-center justify-center">
+                <Target className="h-5 w-5 text-cosmic-cyan" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06]">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -213,11 +218,14 @@ export function ResultsPage() {
                   {results.truePositives} TP / {results.truePositives + results.falsePositives} predicted
                 </p>
               </div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-blue/20 to-cosmic-blue/5 flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-cosmic-blue" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06]">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -227,11 +235,14 @@ export function ResultsPage() {
                   {results.truePositives} TP / {results.truePositives + results.falseNegatives} actual
                 </p>
               </div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-stellar-purple/20 to-stellar-purple/5 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-stellar-purple" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06]">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -240,7 +251,7 @@ export function ResultsPage() {
                 {hasPreviousRank && rankChange !== 0 && (
                   <div className={cn(
                     'flex items-center gap-1 text-sm mt-1',
-                    rankChange > 0 ? 'text-green-600' : 'text-red-600'
+                    rankChange > 0 ? 'text-aurora-green' : 'text-red-400'
                   )}>
                     {rankChange > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                     {rankChange > 0 ? '+' : ''}{rankChange} positions
@@ -250,6 +261,9 @@ export function ResultsPage() {
                   <p className="text-sm text-muted-foreground mt-1">on this dataset</p>
                 )}
               </div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-nova-orange/20 to-nova-orange/5 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-nova-orange" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -257,20 +271,20 @@ export function ResultsPage() {
 
       {/* Detailed Results */}
       <Tabs defaultValue="binary" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="binary">Binary Metrics</TabsTrigger>
-          <TabsTrigger value="state">State Metrics</TabsTrigger>
-          <TabsTrigger value="residuals">Residual Analysis</TabsTrigger>
-          <TabsTrigger value="satellites">Per-Satellite</TabsTrigger>
+        <TabsList className="flex-wrap h-auto gap-1 bg-white/[0.03] border border-white/[0.06] p-1 rounded-xl overflow-x-auto">
+          <TabsTrigger value="binary" className="rounded-lg data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan">Binary Metrics</TabsTrigger>
+          <TabsTrigger value="state" className="rounded-lg data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan">State Metrics</TabsTrigger>
+          <TabsTrigger value="residuals" className="rounded-lg data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan">Residual Analysis</TabsTrigger>
+          <TabsTrigger value="satellites" className="rounded-lg data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan">Per-Satellite</TabsTrigger>
         </TabsList>
 
         {/* Binary Metrics Tab */}
         <TabsContent value="binary" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Confusion Matrix */}
-            <Card>
+            <Card className="bg-white/[0.02] border-white/[0.06]">
               <CardHeader>
-                <CardTitle>Confusion Matrix</CardTitle>
+                <CardTitle className="font-display">Confusion Matrix</CardTitle>
                 <CardDescription>Classification results for track associations</CardDescription>
               </CardHeader>
               <CardContent>
@@ -280,21 +294,21 @@ export function ResultsPage() {
                   <div className="text-sm font-medium text-muted-foreground">Predicted Neg</div>
 
                   <div className="text-sm font-medium text-muted-foreground text-right pr-2">Actual Pos</div>
-                  <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-4">
-                    <p className="text-2xl font-bold text-green-600">{results.truePositives}</p>
+                  <div className="rounded-lg bg-aurora-green/10 p-4">
+                    <p className="text-2xl font-bold text-aurora-green">{results.truePositives}</p>
                     <p className="text-xs text-muted-foreground">True Positive</p>
                   </div>
-                  <div className="rounded-lg bg-red-100 dark:bg-red-900/30 p-4">
-                    <p className="text-2xl font-bold text-red-600">{results.falseNegatives}</p>
+                  <div className="rounded-lg bg-red-500/10 p-4">
+                    <p className="text-2xl font-bold text-red-400">{results.falseNegatives}</p>
                     <p className="text-xs text-muted-foreground">False Negative</p>
                   </div>
 
                   <div className="text-sm font-medium text-muted-foreground text-right pr-2">Actual Neg</div>
-                  <div className="rounded-lg bg-orange-100 dark:bg-orange-900/30 p-4">
-                    <p className="text-2xl font-bold text-orange-600">{results.falsePositives}</p>
+                  <div className="rounded-lg bg-nova-orange/10 p-4">
+                    <p className="text-2xl font-bold text-nova-orange">{results.falsePositives}</p>
                     <p className="text-xs text-muted-foreground">False Positive</p>
                   </div>
-                  <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-4">
+                  <div className="rounded-lg bg-white/[0.05] p-4">
                     <p className="text-2xl font-bold text-muted-foreground">—</p>
                     <p className="text-xs text-muted-foreground">True Negative</p>
                   </div>
@@ -303,9 +317,9 @@ export function ResultsPage() {
             </Card>
 
             {/* Metrics Summary */}
-            <Card>
+            <Card className="bg-white/[0.02] border-white/[0.06]">
               <CardHeader>
-                <CardTitle>Classification Metrics</CardTitle>
+                <CardTitle className="font-display">Classification Metrics</CardTitle>
                 <CardDescription>Performance summary</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -328,7 +342,7 @@ export function ResultsPage() {
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full bg-stellar-cyan rounded-full"
+                      className="h-full bg-cosmic-cyan rounded-full"
                       style={{ width: `${results.recall * 100}%` }}
                     />
                   </div>
@@ -353,25 +367,25 @@ export function ResultsPage() {
         {/* State Metrics Tab */}
         <TabsContent value="state" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="bg-white/[0.02] border-white/[0.06]">
               <CardHeader>
-                <CardTitle>State Vector Accuracy</CardTitle>
+                <CardTitle className="font-display">State Vector Accuracy</CardTitle>
                 <CardDescription>Position and velocity error metrics</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg border p-4">
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
                     <p className="text-sm text-muted-foreground">Position RMS</p>
                     <p className="text-3xl font-bold">{results.positionRmsKm.toFixed(2)}</p>
                     <p className="text-sm text-muted-foreground">km</p>
                   </div>
-                  <div className="rounded-lg border p-4">
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
                     <p className="text-sm text-muted-foreground">Velocity RMS</p>
                     <p className="text-3xl font-bold">{results.velocityRmsKmS.toFixed(3)}</p>
                     <p className="text-sm text-muted-foreground">km/s</p>
                   </div>
                 </div>
-                <div className="rounded-lg border p-4">
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
                   <p className="text-sm text-muted-foreground">Mahalanobis Distance</p>
                   <p className="text-3xl font-bold">{results.mahalanobisDistance?.toFixed(2) || '-'}</p>
                   <p className="text-sm text-muted-foreground">
@@ -383,9 +397,9 @@ export function ResultsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white/[0.02] border-white/[0.06]">
               <CardHeader>
-                <CardTitle>Position Error Distribution</CardTitle>
+                <CardTitle className="font-display">Position Error Distribution</CardTitle>
                 <CardDescription>Histogram of position errors (km)</CardDescription>
               </CardHeader>
               <CardContent>
@@ -396,7 +410,7 @@ export function ResultsPage() {
                       <XAxis dataKey="range" className="text-xs" />
                       <YAxis className="text-xs" />
                       <RechartsTooltip />
-                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="count" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -412,9 +426,9 @@ export function ResultsPage() {
         {/* Residual Analysis Tab */}
         <TabsContent value="residuals" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="bg-white/[0.02] border-white/[0.06]">
               <CardHeader>
-                <CardTitle>RA Residuals</CardTitle>
+                <CardTitle className="font-display">RA Residuals</CardTitle>
                 <CardDescription>Right Ascension residual distribution (arcsec)</CardDescription>
               </CardHeader>
               <CardContent>
@@ -426,7 +440,7 @@ export function ResultsPage() {
                         <XAxis dataKey="range" className="text-xs" />
                         <YAxis className="text-xs" />
                         <RechartsTooltip />
-                        <Bar dataKey="ra" fill="#06B6D4" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="ra" fill="hsl(192, 91%, 52%)" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                     <p className="text-sm text-muted-foreground mt-2 text-center">
@@ -441,9 +455,9 @@ export function ResultsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white/[0.02] border-white/[0.06]">
               <CardHeader>
-                <CardTitle>Dec Residuals</CardTitle>
+                <CardTitle className="font-display">Dec Residuals</CardTitle>
                 <CardDescription>Declination residual distribution (arcsec)</CardDescription>
               </CardHeader>
               <CardContent>
@@ -455,7 +469,7 @@ export function ResultsPage() {
                         <XAxis dataKey="range" className="text-xs" />
                         <YAxis className="text-xs" />
                         <RechartsTooltip />
-                        <Bar dataKey="dec" fill="#10B981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="dec" fill="hsl(142, 76%, 45%)" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                     <p className="text-sm text-muted-foreground mt-2 text-center">
@@ -474,10 +488,10 @@ export function ResultsPage() {
 
         {/* Per-Satellite Tab */}
         <TabsContent value="satellites">
-          <Card>
+          <Card className="bg-white/[0.02] border-white/[0.06]">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Per-Satellite Breakdown</CardTitle>
+                <CardTitle className="font-display">Per-Satellite Breakdown</CardTitle>
                 <CardDescription>Detailed results for each satellite</CardDescription>
               </div>
               {results.satelliteResults.length > 5 && (
@@ -504,6 +518,7 @@ export function ResultsPage() {
             <CardContent>
               {results.satelliteResults.length > 0 ? (
                 <>
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -554,7 +569,7 @@ export function ResultsPage() {
                               {sat.positionErrorKm !== undefined ? (
                                 <span className={cn(
                                   'font-mono',
-                                  sat.positionErrorKm > 5 && 'text-red-600'
+                                  sat.positionErrorKm > 5 && 'text-red-400'
                                 )}>
                                   {sat.positionErrorKm.toFixed(2)}
                                 </span>
@@ -573,8 +588,8 @@ export function ResultsPage() {
                               {sat.confidence !== undefined ? (
                                 <span className={cn(
                                   'font-mono',
-                                  sat.confidence < 0.5 && 'text-red-600',
-                                  sat.confidence >= 0.8 && 'text-green-600'
+                                  sat.confidence < 0.5 && 'text-red-400',
+                                  sat.confidence >= 0.8 && 'text-aurora-green'
                                 )}>
                                   {sat.confidence.toFixed(2)}
                                 </span>
@@ -586,11 +601,12 @@ export function ResultsPage() {
                         ))}
                     </TableBody>
                   </Table>
-                  {!expandedSatellites && results.satelliteResults.length > 5 && (
-                    <p className="text-sm text-muted-foreground text-center mt-4">
-                      Showing 5 of {results.satelliteResults.length} satellites
-                    </p>
-                  )}
+                </div>
+                {!expandedSatellites && results.satelliteResults.length > 5 && (
+                  <p className="text-sm text-muted-foreground text-center mt-4">
+                    Showing 5 of {results.satelliteResults.length} satellites
+                  </p>
+                )}
                 </>
               ) : (
                 <p className="text-center py-8 text-muted-foreground">

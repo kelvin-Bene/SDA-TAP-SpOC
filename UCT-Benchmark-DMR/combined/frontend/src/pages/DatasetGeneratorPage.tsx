@@ -29,6 +29,7 @@ import {
   FileCheck,
   Loader2,
   AlertCircle,
+  Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -375,6 +376,7 @@ export function DatasetGeneratorPage() {
         ...config,
         name: autoName,
       });
+      console.log('Generation result:', result);
       // The API returns a job_id for tracking progress
       if (result?.job_id) {
         setJobId(result.job_id);
@@ -386,6 +388,9 @@ export function DatasetGeneratorPage() {
         }, 1000);
       }
     } catch (error: any) {
+      console.error('Failed to generate dataset:', error);
+      console.error('Error response:', error?.response?.data);
+
       // Handle Pydantic validation errors which return an array of error details
       let errorMessage = 'Unknown error';
       const detail = error?.response?.data?.detail;
@@ -461,7 +466,7 @@ export function DatasetGeneratorPage() {
         }, 1000);
       }
     } catch (error: any) {
-      // Error handled via toast below
+      console.error('Failed to generate dataset from legacy code:', error);
       toast({
         title: 'Dataset generation failed',
         description: error.message || 'An unexpected error occurred',
@@ -478,24 +483,29 @@ export function DatasetGeneratorPage() {
     <TooltipProvider>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Generate Dataset</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure parameters to generate a custom benchmark dataset
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-aurora-green/20 to-cosmic-cyan/20 flex items-center justify-center">
+            <Wand2 className="h-6 w-6 text-aurora-green" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-display font-bold tracking-tight">Generate Dataset</h1>
+            <p className="text-muted-foreground mt-1">
+              Configure parameters to generate a custom benchmark dataset
+            </p>
+          </div>
         </div>
 
         {/* Mode Tabs */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as 'standard' | 'legacy')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="standard">Standard Wizard</TabsTrigger>
-            <TabsTrigger value="legacy">Legacy Code (16-char)</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 bg-white/[0.03] border border-white/[0.06] p-1 rounded-xl">
+            <TabsTrigger value="standard" className="data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan rounded-lg">Standard Wizard</TabsTrigger>
+            <TabsTrigger value="legacy" className="data-[state=active]:bg-cosmic-cyan/10 data-[state=active]:text-cosmic-cyan rounded-lg">Legacy Code (16-char)</TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Live Code Preview for Legacy Mode */}
         {mode === 'legacy' && (
-          <Card className="bg-muted/50">
+          <Card className="bg-white/[0.02] border-white/[0.06]">
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -506,11 +516,11 @@ export function DatasetGeneratorPage() {
                         value={directCodeInput}
                         onChange={(e) => handleDirectCodeInput(e.target.value)}
                         placeholder="H50LEONEOPSSSS07"
-                        className="font-mono text-xl tracking-wider w-48"
+                        className="font-mono text-xl tracking-wider w-48 bg-white/5 border-white/20"
                         maxLength={16}
                       />
                     ) : (
-                      <span className="text-primary">{currentLegacyCode}</span>
+                      <span className="text-cosmic-cyan">{currentLegacyCode}</span>
                     )}
                   </div>
                 </div>
@@ -548,10 +558,10 @@ export function DatasetGeneratorPage() {
                 className={cn(
                   'flex items-center gap-2 px-3 py-2 rounded-full transition-colors',
                   activeStep === step.id
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-gradient-to-r from-cosmic-cyan to-cosmic-blue text-white'
                     : activeStep > step.id
-                    ? 'bg-primary/20 text-primary'
-                    : 'bg-muted text-muted-foreground'
+                    ? 'bg-aurora-green/20 text-aurora-green'
+                    : 'bg-white/5 text-muted-foreground'
                 )}
               >
                 {activeStep > step.id ? (
@@ -565,7 +575,7 @@ export function DatasetGeneratorPage() {
                 <div
                   className={cn(
                     'h-0.5 w-4 sm:w-8 mx-1',
-                    activeStep > step.id ? 'bg-primary' : 'bg-muted'
+                    activeStep > step.id ? 'bg-cosmic-cyan' : 'bg-white/10'
                   )}
                 />
               )}
@@ -574,7 +584,7 @@ export function DatasetGeneratorPage() {
         </div>
 
         {/* Step Content */}
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06]">
           {/* ============ LEGACY MODE STEPS ============ */}
           {mode === 'legacy' && codeInputMode === 'wizard' && (
             <>
@@ -582,7 +592,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 1 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Select Object Type</CardTitle>
+                    <CardTitle className="font-display">Select Object Type</CardTitle>
                     <CardDescription>
                       Choose the type of objects to include in the dataset
                     </CardDescription>
@@ -597,8 +607,8 @@ export function DatasetGeneratorPage() {
                         <Label
                           key={value}
                           className={cn(
-                            'flex items-center gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
-                            legacyConfig.objectType === value && 'border-primary bg-primary/5'
+                            'flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03]',
+                            legacyConfig.objectType === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                           )}
                         >
                           <RadioGroupItem value={value} />
@@ -621,8 +631,8 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-accent text-sm',
-                              legacyConfig.targetPercentage === value && 'border-primary bg-primary/5'
+                              'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 cursor-pointer hover:border-white/20 hover:bg-white/[0.03] text-sm',
+                              legacyConfig.targetPercentage === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                             )}
                           >
                             <RadioGroupItem value={value} />
@@ -639,7 +649,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 2 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Select Orbital Regime</CardTitle>
+                    <CardTitle className="font-display">Select Orbital Regime</CardTitle>
                     <CardDescription>
                       Choose the orbital regime for the dataset
                     </CardDescription>
@@ -663,8 +673,8 @@ export function DatasetGeneratorPage() {
                         <Label
                           key={regime.value}
                           className={cn(
-                            'flex items-start gap-4 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                            legacyConfig.orbitalRegime === regime.value && 'border-primary bg-primary/5'
+                            'flex items-start gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                            legacyConfig.orbitalRegime === regime.value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                           )}
                         >
                           <RadioGroupItem value={regime.value} />
@@ -683,7 +693,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 3 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Select Event Type</CardTitle>
+                    <CardTitle className="font-display">Select Event Type</CardTitle>
                     <CardDescription>
                       Choose whether to include specific events in the dataset
                     </CardDescription>
@@ -698,8 +708,8 @@ export function DatasetGeneratorPage() {
                         <Label
                           key={value}
                           className={cn(
-                            'flex items-center gap-4 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                            legacyConfig.event === value && 'border-primary bg-primary/5'
+                            'flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                            legacyConfig.event === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                           )}
                         >
                           <RadioGroupItem value={value} />
@@ -718,7 +728,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 4 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Select Sensor Type</CardTitle>
+                    <CardTitle className="font-display">Select Sensor Type</CardTitle>
                     <CardDescription>
                       Choose the sensor types to include in observations
                     </CardDescription>
@@ -733,8 +743,8 @@ export function DatasetGeneratorPage() {
                         <Label
                           key={value}
                           className={cn(
-                            'flex items-center gap-4 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                            legacyConfig.sensorType === value && 'border-primary bg-primary/5'
+                            'flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                            legacyConfig.sensorType === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                           )}
                         >
                           <RadioGroupItem value={value} />
@@ -753,7 +763,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 5 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Quality Metrics</CardTitle>
+                    <CardTitle className="font-display">Quality Metrics</CardTitle>
                     <CardDescription>
                       Set quality levels for coverage, track gaps, and observation count
                     </CardDescription>
@@ -771,8 +781,8 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                              legacyConfig.orbitCoverage === value && 'border-primary bg-primary/5'
+                              'flex flex-col items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                              legacyConfig.orbitCoverage === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                             )}
                           >
                             <RadioGroupItem value={value} />
@@ -797,8 +807,8 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                              legacyConfig.trackGap === value && 'border-primary bg-primary/5'
+                              'flex flex-col items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                              legacyConfig.trackGap === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                             )}
                           >
                             <RadioGroupItem value={value} />
@@ -823,8 +833,8 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                              legacyConfig.observationCount === value && 'border-primary bg-primary/5'
+                              'flex flex-col items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                              legacyConfig.observationCount === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                             )}
                           >
                             <RadioGroupItem value={value} />
@@ -842,7 +852,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 6 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Object Count & Fitspan</CardTitle>
+                    <CardTitle className="font-display">Object Count & Fitspan</CardTitle>
                     <CardDescription>
                       Set the number of objects and observation window duration
                     </CardDescription>
@@ -861,8 +871,8 @@ export function DatasetGeneratorPage() {
                             <Label
                               key={value}
                               className={cn(
-                                'flex flex-col items-center gap-2 rounded-lg border p-4 cursor-pointer hover:bg-accent',
-                                legacyConfig.objectCount === value && 'border-primary bg-primary/5'
+                                'flex flex-col items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-white/20 hover:bg-white/[0.03]',
+                                legacyConfig.objectCount === value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                               )}
                             >
                               <RadioGroupItem value={value} />
@@ -881,7 +891,7 @@ export function DatasetGeneratorPage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <Label className="text-base font-medium">Fitspan (Days)</Label>
-                        <span className="font-mono text-lg bg-muted px-3 py-1 rounded">
+                        <span className="font-mono text-lg bg-white/5 border border-white/10 px-3 py-1 rounded">
                           {legacyConfig.fitspanDays.toString().padStart(2, '0')}
                         </span>
                       </div>
@@ -907,7 +917,7 @@ export function DatasetGeneratorPage() {
               {legacyStep === 7 && (
                 <>
                   <CardHeader>
-                    <CardTitle>Review Configuration</CardTitle>
+                    <CardTitle className="font-display">Review Configuration</CardTitle>
                     <CardDescription>
                       Verify your dataset code before generation
                     </CardDescription>
@@ -916,7 +926,7 @@ export function DatasetGeneratorPage() {
                     {isGenerating ? (
                       <div className="space-y-4 py-8">
                         <div className="flex items-center justify-center gap-3">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <Loader2 className="h-6 w-6 animate-spin text-cosmic-cyan" />
                           <span className="text-lg font-medium">Generating dataset...</span>
                         </div>
                         <Progress value={generationProgress} className="w-full" />
@@ -927,58 +937,58 @@ export function DatasetGeneratorPage() {
                     ) : (
                       <>
                         {/* Code Display */}
-                        <div className="text-center py-6 bg-muted/50 rounded-lg">
+                        <div className="text-center py-6 bg-white/[0.03] border border-white/[0.06] rounded-lg">
                           <p className="text-sm text-muted-foreground mb-2">Your Dataset Code</p>
-                          <p className="font-mono text-4xl tracking-widest text-primary">{currentLegacyCode}</p>
+                          <p className="font-mono text-4xl tracking-widest text-cosmic-cyan">{currentLegacyCode}</p>
                         </div>
 
                         {/* Code Breakdown */}
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.objectType}</p>
                             <p className="text-xs text-muted-foreground">Object Type</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.targetPercentage}</p>
                             <p className="text-xs text-muted-foreground">Target %</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.orbitalRegime}</p>
                             <p className="text-xs text-muted-foreground">Regime</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.event}</p>
                             <p className="text-xs text-muted-foreground">Event</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.sensorType}</p>
                             <p className="text-xs text-muted-foreground">Sensor</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.orbitCoverage}</p>
                             <p className="text-xs text-muted-foreground">Coverage</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.trackGap}</p>
                             <p className="text-xs text-muted-foreground">Track Gap</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.observationCount}</p>
                             <p className="text-xs text-muted-foreground">Obs Count</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.objectCount}</p>
                             <p className="text-xs text-muted-foreground">Obj Count</p>
                           </div>
-                          <div className="rounded-lg border p-3 text-center">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.fitspanDays.toString().padStart(2, '0')}</p>
                             <p className="text-xs text-muted-foreground">Fitspan</p>
                           </div>
                         </div>
 
                         {/* Summary */}
-                        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                          <h4 className="font-medium">Summary</h4>
+                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-4 space-y-2">
+                          <h4 className="font-display font-medium">Summary</h4>
                           <ul className="text-sm space-y-1 text-muted-foreground">
                             <li>Object Type: {LEGACY_OBJECT_TYPES[legacyConfig.objectType]}</li>
                             <li>Regime: {legacyConfig.orbitalRegime}</li>
@@ -1000,7 +1010,7 @@ export function DatasetGeneratorPage() {
           {mode === 'legacy' && codeInputMode === 'direct' && (
             <>
               <CardHeader>
-                <CardTitle>Direct Code Entry</CardTitle>
+                <CardTitle className="font-display">Direct Code Entry</CardTitle>
                 <CardDescription>
                   Enter a 16-character dataset code directly
                 </CardDescription>
@@ -1009,7 +1019,7 @@ export function DatasetGeneratorPage() {
                 {isGenerating ? (
                   <div className="space-y-4 py-8">
                     <div className="flex items-center justify-center gap-3">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <Loader2 className="h-6 w-6 animate-spin text-cosmic-cyan" />
                       <span className="text-lg font-medium">Generating dataset...</span>
                     </div>
                     <Progress value={generationProgress} className="w-full" />
@@ -1022,8 +1032,8 @@ export function DatasetGeneratorPage() {
                         onChange={(e) => handleDirectCodeInput(e.target.value)}
                         placeholder="H50LEONEOPSSSS07"
                         className={cn(
-                          'font-mono text-3xl tracking-widest text-center max-w-xs mx-auto h-14',
-                          legacyCodeValidation.valid ? 'border-green-500' : directCodeInput.length > 0 ? 'border-destructive' : ''
+                          'font-mono text-3xl tracking-widest text-center max-w-xs mx-auto h-14 bg-white/5 border-white/20',
+                          legacyCodeValidation.valid ? 'border-aurora-green' : directCodeInput.length > 0 ? 'border-destructive' : ''
                         )}
                         maxLength={16}
                       />
@@ -1033,9 +1043,9 @@ export function DatasetGeneratorPage() {
                     </div>
 
                     {legacyCodeValidation.valid && directCodeInput.length === 16 && (
-                      <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4">
-                        <p className="text-green-700 dark:text-green-300 font-medium">Valid code!</p>
-                        <ul className="text-sm mt-2 space-y-1 text-green-600 dark:text-green-400">
+                      <div className="bg-aurora-green/10 border border-aurora-green/20 rounded-lg p-4">
+                        <p className="text-aurora-green font-medium">Valid code!</p>
+                        <ul className="text-sm mt-2 space-y-1 text-aurora-green/80">
                           <li>Object Type: {LEGACY_OBJECT_TYPES[legacyConfig.objectType]}</li>
                           <li>Regime: {legacyConfig.orbitalRegime}</li>
                           <li>Event: {LEGACY_EVENT_TYPES[legacyConfig.event]}</li>
@@ -1065,7 +1075,7 @@ export function DatasetGeneratorPage() {
           {mode === 'standard' && currentStep === 1 && (
             <>
               <CardHeader>
-                <CardTitle>Select Orbital Regime</CardTitle>
+                <CardTitle className="font-display">Select Orbital Regime</CardTitle>
                 <CardDescription>
                   Choose the orbital regime for your benchmark dataset
                 </CardDescription>
@@ -1081,7 +1091,7 @@ export function DatasetGeneratorPage() {
                     { value: 'MEO', label: 'Medium Earth Orbit', desc: '8378 < a < 42164 km', color: 'bg-orbital-meo' },
                     { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km', color: 'bg-orbital-geo' },
                     { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7', color: 'bg-orbital-heo' },
-                    { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO', color: 'bg-gray-400' },
+                    { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO', color: 'bg-stellar-purple' },
                     { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits', color: 'bg-orbital-leo' },
                     { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO', color: 'bg-orbital-meo' },
                     { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO', color: 'bg-orbital-geo' },
@@ -1090,8 +1100,8 @@ export function DatasetGeneratorPage() {
                       key={regime.value}
                       htmlFor={regime.value}
                       className={cn(
-                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
-                        config.regime === regime.value && 'border-primary bg-primary/5'
+                        'flex items-start gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03]',
+                        config.regime === regime.value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                       )}
                     >
                       <RadioGroupItem value={regime.value} id={regime.value} className="mt-1" />
@@ -1136,8 +1146,8 @@ export function DatasetGeneratorPage() {
                         key={opt.value}
                         htmlFor={`target-pct-${opt.value}`}
                         className={cn(
-                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
-                          (config.targetPercentage ?? 'UN') === opt.value && 'border-primary bg-primary/5'
+                          'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03] text-sm',
+                          (config.targetPercentage ?? 'UN') === opt.value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                         )}
                       >
                         <RadioGroupItem value={opt.value} id={`target-pct-${opt.value}`} />
@@ -1154,7 +1164,7 @@ export function DatasetGeneratorPage() {
           {mode === 'standard' && currentStep === 2 && (
             <>
               <CardHeader>
-                <CardTitle>Data Quality Parameters</CardTitle>
+                <CardTitle className="font-display">Data Quality Parameters</CardTitle>
                 <CardDescription>
                   Configure observation coverage, density, and gap characteristics
                 </CardDescription>
@@ -1183,8 +1193,8 @@ export function DatasetGeneratorPage() {
                         key={opt.value}
                         htmlFor={`coverage-${opt.value}`}
                         className={cn(
-                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
-                          config.coverage === opt.value && 'border-primary bg-primary/5'
+                          'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03] text-sm',
+                          config.coverage === opt.value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                         )}
                       >
                         <RadioGroupItem value={opt.value} id={`coverage-${opt.value}`} />
@@ -1213,7 +1223,7 @@ export function DatasetGeneratorPage() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                    <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                       {config.observationDensity} obs/sat/3-days
                     </span>
                   </div>
@@ -1252,7 +1262,7 @@ export function DatasetGeneratorPage() {
                       <Button
                         key={gap}
                         variant={config.trackGapTarget === gap ? 'default' : 'outline'}
-                        className="flex-1"
+                        className={cn('flex-1', config.trackGapTarget === gap && 'bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/30')}
                         onClick={() => updateConfig('trackGapTarget', gap)}
                       >
                         {gap}{gap === 5 ? '+' : ''}
@@ -1296,8 +1306,8 @@ export function DatasetGeneratorPage() {
                         key={opt.value}
                         htmlFor={`sensor-type-${opt.value}`}
                         className={cn(
-                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
-                          (config.sensorTypeCode ?? 'OP') === opt.value && 'border-primary bg-primary/5'
+                          'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03] text-sm',
+                          (config.sensorTypeCode ?? 'OP') === opt.value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                         )}
                       >
                         <RadioGroupItem value={opt.value} id={`sensor-type-${opt.value}`} />
@@ -1340,8 +1350,8 @@ export function DatasetGeneratorPage() {
                         key={opt.value}
                         htmlFor={`event-type-${opt.value}`}
                         className={cn(
-                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-all hover:bg-accent text-sm',
-                          (config.eventCode ?? 'NE') === opt.value && 'border-primary bg-primary/5'
+                          'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03] text-sm',
+                          (config.eventCode ?? 'NE') === opt.value && 'border-cosmic-cyan bg-cosmic-cyan/5'
                         )}
                       >
                         <RadioGroupItem value={opt.value} id={`event-type-${opt.value}`} />
@@ -1361,7 +1371,7 @@ export function DatasetGeneratorPage() {
           {mode === 'standard' && currentStep === 3 && (
             <>
               <CardHeader>
-                <CardTitle>Object Selection</CardTitle>
+                <CardTitle className="font-display">Object Selection</CardTitle>
                 <CardDescription>
                   Specify the number and types of objects to include
                 </CardDescription>
@@ -1371,7 +1381,7 @@ export function DatasetGeneratorPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-medium">Number of Objects</Label>
-                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                    <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                       {config.objectCount} satellites
                     </span>
                   </div>
@@ -1416,7 +1426,7 @@ export function DatasetGeneratorPage() {
                         value={config.startDate}
                         max={config.endDate}
                         onChange={(e) => updateConfig('startDate', e.target.value)}
-                        className={timeframeError ? 'border-destructive' : ''}
+                        className={cn('bg-white/5 border-white/20', timeframeError && 'border-destructive')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1427,7 +1437,7 @@ export function DatasetGeneratorPage() {
                         value={config.endDate}
                         max={new Date().toISOString().split('T')[0]}
                         onChange={(e) => updateConfig('endDate', e.target.value)}
-                        className={timeframeError ? 'border-destructive' : ''}
+                        className={cn('bg-white/5 border-white/20', timeframeError && 'border-destructive')}
                       />
                     </div>
                   </div>
@@ -1508,7 +1518,7 @@ export function DatasetGeneratorPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Fitspan duration</span>
-                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                    <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                       {config.fitspanDays ?? 7} days
                     </span>
                   </div>
@@ -1534,7 +1544,7 @@ export function DatasetGeneratorPage() {
           {mode === 'standard' && currentStep === 4 && (
             <>
               <CardHeader>
-                <CardTitle>Advanced Options</CardTitle>
+                <CardTitle className="font-display">Advanced Options</CardTitle>
                 <CardDescription>
                   Configure data fetching strategy, downsampling, and simulation settings
                 </CardDescription>
@@ -1563,8 +1573,8 @@ export function DatasetGeneratorPage() {
                     <Label
                       htmlFor="strategy-fast"
                       className={cn(
-                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
-                        config.searchStrategy === 'fast' && 'border-primary bg-primary/5'
+                        'flex items-start gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03]',
+                        config.searchStrategy === 'fast' && 'border-cosmic-cyan bg-cosmic-cyan/5'
                       )}
                     >
                       <RadioGroupItem value="fast" id="strategy-fast" className="mt-1" />
@@ -1584,8 +1594,8 @@ export function DatasetGeneratorPage() {
                     <Label
                       htmlFor="strategy-hybrid"
                       className={cn(
-                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
-                        config.searchStrategy === 'hybrid' && 'border-primary bg-primary/5'
+                        'flex items-start gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03]',
+                        config.searchStrategy === 'hybrid' && 'border-cosmic-cyan bg-cosmic-cyan/5'
                       )}
                     >
                       <RadioGroupItem value="hybrid" id="strategy-hybrid" className="mt-1" />
@@ -1605,8 +1615,8 @@ export function DatasetGeneratorPage() {
                     <Label
                       htmlFor="strategy-windowed"
                       className={cn(
-                        'flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-all hover:bg-accent',
-                        config.searchStrategy === 'windowed' && 'border-primary bg-primary/5'
+                        'flex items-start gap-4 rounded-lg border border-white/10 bg-white/[0.02] p-4 cursor-pointer transition-all hover:border-white/20 hover:bg-white/[0.03]',
+                        config.searchStrategy === 'windowed' && 'border-cosmic-cyan bg-cosmic-cyan/5'
                       )}
                     >
                       <RadioGroupItem value="windowed" id="strategy-windowed" className="mt-1" />
@@ -1625,10 +1635,10 @@ export function DatasetGeneratorPage() {
 
                   {/* Window size slider (only for windowed) */}
                   {config.searchStrategy === 'windowed' && (
-                    <div className="ml-6 pl-6 border-l-2 border-muted space-y-3">
+                    <div className="ml-6 pl-6 border-l-2 border-white/10 space-y-3">
                       <div className="flex justify-between items-center">
                         <Label>Window Size</Label>
-                        <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                        <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                           {config.windowSizeMinutes || 10} min
                         </span>
                       </div>
@@ -1680,7 +1690,7 @@ export function DatasetGeneratorPage() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label>Target Coverage</Label>
-                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                          <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                             {((config.downsampling?.targetCoverage ?? 0.05) * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -1701,7 +1711,7 @@ export function DatasetGeneratorPage() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label>Target Gap (orbital periods)</Label>
-                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                          <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                             {(config.downsampling?.targetGap ?? 2.0).toFixed(1)}
                           </span>
                         </div>
@@ -1722,7 +1732,7 @@ export function DatasetGeneratorPage() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label>Max Observations Per Satellite</Label>
-                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                          <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                             {config.downsampling?.maxObsPerSat ?? 50}
                           </span>
                         </div>
@@ -1790,6 +1800,7 @@ export function DatasetGeneratorPage() {
                               key={model}
                               variant={config.simulation?.sensorModel === model ? 'default' : 'outline'}
                               size="sm"
+                              className={cn(config.simulation?.sensorModel === model && 'bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/30')}
                               onClick={() => updateSimulation('sensorModel', model)}
                             >
                               {model.replace('_', ' ')}
@@ -1802,7 +1813,7 @@ export function DatasetGeneratorPage() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label>Max Synthetic Ratio</Label>
-                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                          <span className="text-sm font-mono bg-white/5 border border-white/10 px-2 py-1 rounded">
                             {((config.simulation?.maxSyntheticRatio ?? 0.5) * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -1893,7 +1904,7 @@ export function DatasetGeneratorPage() {
           {mode === 'standard' && currentStep === 5 && (
             <>
               <CardHeader>
-                <CardTitle>Review Configuration</CardTitle>
+                <CardTitle className="font-display">Review Configuration</CardTitle>
                 <CardDescription>
                   Verify your dataset configuration before generation
                 </CardDescription>
@@ -1902,7 +1913,7 @@ export function DatasetGeneratorPage() {
                 {isGenerating ? (
                   <div className="space-y-4 py-8">
                     <div className="flex items-center justify-center gap-3">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <Loader2 className="h-6 w-6 animate-spin text-cosmic-cyan" />
                       <span className="text-lg font-medium">Generating dataset...</span>
                     </div>
                     <Progress value={generationProgress} className="w-full" />
@@ -1913,8 +1924,8 @@ export function DatasetGeneratorPage() {
                 ) : (
                   <>
                     <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Orbital Regime</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Orbital Regime</h4>
                         <div className="flex items-center gap-2">
                           <Badge variant={config.regime === 'LEO' ? 'leo' : config.regime === 'MEO' ? 'meo' : config.regime === 'GEO' ? 'geo' : 'heo'}>
                             {config.regime}
@@ -1927,50 +1938,50 @@ export function DatasetGeneratorPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Target %</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Target %</h4>
                         <p className="text-2xl font-semibold">{TARGET_PERCENTAGES[config.targetPercentage ?? 'UN']}</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Coverage</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Coverage</h4>
                         <p className="text-2xl font-semibold capitalize">{config.coverage}</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Observation Density</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Observation Density</h4>
                         <p className="text-2xl font-semibold">{config.observationDensity}</p>
                         <p className="text-xs text-muted-foreground">obs/satellite/3-days</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Track Gap Target</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Track Gap Target</h4>
                         <p className="text-2xl font-semibold">{config.trackGapTarget}</p>
                         <p className="text-xs text-muted-foreground">orbital periods</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Sensor Type</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Sensor Type</h4>
                         <p className="text-lg font-semibold">{LEGACY_SENSOR_TYPES[(config.sensorTypeCode ?? 'OP') as LegacySensorType]}</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Event Type</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Event Type</h4>
                         <p className="text-lg font-semibold">{LEGACY_EVENT_TYPES[(config.eventCode ?? 'NE') as LegacyEventType]}</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Object Type</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Object Type</h4>
                         <p className="text-lg font-semibold">{LEGACY_OBJECT_TYPES[(config.objectTypeCode ?? 'U') as LegacyObjectType]}</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Objects</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Objects</h4>
                         <p className="text-2xl font-semibold">{config.objectCount}</p>
                         <p className="text-xs text-muted-foreground">
                           {config.includeHamr ? 'Including HAMR objects' : 'Standard objects only'}
                         </p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Fitspan</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Fitspan</h4>
                         <p className="text-2xl font-semibold">{config.fitspanDays ?? 7}</p>
                         <p className="text-xs text-muted-foreground">days</p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Date Range</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Date Range</h4>
                         <p className="text-sm">
                           {config.startDate} to {config.endDate}
                         </p>
@@ -1978,8 +1989,8 @@ export function DatasetGeneratorPage() {
                           {calculatedTimeframe} day{calculatedTimeframe !== 1 ? 's' : ''}
                         </p>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Search Strategy</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Search Strategy</h4>
                         <div className="flex items-center gap-2">
                           <Badge variant={config.searchStrategy === 'hybrid' ? 'default' : 'outline'}>
                             {config.searchStrategy === 'fast' && 'Fast'}
@@ -1993,8 +2004,8 @@ export function DatasetGeneratorPage() {
                           )}
                         </div>
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Downsampling</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Downsampling</h4>
                         {config.downsampling?.enabled ? (
                           <>
                             <Badge variant="default">Enabled</Badge>
@@ -2006,8 +2017,8 @@ export function DatasetGeneratorPage() {
                           <Badge variant="outline">Disabled</Badge>
                         )}
                       </div>
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <h4 className="font-medium">Simulation</h4>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                        <h4 className="font-display font-medium">Simulation</h4>
                         {config.simulation?.enabled ? (
                           <>
                             <Badge variant="default">Enabled</Badge>
@@ -2031,7 +2042,7 @@ export function DatasetGeneratorPage() {
                       </div>
                     )}
 
-                    <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-4">
                       <h4 className="font-medium mb-2">Estimated Output</h4>
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div>
@@ -2050,9 +2061,9 @@ export function DatasetGeneratorPage() {
                     </div>
 
                     {/* Dataset Code Preview (16-character code) */}
-                    <div className="rounded-lg border p-4 space-y-4">
+                    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 space-y-4">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-medium">Dataset Code (16-character)</h4>
+                        <h4 className="font-display font-medium">Dataset Code (16-character)</h4>
                         <Tooltip>
                           <TooltipTrigger>
                             <Info className="h-4 w-4 text-muted-foreground" />
@@ -2067,8 +2078,8 @@ export function DatasetGeneratorPage() {
                           </TooltipContent>
                         </Tooltip>
                       </div>
-                      <div className="text-center py-3 bg-muted/50 rounded-lg">
-                        <p className="font-mono text-3xl tracking-widest text-primary">
+                      <div className="text-center py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg">
+                        <p className="font-mono text-3xl tracking-widest text-cosmic-cyan">
                           {generateStandardWizardCode(config)}
                         </p>
                       </div>
@@ -2088,7 +2099,7 @@ export function DatasetGeneratorPage() {
                             { chars: code.slice(14, 16), label: 'Fitspan' },
                           ];
                           return segments.map((seg) => (
-                            <div key={seg.label} className="rounded border p-2 text-center">
+                            <div key={seg.label} className="rounded border border-white/10 bg-white/[0.02] p-2 text-center">
                               <p className="font-mono text-sm font-semibold">{seg.chars}</p>
                               <p className="text-[10px] text-muted-foreground">{seg.label}</p>
                             </div>
@@ -2103,13 +2114,13 @@ export function DatasetGeneratorPage() {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between p-6 pt-0">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 p-6 pt-0">
             {/* Back Button */}
             <Button
               variant="outline"
               onClick={mode === 'legacy' ? prevLegacyStep : prevStep}
               disabled={activeStep === 1 || isGenerating || (mode === 'legacy' && codeInputMode === 'direct')}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
@@ -2121,7 +2132,7 @@ export function DatasetGeneratorPage() {
               currentStep < 5 ? (
                 <Button
                   onClick={nextStep}
-                  className="gap-2"
+                  className="gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 text-white w-full sm:w-auto"
                   disabled={mode === 'standard' && currentStep === 3 && !isTimeframeValid}
                 >
                   Next
@@ -2131,7 +2142,7 @@ export function DatasetGeneratorPage() {
                 <Button
                   onClick={handleGenerate}
                   disabled={isGenerating || !isTimeframeValid}
-                  className="gap-2"
+                  className="gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 text-white w-full sm:w-auto"
                 >
                   {isGenerating ? (
                     <>
@@ -2150,7 +2161,7 @@ export function DatasetGeneratorPage() {
               // Legacy mode navigation
               codeInputMode === 'wizard' ? (
                 legacyStep < 7 ? (
-                  <Button onClick={nextLegacyStep} className="gap-2">
+                  <Button onClick={nextLegacyStep} className="gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 text-white w-full sm:w-auto">
                     Next
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -2158,7 +2169,7 @@ export function DatasetGeneratorPage() {
                   <Button
                     onClick={handleLegacyGenerate}
                     disabled={isGenerating || !legacyCodeValidation.valid}
-                    className="gap-2"
+                    className="gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 text-white w-full sm:w-auto"
                   >
                     {isGenerating ? (
                       <>
@@ -2178,7 +2189,7 @@ export function DatasetGeneratorPage() {
                 <Button
                   onClick={handleLegacyGenerate}
                   disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16}
-                  className="gap-2"
+                  className="gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 text-white w-full sm:w-auto"
                 >
                   {isGenerating ? (
                     <>

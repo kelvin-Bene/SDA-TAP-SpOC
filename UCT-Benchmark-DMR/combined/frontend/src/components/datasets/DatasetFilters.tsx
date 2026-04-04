@@ -49,22 +49,22 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
     filters.objectCountRange;
 
   return (
-    <Card>
+    <Card className="bg-white/[0.02] border-white/[0.06]">
       <CardContent className="pt-6">
         <div className="flex flex-wrap items-end gap-4">
           {/* Regime Filter */}
           <div className="space-y-2 min-w-[180px]">
-            <Label htmlFor="regime-filter">Orbital Regime</Label>
+            <Label htmlFor="regime-filter" className="text-sm font-medium text-muted-foreground">Orbital Regime</Label>
             <Select
               value={filters.regime || 'all'}
               onValueChange={(value) =>
                 onFiltersChange({ ...filters, regime: value as OrbitalRegime | 'all' })
               }
             >
-              <SelectTrigger id="regime-filter">
+              <SelectTrigger id="regime-filter" className="bg-white/5 border-white/20">
                 <SelectValue placeholder="Select regime" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="glass border-white/10">
                 {regimeOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -76,17 +76,17 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Tier Filter */}
           <div className="space-y-2 min-w-[180px]">
-            <Label htmlFor="tier-filter">Data Tier</Label>
+            <Label htmlFor="tier-filter" className="text-sm font-medium text-muted-foreground">Data Tier</Label>
             <Select
               value={filters.tier || 'all'}
               onValueChange={(value) =>
                 onFiltersChange({ ...filters, tier: value as DataTier | 'all' })
               }
             >
-              <SelectTrigger id="tier-filter">
+              <SelectTrigger id="tier-filter" className="bg-white/5 border-white/20">
                 <SelectValue placeholder="Select tier" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="glass border-white/10">
                 {tierOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -98,17 +98,17 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Sensor Filter */}
           <div className="space-y-2 min-w-[180px]">
-            <Label htmlFor="sensor-filter">Sensor Type</Label>
+            <Label htmlFor="sensor-filter" className="text-sm font-medium text-muted-foreground">Sensor Type</Label>
             <Select
               value={filters.sensor || 'all'}
               onValueChange={(value) =>
                 onFiltersChange({ ...filters, sensor: value as SensorType | 'all' })
               }
             >
-              <SelectTrigger id="sensor-filter">
+              <SelectTrigger id="sensor-filter" className="bg-white/5 border-white/20">
                 <SelectValue placeholder="Select sensor" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="glass border-white/10">
                 {sensorOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -120,7 +120,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Object Count Range */}
           <div className="space-y-2 min-w-[200px] flex-1 max-w-[300px]">
-            <Label>Object Count: {filters.objectCountRange?.min || 10} - {filters.objectCountRange?.max || 100}</Label>
+            <Label className="text-sm font-medium text-muted-foreground">Object Count: {filters.objectCountRange?.min || 10} - {filters.objectCountRange?.max || 100}</Label>
             <Slider
               defaultValue={[filters.objectCountRange?.min || 10, filters.objectCountRange?.max || 100]}
               min={10}

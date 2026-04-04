@@ -15,7 +15,7 @@ const REGIMES = [
     id: 'LEO' as const,
     label: 'Low Earth Orbit',
     altitude: '200 - 2,000 km',
-    color: '#3B82F6',
+    color: 'hsl(217, 91%, 60%)',
     icon: Orbit,
     orbits: [
       { inclination: 51.6, altKm: 420, label: 'ISS Orbit (420 km)' },
@@ -29,7 +29,7 @@ const REGIMES = [
     id: 'MEO' as const,
     label: 'Medium Earth Orbit',
     altitude: '2,000 - 35,786 km',
-    color: '#10B981',
+    color: 'hsl(142, 76%, 45%)',
     icon: Satellite,
     orbits: [
       { inclination: 55, altKm: 20200, label: 'GPS Constellation' },
@@ -630,14 +630,14 @@ export function OrbitMapPage() {
           {panelCollapsed ? (
             <button
               onClick={() => setPanelCollapsed(false)}
-              className="w-12 h-12 rounded-xl bg-black/70 backdrop-blur-xl border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+              className="w-12 h-12 rounded-xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] flex items-center justify-center hover:bg-white/10 transition-colors"
             >
               <Globe className="h-5 w-5 text-primary" />
             </button>
           ) : (
-            <div className="rounded-xl bg-black/70 backdrop-blur-xl border border-white/10 overflow-hidden flex flex-col max-h-[calc(100vh-12rem)]">
+            <div className="rounded-xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] overflow-hidden flex flex-col max-h-[calc(100vh-12rem)]">
               {/* Panel header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-primary" />
                   <span className="font-display font-semibold text-sm text-white">
@@ -653,7 +653,7 @@ export function OrbitMapPage() {
               </div>
 
               {/* Tab switcher */}
-              <div className="flex border-b border-white/10 flex-shrink-0">
+              <div className="flex border-b border-white/[0.06] flex-shrink-0">
                 <button
                   onClick={() => setPanelTab('regimes')}
                   className={cn(
@@ -703,7 +703,7 @@ export function OrbitMapPage() {
                             className={cn(
                               'w-full flex items-start gap-3 rounded-lg p-3 text-left transition-all duration-200 border',
                               isSelected
-                                ? 'bg-white/10 border-white/20'
+                                ? 'bg-white/[0.08] border-white/[0.08]'
                                 : 'border-transparent hover:bg-white/5',
                             )}
                             style={{
@@ -728,7 +728,7 @@ export function OrbitMapPage() {
                                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: regime.color }}
                                 />
-                                <span className="font-semibold text-sm text-white">
+                                <span className="font-display font-semibold text-sm text-white">
                                   {regime.id}
                                 </span>
                                 <span className="text-xs text-white/50 truncate">
@@ -790,7 +790,7 @@ export function OrbitMapPage() {
                             className={cn(
                               'rounded-lg border transition-all duration-200',
                               isExpanded
-                                ? 'bg-white/5 border-white/15'
+                                ? 'bg-white/[0.02] border-white/[0.06]'
                                 : 'border-transparent hover:bg-white/[0.03]',
                             )}
                           >
@@ -807,7 +807,7 @@ export function OrbitMapPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-xs text-white truncate">
+                                  <span className="font-display font-semibold text-xs text-white truncate">
                                     {ds.name}
                                   </span>
                                 </div>
@@ -957,7 +957,7 @@ export function OrbitMapPage() {
               </div>
 
               {/* Footer hint */}
-              <div className="px-4 py-2 border-t border-white/10 text-[11px] text-white/30 flex-shrink-0">
+              <div className="px-4 py-2 border-t border-white/[0.06] text-[11px] text-white/30 flex-shrink-0">
                 Click &amp; drag to rotate | Scroll to zoom | Click orbit to select
               </div>
             </div>
@@ -969,7 +969,7 @@ export function OrbitMapPage() {
       {selectedRegime && viewerReady && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
           <div
-            className="rounded-xl bg-black/70 backdrop-blur-xl border border-white/10 px-6 py-3 flex items-center gap-4"
+            className="rounded-xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] px-6 py-3 flex items-center gap-4"
             style={{
               boxShadow: `0 0 30px -8px ${REGIMES.find((r) => r.id === selectedRegime)?.color}40`,
             }}
@@ -997,7 +997,7 @@ export function OrbitMapPage() {
         return (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
             <div
-              className="rounded-xl bg-black/70 backdrop-blur-xl border border-white/10 px-6 py-3 flex items-center gap-4"
+              className="rounded-xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] px-6 py-3 flex items-center gap-4"
               style={{ boxShadow: `0 0 30px -8px ${regimeCfg?.color}40` }}
             >
               <div

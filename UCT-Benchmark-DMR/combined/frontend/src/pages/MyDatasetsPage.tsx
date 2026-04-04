@@ -12,15 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Copy, Eye, Loader2, History } from 'lucide-react';
+import { Plus, Download, Trash2, Copy, Eye, Loader2, History, Database } from 'lucide-react';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { useDatasets, useDeleteDataset } from '@/hooks/useDatasets';
 import { api } from '@/api/client';
-import { useToast } from '@/hooks/use-toast';
 import type { Dataset } from '@/types';
 
 export function MyDatasetsPage() {
-  const { toast } = useToast();
   const { data: datasets, isLoading, error } = useDatasets();
   const deleteDataset = useDeleteDataset();
   const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
@@ -57,11 +55,14 @@ export function MyDatasetsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Datasets</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your generated and saved datasets
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-aurora-green/20 to-cosmic-cyan/20 flex items-center justify-center">
+            <Database className="h-6 w-6 text-aurora-green" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-display font-bold tracking-tight">My Datasets</h1>
+            <p className="text-muted-foreground">Manage your generated datasets</p>
+          </div>
         </div>
         <Link to="/datasets/generate">
           <Button className="gap-2">
@@ -73,17 +74,17 @@ export function MyDatasetsPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06] border-t-2 border-t-cosmic-cyan/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Datasets</CardTitle>
+            <CardTitle className="text-sm font-medium font-display text-muted-foreground">Total Datasets</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{userDatasets.length}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06] border-t-2 border-t-aurora-green/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Objects</CardTitle>
+            <CardTitle className="text-sm font-medium font-display text-muted-foreground">Total Objects</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
@@ -91,9 +92,9 @@ export function MyDatasetsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white/[0.02] border-white/[0.06] border-t-2 border-t-stellar-purple/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Storage Used</CardTitle>
+            <CardTitle className="text-sm font-medium font-display text-muted-foreground">Storage Used</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
@@ -104,9 +105,9 @@ export function MyDatasetsPage() {
       </div>
 
       {/* Datasets Table */}
-      <Card>
+      <Card className="bg-white/[0.02] border-white/[0.06]">
         <CardHeader>
-          <CardTitle>Your Datasets</CardTitle>
+          <CardTitle className="font-display">Your Datasets</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -118,13 +119,14 @@ export function MyDatasetsPage() {
               <p>Unable to load datasets</p>
             </div>
           ) : userDatasets.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground">
+              <Database className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
               <p>No datasets yet. Generate one to get started.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-white/10">
                   <TableHead>Name</TableHead>
                   <TableHead>Version</TableHead>
                   <TableHead>Regime</TableHead>
@@ -137,7 +139,7 @@ export function MyDatasetsPage() {
               </TableHeader>
               <TableBody>
                 {userDatasets.map((dataset) => (
-                  <TableRow key={dataset.id}>
+                  <TableRow key={dataset.id} className="border-white/5">
                     <TableCell className="font-medium">{dataset.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-mono">
@@ -159,7 +161,7 @@ export function MyDatasetsPage() {
                     <TableCell>{formatDate(dataset.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Coming soon', description: 'This feature is not yet available in the demo.' })}>
+                        <Button variant="ghost" size="icon">
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
@@ -170,10 +172,10 @@ export function MyDatasetsPage() {
                         >
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Coming soon', description: 'This feature is not yet available in the demo.' })}>
+                        <Button variant="ghost" size="icon">
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Coming soon', description: 'This feature is not yet available in the demo.' })}>
+                        <Button variant="ghost" size="icon">
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button
@@ -213,7 +215,7 @@ export function MyDatasetsPage() {
               {versionHistory.map((v) => (
                 <div
                   key={v.id}
-                  className={`flex items-center justify-between rounded-lg border p-3 ${v.id === versionDataset?.id ? 'border-primary bg-primary/5' : ''}`}
+                  className={`flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 ${v.id === versionDataset?.id ? 'border-cosmic-cyan/30 bg-cosmic-cyan/5' : ''}`}
                 >
                   <div>
                     <div className="flex items-center gap-2">

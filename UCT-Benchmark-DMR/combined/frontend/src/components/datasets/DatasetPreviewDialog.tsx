@@ -132,7 +132,7 @@ export function DatasetPreviewDialog({
                   {[80, 60, 40, 25, 15, 8, 4, 2].map((h, i) => (
                     <div
                       key={i}
-                      className="flex-1 bg-stellar-cyan/20 rounded-t"
+                      className="flex-1 bg-cosmic-cyan/20 rounded-t"
                       style={{ height: `${h}%` }}
                     />
                   ))}

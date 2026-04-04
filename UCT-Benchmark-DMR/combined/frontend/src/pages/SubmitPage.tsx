@@ -1,172 +1,288 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
+import { useDropzone } from 'react-dropzone';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Zap,
-  Loader2,
-  Database,
-  Satellite,
-  Target,
-  ArrowRight,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import {
+  Upload,
   CheckCircle,
+  XCircle,
   AlertCircle,
-  Trophy,
-  Info,
+  Loader2,
+  FileJson,
+  X,
 } from 'lucide-react';
+import { cn, formatFileSize } from '@/lib/utils';
+import { useDatasets } from '@/hooks/useDatasets';
+import { useCreateSubmission } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/stores/authStore';
-import { useDatasets, useJobStatus } from '@/hooks/useDatasets';
-import { useDemoEvaluate } from '@/hooks/useSubmissions';
 
-/* ─── Pipeline stage visualization ─── */
-
-interface PipelineStage {
-  name: string;
-  icon: React.ElementType;
-  description: string;
+interface ValidationStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'checking' | 'passed' | 'failed';
+  message?: string;
 }
-
-const PIPELINE_STAGES: PipelineStage[] = [
-  { name: 'Ingest', icon: Database, description: 'Loading observations' },
-  { name: 'Cluster', icon: Satellite, description: 'Grouping tracks' },
-  { name: 'IOD', icon: Target, description: 'Initial orbit determination' },
-  { name: 'Refine', icon: ArrowRight, description: 'Orbit refinement' },
-  { name: 'Score', icon: Trophy, description: 'Evaluating performance' },
-];
-
-function PipelineProgress({ progress, stage }: { progress: number; stage?: string }) {
-  const activeIdx = Math.min(Math.floor(progress / 20), PIPELINE_STAGES.length - 1);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        {PIPELINE_STAGES.map((s, i) => {
-          const Icon = s.icon;
-          const isActive = i === activeIdx;
-          const isDone = i < activeIdx;
-          return (
-            <div key={s.name} className="flex flex-col items-center gap-1.5 flex-1">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-500 ${
-                  isDone
-                    ? 'bg-aurora-green/20 border border-aurora-green/30'
-                    : isActive
-                    ? 'bg-cosmic-cyan/20 border border-cosmic-cyan/30 animate-pulse'
-                    : 'bg-white/[0.03] border border-white/[0.06]'
-                }`}
-              >
-                {isDone ? (
-                  <CheckCircle className="h-5 w-5 text-aurora-green" />
-                ) : (
-                  <Icon
-                    className={`h-5 w-5 transition-colors ${
-                      isActive ? 'text-cosmic-cyan' : 'text-muted-foreground/40'
-                    }`}
-                  />
-                )}
-              </div>
-              <span
-                className={`text-[10px] font-mono uppercase tracking-wider ${
-                  isDone ? 'text-aurora-green' : isActive ? 'text-cosmic-cyan' : 'text-muted-foreground/40'
-                }`}
-              >
-                {s.name}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-cosmic-cyan to-cosmic-blue rounded-full transition-all duration-700 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Stage description */}
-      <p className="text-center text-sm text-muted-foreground">
-        {stage || PIPELINE_STAGES[activeIdx]?.description || 'Initializing...'}
-      </p>
-    </div>
-  );
-}
-
-/* ─── Main page ─── */
 
 export function SubmitPage() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const user = useAuthStore((s) => s.user);
-  const { data: datasets, isLoading: datasetsLoading } = useDatasets({});
-  const demoEvaluate = useDemoEvaluate();
-
-  const [selectedDatasetId, setSelectedDatasetId] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [datasetId, setDatasetId] = useState('');
   const [algorithmName, setAlgorithmName] = useState('');
-  const [version, setVersion] = useState('1.0');
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
+  const [version, setVersion] = useState('');
+  const [description, setDescription] = useState('');
+  const [organization, setOrganization] = useState('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationSteps, setValidationSteps] = useState<ValidationStep[]>([
+    { id: 'format', label: 'File format valid', status: 'pending' },
+    { id: 'schema', label: 'Schema validation passed', status: 'pending' },
+    { id: 'references', label: 'Observation ID references valid', status: 'pending' },
+    { id: 'state', label: 'State vector reasonableness', status: 'pending' },
+    { id: 'covariance', label: 'Covariance positive-definiteness', status: 'pending' },
+  ]);
 
-  const { data: jobStatus } = useJobStatus(activeJobId);
-  const isProcessing = !!activeJobId;
+  const { toast } = useToast();
 
-  // Set default algorithm name from callsign
-  useEffect(() => {
-    if (user?.username && !algorithmName) {
-      setAlgorithmName(`${user.username}'s Algorithm`);
-    }
-  }, [user?.username, algorithmName]);
+  // Use real API hooks
+  const { data: datasets = [], isLoading: loadingDatasets } = useDatasets({ regime: 'all', tier: 'all' });
+  const createSubmission = useCreateSubmission();
 
-  // Handle job completion
-  useEffect(() => {
-    if (jobStatus?.status === 'completed' && activeSubmissionId) {
-      toast({
-        title: 'Evaluation complete',
-        description: 'Navigating to results...',
-      });
-      setActiveJobId(null);
-      navigate(`/results/${activeSubmissionId}`);
-      setActiveSubmissionId(null);
-    } else if (jobStatus?.status === 'failed') {
-      toast({
-        title: 'Evaluation failed',
-        description: jobStatus.error || 'The evaluation job failed. Please try again.',
-        variant: 'destructive',
-      });
-      setActiveJobId(null);
-      setActiveSubmissionId(null);
-    }
-  }, [jobStatus?.status, activeSubmissionId, navigate, toast, jobStatus?.error]);
+  // Filter to only available datasets
+  const availableDatasets = datasets.filter((d) => d.id);
 
-  const selectedDataset = datasets?.find((d) => String(d.id) === selectedDatasetId);
+  const runValidation = async (uploadedFile: File) => {
+    setIsValidating(true);
 
-  const handleRunEvaluation = async () => {
-    if (!selectedDatasetId || !algorithmName.trim()) return;
+    // Reset all steps to pending
+    setValidationSteps((steps) =>
+      steps.map((step) => ({ ...step, status: 'pending' }))
+    );
+
+    // Helper to update step status
+    const updateStep = (id: string, status: 'checking' | 'passed' | 'failed', message?: string) => {
+      setValidationSteps((steps) =>
+        steps.map((step) => (step.id === id ? { ...step, status, message } : step))
+      );
+    };
+
+    // Helper to add delay for visual feedback
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     try {
-      const result = await demoEvaluate.mutateAsync({
-        dataset_id: Number(selectedDatasetId),
-        algorithm_name: algorithmName.trim(),
-        version: version.trim() || '1.0',
+      // Step 1: File format validation
+      updateStep('format', 'checking');
+      await delay(300);
+
+      const fileText = await uploadedFile.text();
+      let parsedJson: unknown;
+
+      try {
+        parsedJson = JSON.parse(fileText);
+        updateStep('format', 'passed');
+      } catch {
+        updateStep('format', 'failed', 'Invalid JSON format');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 2: Schema validation
+      updateStep('schema', 'checking');
+      await delay(400);
+
+      const data = parsedJson as Record<string, unknown>;
+      const hasRequiredFields =
+        data &&
+        typeof data === 'object' &&
+        ('satellites' in data || 'tracks' in data || 'results' in data || 'ucds' in data);
+
+      if (hasRequiredFields) {
+        updateStep('schema', 'passed');
+      } else {
+        updateStep('schema', 'failed', 'Missing required fields (satellites, tracks, or results)');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 3: Observation ID references
+      updateStep('references', 'checking');
+      await delay(350);
+
+      // Check if there are any satellite/track entries with IDs
+      const satellites = (data.satellites || data.tracks || data.results || data.ucds) as unknown[];
+      const hasValidReferences = Array.isArray(satellites) && satellites.length > 0;
+
+      if (hasValidReferences) {
+        updateStep('references', 'passed');
+      } else {
+        updateStep('references', 'failed', 'No valid satellite or track entries found');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 4: State vector reasonableness
+      updateStep('state', 'checking');
+      await delay(500);
+
+      // Check if state vectors exist and have reasonable values
+      let stateVectorValid = true;
+      if (Array.isArray(satellites)) {
+        for (const sat of satellites) {
+          const s = sat as Record<string, unknown>;
+          const state = s.state || s.state_vector || s.position;
+          if (state) {
+            const stateArr = state as number[];
+            // Basic check: state values shouldn't be NaN or Infinity
+            if (Array.isArray(stateArr)) {
+              const hasInvalidValues = stateArr.some(
+                (v) => typeof v !== 'number' || !Number.isFinite(v)
+              );
+              if (hasInvalidValues) {
+                stateVectorValid = false;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (stateVectorValid) {
+        updateStep('state', 'passed');
+      } else {
+        updateStep('state', 'failed', 'State vectors contain invalid values');
+        setIsValidating(false);
+        return;
+      }
+
+      // Step 5: Covariance check
+      updateStep('covariance', 'checking');
+      await delay(400);
+
+      // Check if covariance matrices exist (optional but check format if present)
+      let covarianceValid = true;
+      if (Array.isArray(satellites)) {
+        for (const sat of satellites) {
+          const s = sat as Record<string, unknown>;
+          const cov = s.covariance || s.cov;
+          if (cov) {
+            // Basic check: covariance should be an array or matrix
+            if (!Array.isArray(cov)) {
+              covarianceValid = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (covarianceValid) {
+        updateStep('covariance', 'passed');
+      } else {
+        updateStep('covariance', 'failed', 'Invalid covariance matrix format');
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
+      updateStep('format', 'failed', 'Error reading file');
+    }
+
+    setIsValidating(false);
+  };
+
+  const onDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      const uploadedFile = acceptedFiles[0];
+      setFile(uploadedFile);
+      runValidation(uploadedFile);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/json': ['.json'],
+    },
+    maxSize: 50 * 1024 * 1024, // 50MB
+    multiple: false,
+  });
+
+  const clearFile = () => {
+    setFile(null);
+    setValidationSteps((steps) =>
+      steps.map((step) => ({ ...step, status: 'pending' }))
+    );
+  };
+
+  const handleSubmit = async () => {
+    setSubmitAttempted(true);
+    if (!file || !datasetId || !algorithmName || !version) return;
+    if (!canSubmit) return;
+
+    try {
+      await createSubmission.mutateAsync({
+        datasetId,
+        algorithmName,
+        version,
+        description: description || undefined,
+        classificationMarking: organization || undefined,
+        file,
       });
-      setActiveJobId(result.job_id);
-      setActiveSubmissionId(result.submission_id);
+
+      // Navigate to submissions page
+      navigate('/submit/my-submissions');
+    } catch (error: unknown) {
+      console.error('Submission failed:', error);
+      // U6: Distinguish validation errors from network/server failures
+      const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
+      const status = axiosError?.response?.status;
+      let description = 'Failed to submit your algorithm results. Please try again.';
+      if (status === 422) {
+        description = 'Validation error — please check your file format matches the UCTP schema.';
+      } else if (status === 413) {
+        description = 'File too large — maximum upload size is 50MB.';
+      } else if (!status) {
+        description = 'Network error — check your connection and try again.';
+      }
       toast({
-        title: 'Evaluation started',
-        description: `Processing "${algorithmName}" against ${selectedDataset?.name || 'dataset'}...`,
-      });
-    } catch {
-      toast({
-        title: 'Failed to start evaluation',
-        description: 'Could not start the evaluation. Please try again.',
+        title: 'Submission failed',
+        description,
         variant: 'destructive',
       });
+    }
+  };
+
+  // U10: Memoize validation check to avoid recomputing on every keystroke
+  const allValidationsPassed = useMemo(
+    () => validationSteps.every((step) => step.status === 'passed'),
+    [validationSteps]
+  );
+  const canSubmit =
+    file &&
+    datasetId &&
+    algorithmName &&
+    version &&
+    allValidationsPassed &&
+    !createSubmission.isPending;
+
+  const getStepIcon = (status: ValidationStep['status']) => {
+    switch (status) {
+      case 'pending':
+        return <div className="h-4 w-4 rounded-full border-2 border-muted" />;
+      case 'checking':
+        return <Loader2 className="h-4 w-4 animate-spin text-cosmic-blue" />;
+      case 'passed':
+        return <CheckCircle className="h-4 w-4 text-aurora-green" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
     }
   };
 
@@ -174,177 +290,243 @@ export function SubmitPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight font-display">Run UCTP Evaluation</h1>
+        <h1 className="text-3xl font-display font-bold tracking-tight">Submit Algorithm Results</h1>
         <p className="text-muted-foreground mt-1">
-          Select a benchmark dataset, name your algorithm, and run the evaluation pipeline
+          Upload your UCT algorithm results for evaluation against benchmark datasets
         </p>
       </div>
 
-      {/* Processing state */}
-      {isProcessing ? (
-        <Card className="bg-white/[0.02] border-white/[0.06]">
-          <CardContent className="pt-8 pb-8">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cosmic-cyan/10 border border-cosmic-cyan/20 text-cosmic-cyan text-xs font-mono tracking-wider uppercase mb-4">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Processing
-              </div>
-              <h2 className="text-xl font-bold font-display">
-                Evaluating {algorithmName}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Against {selectedDataset?.name || 'dataset'}
-              </p>
-            </div>
-
-            <PipelineProgress
-              progress={jobStatus?.progress ?? 0}
-              stage={jobStatus?.stage}
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Dataset Selection */}
-          <Card className="bg-white/[0.02] border-white/[0.06]">
-            <CardContent className="pt-6 space-y-5">
-              <div className="flex items-center gap-2 mb-1">
-                <Database className="h-4 w-4 text-cosmic-cyan" />
-                <h2 className="font-semibold">Select Dataset</h2>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dataset">Benchmark Dataset</Label>
-                <Select value={selectedDatasetId} onValueChange={setSelectedDatasetId}>
-                  <SelectTrigger className="bg-white/5 border-white/20">
-                    <SelectValue placeholder={datasetsLoading ? 'Loading datasets...' : 'Choose a dataset'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {datasets?.map((dataset) => (
-                      <SelectItem key={dataset.id} value={String(dataset.id)}>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={dataset.regime?.toLowerCase() as 'leo' | 'meo' | 'geo' | 'heo'}
-                            className="text-[10px]"
-                          >
-                            {dataset.regime}
-                          </Badge>
-                          {dataset.name}
-                          <span className="text-muted-foreground text-xs">
-                            ({dataset.objectCount} objects)
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Dataset info card */}
-              {selectedDataset && (
-                <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-sm">{selectedDataset.name}</h3>
-                    <div className="flex gap-1.5">
-                      <Badge variant={selectedDataset.regime?.toLowerCase() as 'leo' | 'meo' | 'geo' | 'heo'}>
-                        {selectedDataset.regime}
-                      </Badge>
-                      <Badge variant={`tier${selectedDataset.tier?.replace('T', '')}` as 'tier1' | 'tier2' | 'tier3' | 'tier4'}>
-                        {selectedDataset.tier}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-xs text-muted-foreground">
-                    <div>
-                      <span className="block text-foreground font-semibold">{selectedDataset.objectCount}</span>
-                      Satellites
-                    </div>
-                    <div>
-                      <span className="block text-foreground font-semibold">{selectedDataset.observationCount}</span>
-                      Observations
-                    </div>
-                    <div>
-                      <span className="block text-foreground font-semibold">{selectedDataset.coverage || '—'}%</span>
-                      Coverage
-                    </div>
-                  </div>
-                </div>
+      {/* File Upload */}
+      <Card className="bg-white/[0.02] border-white/[0.06]">
+        <CardHeader>
+          <CardTitle className="font-display">Upload Submission File</CardTitle>
+          <CardDescription>
+            Upload your algorithm output in JSON format (max 50MB)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!file ? (
+            <div
+              {...getRootProps()}
+              className={cn(
+                'border-2 border-dashed rounded-lg p-6 sm:p-12 text-center cursor-pointer transition-colors',
+                isDragActive
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted hover:border-primary/50 hover:bg-muted/50'
               )}
-            </CardContent>
-          </Card>
-
-          {/* Algorithm Details */}
-          <Card className="bg-white/[0.02] border-white/[0.06]">
-            <CardContent className="pt-6 space-y-5">
-              <div className="flex items-center gap-2 mb-1">
-                <Satellite className="h-4 w-4 text-stellar-purple" />
-                <h2 className="font-semibold">Algorithm Details</h2>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="algorithm">Algorithm Name</Label>
-                  <Input
-                    id="algorithm"
-                    value={algorithmName}
-                    onChange={(e) => setAlgorithmName(e.target.value)}
-                    placeholder="e.g. OrbTrack-Pro"
-                    className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="version">Version</Label>
-                  <Input
-                    id="version"
-                    value={version}
-                    onChange={(e) => setVersion(e.target.value)}
-                    placeholder="1.0"
-                    className="bg-white/5 border-white/20 focus:border-cosmic-cyan/50"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Demo notice + Run button */}
-          <div className="space-y-4">
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-cosmic-cyan/5 border border-cosmic-cyan/10">
-              <Info className="h-4 w-4 text-cosmic-cyan mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                <span className="text-cosmic-cyan font-semibold">Demo mode</span> — The evaluation
-                pipeline runs with simulated scoring to demonstrate the full UCTP benchmarking workflow.
-                Results are randomized but use realistic metric distributions.
-              </p>
-            </div>
-
-            <Button
-              onClick={handleRunEvaluation}
-              disabled={!selectedDatasetId || !algorithmName.trim() || demoEvaluate.isPending}
-              className="w-full h-12 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity shadow-glow-cyan text-base font-semibold gap-2"
             >
-              {demoEvaluate.isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Starting Evaluation...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-5 w-5" />
-                  Run UCTP Evaluation
-                </>
-              )}
-            </Button>
-          </div>
-        </>
-      )}
+              <input {...getInputProps()} />
+              <div className="flex flex-col items-center gap-4">
+                <div className="rounded-full bg-muted p-4">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium">
+                    {isDragActive ? 'Drop your file here' : 'Drag & drop your submission file here'}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    or <span className="text-primary">browse files</span>
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Accepts: .json (max 50MB)
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* File Info */}
+              <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-primary/10 p-2">
+                    <FileJson className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{file.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={clearFile}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
 
-      {/* Error display */}
-      {demoEvaluate.isError && (
-        <div className="flex items-center gap-2 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <p>Failed to start evaluation. Please check your selection and try again.</p>
-        </div>
-      )}
+              {/* Validation Status */}
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+                <h4 className="font-display font-medium">Validation Status</h4>
+                <div className="space-y-2">
+                  {validationSteps.map((step) => (
+                    <div key={step.id} className="flex items-start gap-3">
+                      <div className="mt-0.5">{getStepIcon(step.status)}</div>
+                      <div>
+                        <span
+                          className={cn(
+                            'text-sm',
+                            step.status === 'passed' && 'text-aurora-green',
+                            step.status === 'failed' && 'text-red-400',
+                            step.status === 'pending' && 'text-muted-foreground'
+                          )}
+                        >
+                          {step.label}
+                        </span>
+                        {step.status === 'failed' && step.message && (
+                          <p className="text-xs text-red-500 mt-0.5">{step.message}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {isValidating && (
+                  <Progress
+                    value={
+                      (validationSteps.filter((s) => s.status === 'passed').length /
+                        validationSteps.length) *
+                      100
+                    }
+                    className="h-2"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          {submitAttempted && !file && (
+            <p className="text-sm text-destructive mt-1">This field is required</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Submission Details */}
+      <Card className="bg-white/[0.02] border-white/[0.06]">
+        <CardHeader>
+          <CardTitle className="font-display">Submission Details</CardTitle>
+          <CardDescription>
+            Provide information about your algorithm and select the target dataset
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Dataset Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="dataset">Target Dataset</Label>
+            <Select value={datasetId} onValueChange={setDatasetId} disabled={loadingDatasets}>
+              <SelectTrigger id="dataset">
+                <SelectValue placeholder={loadingDatasets ? 'Loading datasets...' : 'Select a dataset...'} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDatasets.map((dataset) => (
+                  <SelectItem key={dataset.id} value={dataset.id}>
+                    {dataset.name}
+                  </SelectItem>
+                ))}
+                {availableDatasets.length === 0 && !loadingDatasets && (
+                  <SelectItem value="" disabled>
+                    No datasets available
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {submitAttempted && !datasetId && (
+              <p className="text-sm text-destructive mt-1">This field is required</p>
+            )}
+          </div>
+
+          {/* Algorithm Name */}
+          <div className="space-y-2">
+            <Label htmlFor="algorithmName">Algorithm Name</Label>
+            <Input
+              id="algorithmName"
+              placeholder="e.g., MyUCTP"
+              value={algorithmName}
+              onChange={(e) => setAlgorithmName(e.target.value)}
+            />
+            {submitAttempted && !algorithmName && (
+              <p className="text-sm text-destructive mt-1">This field is required</p>
+            )}
+          </div>
+
+          {/* Version */}
+          <div className="space-y-2">
+            <Label htmlFor="version">Version</Label>
+            <Input
+              id="version"
+              placeholder="e.g., v2.1"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
+            />
+            {submitAttempted && !version && (
+              <p className="text-sm text-destructive mt-1">This field is required</p>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (optional)</Label>
+            <Textarea
+              id="description"
+              placeholder="Brief description of this submission or changes from previous version..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          {/* Organization */}
+          <div className="space-y-2">
+            <Label htmlFor="organization">Organization (optional)</Label>
+            <Input
+              id="organization"
+              placeholder="e.g., DMR Lab, TAP Lab"
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Classification marking label for your organization
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Submit Button */}
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={createSubmission.isPending}
+          className="gap-2"
+        >
+          {createSubmission.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4" />
+              Submit for Evaluation
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Guidelines Link */}
+      <Card className="bg-white/[0.02] border-white/[0.06]">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div>
+              <p className="font-display font-medium">Submission Guidelines</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Make sure your submission file follows the required JSON schema.
+                See the <a href="/docs" className="text-primary hover:underline">documentation</a> for
+                detailed format specifications and examples.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

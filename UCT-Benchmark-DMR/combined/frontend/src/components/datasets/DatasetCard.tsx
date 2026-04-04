@@ -218,8 +218,7 @@ export function DatasetCard({ dataset, onPreview, onDownload, onRunUCTP }: Datas
       <div className="border-t border-white/10 p-3 flex gap-2 bg-white/[0.02]">
         <Button
           variant="ghost"
-          size="sm"
-          className="flex-1 gap-1.5 text-muted-foreground hover:text-foreground hover:bg-white/5"
+          className="flex-1 gap-1.5 h-10 text-muted-foreground hover:text-foreground hover:bg-white/5"
           onClick={() => onPreview?.(dataset)}
           aria-label="Preview dataset"
         >
@@ -227,9 +226,8 @@ export function DatasetCard({ dataset, onPreview, onDownload, onRunUCTP }: Datas
           Preview
         </Button>
         <Button
-          size="sm"
           className={cn(
-            'flex-1 gap-1.5 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity'
+            'flex-1 gap-1.5 h-10 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity'
           )}
           onClick={() => onDownload?.(dataset)}
           aria-label="Download dataset"
@@ -239,9 +237,8 @@ export function DatasetCard({ dataset, onPreview, onDownload, onRunUCTP }: Datas
         </Button>
         {onRunUCTP && (
           <Button
-            size="sm"
             className={cn(
-              'flex-1 gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 transition-opacity text-white'
+              'flex-1 gap-1.5 h-10 bg-gradient-to-r from-cosmic-cyan to-stellar-purple hover:opacity-90 transition-opacity text-white'
             )}
             onClick={() => onRunUCTP(dataset)}
             aria-label="Run UCTP evaluation"
