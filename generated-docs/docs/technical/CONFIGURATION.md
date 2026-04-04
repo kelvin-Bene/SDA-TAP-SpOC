@@ -332,91 +332,6 @@ simulation_min_existing_obs = 3
 
 ---
 
-## Object Type Filtering Thresholds
-
-Configuration for object type filters (H, C, A, U, N) used in 16-character dataset codes.
-
-```python
-## --- Object Type Thresholds --- ##
-
-# HAMR (High Area-to-Mass Ratio) threshold
-HAMR_THRESHOLD = 1.0  # m²/kg - objects with A/M ratio above this are HAMR
-
-# Close (C) Object Proximity Thresholds
-# Per Lewis's specification: "distance < X km, velocity < X m/s"
-# BOTH thresholds must be met for an object pair to be considered "close"
-PROXIMITY_DISTANCE_THRESHOLD_KM = 100.0  # km - objects within this distance
-PROXIMITY_VELOCITY_THRESHOLD_M_S = 100.0  # m/s - relative velocity difference
-
-# Apparent (A) Angular Proximity Threshold
-PROXIMITY_ANGULAR_THRESHOLD_DEG = 0.5  # degrees - angular separation in sky
-```
-
-### Close Object Filter Logic
-
-Objects are considered "Close" only when BOTH conditions are satisfied:
-```python
-is_close = (distance_km < PROXIMITY_DISTANCE_THRESHOLD_KM and
-            relative_velocity_m_s < PROXIMITY_VELOCITY_THRESHOLD_M_S)
-```
-
-This prevents high-velocity flyby objects from being classified as "close" even if they momentarily pass near each other.
-
----
-
-## Event Detection Configuration
-
-Configuration for event detection and ML model fallback behavior.
-
-```python
-@dataclass
-class EventDetectionConfig:
-    """Configuration for event detection."""
-
-    # TLE discontinuity thresholds
-    sma_threshold_km: float = 10.0           # Semi-major axis change threshold
-    ecc_threshold: float = 0.001             # Eccentricity change threshold
-    inc_threshold_deg: float = 0.1           # Inclination change threshold
-    raan_threshold_deg: float = 1.0          # RAAN change threshold
-    mean_motion_threshold: float = 0.001     # Mean motion change (rev/day)
-
-    # Time windows
-    min_gap_hours: float = 1.0               # Minimum gap between TLEs
-    max_gap_days: float = 7.0                # Maximum gap to consider continuous
-
-    # Confidence thresholds
-    maneuver_confidence_threshold: float = 0.7
-    breakup_confidence_threshold: float = 0.8
-
-    # Long-thrust detection
-    long_thrust_duration_days: float = 7.0   # Min duration for long-thrust
-    long_thrust_rate_threshold: float = 0.5  # m/s per day max rate
-
-    # ML Model availability (per Lewis's note about ML Labelling Team)
-    ml_model_available: bool = False         # Set True when ML model is operational
-    use_tle_fallback: bool = True            # Use TLE-based detection when ML unavailable
-    warn_on_ml_unavailable: bool = True      # Log warning when ML model not available
-```
-
-### ML Model Integration
-
-Per Lewis's specification:
-> "Since the UDL does not contain these events directly, we are relying on the ML Labelling Team to feed us the NORAD IDs and Observation times corresponding to these events."
-
-When ML model is available, set environment variables:
-```bash
-export UCT_ML_EVENT_ENDPOINT="https://your-ml-endpoint.example.com"
-export UCT_ML_EVENT_API_KEY="your-api-key"
-```
-
-When ML model is unavailable (`ml_model_available=False`):
-- `NE` (No Events): Always works - filters out satellites with detected anomalies
-- `MB` (Maneuver Between): Falls back to TLE discontinuity detection
-- `BU` (Breakup): Uses Space-Track/CelesTrak breakup database
-- `LL` (Long Low-Thrust): Uses TLE trend analysis (less reliable)
-
----
-
 ## Calibration Satellites
 
 List of satellites with known high-quality tracking data.
@@ -465,7 +380,7 @@ These satellites are used for:
 
 ## Environment Variables
 
-### Core Configuration (`.env` file)
+Required environment configuration (`.env` file):
 
 ```bash
 # UDL Authentication
@@ -481,32 +396,6 @@ OREKIT_DATA_PATH=./orekit-data-main
 LOG_LEVEL=INFO
 ```
 
-### v2.0.0 Production Environment Variables
-
-These variables are required (or recommended) for production deployment:
-
-```bash
-# --- Database ---
-DATABASE_BACKEND=postgres          # "duckdb" (default) or "postgres" / "supabase"
-DATABASE_URL=postgresql://...      # Required when DATABASE_BACKEND=postgres
-ENCRYPTION_KEY=<fernet-key>        # Required when DATABASE_BACKEND=postgres (encrypts stored API tokens)
-
-# --- Authentication (Supabase) ---
-SUPABASE_URL=https://<project>.supabase.co   # Supabase project URL (enables ES256 JWKS auth)
-SUPABASE_JWT_SECRET=<jwt-secret>   # Supabase JWT secret (HS256 fallback for dev)
-ALLOW_HS256_FALLBACK=false         # Set to "true" to allow HS256 JWT verification (dev only)
-
-# --- Application ---
-ENVIRONMENT=production             # "development" enables dev-mode auth bypass (no JWT required)
-PORT=8000                          # HTTP port (Railway sets this automatically)
-WEB_WORKERS=1                      # Uvicorn workers (keep at 1 -- JobManager uses in-memory state)
-CORS_ORIGINS=https://your-domain.com  # Comma-separated allowed origins (no wildcards with credentials)
-TRUSTED_PROXY_DEPTH=1              # Number of trusted reverse proxies for X-Forwarded-For
-
-# --- Monitoring ---
-SENTRY_DSN=https://...@sentry.io/... # Optional: Sentry error tracking DSN
-```
-
 ### Token Generation
 
 ```python
@@ -517,10 +406,6 @@ credentials = f"{username}:{password}"
 udl_token = base64.b64encode(credentials.encode()).decode()
 
 # ESA token - generate at https://discosweb.esoc.esa.int/tokens
-
-# Fernet encryption key (for ENCRYPTION_KEY)
-from cryptography.fernet import Fernet
-print(Fernet.generate_key().decode())
 ```
 
 ---

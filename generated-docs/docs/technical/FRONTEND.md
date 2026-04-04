@@ -31,12 +31,9 @@ The SpOC frontend follows a modern React architecture with clear separation of c
 │  │  │             │  │             │  │                 │  │  │
 │  │  │ - Dashboard │  │ - UI (20+)  │  │ - useDatasets   │  │  │
 │  │  │ - Datasets  │  │ - Layout    │  │ - useSubmissions│  │  │
-│  │  │ - DatasetDtl│  │ - Dashboard │  │ - useLeaderboard│  │  │
-│  │  │ - Submit    │  │ - Datasets  │  │ - useToast      │  │  │
-│  │  │ - Results   │  │ - Cesium    │  │                 │  │  │
-│  │  │ - Leaderbd  │  │             │  │                 │  │  │
-│  │  │ - Docs      │  │             │  │                 │  │  │
-│  │  │ - NotFound  │  │             │  │                 │  │  │
+│  │  │ - Submit    │  │ - Dashboard │  │ - useLeaderboard│  │  │
+│  │  │ - Results   │  │ - Datasets  │  │ - useToast      │  │  │
+│  │  │ - Leaderbd  │  │ - Cesium    │  │                 │  │  │
 │  │  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │  │
 │  │         │                │                   │           │  │
 │  │         └────────────────┼───────────────────┘           │  │
@@ -167,7 +164,20 @@ For UI and auth state:
 - Simple, minimal stores
 - No boilerplate
 
-Authentication is managed via Supabase client-side auth (ES256 JWKS). The Zustand auth store tracks session state but does not manage tokens directly -- the Supabase JS SDK handles token storage and refresh. The API client intercepts requests to inject the current Supabase session JWT, with a mutex-protected refresh mechanism on 401 responses. See `frontend/src/api/client.ts` and `frontend/src/stores/authStore.ts` for implementation details.
+```typescript
+// stores/authStore.ts
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      login: (user, token) => set({ user, token }),
+      logout: () => set({ user: null, token: null }),
+    }),
+    { name: 'auth-storage' }
+  )
+);
+```
 
 ## Routing Architecture
 
@@ -181,7 +191,6 @@ Authentication is managed via Supabase client-side auth (ES256 JWKS). The Zustan
       <Route index element={<DatasetBrowserPage />} />
       <Route path="generate" element={<DatasetGeneratorPage />} />
       <Route path="my-datasets" element={<MyDatasetsPage />} />
-      <Route path=":id" element={<DatasetDetailPage />} />
     </Route>
     <Route path="submit">
       <Route index element={<SubmitPage />} />
@@ -191,7 +200,6 @@ Authentication is managed via Supabase client-side auth (ES256 JWKS). The Zustan
     <Route path="leaderboard" element={<LeaderboardPage />} />
     <Route path="docs" element={<DocumentationPage />} />
     <Route path="profile" element={<ProfilePage />} />
-    <Route path="*" element={<NotFoundPage />} />
   </Route>
 </Routes>
 ```
@@ -361,7 +369,7 @@ npm run dev
 npm run build
 ```
 
-Access the application at http://localhost:3000
+Access the application at http://localhost:5173
 
 ---
 

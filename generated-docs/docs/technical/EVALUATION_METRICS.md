@@ -1,5 +1,12 @@
 # Evaluation Metrics
 
+<!-- AI_METADATA
+purpose: Document evaluation metrics and scoring algorithms for UCTP performance assessment
+status: active
+related_files: [technical/PIPELINE.md, planning/PROJECT_STATUS.md]
+last_updated: 2026-02-03
+-->
+
 ## Overview
 
 The evaluation system assesses UCTP algorithm performance through three categories of metrics:
@@ -40,6 +47,8 @@ The evaluation system assesses UCTP algorithm performance through three categori
 
 ---
 
+<!-- AI_SECTION: orbit_association -->
+
 ## 1. Orbit Association
 
 Before computing metrics, UCTP output must be associated with reference orbits. The UCTP does not tell us which reference object corresponds to which candidate - it just says "these observations are correlated and this is the orbit."
@@ -70,7 +79,11 @@ The association process uses the Hungarian algorithm (linear sum assignment) to 
 | Undiscovered Reference Orbits | Reference orbits not matched (missed detections) |
 | Association Time | Computation time |
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: binary_metrics -->
 
 ## 2. Binary Metrics
 
@@ -111,7 +124,11 @@ Accuracy = (TP + TN) / (TP + TN + FP + FN)
 
 **Code Location**: `uct_benchmark/evaluation/binaryMetrics.py`
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: state_metrics -->
 
 ## 3. State Metrics
 
@@ -158,7 +175,11 @@ For consistent estimator: E[NEES] ≈ n (state dimension)
 
 **Code Location**: `uct_benchmark/evaluation/stateMetrics.py`
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: residual_metrics -->
 
 ## 4. Residual Metrics
 
@@ -195,6 +216,8 @@ Residual = Observed - Predicted
 | Range Rate Residual Mean | Mean range rate residual | km/s |
 | Range Rate Residual RMS | RMS range rate residual | km/s |
 
+<!-- AI_IMPROVEMENT_OPPORTUNITY: Radar residual metrics are not fully implemented. See planning/FUTURE_IMPLEMENTATIONS.md -->
+
 ### Interpretation
 
 | Regime | Good RMS | Moderate RMS | Poor RMS |
@@ -205,7 +228,11 @@ Residual = Observed - Predicted
 
 **Code Location**: `uct_benchmark/evaluation/residualMetrics.py`
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: dataset_tiering -->
 
 ## 5. Dataset Tiering
 
@@ -241,7 +268,11 @@ lowObjectCount = 10
 
 **Code Location**: `uct_benchmark/data/basicScoringFunction.py`
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: report_generation -->
 
 ## 6. Report Generation
 
@@ -292,7 +323,11 @@ generatePDF(evals, "evaluation_report.pdf")
 
 **Code Location**: `uct_benchmark/utils/generatePDF.py`
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: benchmark_comparison -->
 
 ## 7. Benchmark Comparison
 
@@ -317,7 +352,11 @@ For comparing multiple UCTP algorithms:
 | 2 | Recall | Velocity RMS | Runtime |
 | 3 | Precision | Covariance Consistency | - |
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: usage_example -->
 
 ## Usage Example
 
@@ -350,3 +389,5 @@ print(f"F1-Score: {binary['F1-Score']:.3f}")
 print(f"Position RMS: {state['Position Error RMS']:.2f} km")
 print(f"Residual RMS: {residual['RA Residual RMS']:.2f} arcsec")
 ```
+
+<!-- /AI_SECTION -->

@@ -1,0 +1,28 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img [ref=e15]
+        - heading "SpOC" [active] [level=3] [ref=e23]
+        - paragraph [ref=e24]: Create your account
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - text: Email
+          - textbox "Email" [ref=e48]:
+            - /placeholder: researcher@aerospace.org
+        - generic [ref=e49]:
+          - text: Password
+          - textbox "Password" [ref=e50]:
+            - /placeholder: Min. 8 characters
+        - generic [ref=e51]:
+          - text: Confirm Password
+          - textbox "Confirm Password" [ref=e52]
+        - button "Create Account" [ref=e53] [cursor=pointer]
+      - paragraph [ref=e54]:
+        - text: Already have an account?
+        - button "Sign in" [ref=e55] [cursor=pointer]
+    - generic [ref=e38]: SpOC v1.3.0
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e39] [cursor=pointer]:
+    - img [ref=e40]

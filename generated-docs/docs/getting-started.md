@@ -11,7 +11,7 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 ### Software Prerequisites
 - **Python**: 3.12+ (required)
-- **Java Development Kit (JDK) 17+**: Required for Orekit orbital mechanics library (JRE alone is insufficient)
+- **Java Runtime Environment (JRE)**: Required for Orekit orbital mechanics library
 - **Git**: For version control and repository cloning
 
 ### Hardware Requirements
@@ -25,8 +25,8 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/kelvin-Bene/SDA-TAP-SpOC.git
-   cd SDA-TAP-SpOC/UCT-Benchmark-DMR/combined
+   git clone https://github.com/your-org/uct-benchmark.git
+   cd uct-benchmark/UCT-Benchmark-DMR/combined
    ```
 
 2. **Set up Python environment**
@@ -53,6 +53,8 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 4. **Install development dependencies** (optional)
    ```bash
+   make requirements  # Installs via uv
+   # OR
    pip install -e ".[dev]"
    ```
 
@@ -60,8 +62,8 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 1. **Clone and navigate**
    ```bash
-   git clone https://github.com/kelvin-Bene/SDA-TAP-SpOC.git
-   cd SDA-TAP-SpOC/UCT-Benchmark-DMR/combined
+   git clone https://github.com/your-org/uct-benchmark.git
+   cd uct-benchmark/UCT-Benchmark-DMR/combined
    ```
 
 2. **Create virtual environment**
@@ -74,7 +76,8 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
    ```bash
    pip install pandas numpy loguru requests
    pip install orekit-jpype  # Orbital mechanics
-   pip install customtkinter  # Legacy GUI support (optional)
+   pip install solara ipywidgets  # GUI components
+   pip install customtkinter  # Legacy GUI support
    ```
 
 4. **Install in development mode**
@@ -116,17 +119,15 @@ For detailed Windows Orekit setup, see the [Orekit Setup Guide](guides/OREKIT_SE
 
 ### 2. Orekit Data Files
 
-Orekit requires ephemeris data for orbit propagation. The recommended approach is to install via pip directly from GitLab:
+Orekit requires ephemeris data for orbit propagation. The recommended approach is to install via pip:
 
 ```bash
-# Install orekitdata package from GitLab (required - NOT on PyPI)
-pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
+# Install orekitdata package (recommended)
+pip install orekitdata
 
 # This automatically provides required ephemeris data when using:
 # setup_orekit_curdir(from_pip_library=True)
 ```
-
-**Note:** The `orekitdata` package is NOT available on PyPI. You must install it from the GitLab repository as shown above.
 
 Alternatively, the project includes orekit-data in multiple locations:
 ```bash
@@ -168,8 +169,8 @@ mkdir -p reports/figures
 ```bash
 # Test Python imports
 python -c "
+from uct_benchmark import settings
 from uct_benchmark.database import DatabaseManager
-from uct_benchmark.api.apiIntegration import generateDataset
 print('Core imports successful')
 "
 ```
@@ -201,16 +202,11 @@ print('CustomTkinter GUI available')
 "
 ```
 
-### 4. Test Database
+### 4. Run Demo Pipeline
 
 ```bash
-# Initialize and test the database
-python -c "
-from uct_benchmark.database import DatabaseManager
-db = DatabaseManager()
-db.initialize()
-print('Database initialized:', db.is_initialized())
-"
+# Test full pipeline (demo mode - no network required)
+python -m uct_benchmark.MainMVP
 ```
 
 ## Running the Web Application
@@ -238,7 +234,7 @@ npm install
 npm run dev
 ```
 
-Access the application at http://localhost:3000
+Access the application at http://localhost:5173
 
 ## Troubleshooting
 
@@ -266,8 +262,7 @@ echo $JAVA_HOME  # Linux/macOS
 
 # Reinstall orekit packages
 pip uninstall orekit-jpype orekitdata
-pip install orekit-jpype
-pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
+pip install orekit-jpype orekitdata
 ```
 
 **3. GUI Display Issues**
@@ -290,19 +285,19 @@ python -c "import os; print('Token set:', bool(os.getenv('UDL_TOKEN')))"
 
 **5. Package Version Conflicts**
 ```bash
+# Known compatibility: uvicorn must be <0.25.0 for Solara
+pip install "uvicorn==0.24.0.post1"
+
 # Check for conflicts
 pip check
-
-# If you encounter version conflicts, reinstall from pyproject.toml
-pip install -e ".[dev]"
 ```
 
 ### Development Environment
 
 **Code Formatting and Linting**
 ```bash
-ruff format .   # Run ruff formatting
-pytest tests/   # Run pytest suite
+make format  # Run ruff formatting
+make test    # Run pytest suite
 ```
 
 **Documentation**
@@ -317,16 +312,16 @@ mkdocs serve
 After successful installation:
 
 1. **Read the documentation**: Check the [Architecture](technical/ARCHITECTURE.md) overview
-2. **Explore the web UI**: Access the web interface at http://localhost:3000
-3. **Configure parameters**: Edit dataset parameters via the UI or API
-4. **Run evaluations**: Execute evaluation using `python Evaluation.py`
-5. **Generate datasets**: Use the Dataset Generation page in the web UI
+2. **Run tutorials**: Explore notebooks in `notebooks/`
+3. **Configure parameters**: Edit dataset parameters in GUI or programmatically
+4. **Run evaluations**: Execute full pipeline with your data
+5. **Explore the UI**: Access the web interface for dataset generation
 
 ## Support
 
-- **Issues**: Report problems via [GitHub Issues](https://github.com/kelvin-Bene/SDA-TAP-SpOC/issues)
+- **Issues**: Report problems via GitHub Issues
 - **Documentation**: Check the technical reference section
-- **Troubleshooting**: See [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+- **Examples**: See `notebooks/` for usage examples
 - **Configuration**: Review `uct_benchmark/settings.py` for paths and settings
 
 ---

@@ -1,0 +1,253 @@
+- generic [ref=e2]:
+  - generic [ref=e45]:
+    - banner [ref=e46]:
+      - generic [ref=e47]:
+        - button "Toggle menu" [ref=e48] [cursor=pointer]:
+          - img [ref=e49]
+          - generic [ref=e50]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e51] [cursor=pointer]:
+          - /url: /
+          - img [ref=e53]
+          - generic [ref=e60]:
+            - generic [ref=e61]: SpOC
+            - generic [ref=e62]: UCT Benchmark
+        - navigation [ref=e63]:
+          - link "Datasets" [ref=e64] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e65] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e66] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e67] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e68]:
+          - button "Notifications" [ref=e69] [cursor=pointer]:
+            - img [ref=e70]
+            - generic [ref=e73]: Notifications
+          - button "User menu" [ref=e74] [cursor=pointer]:
+            - img [ref=e76]
+            - generic [ref=e79]: User menu
+    - generic [ref=e80]:
+      - complementary [ref=e81]:
+        - generic [ref=e83]:
+          - generic [ref=e86]:
+            - navigation [ref=e87]:
+              - link "Dashboard" [ref=e88] [cursor=pointer]:
+                - /url: /
+                - img [ref=e89]
+                - text: Dashboard
+              - generic [ref=e95]:
+                - button "Datasets" [ref=e96] [cursor=pointer]:
+                  - generic [ref=e97]:
+                    - img [ref=e98]
+                    - text: Datasets
+                  - img [ref=e102]
+                - generic [ref=e104]:
+                  - link "Browse Datasets" [ref=e105] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e106] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e107] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e108]:
+                - button "Submit" [ref=e109] [cursor=pointer]:
+                  - generic [ref=e110]:
+                    - img [ref=e111]
+                    - text: Submit
+                  - img [ref=e114]
+                - generic [ref=e116]:
+                  - link "New Submission" [ref=e117] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e118] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e119] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e120]
+                - text: Leaderboard
+              - link "Settings" [ref=e126] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e127]
+                - text: Settings
+            - generic [ref=e130]:
+              - heading "Quick Actions" [level=4] [ref=e131]:
+                - img [ref=e132]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e134] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e135]:
+                  - img [ref=e137]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e138] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e139]:
+                  - img [ref=e141]
+                  - text: Upload Submission
+            - generic [ref=e144]:
+              - heading "Recent Results" [level=4] [ref=e145]:
+                - img [ref=e146]
+                - text: Recent Results
+              - link "SupabaseTestUCTP v1.0.0" [ref=e149] [cursor=pointer]:
+                - /url: /results/3
+                - img [ref=e150]
+                - generic [ref=e153]: SupabaseTestUCTP v1.0.0
+          - generic [ref=e155]:
+            - generic [ref=e159]: All systems operational
+            - generic [ref=e160]: v1.3.0
+      - main [ref=e161]:
+        - generic [ref=e163]:
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - img [ref=e169]
+              - text: Welcome back
+            - heading "Good to see you, kelvin" [level=1] [ref=e171]
+            - paragraph [ref=e172]: Track your algorithm performance, explore benchmark datasets, and climb the leaderboard.
+            - generic [ref=e173]:
+              - link "Generate Dataset" [ref=e174] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e175]:
+                  - img [ref=e176]
+                  - text: Generate Dataset
+              - link "Submit Algorithm" [ref=e177] [cursor=pointer]:
+                - /url: /submit
+                - button "Submit Algorithm" [ref=e178]:
+                  - img [ref=e179]
+                  - text: Submit Algorithm
+          - generic [ref=e182]:
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - paragraph [ref=e188]: Top Rank
+                - paragraph [ref=e189]: "#1"
+                - generic [ref=e191]: SupabaseTestUCTP
+              - img [ref=e193]
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - paragraph [ref=e204]: Submissions
+                - paragraph [ref=e205]: "1"
+                - generic [ref=e207]: 2 processing
+              - img [ref=e209]
+            - generic [ref=e215]:
+              - generic [ref=e216]:
+                - paragraph [ref=e217]: Best F1-Score
+                - paragraph [ref=e218]: "0.0000"
+                - generic [ref=e220]: LEO-standard-2026-01-29-20260129-175226-507ec665
+              - img [ref=e222]
+            - generic [ref=e229]:
+              - generic [ref=e230]:
+                - paragraph [ref=e231]: vs. Average
+                - paragraph [ref=e232]: 0%
+                - generic [ref=e234]:
+                  - img [ref=e235]
+                  - text: "0"
+                  - generic [ref=e236]: above average
+              - img [ref=e238]
+          - generic [ref=e241]:
+            - link "Browse Datasets Explore benchmark datasets across all orbital regimes View datasets" [ref=e242] [cursor=pointer]:
+              - /url: /datasets
+              - generic [ref=e245]:
+                - img [ref=e247]
+                - heading "Browse Datasets" [level=3] [ref=e252]
+                - paragraph [ref=e253]: Explore benchmark datasets across all orbital regimes
+                - generic [ref=e254]:
+                  - text: View datasets
+                  - img [ref=e255]
+            - link "Leaderboard See how your algorithms compare to others View rankings" [ref=e257] [cursor=pointer]:
+              - /url: /leaderboard
+              - generic [ref=e260]:
+                - img [ref=e262]
+                - heading "Leaderboard" [level=3] [ref=e268]
+                - paragraph [ref=e269]: See how your algorithms compare to others
+                - generic [ref=e270]:
+                  - text: View rankings
+                  - img [ref=e271]
+            - link "Documentation Learn about metrics, formats, and best practices Read docs" [ref=e273] [cursor=pointer]:
+              - /url: /docs
+              - generic [ref=e276]:
+                - img [ref=e278]
+                - heading "Documentation" [level=3] [ref=e281]
+                - paragraph [ref=e282]: Learn about metrics, formats, and best practices
+                - generic [ref=e283]:
+                  - text: Read docs
+                  - img [ref=e284]
+          - generic [ref=e286]:
+            - generic [ref=e287]:
+              - generic [ref=e288]:
+                - heading "Recent Submissions" [level=3] [ref=e289]
+                - link "View All" [ref=e290] [cursor=pointer]:
+                  - /url: /submit/my-submissions
+                  - button "View All" [ref=e291]:
+                    - text: View All
+                    - img [ref=e292]
+              - generic [ref=e295]:
+                - 'link "DemoUCTP v1.0 Queued LEO-standard-2026-01-29-20260129-175226-507ec665 Rank: #2" [ref=e296] [cursor=pointer]':
+                  - /url: /submit/my-submissions
+                  - generic [ref=e297]:
+                    - generic [ref=e299]:
+                      - generic [ref=e300]:
+                        - generic [ref=e301]: DemoUCTP v1.0
+                        - generic [ref=e302]:
+                          - img [ref=e303]
+                          - text: Queued
+                      - paragraph [ref=e306]: LEO-standard-2026-01-29-20260129-175226-507ec665
+                    - generic [ref=e308]: "Rank: #2"
+                - 'link "SupabaseTestUCTP v1.0.0 Complete LEO-standard-2026-01-29-20260129-175226-507ec665 0.000 F1-Score Rank: #1" [ref=e309] [cursor=pointer]':
+                  - /url: /results/3
+                  - generic [ref=e310]:
+                    - generic [ref=e311]:
+                      - generic [ref=e312]:
+                        - generic [ref=e313]:
+                          - generic [ref=e314]: SupabaseTestUCTP v1.0.0
+                          - generic [ref=e315]:
+                            - img [ref=e316]
+                            - text: Complete
+                        - paragraph [ref=e319]: LEO-standard-2026-01-29-20260129-175226-507ec665
+                      - generic [ref=e320]:
+                        - paragraph [ref=e321]: "0.000"
+                        - paragraph [ref=e322]: F1-Score
+                    - generic [ref=e324]: "Rank: #1"
+                - 'link "DemoUCTP v1.0.1 Queued LEO-standard-2026-01-29-20260129-175226-507ec665 Rank: #2" [ref=e325] [cursor=pointer]':
+                  - /url: /submit/my-submissions
+                  - generic [ref=e326]:
+                    - generic [ref=e328]:
+                      - generic [ref=e329]:
+                        - generic [ref=e330]: DemoUCTP v1.0.1
+                        - generic [ref=e331]:
+                          - img [ref=e332]
+                          - text: Queued
+                      - paragraph [ref=e335]: LEO-standard-2026-01-29-20260129-175226-507ec665
+                    - generic [ref=e337]: "Rank: #2"
+            - generic [ref=e338]:
+              - generic [ref=e339]:
+                - heading "Leaderboard" [level=3] [ref=e340]
+                - link "View Full" [ref=e341] [cursor=pointer]:
+                  - /url: /leaderboard
+                  - button "View Full" [ref=e342]:
+                    - text: View Full
+                    - img [ref=e343]
+              - generic [ref=e347]:
+                - generic [ref=e348]:
+                  - img [ref=e349]
+                  - generic [ref=e355]:
+                    - generic [ref=e357]: SupabaseTestUCTP
+                    - paragraph [ref=e358]: Independent
+                - generic [ref=e359]:
+                  - paragraph [ref=e360]: "0.0000"
+                  - paragraph [ref=e361]: F1-Score
+          - generic [ref=e365]:
+            - generic [ref=e366]:
+              - img [ref=e367]
+              - heading "Announcements" [level=3] [ref=e369]
+            - list [ref=e370]:
+              - listitem [ref=e371]:
+                - generic [ref=e372]: NEW
+                - generic [ref=e373]: T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!
+              - listitem [ref=e374]:
+                - generic [ref=e375]: UPDATE
+                - generic [ref=e376]: Evaluation metrics now include covariance realism checks. See the documentation for details.
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e5] [cursor=pointer]:
+    - img [ref=e6]

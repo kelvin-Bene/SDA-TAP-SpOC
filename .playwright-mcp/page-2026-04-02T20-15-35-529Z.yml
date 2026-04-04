@@ -1,0 +1,101 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e15]
+          - generic [ref=e22]:
+            - generic [ref=e23]: SpOC
+            - generic [ref=e24]: UCT Benchmark
+        - navigation [ref=e25]:
+          - link "Datasets" [ref=e26] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e27] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e28] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e29] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e30]:
+          - button "Notifications" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e35]: Notifications
+          - button "User menu" [ref=e36] [cursor=pointer]:
+            - img [ref=e38]
+            - generic [ref=e41]: User menu
+    - generic [ref=e42]:
+      - complementary [ref=e43]:
+        - generic [ref=e45]:
+          - generic [ref=e48]:
+            - navigation [ref=e49]:
+              - link "Dashboard" [ref=e50] [cursor=pointer]:
+                - /url: /
+                - img [ref=e51]
+                - text: Dashboard
+              - generic [ref=e56]:
+                - button "Datasets" [ref=e57] [cursor=pointer]:
+                  - generic [ref=e58]:
+                    - img [ref=e59]
+                    - text: Datasets
+                  - img [ref=e63]
+                - generic [ref=e65]:
+                  - link "Browse Datasets" [ref=e66] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e67] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e68] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e69]:
+                - button "Submit" [ref=e70] [cursor=pointer]:
+                  - generic [ref=e71]:
+                    - img [ref=e72]
+                    - text: Submit
+                  - img [ref=e75]
+                - generic [ref=e77]:
+                  - link "New Submission" [ref=e78] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e79] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e80] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e81]
+                - text: Leaderboard
+            - generic [ref=e87]:
+              - heading "Quick Actions" [level=4] [ref=e88]:
+                - img [ref=e89]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e91] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e92]:
+                  - img [ref=e94]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e95] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e96]:
+                  - img [ref=e98]
+                  - text: Upload Submission
+          - generic [ref=e102]:
+            - generic [ref=e106]: All systems operational
+            - generic [ref=e107]: v1.3.0
+      - main [ref=e108]:
+        - generic [ref=e110]:
+          - heading "404" [level=1] [ref=e111]
+          - heading "Page Not Found" [level=2] [ref=e112]
+          - paragraph [ref=e113]: The page you are looking for does not exist or may have been moved.
+          - link "Go Home" [ref=e114] [cursor=pointer]:
+            - /url: /
+            - button "Go Home" [ref=e115]:
+              - img [ref=e116]
+              - text: Go Home
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e119] [cursor=pointer]:
+    - img [ref=e120]

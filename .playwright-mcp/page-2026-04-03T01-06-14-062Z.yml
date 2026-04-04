@@ -1,0 +1,242 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e19]:
+            - generic [ref=e20]: SpOC
+            - generic [ref=e21]: UCT Benchmark
+        - navigation [ref=e22]:
+          - link "Datasets" [ref=e53] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e54] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e55] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e23] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e24]:
+          - button "Notifications" [ref=e56] [cursor=pointer]:
+            - img [ref=e57]
+            - generic [ref=e60]: Notifications
+          - button "User menu" [ref=e61] [cursor=pointer]:
+            - img [ref=e63]
+            - generic [ref=e66]: User menu
+    - generic [ref=e26]:
+      - complementary [ref=e27]:
+        - generic [ref=e29]:
+          - generic [ref=e32]:
+            - navigation [ref=e33]:
+              - link "Dashboard" [ref=e67] [cursor=pointer]:
+                - /url: /
+                - img [ref=e68]
+                - text: Dashboard
+              - generic [ref=e73]:
+                - button "Datasets" [ref=e74] [cursor=pointer]:
+                  - generic [ref=e75]:
+                    - img [ref=e76]
+                    - text: Datasets
+                  - img [ref=e80]
+                - generic [ref=e83]:
+                  - link "Browse Datasets" [ref=e84] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e85] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e86] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e87]:
+                - button "Submit" [ref=e88] [cursor=pointer]:
+                  - generic [ref=e89]:
+                    - img [ref=e90]
+                    - text: Submit
+                  - img [ref=e93]
+                - generic [ref=e95]:
+                  - link "New Submission" [ref=e96] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e97] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e98] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e99]
+                - text: Leaderboard
+              - link "Settings" [ref=e105] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e106]
+                - text: Settings
+            - generic [ref=e109]:
+              - heading "Quick Actions" [level=4] [ref=e110]:
+                - img [ref=e111]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e113] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e114]:
+                  - img [ref=e116]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e117] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e118]:
+                  - img [ref=e120]
+                  - text: Upload Submission
+          - generic [ref=e38]:
+            - generic [ref=e42]: All systems operational
+            - generic [ref=e43]: v1.3.0
+      - main [ref=e44]:
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - heading "Datasets" [level=1] [ref=e126]
+              - paragraph [ref=e127]: Browse and download benchmark datasets for UCT algorithm evaluation
+            - link "Generate New" [ref=e128] [cursor=pointer]:
+              - /url: /datasets/generate
+              - button "Generate New" [ref=e129]:
+                - img [ref=e130]
+                - text: Generate New
+          - generic [ref=e132]:
+            - generic [ref=e133]:
+              - generic [ref=e134]:
+                - text: Search
+                - generic [ref=e135]:
+                  - img [ref=e136]
+                  - textbox "Search" [active] [ref=e139]:
+                    - /placeholder: Search by dataset name...
+                    - text: GEO
+              - generic [ref=e140]:
+                - text: Sort By
+                - combobox "Sort By" [ref=e141] [cursor=pointer]:
+                  - generic: Date Created
+                  - img [ref=e142]
+              - button "Descending" [ref=e144] [cursor=pointer]:
+                - img [ref=e145]
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - text: Orbital Regime
+                - combobox "Orbital Regime" [ref=e150] [cursor=pointer]:
+                  - generic: All Regimes
+                  - img [ref=e151]
+              - generic [ref=e153]:
+                - text: Data Tier
+                - combobox "Data Tier" [ref=e154] [cursor=pointer]:
+                  - generic: All Tiers
+                  - img [ref=e155]
+              - generic [ref=e157]:
+                - text: Sensor Type
+                - combobox "Sensor Type" [ref=e158] [cursor=pointer]:
+                  - generic: All Sensors
+                  - img [ref=e159]
+              - generic [ref=e161]:
+                - generic [ref=e162]: "Object Count: 0 - 200"
+                - slider "Minimum" [ref=e167]
+              - button "Clear Filters" [ref=e2412] [cursor=pointer]:
+                - img [ref=e2413]
+                - text: Clear Filters
+          - generic [ref=e168]:
+            - paragraph [ref=e169]: Showing 3 datasets
+            - generic [ref=e170]:
+              - button [ref=e171] [cursor=pointer]:
+                - img [ref=e172]
+              - button [ref=e177] [cursor=pointer]:
+                - img [ref=e178]
+          - generic [ref=e2416]:
+            - generic [ref=e2417]:
+              - generic [ref=e2419]:
+                - heading "GEO-high-2026-03-31-20260331-205748-a696ffda" [level=3] [ref=e2421]
+                - generic [ref=e2422]:
+                  - generic [ref=e2423]: GEO
+                  - generic [ref=e2424]: T1 - Pristine
+              - generic [ref=e2425]:
+                - generic [ref=e2426]:
+                  - generic [ref=e2427]:
+                    - img [ref=e2428]
+                    - generic [ref=e2434]: 6 objects
+                  - generic [ref=e2435]:
+                    - img [ref=e2436]
+                    - generic [ref=e2440]: 117 obs
+                  - generic [ref=e2441]:
+                    - generic [ref=e2442]: "Coverage:"
+                    - generic [ref=e2446]: 20%
+                  - generic [ref=e2447]:
+                    - generic [ref=e2448]: "Size:"
+                    - generic [ref=e2449]: 57.13 KB
+                - generic [ref=e2450]:
+                  - img [ref=e2451]
+                  - text: Mar 31, 2026, 20:57
+              - generic [ref=e2453]:
+                - button "Preview dataset" [ref=e2454] [cursor=pointer]:
+                  - img [ref=e2455]
+                  - text: Preview
+                - button "Download dataset" [ref=e2458] [cursor=pointer]:
+                  - img [ref=e2459]
+                  - text: Download
+            - generic [ref=e2462]:
+              - generic [ref=e2464]:
+                - heading "test-geo-fast-20260330-235644-d62f2d4b" [level=3] [ref=e2466]
+                - generic [ref=e2467]:
+                  - generic [ref=e2468]: GEO
+                  - generic [ref=e2469]: T1 - Pristine
+              - generic [ref=e2470]:
+                - generic [ref=e2471]:
+                  - generic [ref=e2472]:
+                    - img [ref=e2473]
+                    - generic [ref=e2479]: 1 objects
+                  - generic [ref=e2480]:
+                    - img [ref=e2481]
+                    - generic [ref=e2485]: 4 obs
+                  - generic [ref=e2486]:
+                    - generic [ref=e2487]: "Coverage:"
+                    - generic [ref=e2491]: 20%
+                  - generic [ref=e2492]:
+                    - generic [ref=e2493]: "Size:"
+                    - generic [ref=e2494]: 1.95 KB
+                - generic [ref=e2495]:
+                  - img [ref=e2496]
+                  - text: Mar 30, 2026, 23:56
+              - generic [ref=e2498]:
+                - button "Preview dataset" [ref=e2499] [cursor=pointer]:
+                  - img [ref=e2500]
+                  - text: Preview
+                - button "Download dataset" [ref=e2503] [cursor=pointer]:
+                  - img [ref=e2504]
+                  - text: Download
+            - generic [ref=e2507]:
+              - generic [ref=e2509]:
+                - heading "api-test-geo-fast-20260330-184933-8972d179" [level=3] [ref=e2511]
+                - generic [ref=e2512]:
+                  - generic [ref=e2513]: GEO
+                  - generic [ref=e2514]: T1 - Pristine
+              - generic [ref=e2515]:
+                - generic [ref=e2516]:
+                  - generic [ref=e2517]:
+                    - img [ref=e2518]
+                    - generic [ref=e2524]: 0 objects
+                  - generic [ref=e2525]:
+                    - img [ref=e2526]
+                    - generic [ref=e2530]: 0 obs
+                  - generic [ref=e2531]:
+                    - generic [ref=e2532]: "Coverage:"
+                    - generic [ref=e2535]: 0%
+                  - generic [ref=e2536]:
+                    - generic [ref=e2537]: "Size:"
+                    - generic [ref=e2538]: 0 Bytes
+                - generic [ref=e2539]:
+                  - img [ref=e2540]
+                  - text: Mar 30, 2026, 18:49
+              - generic [ref=e2542]:
+                - button "Preview dataset" [ref=e2543] [cursor=pointer]:
+                  - img [ref=e2544]
+                  - text: Preview
+                - button "Download dataset" [ref=e2547] [cursor=pointer]:
+                  - img [ref=e2548]
+                  - text: Download
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e50] [cursor=pointer]:
+    - img [ref=e51]

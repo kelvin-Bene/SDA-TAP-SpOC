@@ -1,0 +1,36 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e19]:
+            - generic [ref=e20]: SpOC
+            - generic [ref=e21]: UCT Benchmark
+        - navigation [ref=e22]:
+          - link "Docs" [ref=e23] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - button "Sign In" [ref=e25] [cursor=pointer]
+    - generic [ref=e26]:
+      - complementary [ref=e27]:
+        - generic [ref=e29]:
+          - navigation [ref=e33]:
+            - link "Documentation" [ref=e34] [cursor=pointer]:
+              - /url: /docs
+              - img [ref=e35]
+              - text: Documentation
+          - generic [ref=e38]:
+            - generic [ref=e42]: All systems operational
+            - generic [ref=e43]: v1.3.0
+      - main [ref=e44]:
+        - status [ref=e46]:
+          - paragraph [ref=e49]: Loading...
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e50] [cursor=pointer]:
+    - img [ref=e51]

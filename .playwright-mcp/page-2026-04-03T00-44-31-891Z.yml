@@ -1,0 +1,217 @@
+- generic [ref=e2]:
+  - generic [ref=e8]:
+    - navigation [ref=e9]:
+      - generic [ref=e10]:
+        - link "SpOC" [ref=e11] [cursor=pointer]:
+          - /url: "#mission"
+          - img [ref=e16]
+          - generic [ref=e22]: SpOC
+        - generic [ref=e23]:
+          - link "Mission" [ref=e24] [cursor=pointer]:
+            - /url: "#mission"
+          - link "Problem" [ref=e25] [cursor=pointer]:
+            - /url: "#problem"
+          - link "Solution" [ref=e26] [cursor=pointer]:
+            - /url: "#solution"
+          - link "Capabilities" [ref=e27] [cursor=pointer]:
+            - /url: "#capabilities"
+          - link "Access" [ref=e28] [cursor=pointer]:
+            - /url: "#access"
+        - generic [ref=e29]:
+          - button [ref=e30] [cursor=pointer]:
+            - img [ref=e31]
+          - link "Get Started" [ref=e33] [cursor=pointer]:
+            - /url: /login
+            - img [ref=e34]
+            - text: Get Started
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]: SDA TAP Lab // Space Operations Command
+          - heading "SpOC Uncorrelated Track Processing Benchmark Platform" [level=1] [ref=e42]:
+            - generic [ref=e43]: SpOC
+            - generic [ref=e44]: Uncorrelated Track Processing
+            - generic [ref=e45]: Benchmark Platform
+          - paragraph [ref=e46]: The standardized evaluation framework for UCTP algorithms across all orbital regimes.
+          - generic [ref=e47]:
+            - button "Mission Briefing" [ref=e48] [cursor=pointer]:
+              - img [ref=e49]
+              - text: Mission Briefing
+            - link "Access Platform" [ref=e51] [cursor=pointer]:
+              - /url: /login
+              - img [ref=e52]
+              - text: Access Platform
+        - img [ref=e57]
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]: "4"
+          - generic [ref=e83]: Orbital Regimes
+        - generic [ref=e84]:
+          - generic [ref=e85]: "5"
+          - generic [ref=e86]: Data Tiers
+        - generic [ref=e87]:
+          - generic [ref=e88]: "4"
+          - generic [ref=e89]: Sensor Types
+    - generic [ref=e91]:
+      - generic [ref=e92]:
+        - generic [ref=e93]: Current State Assessment
+        - heading "The Problem" [level=2] [ref=e94]
+        - paragraph [ref=e95]: UCTP algorithm evaluation lacks standardization, objectivity, and reproducibility.
+      - generic [ref=e96]:
+        - generic [ref=e98]:
+          - img [ref=e100]
+          - heading "Inconsistent Data" [level=3] [ref=e102]
+          - generic [ref=e103]:
+            - paragraph [ref=e104]: No common datasets across evaluation efforts.
+            - paragraph [ref=e105]: No controlled variables. No reproducible baselines.
+        - generic [ref=e107]:
+          - img [ref=e109]
+          - heading "No Objective Metrics" [level=3] [ref=e111]
+          - generic [ref=e112]:
+            - paragraph [ref=e113]: Evaluation criteria vary between organizations.
+            - paragraph [ref=e114]: No standardized performance measures.
+        - generic [ref=e116]:
+          - img [ref=e118]
+          - heading "Closed Evaluation" [level=3] [ref=e121]
+          - generic [ref=e122]:
+            - paragraph [ref=e123]: No third-party verification of algorithm claims.
+            - paragraph [ref=e124]: No reproducible benchmarks.
+    - generic [ref=e126]:
+      - generic [ref=e127]:
+        - generic [ref=e128]: Common Task Framework
+        - heading "The Solution" [level=2] [ref=e129]
+        - paragraph [ref=e130]: Two standardized pipelines that separate data generation from algorithm evaluation.
+      - generic [ref=e131]:
+        - generic [ref=e133]:
+          - 'heading "Pipeline A: Data Generation" [level=3] [ref=e134]'
+          - generic [ref=e135]:
+            - generic [ref=e136]:
+              - img [ref=e139]
+              - generic [ref=e143]:
+                - paragraph [ref=e144]: Configure
+                - paragraph [ref=e145]: Set regime, tier, sensor, and epoch parameters.
+            - generic [ref=e146]:
+              - img [ref=e149]
+              - generic [ref=e156]:
+                - paragraph [ref=e157]: Acquire
+                - paragraph [ref=e158]: Generate or ingest observation data.
+            - generic [ref=e159]:
+              - img [ref=e162]
+              - generic [ref=e165]:
+                - paragraph [ref=e166]: Window Selection
+                - paragraph [ref=e167]: Define temporal bounds for the dataset.
+            - generic [ref=e168]:
+              - img [ref=e171]
+              - generic [ref=e175]:
+                - paragraph [ref=e176]: Quality Scoring
+                - paragraph [ref=e177]: Automated data quality assessment.
+            - generic [ref=e178]:
+              - img [ref=e181]
+              - generic [ref=e185]:
+                - paragraph [ref=e186]: Tiered Processing
+                - paragraph [ref=e187]: Apply tier-specific transformations.
+        - generic [ref=e189]:
+          - 'heading "Pipeline B: Evaluation" [level=3] [ref=e190]'
+          - generic [ref=e191]:
+            - generic [ref=e192]:
+              - img [ref=e195]
+              - generic [ref=e199]:
+                - paragraph [ref=e200]: Download
+                - paragraph [ref=e201]: Retrieve benchmark dataset package.
+            - generic [ref=e202]:
+              - img [ref=e205]
+              - generic [ref=e209]:
+                - paragraph [ref=e210]: Process
+                - paragraph [ref=e211]: Run UCTP algorithm against dataset.
+            - generic [ref=e212]:
+              - img [ref=e215]
+              - generic [ref=e219]:
+                - paragraph [ref=e220]: Submit
+                - paragraph [ref=e221]: Upload results to the platform.
+            - generic [ref=e222]:
+              - img [ref=e225]
+              - generic [ref=e228]:
+                - paragraph [ref=e229]: Evaluate
+                - paragraph [ref=e230]: Automated metric computation and scoring.
+    - generic [ref=e232]:
+      - generic [ref=e233]:
+        - generic [ref=e234]: Operational Capabilities
+        - heading "Platform Capabilities" [level=2] [ref=e235]
+        - paragraph [ref=e236]: End-to-end tooling for benchmark dataset management, submission processing, and performance evaluation.
+      - generic [ref=e237]:
+        - generic [ref=e239]:
+          - img [ref=e241]
+          - generic [ref=e246]:
+            - heading "Dashboard" [level=3] [ref=e247]
+            - paragraph [ref=e248]: Real-time stats, submission tracking, leaderboard snapshots.
+        - generic [ref=e250]:
+          - img [ref=e252]
+          - generic [ref=e256]:
+            - heading "Dataset Browser" [level=3] [ref=e257]
+            - paragraph [ref=e258]: Browse datasets filtered by regime, tier, and sensor type.
+        - generic [ref=e260]:
+          - img [ref=e262]
+          - generic [ref=e263]:
+            - heading "Dataset Generator" [level=3] [ref=e264]
+            - paragraph [ref=e265]: Multi-step configuration with 16-character dataset codes.
+        - generic [ref=e267]:
+          - img [ref=e269]
+          - generic [ref=e272]:
+            - heading "Submission Pipeline" [level=3] [ref=e273]
+            - paragraph [ref=e274]: Upload results with automated 5-step validation.
+        - generic [ref=e276]:
+          - img [ref=e278]
+          - generic [ref=e280]:
+            - heading "Evaluation Results" [level=3] [ref=e281]
+            - paragraph [ref=e282]: Binary metrics, state accuracy, residual analysis.
+        - generic [ref=e284]:
+          - img [ref=e286]
+          - generic [ref=e292]:
+            - heading "Leaderboard" [level=3] [ref=e293]
+            - paragraph [ref=e294]: Rankings by regime and tier with performance trends.
+    - generic [ref=e296]:
+      - generic [ref=e297]:
+        - generic [ref=e298]: Processing Taxonomy
+        - heading "Data Tiers" [level=2] [ref=e299]
+        - paragraph [ref=e300]: Five tiers of increasing processing complexity, from light downsampling to adversarial scenarios.
+      - generic [ref=e301]:
+        - generic [ref=e303]:
+          - generic [ref=e304]: T1
+          - heading "Light Downsampling" [level=3] [ref=e305]
+          - paragraph [ref=e306]: Minimal data reduction. High-fidelity observations with controlled sparsity.
+        - generic [ref=e308]:
+          - generic [ref=e309]: T2
+          - heading "Heavy Downsampling" [level=3] [ref=e310]
+          - paragraph [ref=e311]: Aggressive temporal thinning. Tests algorithm robustness under data scarcity.
+        - generic [ref=e313]:
+          - generic [ref=e314]: T3
+          - heading "Observation Simulation" [level=3] [ref=e315]
+          - paragraph [ref=e316]: Synthetic observations generated from truth ephemerides with realistic noise models.
+        - generic [ref=e318]:
+          - generic [ref=e319]: T4
+          - heading "Object Simulation" [level=3] [ref=e320]
+          - paragraph [ref=e321]: Fully synthetic object populations with configurable orbital characteristics.
+        - generic [ref=e323]:
+          - generic [ref=e324]: T5
+          - heading "Impossible Criteria" [level=3] [ref=e325]
+          - paragraph [ref=e326]: Adversarial scenarios designed to stress-test algorithm failure boundaries.
+    - generic [ref=e329]:
+      - heading "Access the Platform" [level=2] [ref=e330]
+      - paragraph [ref=e331]: Authenticate to browse datasets, submit algorithm results, and view evaluation metrics.
+      - link "Sign In to SpOC" [ref=e332] [cursor=pointer]:
+        - /url: /login
+        - img [ref=e333]
+        - text: Sign In to SpOC
+    - contentinfo [ref=e336]:
+      - generic [ref=e337]:
+        - generic [ref=e338]:
+          - generic [ref=e339]: SpOC
+          - generic [ref=e340]: "|"
+          - generic [ref=e341]: SDA TAP Lab
+          - generic [ref=e342]: "|"
+          - generic [ref=e343]: Space Operations Command
+        - generic [ref=e344]: v1.0.0
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e5] [cursor=pointer]:
+    - img [ref=e6]

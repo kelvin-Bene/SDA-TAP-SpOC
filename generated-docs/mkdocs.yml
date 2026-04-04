@@ -6,18 +6,16 @@ nav:
   - Home: index.md
   - Quick Start: QUICK_START.md
   - Getting Started: getting-started.md
+  - AI Contributor Guide: AI_CONTRIBUTOR_GUIDE.md
 
   - Guides:
     - Overview: guides/README.md
     - Beginner's Guide: guides/BEGINNER_GUIDE.md
     - Dataset Generation: guides/DATASET_GENERATION.md
     - Evaluation Guide: guides/EVALUATION_GUIDE.md
-    - Deployment: guides/DEPLOYMENT.md
-    - Migrations: guides/MIGRATIONS.md
     - Orekit Setup: guides/OREKIT_SETUP.md
-    - Windows Orekit Setup: WINDOWS_OREKIT_SETUP.md
-    - Supabase Setup: SUPABASE_SETUP.md
     - UI Guide: guides/UI_GUIDE.md
+    - UDL Publishing Guide: guides/UDL_PUBLISHING_GUIDE.md
     - Troubleshooting: guides/TROUBLESHOOTING.md
     - Code Examples: guides/EXAMPLES.md
 
@@ -25,36 +23,29 @@ nav:
     - Overview: technical/README.md
     - Architecture: technical/ARCHITECTURE.md
     - Pipeline: technical/PIPELINE.md
+    - Pipeline Deep Dive: technical/PIPELINE_DEEP_DIVE.md
     - Database: technical/DATABASE.md
     - Backend API: technical/BACKEND_API.md
     - Frontend: technical/FRONTEND.md
-    - Authentication: technical/AUTHENTICATION.md
     - Evaluation Metrics: technical/EVALUATION_METRICS.md
     - Configuration: technical/CONFIGURATION.md
     - Validation: technical/VALIDATION.md
-    - Limitations: technical/LIMITATIONS.md
     - Team Roles: technical/TEAM_ROLES.md
-    - Components: COMPONENTS.md
-    - Utilities: UTILITIES.md
-    - Implementation Details: IMPLEMENTATION_DETAILS.md
-    - Database Migration: DATABASE_MIGRATION.md
-
-  - Diagrams:
-    - Data Ingestion Flow: data-ingestion-flow.md
-    - Ingestion Pipeline: diagrams/ingestion-pipeline.md
-    - Full System Pipeline: full-system-pipeline.md
 
   - Reference:
     - Overview: reference/README.md
     - Glossary: reference/GLOSSARY.md
     - FAQ: reference/FAQ.md
     - Data Sources: technical/DATA_SOURCES.md
+    - Data Source Rationale: technical/DATA_SOURCE_RATIONALE.md
     - Provided Materials: reference/PROVIDED_MATERIALS_INDEX.md
 
   - Project:
     - Overview: planning/README.md
     - Project Status: planning/PROJECT_STATUS.md
     - Integrated Roadmap: planning/INTEGRATED_ROADMAP.md
+    - Future Implementations: planning/FUTURE_IMPLEMENTATIONS.md
+    - Decision Log: planning/DECISION_LOG.md
     - Dependencies: planning/DEPENDENCIES.md
     - SDA TAP Lab Plan: planning/SDA_TAP_LAB_PLAN.md
     - SpOC Plan: planning/SPOC_PLAN.md
@@ -70,6 +61,8 @@ nav:
 
   - Archive:
     - Historical Plans: archive/README.md
+    - Planning Prompt (Archived): archive/PLANNING_PROMPT_DATA_SOURCES.md
+    - Research Data Sources (Archived): archive/RESEARCH_SPACE_DATA_SOURCES.md
 
 theme:
   name: material
@@ -101,11 +94,7 @@ theme:
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
   - admonition

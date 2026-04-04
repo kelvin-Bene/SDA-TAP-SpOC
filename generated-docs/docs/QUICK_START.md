@@ -13,8 +13,8 @@ Get the UCT Benchmark system running in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/kelvin-Bene/SDA-TAP-SpOC.git
-cd SDA-TAP-SpOC/UCT-Benchmark-DMR/combined
+git clone https://github.com/your-org/uct-benchmark.git
+cd uct-benchmark/UCT-Benchmark-DMR/combined
 
 # Create virtual environment
 python -m venv .venv
@@ -27,20 +27,13 @@ source .venv/bin/activate
 
 # Install Python package
 pip install -e .
-
-# Install Orekit data (NOT on PyPI - must use GitLab)
-pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
-
-# Copy environment template and configure
-cp .env.example .env
-# Edit .env to add your UDL_TOKEN if you have API access
 ```
 
 ## 2. Verify Installation (30 seconds)
 
 ```bash
 # Test core imports
-python -c "from uct_benchmark.database import DatabaseManager; print('Core OK')"
+python -c "from uct_benchmark import settings; print('Core OK')"
 
 # Test Orekit (requires Java)
 python -c "
@@ -57,28 +50,27 @@ print('Orekit OK')
 ### Terminal 1: Backend API
 
 ```bash
-# From UCT-Benchmark-DMR/combined directory
+cd UCT-Benchmark-DMR/combined
 uvicorn backend_api.main:app --reload --port 8000
 ```
 
 ### Terminal 2: Frontend
 
 ```bash
-# From UCT-Benchmark-DMR/combined directory
-cd frontend
+cd UCT-Benchmark-DMR/combined/frontend
 npm install  # First time only
 npm run dev
 ```
 
 ### Open in Browser
 
-Navigate to: **http://localhost:3000**
+Navigate to: **http://localhost:5173**
 
 ## 4. Generate Your First Dataset
 
 ### Option A: Web Interface
 
-1. Open http://localhost:3000
+1. Open http://localhost:5173
 2. Click "Datasets" in the navigation
 3. Click "Generate New Dataset"
 4. Select orbital regime (LEO recommended for quick tests)
@@ -102,7 +94,7 @@ db.initialize()
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Frontend | http://localhost:3000 | Web interface |
+| Frontend | http://localhost:5173 | Web interface |
 | Backend API | http://localhost:8000 | REST API |
 | API Docs | http://localhost:8000/docs | Swagger documentation |
 

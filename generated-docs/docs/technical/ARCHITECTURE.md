@@ -5,9 +5,9 @@
 The UCT Benchmark project is a full-stack application for generating and evaluating Uncorrelated Track Processing (UCTP) benchmark datasets. The system consists of:
 
 1. **Python Backend** - Dataset generation, orbit propagation, and evaluation
-2. **FastAPI Backend** - REST API for web interface with Supabase JWT authentication
-3. **React Frontend** - Web-based user interface with Supabase client-side auth
-4. **Database Layer** - PostgreSQL/Supabase (production) + DuckDB (development), using a dual-backend adapter pattern
+2. **FastAPI Backend** - REST API for web interface
+3. **React Frontend** - Web-based user interface
+4. **DuckDB Database** - Data storage and analytics
 
 ## High-Level Architecture
 
@@ -20,11 +20,10 @@ The UCT Benchmark project is a full-stack application for generating and evaluat
 │  │                         WEB INTERFACE                                │   │
 │  │                                                                      │   │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐ │   │
-│  │  │  React Frontend │  │  FastAPI Backend │  │  Database Layer    │ │   │
-│  │  │  (Vite/TS)      │─▶│  (REST API)      │─▶│  PostgreSQL/DuckDB │ │   │
-│  │  │  +Supabase Auth │  │  +JWT Auth       │  │  (Adapter Pattern) │ │   │
+│  │  │  React Frontend │  │  FastAPI Backend │  │  Database (DuckDB) │ │   │
+│  │  │  (Vite/TS)      │─▶│  (REST API)      │─▶│  (Analytics)       │ │   │
 │  │  └─────────────────┘  └─────────────────┘  └─────────────────────┘ │   │
-│  │         Port 3000          Port 8000                                │   │
+│  │         Port 5173          Port 8000                                │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                     │                                       │
 │                                     ▼                                       │
@@ -79,18 +78,13 @@ UCT-Benchmark-DMR/combined/
 │   │   ├── __init__.py
 │   │   ├── basicScoringFunction.py  # Data quality scoring
 │   │   ├── dataManipulation.py      # Data transformation utilities
-│   │   ├── eventDetection.py        # Orbital event detection (ML + fallback)
-│   │   ├── objectTypeFiltering.py   # Object type filters (HAMR, Close, Apparent)
 │   │   ├── readData.py              # Data loading utilities
-│   │   └── windowSelection.py       # Window selection with TIER_5 support
+│   │   └── windowCheck.py           # Window selection algorithm
 │   │
-│   ├── database/               # Database layer (dual-backend adapter pattern)
+│   ├── database/               # Database layer
 │   │   ├── __init__.py
-│   │   ├── connection.py       # DatabaseManager (routes to DuckDB or PostgreSQL)
-│   │   ├── schema.py           # DuckDB schema definitions (14+ tables)
-│   │   ├── schema_postgres.sql # PostgreSQL schema (production)
-│   │   ├── adapters/
-│   │   │   └── postgres_adapter.py  # PostgreSQL/Supabase adapter
+│   │   ├── connection.py       # DuckDB connection management
+│   │   ├── schema.py           # Schema definitions (14+ tables)
 │   │   ├── repository.py       # Data access layer
 │   │   ├── export.py           # Export utilities
 │   │   ├── ingestion.py        # Data ingestion pipeline
@@ -112,7 +106,6 @@ UCT-Benchmark-DMR/combined/
 │   │   ├── simulateObservations.py  # Observation simulation
 │   │   ├── atmospheric.py      # Atmospheric refraction
 │   │   ├── noise_models.py     # Sensor noise models
-│   │   ├── tracktle.py         # TrackTLE generation (Modified Gauss + BatchLS)
 │   │   └── TLEGeneration.py    # TLE generation utilities
 │   │
 │   ├── uctp/                   # UCTP algorithm implementations
@@ -127,21 +120,17 @@ UCT-Benchmark-DMR/combined/
 │       ├── timerClass.py       # Performance timing
 │       └── unitConversion.py   # Unit conversion utilities
 │
-├── backend_api/                # FastAPI backend (v2.0.0)
+├── backend_api/                # FastAPI backend
 │   ├── __init__.py
-│   ├── main.py                 # Application entry point, CORS, security middleware
-│   ├── auth.py                 # ES256 JWKS JWT verification (Supabase production auth)
+│   ├── main.py                 # Application entry point
 │   ├── models/                 # Pydantic models
 │   ├── routers/                # API route handlers
-│   │   ├── auth.py             # Session verify, profile management
-│   │   ├── datasets.py         # Dataset CRUD + generation
-│   │   ├── submissions.py      # Algorithm submissions with UCTP validation
-│   │   ├── results.py          # Evaluation results + reports
-│   │   ├── leaderboard.py      # Rankings, history, statistics
-│   │   ├── jobs.py             # Background job status
-│   │   └── feedback.py         # Feedback/bug reports
-│   ├── middleware/              # Auth, rate limiting, logging
-│   └── jobs/                   # Background job processing (ThreadPoolExecutor)
+│   │   ├── datasets.py         # Dataset management
+│   │   ├── submissions.py      # Algorithm submissions
+│   │   ├── results.py          # Evaluation results
+│   │   ├── leaderboard.py      # Leaderboard API
+│   │   └── jobs.py             # Background job status
+│   └── jobs/                   # Background job processing
 │
 ├── frontend/                   # React web application (45+ components)
 │   ├── src/
@@ -213,9 +202,9 @@ def loadDataset(input_path) -> tuple:
 
 ---
 
-### 2. Window Selection (`data/windowSelection.py`)
+### 2. Window Selection (`data/windowCheck.py`)
 
-Implements intelligent window selection for finding high-quality data windows with TIER_5 support.
+Implements intelligent window selection for finding high-quality data windows.
 
 ```python
 def windowMain(codes, UDL_token) -> list:
@@ -263,117 +252,7 @@ def TLEpropagator(input1, input2, finalEpoch) -> tuple:
 
 ---
 
-### 4. TrackTLE Generation (`simulation/tracktle.py`)
-
-Per Lewis's specification, TrackTLE generates TLEs from single-pass observations using Modified Gauss IOD and Orekit BatchLSEstimator refinement.
-
-#### Data Structures
-
-```python
-@dataclass
-class Observation:
-    """Single angular observation for IOD."""
-    epoch: datetime
-    ra_deg: float       # Right Ascension in degrees
-    dec_deg: float      # Declination in degrees
-    site_code: str
-    site_lat: float     # Ground station latitude
-    site_lon: float     # Ground station longitude
-    site_alt_km: float  # Ground station altitude
-
-@dataclass
-class TrackTLEResult:
-    """Result from TrackTLE generation."""
-    tle_line1: str
-    tle_line2: str
-    epoch: datetime
-    position_km: np.ndarray
-    velocity_km_s: np.ndarray
-    covariance: Optional[np.ndarray]  # 6x6 covariance matrix
-    residuals_arcsec: List[float]
-    rms_residual_arcsec: float
-    convergence_status: str
-    iterations: int
-
-@dataclass
-class PropagatorConfig:
-    """Configuration for numerical propagator."""
-    integrator_type: str = "DormandPrince853"  # 8th order adaptive
-    gravity_model: str = "HolmesFeatherstone"
-    gravity_degree: int = 120
-    gravity_order: int = 120
-    atmosphere_model: str = "NRLMSISE00"
-    srp_enabled: bool = True
-    shadow_model: str = "umbra_penumbra"
-    include_sun: bool = True
-    include_moon: bool = True
-```
-
-#### Pipeline Functions
-
-```python
-def modified_gauss_iod(observations: List[Observation]) -> Tuple[np.ndarray, datetime]:
-    """
-    Initial Orbit Determination using Modified Gauss method.
-
-    Requires minimum 3 observations.
-    Returns: (initial_state_vector, epoch) or (None, None) if insufficient data.
-    """
-
-def batch_ls_refinement_orekit(
-    initial_state: np.ndarray,
-    epoch: datetime,
-    observations: List[Observation],
-    config: Optional[PropagatorConfig]
-) -> Tuple[np.ndarray, np.ndarray, List[float], int]:
-    """
-    Refine orbit using Orekit BatchLSEstimator.
-
-    Per Lewis's specification:
-    "The batch filter uses the rest of the states as pseudo-observations
-    and an SGP4 propagator to converge on a solution"
-
-    Force Models:
-    - Holmes-Featherstone gravity (degree/order 120)
-    - NRLMSISE-00 atmospheric drag
-    - Solar radiation pressure with umbra/penumbra
-    - Sun and Moon third-body perturbations
-
-    Returns: (refined_state, covariance, residuals, iterations)
-    """
-
-def state_to_tle(
-    state: np.ndarray,
-    epoch: datetime,
-    norad_id: int = 99999
-) -> Tuple[str, str]:
-    """
-    Convert state vector to TLE format.
-
-    Returns: (line1, line2) - valid 69-character TLE lines
-    """
-
-def generate_tracktle(observations: List[Observation]) -> TrackTLEResult:
-    """
-    Main pipeline: Observations -> Modified Gauss IOD -> BatchLS Refinement -> TLE
-
-    Requires minimum 3 observations for IOD.
-    """
-```
-
-#### Helper Functions
-
-```python
-def _add_force_models_to_builder(builder, config: PropagatorConfig):
-    """Add force models to Orekit propagator builder."""
-
-def _create_topocentric_frame(lat: float, lon: float, alt_km: float):
-    """Create topocentric frame for ground station."""
-```
-
----
-
-### 5. Orbit Association (`evaluation/orbitAssociation.py`)
+### 4. Orbit Association (`evaluation/orbitAssociation.py`)
 
 Associates UCTP output with reference orbits.
 
@@ -466,7 +345,7 @@ simulation_track_spacing = 30
 
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
-│   UDL API   │───▶│ Dataset Gen.  │───▶│ Downsampling│───▶│  Simulation  │
+│   UDL API   │───▶│ Create_Dataset│───▶│ Downsampling│───▶│  Simulation  │
 │   Data Pull │    │   (T1 Base)   │    │   (T1/T2)   │    │    (T3)      │
 └─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
                                                                    │
@@ -557,14 +436,8 @@ simulation_track_spacing = 30
 - Orekit data files for atmospheric/gravitational models
 
 ### Database
-- `duckdb` - Analytical database (development/local)
-- `psycopg2` - PostgreSQL adapter (production via Supabase)
+- `duckdb` - Analytical database
 - `pyarrow` - Parquet support
-- `alembic` - Database migrations (PostgreSQL only)
-
-### Authentication
-- `PyJWT` - JWT decoding and verification
-- `cryptography` - ES256 JWKS key handling, Fernet encryption for stored tokens
 
 ### Web Stack
 - `fastapi` - Backend API

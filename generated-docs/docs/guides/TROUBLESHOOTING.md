@@ -65,8 +65,7 @@ Solutions to common problems when using the UCT Benchmark system.
 4. **Clear conflicting packages**
    ```bash
    pip uninstall orekit  # Remove old package
-   pip install orekit-jpype
-   pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
+   pip install orekit-jpype orekitdata
    ```
 
 ---
@@ -82,9 +81,9 @@ Solutions to common problems when using the UCT Benchmark system.
    setup_orekit_curdir(from_pip_library=True)
    ```
 
-2. **Install orekitdata package** (NOT on PyPI - install from GitLab)
+2. **Install orekitdata package**
    ```bash
-   pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
+   pip install orekitdata
    ```
 
 3. **Set environment variable** (alternative)
@@ -137,11 +136,10 @@ print(f"Line 2 length: {len(line2)}")  # Should be 69
    tasklist | findstr python  # Windows
    ```
 
-3. **Verify database integrity**
+3. **Force unlock** (use carefully)
    ```bash
    python -m uct_benchmark.database verify
    ```
-   Note: If the database remains locked, try restarting your terminal or rebooting.
 
 ---
 
@@ -194,9 +192,9 @@ print(f"Line 2 length: {len(line2)}")  # Should be 69
 
 3. **Check for port conflicts**
    ```bash
-   # Find process using port 3000
-   lsof -i :3000  # macOS/Linux
-   netstat -ano | findstr :3000  # Windows
+   # Find process using port 5173
+   lsof -i :5173  # macOS/Linux
+   netstat -ano | findstr :5173  # Windows
    ```
 
 ---

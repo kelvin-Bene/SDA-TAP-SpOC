@@ -1,0 +1,195 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e19]:
+            - generic [ref=e20]: SpOC
+            - generic [ref=e21]: UCT Benchmark
+        - navigation [ref=e22]:
+          - link "Datasets" [ref=e53] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e54] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e55] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e23] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e24]:
+          - button "Notifications" [ref=e56] [cursor=pointer]:
+            - img [ref=e57]
+            - generic [ref=e60]: Notifications
+          - button "User menu" [ref=e61] [cursor=pointer]:
+            - img [ref=e63]
+            - generic [ref=e66]: User menu
+    - generic [ref=e26]:
+      - complementary [ref=e27]:
+        - generic [ref=e29]:
+          - generic [ref=e32]:
+            - navigation [ref=e33]:
+              - link "Dashboard" [ref=e67] [cursor=pointer]:
+                - /url: /
+                - img [ref=e68]
+                - text: Dashboard
+              - generic [ref=e73]:
+                - button "Datasets" [ref=e74] [cursor=pointer]:
+                  - generic [ref=e75]:
+                    - img [ref=e76]
+                    - text: Datasets
+                  - img [ref=e80]
+                - generic [ref=e82]:
+                  - link "Browse Datasets" [ref=e83] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e84] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e85] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e86]:
+                - button "Submit" [ref=e87] [cursor=pointer]:
+                  - generic [ref=e88]:
+                    - img [ref=e89]
+                    - text: Submit
+                  - img [ref=e92]
+                - generic [ref=e94]:
+                  - link "New Submission" [ref=e95] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e96] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e97] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e98]
+                - text: Leaderboard
+              - link "Settings" [ref=e104] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e105]
+                - text: Settings
+            - generic [ref=e109]:
+              - heading "Quick Actions" [level=4] [ref=e110]:
+                - img [ref=e111]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e113] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e114]:
+                  - img [ref=e116]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e117] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e118]:
+                  - img [ref=e120]
+                  - text: Upload Submission
+          - generic [ref=e38]:
+            - generic [ref=e42]: All systems operational
+            - generic [ref=e43]: v1.3.0
+      - main [ref=e44]:
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - heading "Settings" [level=1] [ref=e125]
+            - paragraph [ref=e126]: Manage credentials, connections, and application configuration
+          - generic [ref=e127]:
+            - tablist [ref=e128]:
+              - tab "Service Credentials" [selected] [ref=e129] [cursor=pointer]:
+                - img [ref=e130]
+                - text: Service Credentials
+              - tab "Application" [ref=e133] [cursor=pointer]:
+                - img [ref=e134]
+                - text: Application
+            - tabpanel "Service Credentials" [ref=e136]:
+              - generic [ref=e137]:
+                - generic [ref=e140]:
+                  - generic [ref=e141]:
+                    - heading "External Service Credentials" [level=3] [ref=e142]
+                    - paragraph [ref=e143]: Configure API keys and tokens for data sources. Credentials are encrypted at rest.
+                  - generic [ref=e144]: 0/6 configured
+                - generic [ref=e145]:
+                  - generic [ref=e148]:
+                    - img [ref=e150]
+                    - generic [ref=e153]:
+                      - generic [ref=e154]:
+                        - heading "Unified Data Library (UDL)" [level=3] [ref=e155]
+                        - generic [ref=e156]: Not Configured
+                        - generic [ref=e295]: Untested
+                      - paragraph [ref=e157]: US Space Command observation and elset data
+                    - generic [ref=e158]:
+                      - button "Configure" [ref=e159] [cursor=pointer]:
+                        - img [ref=e160]
+                      - button "Test Connection" [ref=e163] [cursor=pointer]:
+                        - img [ref=e164]
+                  - generic [ref=e168]:
+                    - img [ref=e170]
+                    - generic [ref=e176]:
+                      - generic [ref=e177]:
+                        - heading "ESA DISCOSweb" [level=3] [ref=e178]
+                        - generic [ref=e179]: Not Configured
+                      - paragraph [ref=e180]: European Space Agency space object catalogue
+                    - generic [ref=e181]:
+                      - button "Configure" [ref=e182] [cursor=pointer]:
+                        - img [ref=e183]
+                      - button "Test Connection" [ref=e186] [cursor=pointer]:
+                        - img [ref=e187]
+                  - generic [ref=e191]:
+                    - img [ref=e193]
+                    - generic [ref=e195]:
+                      - generic [ref=e196]:
+                        - heading "Space-Track" [level=3] [ref=e197]
+                        - generic [ref=e198]: Not Configured
+                      - paragraph [ref=e199]: NORAD TLE and conjunction data
+                    - generic [ref=e200]:
+                      - button "Configure" [ref=e201] [cursor=pointer]:
+                        - img [ref=e202]
+                      - button "Test Connection" [ref=e205] [cursor=pointer]:
+                        - img [ref=e206]
+                  - generic [ref=e210]:
+                    - img [ref=e212]
+                    - generic [ref=e218]:
+                      - generic [ref=e219]:
+                        - heading "SatNOGS" [level=3] [ref=e220]
+                        - generic [ref=e221]: Not Configured
+                      - paragraph [ref=e222]: Open-source satellite observation network
+                    - generic [ref=e223]:
+                      - button "Configure" [ref=e224] [cursor=pointer]:
+                        - img [ref=e225]
+                      - button "Test Connection" [ref=e228] [cursor=pointer]:
+                        - img [ref=e229]
+                  - generic [ref=e233]:
+                    - img [ref=e235]
+                    - generic [ref=e237]:
+                      - generic [ref=e238]:
+                        - heading "CelesTrak" [level=3] [ref=e239]
+                        - generic [ref=e240]: Not Configured
+                      - paragraph [ref=e241]: Supplementary TLE and space data
+                    - generic [ref=e242]:
+                      - button "Configure" [ref=e243] [cursor=pointer]:
+                        - img [ref=e244]
+                      - button "Test Connection" [ref=e247] [cursor=pointer]:
+                        - img [ref=e248]
+                  - generic [ref=e252]:
+                    - img [ref=e254]
+                    - generic [ref=e256]:
+                      - generic [ref=e257]:
+                        - heading "Orekit Data" [level=3] [ref=e258]
+                        - generic [ref=e259]: Not Configured
+                      - paragraph [ref=e260]: Local path to Orekit astrodynamics data files
+                    - generic [ref=e261]:
+                      - button "Configure" [ref=e262] [cursor=pointer]:
+                        - img [ref=e263]
+                      - button "Test Connection" [ref=e266] [cursor=pointer]:
+                        - img [ref=e267]
+  - region "Notifications (F8)":
+    - list [ref=e297]:
+      - listitem [ref=e298]:
+        - generic [ref=e299]:
+          - generic [ref=e300]: Credentials Saved
+          - generic [ref=e301]: Credentials for 'udl' saved successfully.
+        - button [ref=e302] [cursor=pointer]:
+          - img [ref=e303]
+  - button "Send feedback" [ref=e50] [cursor=pointer]:
+    - img [ref=e51]

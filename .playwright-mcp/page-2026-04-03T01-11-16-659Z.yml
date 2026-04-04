@@ -1,0 +1,1826 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - banner:
+          - generic:
+            - button:
+              - img
+              - generic: Toggle menu
+            - link:
+              - /url: /
+              - generic:
+                - img
+              - generic:
+                - generic: SpOC
+                - generic: UCT Benchmark
+            - navigation:
+              - link:
+                - /url: /datasets
+                - text: Datasets
+              - link:
+                - /url: /submit
+                - text: Submit
+              - link:
+                - /url: /leaderboard
+                - text: Leaderboard
+              - link:
+                - /url: /docs
+                - text: Docs
+            - generic:
+              - button:
+                - img
+                - generic: Notifications
+              - button:
+                - img
+                - generic: User menu
+        - generic:
+          - complementary:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - navigation:
+                      - link:
+                        - /url: /
+                        - img
+                        - text: Dashboard
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Datasets
+                          - img
+                        - generic:
+                          - generic:
+                            - link:
+                              - /url: /datasets
+                              - text: Browse Datasets
+                            - link:
+                              - /url: /datasets/generate
+                              - text: Generate Dataset
+                            - link:
+                              - /url: /datasets/my-datasets
+                              - text: My Datasets
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Submit
+                          - img
+                        - generic:
+                          - link:
+                            - /url: /submit
+                            - text: New Submission
+                          - link:
+                            - /url: /submit/my-submissions
+                            - text: My Submissions
+                      - link:
+                        - /url: /leaderboard
+                        - img
+                        - text: Leaderboard
+                      - link:
+                        - /url: /settings
+                        - img
+                        - text: Settings
+                    - generic:
+                      - heading [level=4]:
+                        - img
+                        - text: Quick Actions
+                      - link:
+                        - /url: /datasets/generate
+                        - button:
+                          - generic:
+                            - img
+                          - text: Generate Dataset
+                      - link:
+                        - /url: /submit
+                        - button:
+                          - generic:
+                            - img
+                          - text: Upload Submission
+              - generic:
+                - generic:
+                  - generic: All systems operational
+                  - generic: v1.3.0
+          - main:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=1]: Datasets
+                    - paragraph: Browse and download benchmark datasets for UCT algorithm evaluation
+                  - link:
+                    - /url: /datasets/generate
+                    - button:
+                      - img
+                      - text: Generate New
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - text: Search
+                        - generic:
+                          - img
+                          - textbox:
+                            - /placeholder: Search by dataset name...
+                      - generic:
+                        - text: Sort By
+                        - combobox:
+                          - generic: Date Created
+                          - img
+                      - button:
+                        - img
+                    - generic:
+                      - generic:
+                        - text: Orbital Regime
+                        - combobox:
+                          - generic: All Regimes
+                          - img
+                      - generic:
+                        - text: Data Tier
+                        - combobox:
+                          - generic: All Tiers
+                          - img
+                      - generic:
+                        - text: Sensor Type
+                        - combobox:
+                          - generic: All Sensors
+                          - img
+                      - generic:
+                        - generic: "Object Count: 0 - 200"
+                        - generic:
+                          - generic:
+                            - slider
+                - generic:
+                  - paragraph: Showing 50 datasets
+                  - generic:
+                    - button:
+                      - img
+                    - button:
+                      - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-04-02-20260402-171920-2de9de2b
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v2
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 5 objects
+                        - generic:
+                          - img
+                          - generic: 39 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 17%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 19.04 KB
+                      - generic:
+                        - img
+                        - text: Apr 2, 2026, 17:19
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-04-02-20260402-171910-2949d0f3
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 5 objects
+                        - generic:
+                          - img
+                          - generic: 39 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 17%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 19.04 KB
+                      - generic:
+                        - img
+                        - text: Apr 2, 2026, 17:19
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-31-20260331-210704-e6d3fbe6
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 31, 2026, 21:07
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: MEO-standard-2026-03-31-20260331-210655-2b06d3b7
+                      - generic:
+                        - generic: MEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 12 objects
+                        - generic:
+                          - img
+                          - generic: 1,273 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 40%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 621.58 KB
+                      - generic:
+                        - img
+                        - text: Mar 31, 2026, 21:06
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-high-2026-03-31-20260331-210151-87a0f546
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 31, 2026, 21:01
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: GEO-high-2026-03-31-20260331-205748-a696ffda
+                      - generic:
+                        - generic: GEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 6 objects
+                        - generic:
+                          - img
+                          - generic: 117 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 57.13 KB
+                      - generic:
+                        - img
+                        - text: Mar 31, 2026, 20:57
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: test-leo-downsample-20260330-235647-d51a989e
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 11 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 5.37 KB
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 23:56
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: test-leo-windowed-20260330-235646-ffb08800
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 23:56
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: test-geo-fast-20260330-235644-d62f2d4b
+                      - generic:
+                        - generic: GEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 4 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 1.95 KB
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 23:56
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: test-meo-hybrid-20260330-235643-32abbc87
+                      - generic:
+                        - generic: MEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 4 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 1.95 KB
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 23:56
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: api-test-leo-downsample-20260330-184955-8897aecc
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 1 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 500 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 18:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: api-test-leo-simulation-20260330-184936-b0754df9
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 18:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: api-test-leo-windowed-20260330-184934-6892015b
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 18:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: api-test-geo-fast-20260330-184933-8972d179
+                      - generic:
+                        - generic: GEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 18:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: api-test-meo-hybrid-20260330-184932-85c581f9
+                      - generic:
+                        - generic: MEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 2 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 1000 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 18:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-30-20260330-153115-da79350e
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 22 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 10.74 KB
+                      - generic:
+                        - img
+                        - text: Mar 30, 2026, 15:31
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: MEO-standard-2026-03-29-20260329-224118-1f2abdb1
+                      - generic:
+                        - generic: MEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 22:41
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-29-20260329-223943-7f161de8
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v5
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 62 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 30.27 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 22:39
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: HEO-standard-2026-03-29-20260329-221532-8dd4dee4
+                      - generic:
+                        - generic: HEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 62 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 30.27 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 22:15
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-29-20260329-221340-9725a7ce
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v4
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 62 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 30.27 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 22:13
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-29-20260329-221032-c8efd765
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v3
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 62 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 30.27 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 22:10
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: HEO-mixed-2026-03-29-20260329-200246-a8b9617d
+                      - generic:
+                        - generic: HEO
+                        - generic: T2 - Downsampled
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 15 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 7.32 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 20:02
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-29-20260329-195704-d549e5d2
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v2
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 62 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 30.27 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 19:57
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-29-20260329-182353-00eaddc0
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 62 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 3%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 30.27 KB
+                      - generic:
+                        - img
+                        - text: Mar 29, 2026, 18:23
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-27-20260327-165903-49f2d73b
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v6
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 3 objects
+                        - generic:
+                          - img
+                          - generic: 16 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 10%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 7.81 KB
+                      - generic:
+                        - img
+                        - text: Mar 27, 2026, 17:14
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-27-20260327-164933-43471d91
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v5
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 27, 2026, 16:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-27-20260327-155932-bb308631
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v4
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 27, 2026, 15:59
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-27-20260327-153620-d2fa5996
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v3
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 27, 2026, 15:36
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-27-20260327-040059-c64e7aac
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                        - generic: v2
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 27, 2026, 04:00
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-27-20260327-034843-d2420681
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 27, 2026, 03:48
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-ignorefix-1774557143784-20260326-203224-6c12ab6c
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:32
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-pg8k-fix-1774556600043-20260326-202320-fc881369
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:23
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-26-20260326-201750-a7d05e87
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:17
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-direct-db-1774556206551-20260326-201647-e1dbaf13
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:16
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: MEO-standard-2026-03-26-20260326-201427-4ac74cb8
+                      - generic:
+                        - generic: MEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:14
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-final-test-1774556016070-20260326-201336-2fb08d1d
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:13
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: HEO-standard-2026-03-26-20260326-201256-c059f749
+                      - generic:
+                        - generic: HEO
+                        - generic: T3 - Simulated
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:12
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-test-1774555620790-20260326-200702-fd6902c3
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 20:07
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-test-20260326194957.-20260326-194958-f4a70811
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 19:49
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: Test Dataset LEO-20260326-192606-044f9837
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 19:26
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-26-20260326-192521-465edbe7
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 19:25
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-26-20260326-192320-61c7e930
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 19:23
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-26-20260326-192203-b5d6a325
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 19:22
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-03-26-20260326-161530-3beb4b96
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 0 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 0 Bytes
+                      - generic:
+                        - img
+                        - text: Mar 26, 2026, 16:15
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-01-29-20260129-175226-507ec665
+                      - generic:
+                        - generic: LEO
+                        - generic: T2 - Downsampled
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 8 objects
+                        - generic:
+                          - img
+                          - generic: 87 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 27%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 42.48 KB
+                      - generic:
+                        - img
+                        - text: Jan 29, 2026, 17:52
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: Imported Dataset
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 1 objects
+                        - generic:
+                          - img
+                          - generic: 3 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 1.46 KB
+                      - generic:
+                        - img
+                        - text: Jan 29, 2026, 03:43
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: Test Dataset
+                      - generic:
+                        - generic: LEO
+                        - generic: T1 - Pristine
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 0 objects
+                        - generic:
+                          - img
+                          - generic: 100 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 0%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 48.83 KB
+                      - generic:
+                        - img
+                        - text: Jan 29, 2026, 03:40
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: LEO-standard-2026-01-28-20260128-035917-80a4c130
+                      - generic:
+                        - generic: LEO
+                        - generic: T3 - Simulated
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 9 objects
+                        - generic:
+                          - img
+                          - generic: 13,232 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 30%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 6.31 MB
+                      - generic:
+                        - img
+                        - text: Jan 28, 2026, 03:59
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: test-large-20260128-035330-de08c66c
+                      - generic:
+                        - generic: LEO
+                        - generic: T3 - Simulated
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 10 objects
+                        - generic:
+                          - img
+                          - generic: 15,502 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 33%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 7.39 MB
+                      - generic:
+                        - img
+                        - text: Jan 28, 2026, 03:53
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: test-v3-20260128-035137-99464058
+                      - generic:
+                        - generic: LEO
+                        - generic: T3 - Simulated
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: 2 objects
+                        - generic:
+                          - img
+                          - generic: 2,615 obs
+                        - generic:
+                          - generic: "Coverage:"
+                          - generic:
+                            - generic: 20%
+                        - generic:
+                          - generic: "Size:"
+                          - generic: 1.25 MB
+                      - generic:
+                        - img
+                        - text: Jan 28, 2026, 03:51
+                    - generic:
+                      - button:
+                        - img
+                        - text: Preview
+                      - button:
+                        - img
+                        - text: Download
+    - list
+    - button:
+      - img
+  - dialog "LEO-standard-2026-04-02-20260402-171920-2de9de2b LEO T1" [ref=e4785]:
+    - generic [ref=e4786]:
+      - heading "LEO-standard-2026-04-02-20260402-171920-2de9de2b LEO T1" [level=2] [ref=e4787]:
+        - text: LEO-standard-2026-04-02-20260402-171920-2de9de2b
+        - generic [ref=e4788]: LEO
+        - generic [ref=e4789]: T1
+      - paragraph [ref=e4790]: Preview dataset metadata and quality metrics
+    - generic [ref=e4791]:
+      - tablist [ref=e4792]:
+        - tab "Overview" [selected] [ref=e4793] [cursor=pointer]
+        - tab "Statistics" [ref=e4794] [cursor=pointer]
+        - tab "Sample Data" [ref=e4795] [cursor=pointer]
+        - tab "Versions" [ref=e4796] [cursor=pointer]:
+          - img [ref=e4797]
+          - text: Versions
+      - tabpanel "Overview" [active] [ref=e4801]:
+        - generic [ref=e4802]:
+          - generic [ref=e4803]:
+            - paragraph [ref=e4804]: Objects
+            - paragraph [ref=e4805]:
+              - img [ref=e4806]
+              - text: "5"
+          - generic [ref=e4812]:
+            - paragraph [ref=e4813]: Observations
+            - paragraph [ref=e4814]:
+              - img [ref=e4815]
+              - text: "39"
+          - generic [ref=e4819]:
+            - paragraph [ref=e4820]: Coverage
+            - paragraph [ref=e4821]: 16.7%
+          - generic [ref=e4822]:
+            - paragraph [ref=e4823]: File Size
+            - paragraph [ref=e4824]: 19.04 KB
+        - generic [ref=e4825]:
+          - generic [ref=e4826]:
+            - img [ref=e4827]
+            - text: Created Apr 2, 2026, 17:19
+          - generic [ref=e4829]:
+            - img [ref=e4830]
+            - text: Version 2
+        - generic [ref=e4834]:
+          - paragraph [ref=e4835]: Description
+          - paragraph [ref=e4836]: LEO_T1
+    - generic [ref=e4837]:
+      - button "Close" [ref=e4838] [cursor=pointer]
+      - button "Download Dataset" [ref=e4839] [cursor=pointer]:
+        - img [ref=e4840]
+        - text: Download Dataset
+    - button "Close" [ref=e4843] [cursor=pointer]:
+      - img [ref=e4844]
+      - generic [ref=e4847]: Close

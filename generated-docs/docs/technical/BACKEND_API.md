@@ -2,18 +2,15 @@
 
 ## Overview
 
-The UCT Benchmark backend is built with FastAPI v2.0.0 and provides RESTful endpoints for dataset management, algorithm submissions, evaluation results, leaderboard, feedback, and authentication. Authentication is handled via Supabase JWTs (ES256 JWKS in production, HS256 fallback for development).
+The UCT Benchmark backend is built with FastAPI and provides RESTful endpoints for dataset management, algorithm submissions, and evaluation results.
 
 ## API Client Configuration
 
 ### Axios Setup (Frontend)
 
-The frontend uses Axios with a Supabase session interceptor. Tokens are obtained from `supabase.auth.getSession()` -- there is no localStorage token management.
-
 ```typescript
 // src/api/client.ts
 import axios from 'axios';
-import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -24,32 +21,22 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor - injects Supabase JWT from active session
-apiClient.interceptors.request.use(
-  async (config) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
-      }
-    } catch (error) {
-      console.error('Failed to get auth session for request:', error);
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Auth token injection
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Response interceptor - mutex-protected token refresh on 401
+// Error handling
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // Refresh via supabase.auth.refreshSession(), queuing parallel
-      // requests behind a single refresh attempt (mutex pattern).
-      // On repeated failures, signs out via authStore.logout().
-      // See client.ts for full implementation.
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
@@ -58,77 +45,119 @@ apiClient.interceptors.response.use(
 
 ## API Endpoints
 
-All endpoints are prefixed with `/api/v1`. Most require a valid Supabase JWT in the `Authorization: Bearer <token>` header.
+### Datasets
 
-### Auth (`/api/v1/auth`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/datasets` | List datasets with optional filters |
+| GET | `/api/v1/datasets/:id` | Get single dataset |
+| POST | `/api/v1/datasets/generate` | Generate new dataset |
+| GET | `/api/v1/datasets/:id/download` | Download dataset file |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/auth/verify` | Required | Verify a Supabase session and return user info |
-| GET | `/auth/me` | Required | Get current user profile (including encrypted API tokens) |
-| PATCH | `/auth/me` | Required | Update profile (display name, UDL/ESA tokens) |
+### Submissions
 
-Login, logout, and signup are handled entirely client-side via the Supabase JS SDK. The backend only verifies and reads JWT claims.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/submissions` | List user submissions |
+| GET | `/api/v1/submissions/:id` | Get submission details |
+| POST | `/api/v1/submissions` | Create submission (multipart form) |
 
-### Datasets (`/api/v1/datasets`)
+### Results
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/datasets/` | Required | List datasets with filters (status, regime, tier, search, sort) |
-| POST | `/datasets/` | Required | Generate a new dataset (returns job_id for progress tracking) |
-| GET | `/datasets/{id}` | Required | Get detailed dataset information |
-| GET | `/datasets/{id}/config` | Required | Get dataset configuration values from backend settings |
-| GET | `/datasets/{id}/observations` | Required | List observations in a dataset (paginated) |
-| DELETE | `/datasets/{id}` | Required | Delete a dataset (admin or owner) |
-| GET | `/datasets/{id}/download` | Required | Download dataset as JSON file |
-| GET | `/datasets/{id}/versions` | Required | List version history of a dataset |
-| GET | `/datasets/validate/{code}` | Required | Validate a legacy 16-character dataset code |
-| GET | `/datasets/code/{code}` | Required | Look up a dataset by its legacy code |
-| POST | `/datasets/legacy` | Required | Create a dataset from a legacy code |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/results/:submissionId` | Get evaluation results |
+| GET | `/api/v1/results/:submissionId/export` | Export results (PDF/CSV/JSON) |
 
-### Submissions (`/api/v1/submissions`)
+### Leaderboard
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/submissions/` | Required | List submissions for the current user (filterable by dataset_id, status) |
-| POST | `/submissions/` | Required | Create submission with file upload (multipart form, rate-limited 10/min) |
-| GET | `/submissions/{id}` | Required | Get submission details (ownership enforced) |
-| POST | `/submissions/{id}/results` | Required | Upload or re-upload results file for an existing submission |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/leaderboard` | Get rankings with optional filters |
 
-### Results (`/api/v1/results`)
+### Auth
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/results/` | Required | List submission results with filters (dataset_id, status, algorithm_name) |
-| GET | `/results/{id}` | Required | Get complete results (binary, state, residual metrics, per-satellite breakdown) |
-| GET | `/results/{id}/metrics` | Required | Get detailed per-satellite, per-track, and temporal metrics breakdown |
-| GET | `/results/{id}/visualization` | Required | Get data formatted for orbit plots and error distributions |
-| GET | `/results/{id}/export` | Required | Export results as JSON or CSV (format query param) |
-| GET | `/results/{id}/report` | Required | Generate evaluation report (PDF, HTML, or JSON; rate-limited 5/min) |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/auth/login` | Login with email/password |
+| POST | `/api/v1/auth/logout` | Logout |
+| POST | `/api/v1/auth/refresh` | Refresh JWT token |
 
-### Jobs (`/api/v1/jobs`)
+### Users
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/jobs/` | Required | List background jobs (filterable by job_type, status; ownership enforced) |
-| GET | `/jobs/{id}` | Required | Get job status including progress percentage, result, or error |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/users/me` | Get current user profile |
+| PATCH | `/api/v1/users/me` | Update profile |
 
-### Leaderboard (`/api/v1/leaderboard`)
+### Credentials (v2.0+)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/leaderboard/` | Required | Get rankings (ranked by F1 score DESC, filterable by regime, tier, dataset_id) |
-| GET | `/leaderboard/history` | Required | Get leaderboard score history over time |
-| GET | `/leaderboard/statistics` | Required | Get aggregate statistics (average, best, worst scores) |
+Manage data source credentials for UDL, ESA, SatNOGS, ILRS, and other services.
 
-### Feedback (`/api/v1/feedback`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/credentials/` | List all credential services and their status |
+| GET | `/api/v1/credentials/:service` | Get specific service info |
+| PUT | `/api/v1/credentials/:service` | Save encrypted credentials |
+| DELETE | `/api/v1/credentials/:service` | Clear stored credentials |
+| POST | `/api/v1/credentials/:service/test` | Test credential connectivity |
+| POST | `/api/v1/credentials/generate-key` | Generate new encryption key |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/feedback` | Optional | Submit feedback or bug report (rate-limited 5/min per IP) |
-| GET | `/feedback` | Admin | List all feedback entries with filters |
-| GET | `/feedback/{id}` | Admin | Get detailed feedback entry |
-| PATCH | `/feedback/{id}` | Admin | Update feedback status or resolution |
+#### Response: CredentialServiceInfo
+
+```json
+{
+  "service_name": "udl",
+  "credential_type": "bearer_token",
+  "label": "Unified Data Library",
+  "is_configured": true,
+  "validation_status": "valid",
+  "source": "database",
+  "has_env_fallback": false,
+  "last_validated": "2026-01-27T15:30:00Z"
+}
+```
+
+**Validation Status Values:**
+- `untested` - Credentials saved but not validated
+- `valid` - Connection test passed
+- `invalid` - Connection test failed (wrong credentials)
+- `error` - Connection test errored (network/service issue)
+- `not_configured` - No credentials saved
+
+### UCTP Lab API (v2.0+)
+
+Pipeline management and model training endpoints for the UCT Processing Lab.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/uctp/dashboard/stats` | Dashboard statistics |
+| GET | `/api/v1/uctp/runs/` | List pipeline runs |
+| POST | `/api/v1/uctp/runs/` | Start new UCTP run |
+| GET | `/api/v1/uctp/runs/:id` | Run details and results |
+| DELETE | `/api/v1/uctp/runs/:id` | Cancel/delete a run |
+| GET | `/api/v1/uctp/connectivity/` | Check all service connections |
+| POST | `/api/v1/uctp/connectivity/test` | Test specific service |
+| GET | `/api/v1/uctp/models/` | List trained ML models |
+| POST | `/api/v1/uctp/models/train` | Train new model |
+| GET | `/api/v1/uctp/models/:id` | Get model details |
+
+#### UCTP Run Configuration
+
+```typescript
+interface UCTPRunConfig {
+  name: string;                  // Run name
+  datasetId?: string;            // Existing dataset or generate new
+  propagator: 'SGP4' | 'Orekit'; // Propagation method
+  correlationThresholds: {
+    positionKm: number;
+    velocityKmS: number;
+    mahalanobis: number;
+  };
+  enableAnomalyDetection: boolean;
+  modelId?: string;              // Pre-trained model for inference
+}
+```
 
 ---
 
@@ -378,17 +407,45 @@ export interface LeaderboardFilters {
 
 ---
 
-## Authentication
+## Auth Store (Zustand)
 
-Authentication is handled client-side by the Supabase JS SDK (`@supabase/supabase-js`). The backend validates JWTs using ES256 JWKS public keys from Supabase's JWKS endpoint. See [Authentication](AUTHENTICATION.md) for full details.
+```typescript
+// src/stores/authStore.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-**Key points:**
+interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  login: (user: User, token: string) => void;
+  logout: () => void;
+}
 
-- Login/logout/signup are Supabase client-side operations (no backend endpoints)
-- The backend's `POST /auth/verify` confirms a session is valid
-- `GET /auth/me` and `PATCH /auth/me` manage user profiles
-- Roles are extracted from `app_metadata.role` in the JWT (server-side only, not user-editable)
-- Token refresh uses a mutex-protected interceptor to prevent parallel refresh races
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+
+      login: (user, token) => {
+        localStorage.setItem('auth_token', token);
+        set({ user, token, isAuthenticated: true });
+      },
+
+      logout: () => {
+        localStorage.removeItem('auth_token');
+        set({ user: null, token: null, isAuthenticated: false });
+      },
+    }),
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({ user: state.user, token: state.token }),
+    }
+  )
+);
+```
 
 ---
 
@@ -397,37 +454,20 @@ Authentication is handled client-side by the Supabase JS SDK (`@supabase/supabas
 ```
 backend_api/
 ├── __init__.py
-├── main.py                 # Application entry point, CORS, middleware
-├── auth.py                 # ES256 JWKS JWT verification (production auth)
-├── database.py             # Database dependency (get_db)
-├── models/                 # Pydantic models
+├── main.py           # Application entry point
+├── models/           # Pydantic models
 │   ├── dataset.py
 │   ├── submission.py
-│   ├── feedback.py
-│   └── __init__.py
-├── routers/                # API route handlers
-│   ├── auth.py             # /auth/verify, /auth/me
-│   ├── datasets.py         # Dataset CRUD + generation
-│   ├── submissions.py      # Submission upload + validation
-│   ├── results.py          # Results retrieval + export + report
-│   ├── leaderboard.py      # Rankings, history, statistics
-│   ├── jobs.py             # Background job status
-│   └── feedback.py         # Feedback/bug reports
-├── middleware/              # Middleware layer
-│   ├── auth.py             # JWT auth dependencies (get_current_user)
-│   ├── rate_limit.py       # slowapi rate limiting
-│   └── logging.py          # Request logging with correlation IDs
-├── jobs/                   # Background job processing
-│   ├── __init__.py         # JobManager with in-memory state
-│   └── workers.py          # ThreadPoolExecutor workers
-├── utils/                  # Utility modules
-│   └── token_validation.py # UDL/ESA token validation
-└── tests/                  # API tests
-    ├── test_jobs.py
-    ├── test_leaderboard.py
-    ├── test_results.py
-    ├── test_crypto.py
-    └── test_middleware.py
+│   └── user.py
+├── routers/          # API route handlers
+│   ├── datasets.py
+│   ├── submissions.py
+│   ├── leaderboard.py
+│   └── auth.py
+├── jobs/             # Background jobs
+│   ├── evaluation.py
+│   └── generation.py
+└── tests/            # API tests
 ```
 
 ---

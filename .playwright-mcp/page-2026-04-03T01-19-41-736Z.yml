@@ -1,0 +1,243 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - banner:
+          - generic:
+            - button:
+              - img
+              - generic: Toggle menu
+            - link:
+              - /url: /
+              - generic:
+                - img
+              - generic:
+                - generic: SpOC
+                - generic: UCT Benchmark
+            - navigation:
+              - link:
+                - /url: /datasets
+                - text: Datasets
+              - link:
+                - /url: /submit
+                - text: Submit
+              - link:
+                - /url: /leaderboard
+                - text: Leaderboard
+              - link:
+                - /url: /docs
+                - text: Docs
+            - generic:
+              - button:
+                - img
+                - generic: Notifications
+              - button:
+                - img
+                - generic: User menu
+        - generic:
+          - complementary:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - navigation:
+                      - link:
+                        - /url: /
+                        - img
+                        - text: Dashboard
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Datasets
+                          - img
+                        - generic:
+                          - link:
+                            - /url: /datasets
+                            - text: Browse Datasets
+                          - link:
+                            - /url: /datasets/generate
+                            - text: Generate Dataset
+                          - link:
+                            - /url: /datasets/my-datasets
+                            - text: My Datasets
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                            - text: Submit
+                          - img
+                        - generic:
+                          - link:
+                            - /url: /submit
+                            - text: New Submission
+                          - link:
+                            - /url: /submit/my-submissions
+                            - text: My Submissions
+                      - link:
+                        - /url: /leaderboard
+                        - img
+                        - text: Leaderboard
+                      - link:
+                        - /url: /settings
+                        - img
+                        - text: Settings
+                    - generic:
+                      - heading [level=4]:
+                        - img
+                        - text: Quick Actions
+                      - link:
+                        - /url: /datasets/generate
+                        - button:
+                          - generic:
+                            - img
+                          - text: Generate Dataset
+                      - link:
+                        - /url: /submit
+                        - button:
+                          - generic:
+                            - img
+                          - text: Upload Submission
+              - generic:
+                - generic:
+                  - generic: All systems operational
+                  - generic: v1.3.0
+          - main:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Settings
+                  - paragraph: Manage credentials, connections, and application configuration
+                - generic:
+                  - tablist:
+                    - tab [selected]:
+                      - img
+                      - text: Service Credentials
+                    - tab:
+                      - img
+                      - text: Application
+                  - tabpanel:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - heading [level=3]: External Service Credentials
+                              - paragraph: Configure API keys and tokens for data sources. Credentials are encrypted at rest.
+                            - generic: 0/6 configured
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: Unified Data Library (UDL)
+                                  - generic: Not Configured
+                                - paragraph: US Space Command observation and elset data
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: ESA DISCOSweb
+                                  - generic: Not Configured
+                                - paragraph: European Space Agency space object catalogue
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: Space-Track
+                                  - generic: Not Configured
+                                - paragraph: NORAD TLE and conjunction data
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: SatNOGS
+                                  - generic: Not Configured
+                                - paragraph: Open-source satellite observation network
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: CelesTrak
+                                  - generic: Not Configured
+                                - paragraph: Supplementary TLE and space data
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: Orekit Data
+                                  - generic: Not Configured
+                                - paragraph: Local path to Orekit astrodynamics data files
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+    - list
+    - button:
+      - img
+  - dialog "Configure Unified Data Library (UDL)" [ref=e270]:
+    - generic [ref=e271]:
+      - heading "Configure Unified Data Library (UDL)" [level=2] [ref=e272]
+      - paragraph [ref=e273]: Obtain your token from the UDL portal.
+    - generic [ref=e274]:
+      - generic [ref=e275]:
+        - text: API Token
+        - generic [ref=e276]:
+          - textbox "API Token" [active] [ref=e277]:
+            - /placeholder: Base64-encoded UDL credentials
+          - button [ref=e278] [cursor=pointer]:
+            - img [ref=e279]
+      - link "Get credentials" [ref=e282] [cursor=pointer]:
+        - /url: https://unifieddatalibrary.com
+        - img [ref=e283]
+        - text: Get credentials
+    - generic [ref=e287]:
+      - button "Test Current" [ref=e288] [cursor=pointer]
+      - button "Save" [disabled]
+    - button "Close" [ref=e289] [cursor=pointer]:
+      - img [ref=e290]
+      - generic [ref=e293]: Close

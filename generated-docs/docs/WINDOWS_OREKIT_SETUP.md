@@ -10,7 +10,6 @@ This guide provides step-by-step instructions for setting up Orekit on Windows f
 Before starting, ensure you have:
 - [ ] Windows 10 or later
 - [ ] Python 3.12 installed
-- [ ] Git installed (required for orekitdata installation)
 - [ ] Administrator access (for Java installation)
 - [ ] Internet connection
 
@@ -69,7 +68,7 @@ If JAVA_HOME is not set, add it manually:
 ### Navigate to Project Directory
 
 ```powershell
-cd C:\path\to\UCT-Benchmark-DMR\combined
+cd C:\Users\kelvi\Documents\SDAxSpOCUCTProcessing\kelvin-local-work
 ```
 
 ### Create/Activate Virtual Environment
@@ -95,8 +94,7 @@ python -m venv .venv
 pip install orekit-jpype
 
 # Install orekitdata (bundled ephemeris data files)
-# NOTE: orekitdata is NOT on PyPI - must install from GitLab
-pip install git+https://gitlab.orekit.org/orekit/orekit-data.git
+pip install orekitdata
 ```
 
 ### Install Full Project Dependencies
@@ -110,41 +108,40 @@ pip install -e .
 
 ## Step 4: Verify Installation
 
-### Run Verification Commands
+### Run the Test Script
 
 ```powershell
-# 1. Check Java version (must be 17+)
-java -version
-
-# 2. Test Orekit setup (run this Python code)
-python -c "
-import orekit_jpype as orekit
-orekit.initVM()
-from orekit_jpype.pyhelpers import setup_orekit_curdir
-setup_orekit_curdir(from_pip_library=True)
-print('Orekit initialized successfully!')
-"
+# Run the Orekit installation test
+python tests/test_orekit_installation.py
 ```
 
 Expected output:
 ```
-openjdk version "17.x.x" ...
+============================================================
+    OREKIT INSTALLATION TEST SUITE
+============================================================
+============================================================
+Test 1: Checking Java installation...
+  [PASS] Java is installed
+============================================================
+Test 2: Testing orekit-jpype import...
+  [PASS] orekit_jpype imported successfully
+...
+============================================================
+    TEST SUMMARY
+============================================================
+  [PASS] Java Installation
+  [PASS] orekit-jpype Import
+  [PASS] JVM Initialization
+  [PASS] Orekit Data Loading
+  [PASS] Basic Functionality
+  [PASS] TLE Propagation
+  [PASS] Simulation Module Import
+  [PASS] Propagator Module
+------------------------------------------------------------
+  Results: 8/8 tests passed
 
-Orekit initialized successfully!
-```
-
-### Additional Verification (Optional)
-
-```powershell
-# Test importing simulation module
-python -c "
-import orekit_jpype as orekit
-orekit.initVM()
-from orekit_jpype.pyhelpers import setup_orekit_curdir
-setup_orekit_curdir(from_pip_library=True)
-from uct_benchmark.simulation.simulateObservations import simulateObs
-print('All imports successful!')
-"
+  SUCCESS! Orekit is properly installed and configured.
 ```
 
 ---
@@ -274,13 +271,13 @@ pip uninstall orekit
 
 ```powershell
 # 1. Navigate to project
-cd C:\path\to\UCT-Benchmark-DMR\combined
+cd C:\Users\kelvi\Documents\SDAxSpOCUCTProcessing\kelvin-local-work
 
 # 2. Activate virtual environment
 .\.venv\Scripts\Activate.ps1
 
 # 3. Verify setup (run once)
-python -c "import orekit_jpype as orekit; orekit.initVM(); print('Orekit OK')"
+python tests/test_orekit_installation.py
 
 # 4. Ready to use!
 ```
@@ -294,10 +291,9 @@ python -c "import orekit_jpype as orekit; orekit.initVM(); print('Orekit OK')"
 
 ---
 
-## Getting Help
+## Contact
 
 If you encounter issues not covered here:
 1. Check the error message carefully
-2. Run the verification command: `python -c "import orekit_jpype as orekit; orekit.initVM(); print('OK')"`
+2. Run `python tests/test_orekit_installation.py` to identify the failing component
 3. Search the error in the Orekit forum: https://forum.orekit.org/
-4. Check the [Troubleshooting Guide](guides/TROUBLESHOOTING.md)

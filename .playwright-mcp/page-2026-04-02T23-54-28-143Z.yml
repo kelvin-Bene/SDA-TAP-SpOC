@@ -1,0 +1,173 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e19]:
+            - generic [ref=e20]: SpOC
+            - generic [ref=e21]: UCT Benchmark
+        - navigation [ref=e22]:
+          - link "Datasets" [ref=e23] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e24] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e25] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e26] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e27]:
+          - button "Notifications" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e32]: Notifications
+          - button "User menu" [ref=e33] [cursor=pointer]:
+            - img [ref=e35]
+            - generic [ref=e38]: User menu
+    - generic [ref=e39]:
+      - complementary [ref=e40]:
+        - generic [ref=e42]:
+          - generic [ref=e45]:
+            - navigation [ref=e46]:
+              - link "Dashboard" [ref=e47] [cursor=pointer]:
+                - /url: /
+                - img [ref=e48]
+                - text: Dashboard
+              - generic [ref=e53]:
+                - button "Datasets" [ref=e54] [cursor=pointer]:
+                  - generic [ref=e55]:
+                    - img [ref=e56]
+                    - text: Datasets
+                  - img [ref=e60]
+                - generic [ref=e62]:
+                  - link "Browse Datasets" [ref=e63] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e64] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e65] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e66]:
+                - button "Submit" [ref=e67] [cursor=pointer]:
+                  - generic [ref=e68]:
+                    - img [ref=e69]
+                    - text: Submit
+                  - img [ref=e72]
+                - generic [ref=e74]:
+                  - link "New Submission" [ref=e75] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e76] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e77] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e78]
+                - text: Leaderboard
+              - link "Settings" [ref=e84] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e85]
+                - text: Settings
+            - generic [ref=e88]:
+              - heading "Quick Actions" [level=4] [ref=e89]:
+                - img [ref=e90]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e92] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e93]:
+                  - img [ref=e95]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e96] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e97]:
+                  - img [ref=e99]
+                  - text: Upload Submission
+          - generic [ref=e103]:
+            - generic [ref=e107]: All systems operational
+            - generic [ref=e108]: v1.3.0
+      - main [ref=e109]:
+        - generic [ref=e111]:
+          - generic [ref=e112]:
+            - heading "Documentation" [level=1] [ref=e113]
+            - paragraph [ref=e114]: Learn how to use the SpOC UCT Benchmark Platform
+          - generic [ref=e115]:
+            - tablist [ref=e116]:
+              - tab "Getting Started" [selected] [ref=e117] [cursor=pointer]:
+                - img [ref=e118]
+                - text: Getting Started
+              - tab "Dataset Format" [ref=e123] [cursor=pointer]:
+                - img [ref=e124]
+                - text: Dataset Format
+              - tab "Submission Format" [ref=e129] [cursor=pointer]:
+                - img [ref=e130]
+                - text: Submission Format
+              - tab "Evaluation Metrics" [ref=e133] [cursor=pointer]:
+                - img [ref=e134]
+                - text: Evaluation Metrics
+              - tab "Pipeline" [ref=e136] [cursor=pointer]:
+                - img [ref=e137]
+                - text: Pipeline
+            - tabpanel "Getting Started" [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e143]:
+                  - heading "Getting Started" [level=3] [ref=e144]:
+                    - img [ref=e145]
+                    - text: Getting Started
+                  - paragraph [ref=e150]: Quick start guide for the SpOC UCT Benchmark Platform
+                - generic [ref=e151]:
+                  - heading "Welcome to SpOC" [level=3] [ref=e152]
+                  - paragraph [ref=e153]: The SpOC (Space Operations Center) UCT Benchmark Platform is a standardized framework for evaluating Uncorrelated Track (UCT) processing algorithms. This guide will help you get started with generating datasets, submitting your algorithm results, and understanding your performance metrics.
+                  - heading "Quick Start Steps" [level=3] [ref=e154]
+                  - list [ref=e155]:
+                    - listitem [ref=e156]:
+                      - strong [ref=e157]: Generate a Dataset
+                      - text: "- Navigate to Datasets > Generate and configure your benchmark dataset parameters. Start with the \"Easy\" preset for your first run."
+                    - listitem [ref=e158]:
+                      - strong [ref=e159]: Download the Dataset
+                      - text: "- Once generated, download the dataset JSON file containing observations and the truth catalog."
+                    - listitem [ref=e160]:
+                      - strong [ref=e161]: Run Your Algorithm
+                      - text: "- Process the observations with your UCT algorithm to produce track associations and state estimates."
+                    - listitem [ref=e162]:
+                      - strong [ref=e163]: Submit Results
+                      - text: "- Upload your algorithm output through the Submit page. The system will validate your submission and run the evaluation pipeline."
+                    - listitem [ref=e164]:
+                      - strong [ref=e165]: View Results
+                      - text: "- Once evaluation is complete, view your detailed results and compare against the leaderboard."
+                  - heading "Key Concepts" [level=3] [ref=e166]
+                  - heading "Orbital Regimes" [level=4] [ref=e167]
+                  - list [ref=e168]:
+                    - listitem [ref=e169]:
+                      - generic [ref=e170]: LEO
+                      - text: "- Low Earth Orbit (200-2000 km altitude)"
+                    - listitem [ref=e171]:
+                      - generic [ref=e172]: MEO
+                      - text: "- Medium Earth Orbit (2000-35,786 km altitude)"
+                    - listitem [ref=e173]:
+                      - generic [ref=e174]: GEO
+                      - text: "- Geostationary Orbit (35,786 km altitude)"
+                    - listitem [ref=e175]:
+                      - generic [ref=e176]: HEO
+                      - text: "- Highly Elliptical Orbit (variable altitude)"
+                  - heading "Data Tiers" [level=4] [ref=e177]
+                  - list [ref=e178]:
+                    - listitem [ref=e179]:
+                      - generic [ref=e180]: T1
+                      - text: "- Pristine: High-quality, complete observations"
+                    - listitem [ref=e181]:
+                      - generic [ref=e182]: T2
+                      - text: "- Downsampled: Realistic sparse coverage"
+                    - listitem [ref=e183]:
+                      - generic [ref=e184]: T3
+                      - text: "- Simulated Obs: Synthetic observations from real orbits"
+                    - listitem [ref=e185]:
+                      - generic [ref=e186]: T4
+                      - text: "- Synthetic: Fully simulated objects and observations"
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e187] [cursor=pointer]:
+    - img [ref=e188]

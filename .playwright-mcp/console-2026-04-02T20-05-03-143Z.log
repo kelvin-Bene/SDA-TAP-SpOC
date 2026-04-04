@@ -1,0 +1,16 @@
+[    5790ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-WERSD76P.js?v=77e67682:21550
+[    5811ms] [WARNING] Supabase environment variables are not set. Auth features will not work. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file. @ http://localhost:3001/src/lib/supabase.ts:4
+[    5813ms] Error: supabaseUrl is required.
+    at validateSupabaseUrl (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=617f4387:16752:26)
+    at new SupabaseClient (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=617f4387:16957:21)
+    at createClient (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=617f4387:17136:10)
+    at http://localhost:3001/src/lib/supabase.ts:12:25
+[    5820ms] Error: supabaseUrl is required.
+    at validateSupabaseUrl (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=617f4387:16752:26)
+    at new SupabaseClient (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=617f4387:16957:21)
+    at createClient (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=617f4387:17136:10)
+    at http://localhost:3001/src/lib/supabase.ts:12:25
+[   75063ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-WERSD76P.js?v=77e67682:21550
+[   75073ms] [WARNING] Supabase environment variables are not set. Auth features will not work. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file. @ http://localhost:3001/src/lib/supabase.ts?t=1775160377999:4
+[   75099ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3001/node_modules/.vite/deps/react-router-dom.js?v=f0c8f701:4435
+[   75099ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3001/node_modules/.vite/deps/react-router-dom.js?v=f0c8f701:4435

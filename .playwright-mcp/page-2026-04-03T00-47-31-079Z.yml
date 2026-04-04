@@ -1,0 +1,200 @@
+- generic [ref=e2]:
+  - generic [ref=e402]:
+    - banner [ref=e403]:
+      - generic [ref=e404]:
+        - button "Toggle menu" [ref=e405] [cursor=pointer]:
+          - img [ref=e406]
+          - generic [ref=e407]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e408] [cursor=pointer]:
+          - /url: /
+          - img [ref=e410]
+          - generic [ref=e417]:
+            - generic [ref=e418]: SpOC
+            - generic [ref=e419]: UCT Benchmark
+        - navigation [ref=e420]:
+          - link "Datasets" [ref=e421] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e422] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e423] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e424] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e425]:
+          - button "Notifications" [ref=e426] [cursor=pointer]:
+            - img [ref=e427]
+            - generic [ref=e430]: Notifications
+          - button "User menu" [ref=e431] [cursor=pointer]:
+            - img [ref=e433]
+            - generic [ref=e436]: User menu
+    - generic [ref=e437]:
+      - complementary [ref=e438]:
+        - generic [ref=e440]:
+          - generic [ref=e443]:
+            - navigation [ref=e444]:
+              - link "Dashboard" [ref=e445] [cursor=pointer]:
+                - /url: /
+                - img [ref=e446]
+                - text: Dashboard
+              - generic [ref=e452]:
+                - button "Datasets" [ref=e453] [cursor=pointer]:
+                  - generic [ref=e454]:
+                    - img [ref=e455]
+                    - text: Datasets
+                  - img [ref=e459]
+                - generic [ref=e461]:
+                  - link "Browse Datasets" [ref=e462] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e463] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e464] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e465]:
+                - button "Submit" [ref=e466] [cursor=pointer]:
+                  - generic [ref=e467]:
+                    - img [ref=e468]
+                    - text: Submit
+                  - img [ref=e471]
+                - generic [ref=e473]:
+                  - link "New Submission" [ref=e474] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e475] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e476] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e477]
+                - text: Leaderboard
+              - link "Settings" [ref=e483] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e484]
+                - text: Settings
+            - generic [ref=e487]:
+              - heading "Quick Actions" [level=4] [ref=e488]:
+                - img [ref=e489]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e491] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e492]:
+                  - img [ref=e494]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e495] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e496]:
+                  - img [ref=e498]
+                  - text: Upload Submission
+          - generic [ref=e502]:
+            - generic [ref=e506]: All systems operational
+            - generic [ref=e507]: v1.3.0
+      - main [ref=e508]:
+        - generic [ref=e510]:
+          - generic [ref=e514]:
+            - generic [ref=e515]:
+              - img [ref=e516]
+              - text: Welcome back
+            - heading "Good to see you, spoc.test.claude" [level=1] [ref=e518]
+            - paragraph [ref=e519]: Track your algorithm performance, explore benchmark datasets, and climb the leaderboard.
+            - generic [ref=e520]:
+              - link "Generate Dataset" [ref=e521] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e522]:
+                  - img [ref=e523]
+                  - text: Generate Dataset
+              - link "Submit Algorithm" [ref=e524] [cursor=pointer]:
+                - /url: /submit
+                - button "Submit Algorithm" [ref=e525]:
+                  - img [ref=e526]
+                  - text: Submit Algorithm
+          - generic [ref=e529]:
+            - generic [ref=e533]:
+              - generic [ref=e534]:
+                - paragraph [ref=e535]: Top Rank
+                - paragraph [ref=e536]: —
+                - generic [ref=e538]: Loading...
+              - img [ref=e540]
+            - generic [ref=e549]:
+              - generic [ref=e550]:
+                - paragraph [ref=e551]: Submissions
+                - paragraph [ref=e552]: —
+                - generic [ref=e554]: none processing
+              - img [ref=e556]
+            - generic [ref=e562]:
+              - generic [ref=e563]:
+                - paragraph [ref=e564]: Best F1-Score
+                - paragraph [ref=e565]: —
+                - generic [ref=e567]: No submissions yet
+              - img [ref=e569]
+            - generic [ref=e576]:
+              - generic [ref=e577]:
+                - paragraph [ref=e578]: vs. Average
+                - paragraph [ref=e579]: —
+                - generic [ref=e581]:
+                  - img [ref=e582]
+                  - text: "0"
+                  - generic [ref=e583]: above average
+              - img [ref=e585]
+          - generic [ref=e588]:
+            - link "Browse Datasets Explore benchmark datasets across all orbital regimes View datasets" [ref=e589] [cursor=pointer]:
+              - /url: /datasets
+              - generic [ref=e592]:
+                - img [ref=e594]
+                - heading "Browse Datasets" [level=3] [ref=e599]
+                - paragraph [ref=e600]: Explore benchmark datasets across all orbital regimes
+                - generic [ref=e601]:
+                  - text: View datasets
+                  - img [ref=e602]
+            - link "Leaderboard See how your algorithms compare to others View rankings" [ref=e604] [cursor=pointer]:
+              - /url: /leaderboard
+              - generic [ref=e607]:
+                - img [ref=e609]
+                - heading "Leaderboard" [level=3] [ref=e615]
+                - paragraph [ref=e616]: See how your algorithms compare to others
+                - generic [ref=e617]:
+                  - text: View rankings
+                  - img [ref=e618]
+            - link "Documentation Learn about metrics, formats, and best practices Read docs" [ref=e620] [cursor=pointer]:
+              - /url: /docs
+              - generic [ref=e623]:
+                - img [ref=e625]
+                - heading "Documentation" [level=3] [ref=e628]
+                - paragraph [ref=e629]: Learn about metrics, formats, and best practices
+                - generic [ref=e630]:
+                  - text: Read docs
+                  - img [ref=e631]
+          - generic [ref=e633]:
+            - generic [ref=e634]:
+              - generic [ref=e635]:
+                - heading "Recent Submissions" [level=3] [ref=e636]
+                - link "View All" [ref=e637] [cursor=pointer]:
+                  - /url: /submit/my-submissions
+                  - button "View All" [ref=e638]:
+                    - text: View All
+                    - img [ref=e639]
+              - img [ref=e643]
+            - generic [ref=e645]:
+              - generic [ref=e646]:
+                - heading "Leaderboard" [level=3] [ref=e647]
+                - link "View Full" [ref=e648] [cursor=pointer]:
+                  - /url: /leaderboard
+                  - button "View Full" [ref=e649]:
+                    - text: View Full
+                    - img [ref=e650]
+              - img [ref=e654]
+          - generic [ref=e659]:
+            - generic [ref=e660]:
+              - img [ref=e661]
+              - heading "Announcements" [level=3] [ref=e663]
+            - list [ref=e664]:
+              - listitem [ref=e665]:
+                - generic [ref=e666]: NEW
+                - generic [ref=e667]: T4 synthetic object datasets are now available for testing. Generate your first T4 dataset today!
+              - listitem [ref=e668]:
+                - generic [ref=e669]: UPDATE
+                - generic [ref=e670]: Evaluation metrics now include covariance realism checks. See the documentation for details.
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e5] [cursor=pointer]:
+    - img [ref=e6]

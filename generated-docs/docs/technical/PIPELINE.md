@@ -1,8 +1,17 @@
 # Data Pipeline and Flow
 
+<!-- AI_METADATA
+purpose: High-level overview of the UCT Benchmark data pipeline and flow
+status: active
+related_files: [technical/PIPELINE_DEEP_DIVE.md, technical/ARCHITECTURE.md, technical/CONFIGURATION.md]
+last_updated: 2026-02-03
+-->
+
 ## Overview
 
 The UCT Benchmarking pipeline transforms raw observational data from space surveillance networks into standardized benchmark datasets for evaluating Uncorrelated Track Processing (UCTP) algorithms.
+
+<!-- AI_SECTION: pipeline_phases -->
 
 ## Pipeline Phases
 
@@ -39,21 +48,25 @@ The pipeline operates in three main phases:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase1_dataset_creation -->
 
 ## Phase 1: Dataset Creation
 
-### Step 1: Configuration (Web UI or API)
-**Files**: `frontend/` (React) + `backend_api/main.py` (FastAPI)
+### Step 1: Configuration (GUI)
+**File**: `uct_benchmark/Create_Dataset.py` → `launch_gui()`
 
-Users configure dataset parameters through the web interface or API:
+Users configure dataset parameters through a CustomTKinter GUI:
 - **Orbital Regime**: LEO, MEO, GEO, or combinations
 - **Sensor Type**: Optical, Radar, or specific sensors
 - **Time Window**: Duration of observation window (days)
 - **Object Count**: Number of satellites in dataset
 
 ### Step 2: Dataset Code Generation
-**File**: `uct_benchmark/config/dataset_schema.py` → `LegacyDatasetCode`
+**File**: `uct_benchmark/data/windowTools.py` → `codeGenerator()`
 
 Converts user configuration into standardized "Dataset Codes" that encode:
 - Regime classification
@@ -62,7 +75,7 @@ Converts user configuration into standardized "Dataset Codes" that encode:
 - Object count targets
 
 ### Step 3: Batch Data Pull
-**File**: `uct_benchmark/api/apiIntegration.py`
+**File**: `uct_benchmark/data/windowCheck.py` → `batchPull()`
 
 Queries the Unified Data Library (UDL) for observation data:
 ```
@@ -73,7 +86,7 @@ Queries the Unified Data Library (UDL) for observation data:
 ```
 
 ### Step 4: Window Selection
-**File**: `uct_benchmark/data/windowSelection.py`
+**File**: `uct_benchmark/data/windowCheck.py` → `windowMain()`, `windowCheck()`, `bisect()`, `slide()`
 
 Intelligent window selection algorithm:
 
@@ -84,34 +97,13 @@ Intelligent window selection algorithm:
 5. **Exponential Decay**: If threshold not met, expand search with decaying batch sizes
 
 ```python
-# Window Quality Tiers (per Lewis's specification)
-T1 = 4  # Optimal: All criteria met, no manipulation needed
-T2 = 3  # Excess: Too much data, requires downsampling
-T3 = 2  # Insufficient: Not enough data, requires simulation
-T4 = 1  # Poor: Criteria partially met, may need simulation
-T5 = 0  # Impossible: Criteria can never be met
+# Threshold Tiers
+T1 = 4  # May require downsampling (best)
+T2 = 3  # Requires downsampling
+T3 = 2  # Requires observation simulation
+T4 = 1  # Requires object simulation
+T5 = 0  # Impossible (worst)
 ```
-
-### TIER_5 Detection Conditions
-
-TIER_5 ("Impossible") is assigned by the `_is_criteria_impossible()` function when:
-
-1. **No objects exist** in the entire search space (`object_count == 0`)
-2. **Requested more objects than exist** in catalog (`min_objects > max_available_objects`)
-3. **Data window far below required fit span** (`duration_days < 10% of fit_span_days`)
-4. **All satellites have zero orbital coverage** (`avg_coverage == 0`)
-
-When TIER_5 is detected:
-- `result.tier = WindowTier.TIER_5`
-- `result.needs_simulation = False` (can't simulate impossible criteria)
-- `result.recommended_action = "criteria_impossible"`
-
-**User Action for TIER_5**: Adjust dataset parameters:
-- Increase time window (fitspan)
-- Select different orbital regime
-- Lower object count requirement
-- Use "UN" for target percentage
-- Switch to "NE" (No Events)
 
 ### Step 5: Scoring
 **File**: `uct_benchmark/data/basicScoringFunction.py` → `basicScoring()`
@@ -175,6 +167,8 @@ When data quality is insufficient, synthetic observations are added:
 #### T4: Object Simulation (Not Yet Implemented)
 For very sparse data, entire synthetic satellites may need to be generated.
 
+<!-- AI_IMPROVEMENT_OPPORTUNITY: T4 object simulation is not implemented. See planning/FUTURE_IMPLEMENTATIONS.md for details. -->
+
 ### Step 6: Reference State Pull
 **File**: `uct_benchmark/api/apiIntegration.py` → `pullStates()`
 
@@ -195,7 +189,11 @@ Creates output JSON with structure:
 }
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase2_uctp_processing -->
 
 ## Phase 2: UCTP Processing
 
@@ -221,7 +219,11 @@ The dummy UCTP simulates realistic output for testing:
 30% → False Positive (incorrect association)
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: phase3_evaluation -->
 
 ## Phase 3: Evaluation
 
@@ -276,7 +278,11 @@ Creates PDF report containing:
 - Performance charts
 - Detailed metrics tables
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: data_flow -->
 
 ## Data Flow Diagram
 
@@ -353,21 +359,25 @@ Creates PDF report containing:
                     └─────────────────────┘
 ```
 
+<!-- /AI_SECTION -->
+
 ---
+
+<!-- AI_SECTION: key_files -->
 
 ## Key Files Summary
 
 | Phase | File | Purpose |
 |-------|------|---------|
-| 1 | `apiIntegration.py` → `generateDataset()` | Main driver for dataset creation |
-| 1 | `windowSelection.py` | Window selection algorithm (with TIER_5 support) |
-| 1 | `dataset_schema.py` | Dataset code generation |
+| 1 | `Create_Dataset.py` | Main driver for dataset creation |
+| 1 | `windowCheck.py` | Window selection algorithm |
+| 1 | `windowTools.py` | GUI and code generation |
 | 1 | `basicScoringFunction.py` | Data quality scoring |
 | 1 | `apiIntegration.py` | API calls and data saving |
 | 1 | `dataManipulation.py` | **T1/T2 Downsampling** (3-stage pipeline) |
 | 1 | `simulateObservations.py` | **T3 Simulation** (epoch selection + obs generation) |
 | 1 | `propagator.py` | Orbit propagation for simulation |
-| 2 | `Evaluation.py` | UCTP execution and evaluation driver |
+| 2 | `MainMVP.py` | UCTP execution driver |
 | 2 | `dummyUCTP.py` | Test UCTP implementation |
 | 3 | `Evaluation.py` | Main evaluation driver |
 | 3 | `orbitAssociation.py` | Orbit matching |
@@ -395,3 +405,5 @@ See `uct_benchmark/settings.py` for adjustable parameters:
   - `simulation_track_size`, `simulation_track_spacing`
 
 See [CONFIGURATION.md](CONFIGURATION.md) for detailed parameter documentation.
+
+<!-- /AI_SECTION -->

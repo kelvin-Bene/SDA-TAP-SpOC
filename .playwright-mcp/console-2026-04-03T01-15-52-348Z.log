@@ -1,0 +1,4 @@
+[     600ms] [ERROR] Access to XMLHttpRequest at 'https://backend-production-4b02.up.railway.app/api/v1/submissions/' from origin 'https://frontend-production-6d80.up.railway.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://frontend-production-6d80.up.railway.app/profile:0
+[     601ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://backend-production-4b02.up.railway.app/api/v1/submissions/:0
+[    1942ms] [ERROR] Access to XMLHttpRequest at 'https://backend-production-4b02.up.railway.app/api/v1/submissions/' from origin 'https://frontend-production-6d80.up.railway.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://frontend-production-6d80.up.railway.app/profile:0
+[    1942ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://backend-production-4b02.up.railway.app/api/v1/submissions/:0

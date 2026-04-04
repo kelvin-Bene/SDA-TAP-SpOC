@@ -18,7 +18,7 @@ npm run dev
 
 ### Access the Interface
 
-Open your browser to: http://localhost:3000
+Open your browser to: http://localhost:5173
 
 ## Navigation Overview
 

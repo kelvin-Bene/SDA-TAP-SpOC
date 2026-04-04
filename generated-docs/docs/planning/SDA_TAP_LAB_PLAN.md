@@ -1,5 +1,14 @@
 # SDA TAP Lab Team Plan
 
+<!-- AI_METADATA
+purpose: Task planning and tracking for SDA TAP Lab team
+status: active
+related_files: [planning/PROJECT_STATUS.md, planning/INTEGRATED_ROADMAP.md, planning/SPOC_PLAN.md, planning/FUTURE_IMPLEMENTATIONS.md]
+last_updated: 2026-02-03
+-->
+
+<!-- NEEDS_UPDATE: Some TODO items in this document have been completed - check PROJECT_STATUS.md for current status -->
+
 ## Team Mission
 
 **Labelling & Data Storage**: Develop software tools to pull event data from available data sources, label that data according to predefined classifications, parse and extract relevant measurement data, and clean and store the labelled data in a centrally available database.
@@ -20,46 +29,48 @@
 
 | Area | Status | Progress |
 |------|--------|----------|
-| API Integrations | Complete | 95% |
-| Window Selection | Complete | 90% |
-| Basic Scoring | Complete | 85% |
-| Observation Simulation | Partial | 60% |
+| API Integrations | ✅ Complete | 95% |
+| Window Selection | ✅ Complete | 90% |
+| Basic Scoring | ✅ Complete | 85% |
+| Observation Simulation | ✅ Complete | 95% |
 | Event Labelling | Not Started | 0% |
-| Centralized Database | Not Started | 0% |
-| Tier Processing | Not Started | 5% |
+| Centralized Database | ✅ Complete | 95% |
+| Tier Processing (T1-T3) | ✅ Complete | 100% |
+| T4 Processing | Not Started | 0% |
+| Open Source Integration | ✅ Complete | 90% |
+| UCTP Lab Framework | ✅ Complete | 85% |
 
 ---
 
 ## TODO List by Priority
 
+<!-- AI_SECTION: priority1_todos -->
+
 ### PRIORITY 1: Critical Path Items
 
-#### TODO 1.1: Implement T3 Processing (Observation Simulation)
-**Estimated Effort**: Medium
-**Dependencies**: None (framework exists)
+#### ✅ TODO 1.1: Implement T3 Processing (Observation Simulation) - COMPLETE
+**Status**: ✅ Complete (2026-01-19)
 **Files**: `Create_Dataset.py`, `simulateObservations.py`
 
-**Tasks**:
-- [ ] Complete `epochsToSim()` function in `simulateObservations.py`
-- [ ] Integrate observation simulation into `Create_Dataset.py`
-- [ ] Add logic to determine which observations need simulation
-- [ ] Test with various orbital regimes (LEO, MEO, GEO)
-- [ ] Validate simulated observations against real data patterns
+**Completed Tasks**:
+- [x] Complete `epochsToSim()` function in `simulateObservations.py` (lines 358-507)
+- [x] Integrate observation simulation into `Create_Dataset.py`
+- [x] Time-bin based approach for epoch selection
+- [x] Track grouping with configurable size and spacing
+- [x] Test coverage: `test_simulation.py` (3/3 pass)
 
-**Implementation Notes**:
-```python
-# In Create_Dataset.py around line 107
-if tierThreshold == "T3":
-    # For each satellite with insufficient coverage:
-    # 1. Determine epochs needing simulation using epochsToSim()
-    # 2. Call simulateObs() to generate synthetic observations
-    # 3. Merge simulated obs with real observations
-    # 4. Recalculate scoring to verify improvement
-```
+**Implementation Details**:
+- Time-bin approach divides observation window into bins (period / bins_per_period)
+- Identifies bins with insufficient observations
+- Selects epochs at center of empty bins
+- Configuration in `uct_benchmark/settings.py` (lines 164-188)
 
 ---
 
 #### TODO 1.2: Implement T4 Processing (Object Simulation)
+
+<!-- AI_IMPROVEMENT_OPPORTUNITY: T4 is the main remaining tier processing work. See FUTURE_IMPLEMENTATIONS.md -->
+
 **Estimated Effort**: High
 **Dependencies**: T3 Processing should be complete first
 **Files**: `Create_Dataset.py`, new file `simulateObjects.py`
@@ -85,30 +96,38 @@ Solution:
 
 ---
 
-#### TODO 1.3: Implement Downsampling (T1/T2)
-**Estimated Effort**: Medium
-**Dependencies**: None
-**Files**: `Create_Dataset.py`, new file `downsample.py`
+#### ✅ TODO 1.3: Implement Downsampling (T1/T2) - COMPLETE
+**Status**: ✅ Complete (2026-01-18)
+**Files**: `Create_Dataset.py`, `dataManipulation.py`
 
-**Tasks**:
-- [ ] Design downsampling strategy (random, systematic, quality-based)
-- [ ] Create `downsample.py` module
-- [ ] Implement observation reduction while maintaining quality
-- [ ] Preserve track structure during downsampling
-- [ ] Add configuration options for downsampling parameters
-- [ ] Test effect on evaluation metrics
+**Completed Tasks**:
+- [x] Design downsampling strategy (three-stage pipeline)
+- [x] Implement in `dataManipulation.py`
+- [x] Preserve track structure during downsampling
+- [x] Configuration in `uct_benchmark/settings.py` (lines 142-162)
+- [x] Test coverage: `test_downsampling.py` (3/3 pass), `test_pipeline_e2e.py` (8/8 pass)
 
-**Downsampling Strategies**:
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| Random | Randomly remove observations | General reduction |
-| Systematic | Remove every Nth observation | Uniform reduction |
-| Quality-based | Remove lower-quality obs first | Preserve best data |
-| Track-aware | Maintain minimum obs per track | Preserve structure |
+**Implementation Details**:
+Three-stage downsampling pipeline:
+1. `_lowerOrbitCoverage()` - Polygon-based coverage reduction
+2. `_increaseTrackDistance()` - Sliding window gap widening
+3. `_downsampleAbsolute()` - Time-binned count reduction
+
+| Strategy | Description | Implementation |
+|----------|-------------|----------------|
+| Coverage-based | Reduce orbital coverage | `_lowerOrbitCoverage()` |
+| Gap-widening | Increase time between tracks | `_increaseTrackDistance()` |
+| Count-based | Reduce total observation count | `_downsampleAbsolute()` |
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority2_event_labelling -->
+
 ### PRIORITY 2: Event Labelling System
+
+<!-- AI_IMPROVEMENT_OPPORTUNITY: Event labelling is a major feature gap (0% complete). High value for benchmark realism. -->
 
 #### TODO 2.1: Design Event Labelling Schema
 **Estimated Effort**: Medium
@@ -200,99 +219,67 @@ class EventType(Enum):
 
 ---
 
-### PRIORITY 3: Centralized Database
+<!-- /AI_SECTION -->
 
-#### TODO 3.1: Database Schema Design
-**Estimated Effort**: High
-**Dependencies**: Event labelling schema
-**Files**: New folder `uct_benchmark/database/`
+<!-- AI_SECTION: priority3_database -->
 
-**Tasks**:
-- [ ] Design normalized schema for observations
-- [ ] Design schema for state vectors/TLEs
-- [ ] Design schema for event labels
-- [ ] Design schema for datasets
-- [ ] Create migration scripts
+### ✅ PRIORITY 3: Centralized Database - COMPLETE
 
-**Proposed Tables**:
-```
-observations
-├── id (PK)
-├── sat_no
-├── ob_time
-├── ra, dec, range, etc.
-├── sensor_id
-├── data_mode
-└── created_at
-
-state_vectors
-├── id (PK)
-├── sat_no
-├── epoch
-├── x, y, z, vx, vy, vz
-├── covariance
-└── source
-
-event_labels
-├── id (PK)
-├── observation_id (FK)
-├── event_type
-├── confidence
-├── labelled_by
-└── labelled_at
-
-datasets
-├── id (PK)
-├── name
-├── created_at
-├── parameters (JSON)
-└── tier
-```
-
----
-
-#### TODO 3.2: Database Implementation
-**Estimated Effort**: High
-**Dependencies**: Schema design
+**Status**: ✅ Complete (95%) as of 2026-01-25 using DuckDB
 **Files**: `uct_benchmark/database/`
 
-**Tasks**:
-- [ ] Select database backend (PostgreSQL recommended)
-- [ ] Implement connection management
-- [ ] Create CRUD operations
-- [ ] Implement query interface
-- [ ] Add indexing for performance
-- [ ] Create backup/restore procedures
+#### ✅ TODO 3.1: Database Schema Design - COMPLETE
+**Completed Tasks**:
+- [x] Design normalized schema for observations
+- [x] Design schema for state vectors/TLEs
+- [x] Design schema for datasets
+- [x] 14+ tables in `uct_benchmark/database/schema.py`
+
+**Implemented Tables**:
+- satellites, observations, state_vectors, element_sets
+- datasets, events, data_sources, validation_measurements
+- Plus additional supporting tables
 
 ---
 
-#### TODO 3.3: Data Ingestion Pipeline
-**Estimated Effort**: Medium
-**Dependencies**: Database implementation
-**Files**: New file `uct_benchmark/database/ingestion.py`
-
-**Tasks**:
-- [ ] Create batch ingestion from API pulls
-- [ ] Implement incremental updates
-- [ ] Add data validation
-- [ ] Handle duplicates
-- [ ] Log ingestion statistics
+#### ✅ TODO 3.2: Database Implementation - COMPLETE
+**Completed Tasks**:
+- [x] Select database backend: **DuckDB** (columnar, embedded, fast analytics)
+- [x] Implement connection management (`connection.py`)
+- [x] Create CRUD operations (`repository.py`)
+- [x] Implement query interface
+- [x] Repository pattern for data access
+- [x] Export to JSON/Parquet formats
+- [x] CLI interface (`uct_benchmark/database/cli.py`)
 
 ---
+
+#### ✅ TODO 3.3: Data Ingestion Pipeline - COMPLETE
+**Completed Tasks**:
+- [x] Batch ingestion from API pulls (`ingestion.py`)
+- [x] Incremental updates support
+- [x] Data validation
+- [x] Duplicate handling
+- [x] Open source data integration (GCAT, UCS, SatNOGS, ILRS)
+
+---
+
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: priority4_infrastructure -->
 
 ### PRIORITY 4: Infrastructure & Quality
 
-#### TODO 4.1: Complete Observation Simulation
-**Estimated Effort**: Medium
-**Dependencies**: None
+#### ✅ TODO 4.1: Complete Observation Simulation - COMPLETE
+**Status**: ✅ Complete (95%)
 **Files**: `simulateObservations.py`
 
-**Tasks**:
-- [ ] Complete `epochsToSim()` function
-- [ ] Add radar observation simulation
-- [ ] Improve sensor selection logic
-- [ ] Add observation uncertainty modeling
-- [ ] Create unit tests
+**Completed Tasks**:
+- [x] Complete `epochsToSim()` function (lines 358-507)
+- [x] Sensor selection with weighted random selection
+- [x] Observation uncertainty modeling with noise
+- [x] Unit tests: `test_simulation.py` (3/3 pass)
+- [ ] Add radar observation simulation (future enhancement)
 
 ---
 
@@ -339,32 +326,41 @@ datasets
 
 ## Detailed Task Breakdown
 
-### Immediate Next Steps (Next Sprint)
+### ✅ Completed Tasks
+
+| Task | Status | Completed |
+|------|--------|-----------|
+| Complete `epochsToSim()` | ✅ Complete | 2026-01-19 |
+| Integrate T3 simulation | ✅ Complete | 2026-01-19 |
+| Implement downsampling (T1/T2) | ✅ Complete | 2026-01-18 |
+| Database schema design | ✅ Complete | 2026-01-25 |
+| Database implementation | ✅ Complete | 2026-01-25 |
+| Data ingestion pipeline | ✅ Complete | 2026-01-25 |
+| Open source integration | ✅ Complete | 2026-02-03 |
+
+### Immediate Next Steps (Current Sprint)
 
 | Task | Assignee | Priority | Est. Hours |
 |------|----------|----------|------------|
-| Complete `epochsToSim()` | TBD | P1 | 16 |
-| Integrate T3 simulation | TBD | P1 | 24 |
+| ILRS validation module | TBD | P1 | 24 |
 | Design event schema | TBD | P2 | 8 |
-| Document current APIs | TBD | P3 | 8 |
+| Document open source APIs | TBD | P3 | 8 |
 
 ### Short-term (1-2 Sprints)
 
 | Task | Assignee | Priority | Est. Hours |
 |------|----------|----------|------------|
-| Implement downsampling | TBD | P1 | 16 |
-| Implement T4 processing | TBD | P1 | 40 |
+| Implement T4 processing | TBD | P2 | 40 |
 | Launch event detection | TBD | P2 | 32 |
-| Database schema design | TBD | P3 | 24 |
+| Maneuver event detection | TBD | P2 | 40 |
 
 ### Medium-term (3-4 Sprints)
 
 | Task | Assignee | Priority | Est. Hours |
 |------|----------|----------|------------|
-| Maneuver detection | TBD | P2 | 40 |
-| Database implementation | TBD | P3 | 60 |
-| Data ingestion pipeline | TBD | P3 | 24 |
 | Proximity detection | TBD | P2 | 24 |
+| Breakup detection | TBD | P2 | 32 |
+| ccsds-ndm integration | TBD | P3 | 16 |
 
 ---
 
@@ -374,11 +370,13 @@ The following items must be delivered to SpOC:
 
 | Deliverable | Format | Status |
 |-------------|--------|--------|
-| Labelled observation data | JSON/Parquet | Pending |
+| Labelled observation data | JSON/Parquet | Pending (event labeling not started) |
 | Event classification schema | Documentation | Pending |
-| Database query interface | API | Pending |
-| Data quality reports | PDF | Partial |
-| Dataset generation API | Python module | Complete |
+| Database query interface | API | ✅ Complete (`repository.py`) |
+| Data quality reports | PDF | ✅ Complete (`generatePDF.py`) |
+| Dataset generation API | Python module | ✅ Complete |
+| Open source data enrichment | API | ✅ Complete (`DataSourceManager`) |
+| UCTP Lab framework | Python module | ✅ Complete (`uctp_lab/`) |
 
 ---
 
@@ -416,6 +414,10 @@ The following items must be delivered to SpOC:
 
 ---
 
+<!-- /AI_SECTION -->
+
+<!-- AI_SECTION: stretch_goals -->
+
 ## Stretch Goal: Open Evolve Integration
 
 As outlined by tech lead Lewis in the initial project meeting, once the evaluation pipeline is fully validated, a potential future use case is **Open Evolve** integration:
@@ -438,3 +440,5 @@ As outlined by tech lead Lewis in the initial project meeting, once the evaluati
 - Does the iterative process produce meaningful performance gains?
 
 **Timeline**: "Towards the end of the semester if things are in a good spot" - Lewis
+
+<!-- /AI_SECTION -->

@@ -2,8 +2,8 @@
 
 ## UCT Benchmark - Data Storage Layer
 
-**Version:** 2.0.0
-**Updated:** April 2026
+**Version:** 1.0.0
+**Updated:** January 2026
 
 ---
 
@@ -13,34 +13,20 @@ This document describes the database and data storage architecture implemented f
 
 ### 1.1 Design Goals
 
-- **Dual-Backend Support**: PostgreSQL/Supabase for production, DuckDB for local development
+- **Zero Configuration**: No database server installation required
 - **Backward Compatible**: Existing JSON/Parquet workflows unchanged
 - **High Performance**: Sub-second queries for interactive use
-- **Portable**: Cross-platform (Windows/Linux) with DuckDB; cloud-ready with PostgreSQL
+- **Portable**: Cross-platform (Windows/Linux)
 - **Version Control**: Dataset versioning and comparison
 
 ### 1.2 Technology Stack
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Production DB | PostgreSQL (via Supabase) | Managed, cloud-hosted, multi-user |
-| Development DB | DuckDB v1.4.1+ | Zero-config, analytical focus, local dev |
-| Adapter Layer | `DatabaseManager` + adapter pattern | Transparent backend switching via `DATABASE_BACKEND` env var |
-| Migrations | Alembic | Schema versioning for PostgreSQL |
+| Database | DuckDB v1.4.1+ | Already a dependency, analytical focus |
 | Bulk Storage | Parquet | Columnar, compressed, DuckDB-native |
 | Export Format | JSON | API compatibility, human-readable |
 | ORM Layer | Custom Repository Pattern | Lightweight, no external dependencies |
-
-### 1.3 Dual-Backend Adapter Pattern
-
-The `DatabaseManager` class in `uct_benchmark/database/connection.py` transparently routes queries to either DuckDB or PostgreSQL based on the `DATABASE_BACKEND` environment variable:
-
-- `DATABASE_BACKEND=duckdb` (default): Uses the local DuckDB file at `data/uct_benchmark.duckdb`
-- `DATABASE_BACKEND=postgres` or `DATABASE_BACKEND=supabase`: Uses PostgreSQL via `DATABASE_URL`
-
-The `postgres_adapter.py` module translates DuckDB-style `?` placeholders to PostgreSQL-style `%s` placeholders, ensuring all router code works identically against both backends.
-
-Alembic migrations (`alembic/versions/`) handle schema changes for PostgreSQL only. DuckDB schema is managed by `schema.py` directly.
 
 ---
 
@@ -85,131 +71,41 @@ Alembic migrations (`alembic/versions/`) handle schema changes for PostgreSQL on
 
 ### 3.1 Entity Relationship Diagram
 
-> **Reading the diagram:** `||` = exactly one, `o|` = zero or one, `o{` = zero or more. Only PK, FK, and signature columns shown — see table specifications in section 3.2 for full details.
-
-```mermaid
-erDiagram
-    _schema_metadata {
-        VARCHAR key PK
-        VARCHAR value
-        TIMESTAMP updated_at
-    }
-
-    satellites {
-        INTEGER sat_no PK
-        VARCHAR name
-        VARCHAR object_type
-        VARCHAR orbital_regime
-    }
-
-    observations {
-        VARCHAR id PK
-        INTEGER sat_no FK
-        TIMESTAMP ob_time
-        VARCHAR track_id
-    }
-
-    state_vectors {
-        INTEGER id PK
-        INTEGER sat_no FK
-        TIMESTAMP epoch
-        VARCHAR source
-    }
-
-    element_sets {
-        INTEGER id PK
-        INTEGER sat_no FK
-        TIMESTAMP epoch
-        VARCHAR source
-    }
-
-    datasets {
-        INTEGER id PK
-        INTEGER parent_id FK
-        VARCHAR name
-        VARCHAR code
-        VARCHAR status
-    }
-
-    dataset_observations {
-        INTEGER dataset_id PK
-        VARCHAR observation_id PK
-        INTEGER assigned_track_id
-    }
-
-    dataset_references {
-        INTEGER dataset_id PK
-        INTEGER sat_no PK
-        INTEGER state_vector_id FK
-        INTEGER element_set_id FK
-    }
-
-    submissions {
-        INTEGER id PK
-        INTEGER dataset_id FK
-        VARCHAR job_id FK
-        VARCHAR algorithm_name
-        VARCHAR status
-    }
-
-    submission_results {
-        INTEGER id PK
-        INTEGER submission_id FK
-        DECIMAL f1_score
-        DECIMAL position_rms_km
-    }
-
-    jobs {
-        VARCHAR id PK
-        VARCHAR job_type
-        VARCHAR status
-        INTEGER progress
-    }
-
-    event_types {
-        INTEGER id PK
-        VARCHAR name
-        TEXT description
-    }
-
-    events {
-        INTEGER id PK
-        INTEGER event_type_id FK
-        INTEGER primary_sat_no FK
-        INTEGER secondary_sat_no FK
-        DECIMAL confidence
-    }
-
-    event_observations {
-        INTEGER event_id PK
-        VARCHAR observation_id PK
-    }
-
-    %% Core satellite references
-    satellites ||--o{ observations : "sat_no"
-    satellites ||--o{ state_vectors : "sat_no"
-    satellites ||--o{ element_sets : "sat_no"
-
-    %% Dataset cluster
-    datasets ||--o{ dataset_observations : "dataset_id"
-    observations ||--o{ dataset_observations : "observation_id"
-    datasets ||--o{ dataset_references : "dataset_id"
-    satellites ||--o{ dataset_references : "sat_no"
-    state_vectors ||--o{ dataset_references : "state_vector_id"
-    element_sets ||--o{ dataset_references : "element_set_id"
-    datasets o|--o{ datasets : "parent_id"
-
-    %% Submission and evaluation
-    datasets ||--o{ submissions : "dataset_id"
-    jobs ||--o{ submissions : "job_id"
-    submissions ||--o| submission_results : "submission_id"
-
-    %% Event labelling
-    event_types ||--o{ events : "event_type_id"
-    satellites ||--o{ events : "primary_sat_no"
-    satellites o|--o{ events : "secondary_sat_no"
-    events ||--o{ event_observations : "event_id"
-    observations ||--o{ event_observations : "observation_id"
+```
+┌──────────────┐       ┌──────────────────┐       ┌──────────────┐
+│  satellites  │       │   observations   │       │ state_vectors│
+├──────────────┤       ├──────────────────┤       ├──────────────┤
+│ sat_no (PK)  │◄──────│ sat_no (FK)      │       │ id (PK)      │
+│ name         │       │ id (PK)          │       │ sat_no (FK)  │
+│ orbital_     │       │ ob_time          │       │ epoch        │
+│   regime     │       │ ra, declination  │       │ x/y/z_pos    │
+│ object_type  │       │ sensor_name      │       │ x/y/z_vel    │
+│ ...          │       │ track_id         │       │ covariance   │
+└──────────────┘       │ is_uct           │       │ source       │
+       │               └──────────────────┘       └──────────────┘
+       │                        │                        │
+       │               ┌────────┴────────┐               │
+       │               ▼                 ▼               │
+       │    ┌──────────────────┐ ┌──────────────────┐   │
+       │    │dataset_           │ │ event_           │   │
+       │    │  observations     │ │   observations   │   │
+       │    ├──────────────────┤ ├──────────────────┤   │
+       │    │ dataset_id (FK)  │ │ event_id (FK)    │   │
+       │    │ observation_id   │ │ observation_id   │   │
+       │    │ assigned_track_id│ └──────────────────┘   │
+       │    └──────────────────┘          │             │
+       │               │                  │             │
+       │               ▼                  ▼             │
+       │    ┌──────────────────┐ ┌──────────────────┐   │
+       │    │    datasets      │ │     events       │   │
+       │    ├──────────────────┤ ├──────────────────┤   │
+       └────│ name             │ │ event_type_id    │───┘
+            │ code             │ │ primary_sat_no   │
+            │ tier             │ │ confidence       │
+            │ version          │ │ event_time_start │
+            │ parent_id        │ └──────────────────┘
+            │ generation_params│
+            └──────────────────┘
 ```
 
 ### 3.2 Table Specifications

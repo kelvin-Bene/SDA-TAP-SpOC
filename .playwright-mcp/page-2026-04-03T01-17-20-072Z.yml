@@ -1,0 +1,115 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e19]:
+            - generic [ref=e20]: SpOC
+            - generic [ref=e21]: UCT Benchmark
+        - navigation [ref=e22]:
+          - link "Datasets" [ref=e53] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e54] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e55] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e23] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e24]:
+          - button "Notifications" [ref=e56] [cursor=pointer]:
+            - img [ref=e57]
+            - generic [ref=e60]: Notifications
+          - button "User menu" [ref=e61] [cursor=pointer]:
+            - img [ref=e63]
+            - generic [ref=e66]: User menu
+    - generic [ref=e26]:
+      - complementary [ref=e27]:
+        - generic [ref=e29]:
+          - generic [ref=e32]:
+            - navigation [ref=e33]:
+              - link "Dashboard" [ref=e67] [cursor=pointer]:
+                - /url: /
+                - img [ref=e68]
+                - text: Dashboard
+              - generic [ref=e73]:
+                - button "Datasets" [ref=e74] [cursor=pointer]:
+                  - generic [ref=e75]:
+                    - img [ref=e76]
+                    - text: Datasets
+                  - img [ref=e80]
+                - generic [ref=e82]:
+                  - link "Browse Datasets" [ref=e83] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e84] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e85] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e86]:
+                - button "Submit" [ref=e87] [cursor=pointer]:
+                  - generic [ref=e88]:
+                    - img [ref=e89]
+                    - text: Submit
+                  - img [ref=e92]
+                - generic [ref=e94]:
+                  - link "New Submission" [ref=e95] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e96] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e97] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e98]
+                - text: Leaderboard
+              - link "Settings" [ref=e104] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e105]
+                - text: Settings
+            - generic [ref=e108]:
+              - heading "Quick Actions" [level=4] [ref=e109]:
+                - img [ref=e110]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e112] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e113]:
+                  - img [ref=e115]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e116] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e117]:
+                  - img [ref=e119]
+                  - text: Upload Submission
+          - generic [ref=e38]:
+            - generic [ref=e42]: All systems operational
+            - generic [ref=e43]: v1.3.0
+      - main [ref=e44]:
+        - generic [ref=e122]:
+          - generic [ref=e123]:
+            - heading "Profile Settings" [level=1] [ref=e124]
+            - paragraph [ref=e125]: Manage your account settings and preferences
+          - generic [ref=e126]:
+            - tablist [ref=e127]:
+              - tab "Profile" [ref=e128] [cursor=pointer]
+              - tab "API Keys" [active] [selected] [ref=e129] [cursor=pointer]
+              - tab "Notifications" [ref=e130] [cursor=pointer]
+              - tab "Security" [ref=e131] [cursor=pointer]
+            - tabpanel "API Keys" [ref=e185]:
+              - generic [ref=e186]:
+                - generic [ref=e187]:
+                  - heading "API Keys" [level=3] [ref=e188]
+                  - paragraph [ref=e189]: Manage API keys for programmatic access to the platform
+                - generic [ref=e191]:
+                  - generic [ref=e192]: Coming Soon
+                  - generic:
+                    - paragraph: Programmatic API access with key management, usage tracking, and rate limits will be available in a future release.
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e50] [cursor=pointer]:
+    - img [ref=e51]

@@ -74,7 +74,7 @@ pip install pre-commit
 pre-commit install
 
 # 5. Verify setup
-pytest backend_api/tests/ -v
+make test
 ```
 
 ---
@@ -87,6 +87,8 @@ We use **Ruff** for linting and formatting:
 
 ```bash
 # Format code
+make format
+# OR
 ruff format .
 
 # Check linting
@@ -98,7 +100,7 @@ ruff check --fix .
 
 ### Style Guidelines
 
-- **Line length**: 100 characters
+- **Line length**: 88 characters (Black default)
 - **Imports**: Use absolute imports, sorted with isort
 - **Type hints**: Encouraged for function signatures
 - **Docstrings**: Google style for public functions
@@ -150,10 +152,12 @@ export function DatasetCard({ dataset, onSelect }: DatasetCardProps) {
 
 ```bash
 # Run all tests
-pytest backend_api/tests/ -v
+make test
+# OR
+pytest
 
 # Run specific test file
-pytest tests/test_database.py -v
+pytest tests/test_database.py
 
 # Run with coverage
 pytest --cov=uct_benchmark --cov-report=html

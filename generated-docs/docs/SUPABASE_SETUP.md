@@ -12,7 +12,7 @@ UCT Benchmark supports two database backends:
 
 1. A Supabase account (https://supabase.com)
 2. Python 3.12+
-3. psycopg2-binary driver installed (included as a core dependency): `pip install "."`
+3. psycopg3 installed: `pip install "psycopg[binary,pool]>=3.1.0"`
 
 ## Step 1: Create a Supabase Project
 
@@ -118,7 +118,7 @@ Supabase enables Row Level Security by default on new tables. The UCT Benchmark 
 
 ### SSL Connections
 
-Supabase requires SSL connections. The psycopg2-binary driver handles SSL automatically when using the provided connection string.
+Supabase requires SSL connections. The psycopg3 driver handles this automatically when using the provided connection string.
 
 ## Troubleshooting
 
@@ -182,4 +182,4 @@ DATABASE_PATH=./data/database/uct_benchmark.duckdb
 ## Support
 
 - Supabase Documentation: https://supabase.com/docs
-- UCT Benchmark Issues: https://github.com/kelvin-Bene/SDA-TAP-SpOC/issues
+- UCT Benchmark Issues: https://github.com/your-repo/issues

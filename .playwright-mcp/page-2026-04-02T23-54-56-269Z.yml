@@ -1,0 +1,96 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Toggle menu" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+          - generic [ref=e9]: Toggle menu
+        - link "SpOC UCT Benchmark" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e19]:
+            - generic [ref=e20]: SpOC
+            - generic [ref=e21]: UCT Benchmark
+        - navigation [ref=e22]:
+          - link "Datasets" [ref=e23] [cursor=pointer]:
+            - /url: /datasets
+            - text: Datasets
+          - link "Submit" [ref=e24] [cursor=pointer]:
+            - /url: /submit
+            - text: Submit
+          - link "Leaderboard" [ref=e25] [cursor=pointer]:
+            - /url: /leaderboard
+            - text: Leaderboard
+          - link "Docs" [ref=e26] [cursor=pointer]:
+            - /url: /docs
+            - text: Docs
+        - generic [ref=e27]:
+          - button "Notifications" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e32]: Notifications
+          - button "User menu" [ref=e33] [cursor=pointer]:
+            - img [ref=e35]
+            - generic [ref=e38]: User menu
+    - generic [ref=e39]:
+      - complementary [ref=e40]:
+        - generic [ref=e42]:
+          - generic [ref=e45]:
+            - navigation [ref=e46]:
+              - link "Dashboard" [ref=e47] [cursor=pointer]:
+                - /url: /
+                - img [ref=e48]
+                - text: Dashboard
+              - generic [ref=e53]:
+                - button "Datasets" [ref=e54] [cursor=pointer]:
+                  - generic [ref=e55]:
+                    - img [ref=e56]
+                    - text: Datasets
+                  - img [ref=e60]
+                - generic [ref=e62]:
+                  - link "Browse Datasets" [ref=e63] [cursor=pointer]:
+                    - /url: /datasets
+                  - link "Generate Dataset" [ref=e64] [cursor=pointer]:
+                    - /url: /datasets/generate
+                  - link "My Datasets" [ref=e65] [cursor=pointer]:
+                    - /url: /datasets/my-datasets
+              - generic [ref=e66]:
+                - button "Submit" [ref=e67] [cursor=pointer]:
+                  - generic [ref=e68]:
+                    - img [ref=e69]
+                    - text: Submit
+                  - img [ref=e72]
+                - generic [ref=e74]:
+                  - link "New Submission" [ref=e75] [cursor=pointer]:
+                    - /url: /submit
+                  - link "My Submissions" [ref=e76] [cursor=pointer]:
+                    - /url: /submit/my-submissions
+              - link "Leaderboard" [ref=e77] [cursor=pointer]:
+                - /url: /leaderboard
+                - img [ref=e78]
+                - text: Leaderboard
+              - link "Settings" [ref=e84] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e85]
+                - text: Settings
+            - generic [ref=e89]:
+              - heading "Quick Actions" [level=4] [ref=e90]:
+                - img [ref=e91]
+                - text: Quick Actions
+              - link "Generate Dataset" [ref=e93] [cursor=pointer]:
+                - /url: /datasets/generate
+                - button "Generate Dataset" [ref=e94]:
+                  - img [ref=e96]
+                  - text: Generate Dataset
+              - link "Upload Submission" [ref=e97] [cursor=pointer]:
+                - /url: /submit
+                - button "Upload Submission" [ref=e98]:
+                  - img [ref=e100]
+                  - text: Upload Submission
+          - generic [ref=e104]:
+            - generic [ref=e108]: All systems operational
+            - generic [ref=e109]: v1.3.0
+      - main [ref=e110]
+  - region "Notifications (F8)":
+    - list
+  - button "Send feedback" [ref=e114] [cursor=pointer]:
+    - img [ref=e115]

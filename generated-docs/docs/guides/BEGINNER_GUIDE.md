@@ -180,7 +180,7 @@ The UCT Benchmark consists of three main parts:
 │  ┌─────────────────┐  ┌─────────────────┐                  │
 │  │   Web Frontend  │  │   Backend API   │                  │
 │  │   (React)       │──│   (FastAPI)     │                  │
-│  │   Port 3000     │  │   Port 8000     │                  │
+│  │   Port 5173     │  │   Port 8000     │                  │
 │  └─────────────────┘  └────────┬────────┘                  │
 │                                │                            │
 │                       ┌────────┴────────┐                  │
