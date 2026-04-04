@@ -63,7 +63,7 @@ export function useLeaderboard(filters?: LeaderboardFilters) {
 
       return data.entries.map(transformLeaderboardEntry);
     },
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 60 * 10, // 10 minutes — demo data doesn't change often
   });
 }
 
@@ -91,7 +91,7 @@ export function useLeaderboardHistory(datasetId?: string, days: number = 30) {
         bestF1: entry.best_f1,
       })) as LeaderboardHistoryEntry[];
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 30, // 30 minutes — heavy query, cache aggressively for demo
   });
 }
 

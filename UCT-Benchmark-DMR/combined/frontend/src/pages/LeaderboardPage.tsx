@@ -48,7 +48,7 @@ export function LeaderboardPage() {
 
   // Use real API hooks
   const { data: leaderboard = [], isLoading, error } = useLeaderboard(filters);
-  const { data: historyData = [] } = useLeaderboardHistory(undefined, 180);
+  const { data: historyData = [] } = useLeaderboardHistory(undefined, 30);
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
