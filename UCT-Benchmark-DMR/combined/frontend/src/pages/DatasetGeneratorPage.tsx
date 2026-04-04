@@ -305,6 +305,11 @@ export function DatasetGeneratorPage() {
       } else if (jobStatus.status === 'failed') {
         setIsGenerating(false);
         setJobId(null);
+        toast({
+          title: 'Dataset generation failed',
+          description: jobStatus.error || 'An unexpected error occurred during generation.',
+          variant: 'destructive',
+        });
       }
     }
   }, [jobStatus, navigate]);
@@ -376,7 +381,6 @@ export function DatasetGeneratorPage() {
         ...config,
         name: autoName,
       });
-      console.log('Generation result:', result);
       // The API returns a job_id for tracking progress
       if (result?.job_id) {
         setJobId(result.job_id);
@@ -388,9 +392,6 @@ export function DatasetGeneratorPage() {
         }, 1000);
       }
     } catch (error: any) {
-      console.error('Failed to generate dataset:', error);
-      console.error('Error response:', error?.response?.data);
-
       // Handle Pydantic validation errors which return an array of error details
       let errorMessage = 'Unknown error';
       const detail = error?.response?.data?.detail;
@@ -466,7 +467,6 @@ export function DatasetGeneratorPage() {
         }, 1000);
       }
     } catch (error: any) {
-      console.error('Failed to generate dataset from legacy code:', error);
       toast({
         title: 'Dataset generation failed',
         description: error.message || 'An unexpected error occurred',

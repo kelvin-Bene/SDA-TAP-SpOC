@@ -39,7 +39,6 @@ export function DatasetBrowserPage() {
 
       downloadBlob(blob, `${dataset.name}.json`);
     } catch (err: unknown) {
-      console.error('Download failed:', err);
       // U6: Differentiate network vs server errors for better user guidance
       const isNetworkError = err instanceof Error && ('code' in err || err.message === 'Network Error');
       toast({
