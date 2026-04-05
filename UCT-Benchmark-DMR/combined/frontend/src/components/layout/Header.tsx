@@ -52,24 +52,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 mr-8 group">
-          {/* SVG orbital globe logo */}
-          <div className="relative w-10 h-10 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-            <svg viewBox="0 0 40 40" className="h-9 w-9 drop-shadow-[0_0_8px_hsl(var(--cosmic-cyan)/0.4)]">
-              {/* Globe outline */}
-              <circle cx="20" cy="20" r="16" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="1.5" opacity="0.9" />
-              {/* Equator */}
-              <ellipse cx="20" cy="20" rx="16" ry="5" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="0.8" opacity="0.4" />
-              {/* Orbit path 1 */}
-              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--cosmic-cyan))" strokeWidth="1" opacity="0.6" transform="rotate(-30 20 20)" />
-              {/* Orbit path 2 */}
-              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--stellar-purple))" strokeWidth="1" opacity="0.5" transform="rotate(45 20 20)" />
-              {/* Orbit path 3 */}
-              <ellipse cx="20" cy="20" rx="16" ry="6" fill="none" stroke="hsl(var(--cosmic-blue))" strokeWidth="1" opacity="0.5" transform="rotate(90 20 20)" />
-              {/* Satellite dot */}
-              <circle cx="36" cy="20" r="2" fill="hsl(var(--cosmic-cyan))" className="animate-orbit" style={{ transformOrigin: '20px 20px' }}>
-                <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
-              </circle>
-            </svg>
+          <div className="flex items-center gap-2 group-hover:scale-[1.02] transition-transform duration-300">
+            <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-9 w-9 object-contain" />
+            <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-8 object-contain hidden sm:block" />
           </div>
           <div className="hidden sm:block">
             <span className="font-display font-bold text-lg tracking-tight">
