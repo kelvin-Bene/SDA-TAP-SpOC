@@ -43,7 +43,7 @@ export function LandingNav() {
             </div>
           </div>
           <span className="font-display font-bold text-lg tracking-tight text-gradient-cosmic hidden sm:block">
-            SpOC
+            UCT Benchmark
           </span>
         </a>
 

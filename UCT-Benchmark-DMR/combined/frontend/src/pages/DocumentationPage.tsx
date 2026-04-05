@@ -11,7 +11,7 @@ export function DocumentationPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
         <p className="text-muted-foreground mt-1">
-          Learn how to use the SpOC UCT Benchmark Platform
+          Learn how to use the UCT Benchmark Platform
         </p>
       </div>
 
@@ -48,13 +48,13 @@ export function DocumentationPage() {
                 Getting Started
               </CardTitle>
               <CardDescription>
-                Quick start guide for the SpOC UCT Benchmark Platform
+                Quick start guide for the UCT Benchmark Platform
               </CardDescription>
             </CardHeader>
             <CardContent className="prose dark:prose-invert max-w-none">
-              <h3>Welcome to SpOC</h3>
+              <h3>Welcome to UCT Benchmark</h3>
               <p>
-                The SpOC (Space Operations Center) UCT Benchmark Platform is a standardized framework
+                The UCT Benchmark Platform is a standardized framework
                 for evaluating Uncorrelated Track (UCT) processing algorithms. This guide will help
                 you get started with generating datasets, submitting your algorithm results, and
                 understanding your performance metrics.

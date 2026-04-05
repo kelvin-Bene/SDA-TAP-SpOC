@@ -221,4 +221,4 @@ For comprehensive guides, see the `generated-docs/docs/` directory at the reposi
 
 ## License
 
-This project is developed as part of the SDA TAP SpOC collaboration. See repository for license details.
+This project is developed as part of the SDA TAP Lab / CFC collaboration. See repository for license details.

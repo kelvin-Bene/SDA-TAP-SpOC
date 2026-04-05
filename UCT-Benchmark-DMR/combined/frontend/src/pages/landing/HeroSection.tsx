@@ -30,11 +30,11 @@ export function HeroSection() {
                 variant="outline"
                 className="w-fit border-white/20 bg-white/5 text-muted-foreground font-mono text-xs tracking-wider"
               >
-                SDA TAP Lab // Space Operations Command
+                SDA TAP Lab // Combat Forces Command
               </Badge>
 
               <h1 className="font-display font-bold tracking-tight">
-                <span className="block text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">SpOC</span>
+                <span className="block text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">UCT Benchmark</span>
                 <span className="block text-3xl sm:text-4xl lg:text-5xl mt-2">
                   Uncorrelated Track Processing
                 </span>

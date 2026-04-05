@@ -68,7 +68,7 @@ describe('LoginPage', () => {
   it('renders the platform title', () => {
     render(<LoginPage />);
 
-    expect(screen.getByText('SpOC')).toBeInTheDocument();
+    expect(screen.getByText('UCT Benchmark')).toBeInTheDocument();
   });
 
   it('has required attribute on email and password inputs', () => {

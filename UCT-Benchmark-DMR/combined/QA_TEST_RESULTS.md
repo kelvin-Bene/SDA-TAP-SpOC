@@ -101,7 +101,7 @@
 
 | # | Test | Result | Notes |
 |---|------|--------|-------|
-| 7.1 | Getting Started tab | **PASS** | Quick start guide content with Welcome to SpOC section |
+| 7.1 | Getting Started tab | **PASS** | Quick start guide content with Welcome to UCT Benchmark section |
 | 7.2 | Dataset Format tab | **PASS** | Tab visible and clickable |
 | 7.3 | Submission Format tab | **PASS** | Tab visible and clickable |
 | 7.4 | Evaluation Metrics tab | **PASS** | Tab visible and clickable |
