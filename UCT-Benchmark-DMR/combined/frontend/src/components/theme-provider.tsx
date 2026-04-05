@@ -21,7 +21,18 @@ const initialState: ThemeProviderState = {
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 'ui-theme', ...props }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem(storageKey) as Theme) || defaultTheme);
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Check current key first, then migrate from legacy key
+    const stored = localStorage.getItem(storageKey) as Theme;
+    if (stored) return stored;
+    const legacy = localStorage.getItem('spoc-theme') as Theme;
+    if (legacy) {
+      localStorage.setItem(storageKey, legacy);
+      localStorage.removeItem('spoc-theme');
+      return legacy;
+    }
+    return defaultTheme;
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;
