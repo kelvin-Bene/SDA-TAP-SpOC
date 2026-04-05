@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageSquare, Bug, Lightbulb, HelpCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Bug, Lightbulb, HelpCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -158,9 +158,9 @@ function FeedbackWidgetInner() {
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'transition-transform hover:scale-105'
         )}
-        aria-label="Send feedback"
+        aria-label="Report a bug"
       >
-        <MessageSquare className="h-5 w-5" />
+        <Bug className="h-5 w-5" />
       </Button>
 
       {/* Feedback dialog */}
