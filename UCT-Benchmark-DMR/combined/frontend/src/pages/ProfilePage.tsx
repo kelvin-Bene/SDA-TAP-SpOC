@@ -1,21 +1,10 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  User,
-  Building2,
-  Shield,
-  Loader2,
-  ArrowRight,
-  KeyRound,
-} from 'lucide-react';
+import { User, Building2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLeaderboardStatistics } from '@/hooks/useLeaderboard';
 import { useSubmissions } from '@/hooks/useSubmissions';
@@ -74,32 +63,22 @@ export function ProfilePage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your account settings and preferences
+          Manage your profile information
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="api">API Keys</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-        </TabsList>
-
-        {/* Profile Tab */}
-        <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal information and organization details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
-              <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+          <CardDescription>
+            Update your personal information and organization details
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
+            <div className="space-y-6">
               {/* Avatar */}
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
@@ -150,28 +129,6 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              {/* API Credentials Link */}
-              <Separator />
-              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <KeyRound className="h-5 w-5 text-cosmic-cyan" />
-                    <div>
-                      <p className="font-medium text-sm">Data Source API Credentials</p>
-                      <p className="text-xs text-muted-foreground">
-                        Manage your API tokens and service credentials in Settings.
-                      </p>
-                    </div>
-                  </div>
-                  <Link to="/settings">
-                    <Button variant="outline" size="sm" className="gap-2">
-                      Settings
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-
               {/* Stats */}
               <div className="grid gap-4 sm:grid-cols-3 pt-4 border-t">
                 <div>
@@ -200,172 +157,10 @@ export function ProfilePage() {
                   )}
                 </Button>
               </div>
-              </div>
-            </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* API Keys Tab */}
-        <TabsContent value="api">
-          <Card>
-            <CardHeader>
-              <CardTitle>API Keys</CardTitle>
-              <CardDescription>
-                Manage API keys for programmatic access to the platform
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="relative">
-                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
-                <div className="opacity-50 pointer-events-none">
-                  <p className="text-sm text-muted-foreground">
-                    Programmatic API access with key management, usage tracking, and rate limits will be available in a future release.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Notifications Tab */}
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>
-                Choose what updates you want to receive
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="relative">
-                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
-                <div className="opacity-50 pointer-events-none">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Submission Complete</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when your submission evaluation is complete
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Rank Changes</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when your leaderboard position changes
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>New Datasets</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when new benchmark datasets are available
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Platform Updates</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive announcements about new features and changes
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button>Save Preferences</Button>
-              </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Security Tab */}
-        <TabsContent value="security">
-          <Card>
-            <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
-              <CardDescription>
-                Manage your account security and authentication
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="relative">
-                <Badge variant="outline" className="mb-4">Coming Soon</Badge>
-                <div className="opacity-50 pointer-events-none">
-              {/* Change Password */}
-              <form onSubmit={(e) => e.preventDefault()}>
-                <div className="space-y-4">
-                  <h4 className="font-medium">Change Password</h4>
-                  <div className="space-y-4 max-w-md">
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Current Password</Label>
-                      <Input id="current-password" type="password" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">New Password</Label>
-                      <Input id="new-password" type="password" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm New Password</Label>
-                      <Input id="confirm-password" type="password" />
-                    </div>
-                    <Button type="submit">Update Password</Button>
-                  </div>
-                </div>
-              </form>
-
-              <Separator />
-
-              {/* Two-Factor Authentication */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
-                    <Label>Two-Factor Authentication</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Add an extra layer of security to your account
-                  </p>
-                </div>
-                <Button variant="outline">Enable 2FA</Button>
-              </div>
-
-              <Separator />
-
-              {/* Active Sessions */}
-              <div>
-                <h4 className="font-medium mb-4">Active Sessions</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="font-medium">Current Session</p>
-                      <p className="text-sm text-muted-foreground">
-                        {user?.email ?? 'Unknown'} -- This device
-                      </p>
-                    </div>
-                    <Badge variant="success">Active</Badge>
-                  </div>
-                </div>
-              </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

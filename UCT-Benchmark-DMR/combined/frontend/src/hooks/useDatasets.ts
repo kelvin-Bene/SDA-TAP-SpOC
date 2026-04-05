@@ -336,13 +336,13 @@ interface ObservationsResponse {
 }
 
 export function useDatasetObservations(
-  datasetId: string,
+  datasetId: string | null,
   options?: { limit?: number; offset?: number }
 ) {
   return useQuery({
     queryKey: ['dataset-observations', datasetId, options],
     queryFn: async () => {
-      const response = await api.getDatasetObservations(datasetId, options);
+      const response = await api.getDatasetObservations(datasetId!, options);
       return response.data as ObservationsResponse;
     },
     enabled: !!datasetId,

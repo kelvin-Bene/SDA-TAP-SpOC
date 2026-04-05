@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,10 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, Satellite, Database, Calendar, History, Loader2, BarChart3 } from 'lucide-react';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { formatFileSize, formatDate } from '@/lib/utils';
 import type { Dataset } from '@/types';
-import { useDatasetVersions } from '@/hooks/useDatasets';
+import { useDatasetVersions, useDatasetObservations } from '@/hooks/useDatasets';
 
 interface DatasetPreviewDialogProps {
   dataset: Dataset | null;
@@ -31,6 +34,39 @@ export function DatasetPreviewDialog({
   const { data: versions = [], isLoading: versionsLoading } = useDatasetVersions(
     open && dataset ? dataset.id : null
   );
+
+  const { data: obsData, isLoading: obsLoading } = useDatasetObservations(
+    open && dataset ? dataset.id : null,
+    { limit: 500 }
+  );
+
+  const chartData = useMemo(() => {
+    const obs = obsData?.observations ?? [];
+    if (!obs.length) return null;
+
+    // Observations per satellite
+    const perSat: Record<string, number> = {};
+    obs.forEach((o: any) => {
+      const key = o.sat_no ? `SAT-${o.sat_no}` : 'Unknown';
+      perSat[key] = (perSat[key] || 0) + 1;
+    });
+    const perSatData = Object.entries(perSat)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Sensor breakdown
+    const perSensor: Record<string, number> = {};
+    obs.forEach((o: any) => {
+      const key = o.sensor_name || o.sensor_id || 'Unknown';
+      perSensor[key] = (perSensor[key] || 0) + 1;
+    });
+    const sensorData = Object.entries(perSensor)
+      .map(([name, value]) => ({ name: name.length > 15 ? name.slice(0, 15) + '...' : name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return { perSatData, sensorData };
+  }, [obsData]);
 
   if (!dataset) return null;
 
@@ -114,76 +150,76 @@ export function DatasetPreviewDialog({
           </TabsContent>
 
           <TabsContent value="statistics" className="space-y-4 mt-4">
-            {/* Track Gap Distribution */}
-            <div>
-              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                Track Gap Distribution
-              </h4>
-              <div className="rounded-lg border bg-muted/50 p-3">
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={[
-                    { gap: '0-1', count: 80 },
-                    { gap: '1-2', count: 60 },
-                    { gap: '2-3', count: 40 },
-                    { gap: '3-4', count: 25 },
-                    { gap: '4-5', count: 15 },
-                    { gap: '5-6', count: 8 },
-                    { gap: '6-7', count: 4 },
-                    { gap: '7+', count: 2 },
-                  ]}>
-                    <XAxis dataKey="gap" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="hsl(217, 91%, 60%)" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-xs text-muted-foreground text-center mt-1">Gap duration (hours)</p>
+            {obsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            </div>
-
-            {/* Sensor Type Distribution */}
-            <div>
-              <h4 className="text-sm font-medium mb-2">Sensor Type Distribution</h4>
-              <div className="rounded-lg border bg-muted/50 p-3 flex items-center gap-6">
-                <ResponsiveContainer width={100} height={100}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: 'Optical', value: 65 },
-                        { name: 'Radar', value: 25 },
-                        { name: 'RF', value: 10 },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={20}
-                      outerRadius={40}
-                      dataKey="value"
-                      strokeWidth={1}
-                    >
-                      <Cell fill="hsl(217, 91%, 60%)" />
-                      <Cell fill="hsl(142, 76%, 45%)" />
-                      <Cell fill="hsl(45, 93%, 47%)" />
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-col gap-1.5 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(217, 91%, 60%)' }} />
-                    Optical (65%)
+            ) : !chartData ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="text-sm text-muted-foreground">No observation data available</p>
+              </div>
+            ) : (
+              <>
+                {/* Summary stats */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Objects</p>
+                    <p className="text-lg font-bold">{dataset.objectCount}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(142, 76%, 45%)' }} />
-                    Radar (25%)
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Observations</p>
+                    <p className="text-lg font-bold">{dataset.observationCount.toLocaleString()}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(45, 93%, 47%)' }} />
-                    RF (10%)
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Coverage</p>
+                    <p className="text-lg font-bold">{(dataset.coverage * 100).toFixed(1)}%</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Avg Obs/Object</p>
+                    <p className="text-lg font-bold">
+                      {dataset.objectCount > 0 ? Math.round(dataset.observationCount / dataset.objectCount) : 0}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
+
+                {/* Observations per satellite chart */}
+                {chartData.perSatData.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Observations per Object</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={chartData.perSatData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                        <XAxis dataKey="name" fontSize={10} stroke="hsl(222 20% 50%)" />
+                        <YAxis fontSize={10} stroke="hsl(222 20% 50%)" />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
+                        />
+                        <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Sensor breakdown */}
+                {chartData.sensorData.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Sensor Breakdown</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={chartData.sensorData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                        <XAxis type="number" fontSize={10} stroke="hsl(222 20% 50%)" />
+                        <YAxis dataKey="name" type="category" fontSize={10} stroke="hsl(222 20% 50%)" width={100} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
+                        />
+                        <Bar dataKey="value" fill="#06B6D4" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="sample" className="mt-4">
