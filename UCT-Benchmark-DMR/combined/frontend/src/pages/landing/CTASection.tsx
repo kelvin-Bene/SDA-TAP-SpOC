@@ -27,7 +27,7 @@ export function CTASection() {
             <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0 px-8">
               <Link to="/login">
                 <LogIn className="h-4 w-4 mr-2" />
-                Sign In to SpOC
+                Sign In to UCT Benchmark
               </Link>
             </Button>
           </div>
@@ -38,11 +38,11 @@ export function CTASection() {
       <footer className="border-t border-white/10 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-            <span className="font-display font-semibold text-foreground">SpOC</span>
+            <span className="font-display font-semibold text-foreground">UCT Benchmark</span>
             <span className="text-white/20">|</span>
             <span>SDA TAP Lab</span>
             <span className="text-white/20">|</span>
-            <span>Space Operations Command</span>
+            <span>Combat Forces Command</span>
           </div>
           <span className="font-mono text-xs">v1.0.0</span>
         </div>

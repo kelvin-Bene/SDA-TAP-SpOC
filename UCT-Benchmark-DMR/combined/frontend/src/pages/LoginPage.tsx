@@ -123,10 +123,10 @@ export function LoginPage() {
           </div>
 
           <CardTitle ref={headingRef} tabIndex={-1} className="text-3xl font-display font-bold">
-            <span className="text-gradient-cosmic">SpOC</span>
+            <span className="text-gradient-cosmic">UCT Benchmark</span>
           </CardTitle>
           <CardDescription className="text-base">
-            {view === 'login' && 'UCT Algorithm Benchmarking Platform'}
+            {view === 'login' && 'UCT Benchmark Platform'}
             {view === 'signup' && 'Create your account'}
             {view === 'forgot-password' && 'Reset your password'}
           </CardDescription>
@@ -375,7 +375,7 @@ export function LoginPage() {
 
       {/* Version tag */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50">
-        SpOC v{__APP_VERSION__}
+        v{__APP_VERSION__}
       </div>
     </div>
   );

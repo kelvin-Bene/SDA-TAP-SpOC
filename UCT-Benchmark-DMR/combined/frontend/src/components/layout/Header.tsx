@@ -73,10 +73,10 @@ export function Header({ onMenuClick }: HeaderProps) {
           </div>
           <div className="hidden sm:block">
             <span className="font-display font-bold text-lg tracking-tight">
-              <span className="text-gradient-cosmic">SpOC</span>
+              <span className="text-gradient-cosmic">UCT Benchmark</span>
             </span>
             <span className="text-muted-foreground text-xs block -mt-0.5 tracking-wide">
-              UCT Benchmark
+              Platform
             </span>
           </div>
         </Link>
