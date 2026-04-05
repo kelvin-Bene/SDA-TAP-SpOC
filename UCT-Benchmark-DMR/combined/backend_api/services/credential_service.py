@@ -2,7 +2,7 @@
 Credential management service.
 
 Provides encrypted storage, retrieval, and resolution of API credentials
-for external data services (UDL, ESA, Space-Track, SatNOGS, CelesTrak, Orekit).
+for external data services (UDL, ESA, Space-Track, CelesTrak, Orekit).
 
 Encryption reuses the existing Fernet utilities in backend_api.utils.crypto.
 Fallback chain: credentials table (encrypted) -> environment variable -> None.
@@ -25,7 +25,6 @@ ENV_VAR_MAP: dict[str, str] = {
     "udl": "UDL_TOKEN",
     "esa": "ESA_DISCOSWEBAPI_TOKEN",
     "spacetrack": "SPACETRACK_USER",
-    "satnogs": "SATNOGS_TOKEN",
     "celestrak": "CELESTRAK_TOKEN",
     "orekit": "OREKIT_DATA_PATH",
 }
@@ -42,15 +41,11 @@ SERVICE_METADATA: dict[str, dict[str, str]] = {
     },
     "spacetrack": {
         "label": "Space-Track",
-        "description": "NORAD TLE and conjunction data",
-    },
-    "satnogs": {
-        "label": "SatNOGS",
-        "description": "Open-source satellite observation network",
+        "description": "NORAD TLE and conjunction data (Optional - breakup event analysis only)",
     },
     "celestrak": {
         "label": "CelesTrak",
-        "description": "Supplementary TLE and space data",
+        "description": "Supplementary TLE and space data (Optional - breakup event analysis only)",
     },
     "orekit": {
         "label": "Orekit Data",
@@ -75,7 +70,7 @@ class CredentialService:
 
     @staticmethod
     def list_services(db: "DatabaseManager", user_id: str) -> list[dict]:
-        """Return metadata for all 6 services for a given user.
+        """Return metadata for all services for a given user.
 
         Never returns secret values -- only configuration status.
         """
@@ -292,7 +287,6 @@ class CredentialService:
             validate_celestrak_token,
             validate_esa_token,
             validate_orekit_path,
-            validate_satnogs_token,
             validate_spacetrack_credentials,
             validate_udl_token,
         )
@@ -304,7 +298,6 @@ class CredentialService:
                 primary,
                 CredentialService.resolve_secondary(db, user_id, service_name) or "",
             ),
-            "satnogs": lambda: validate_satnogs_token(primary),
             "celestrak": lambda: validate_celestrak_token(primary),
             "orekit": lambda: validate_orekit_path(primary),
         }
