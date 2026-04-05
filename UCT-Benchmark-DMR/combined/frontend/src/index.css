@@ -1,5 +1,5 @@
 /* === FONTS === */
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -13,102 +13,72 @@
 
 @layer base {
   :root {
-    /* === CORE COLORS === */
-    --background: 222 47% 3%;
-    --foreground: 210 40% 98%;
+    /* === CORE COLORS — USSF-aligned dark navy === */
+    --background: 220 25% 6%;
+    --foreground: 210 20% 93%;
 
-    /* Deep space backgrounds */
-    --card: 222 47% 5%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 6%;
-    --popover-foreground: 210 40% 98%;
+    --card: 220 25% 8%;
+    --card-foreground: 210 20% 93%;
+    --popover: 220 25% 9%;
+    --popover-foreground: 210 20% 93%;
 
-    /* Primary: Electric Cyan */
-    --primary: 192 91% 52%;
-    --primary-foreground: 222 47% 4%;
+    /* Primary: Steel Blue (authoritative, not flashy) */
+    --primary: 213 60% 50%;
+    --primary-foreground: 220 25% 6%;
 
-    /* Secondary: Deep Indigo */
-    --secondary: 245 58% 51%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary: Slate */
+    --secondary: 215 20% 35%;
+    --secondary-foreground: 210 20% 93%;
 
-    /* Muted: Subtle space grays */
-    --muted: 222 30% 12%;
-    --muted-foreground: 215 20% 55%;
+    /* Muted: Neutral dark grays */
+    --muted: 220 15% 14%;
+    --muted-foreground: 215 15% 55%;
 
     /* Accents */
-    --accent: 222 40% 14%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 220 20% 16%;
+    --accent-foreground: 210 20% 93%;
 
     /* Destructive */
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 210 20% 93%;
 
     /* Borders & Inputs */
-    --border: 222 30% 18%;
-    --input: 222 30% 14%;
-    --ring: 192 91% 52%;
+    --border: 220 15% 20%;
+    --input: 220 15% 16%;
+    --ring: 213 60% 50%;
 
-    /* Radius */
-    --radius: 0.75rem;
+    /* Radius — slightly tighter for military feel */
+    --radius: 0.5rem;
 
-    /* === SPACE THEME COLORS === */
-    --space-void: 222 47% 3%;
-    --space-deep: 222 47% 5%;
-    --space-nebula: 260 60% 8%;
+    /* === SPACE THEME (muted, less purple) === */
+    --space-void: 220 25% 6%;
+    --space-deep: 220 25% 8%;
+    --space-nebula: 220 30% 10%;
 
-    --cosmic-cyan: 192 91% 52%;
-    --cosmic-blue: 217 91% 60%;
-    --stellar-purple: 265 89% 66%;
-    --nova-orange: 25 95% 53%;
-    --aurora-green: 142 76% 45%;
+    --cosmic-cyan: 213 60% 50%;
+    --cosmic-blue: 217 70% 55%;
+    --stellar-purple: 215 30% 45%;
+    --nova-orange: 25 80% 50%;
+    --aurora-green: 142 50% 42%;
 
-    /* Orbital Regime Colors */
-    --orbital-leo: 217 91% 60%;
-    --orbital-meo: 142 76% 45%;
-    --orbital-geo: 45 93% 47%;
-    --orbital-heo: 0 72% 51%;
+    /* Orbital Regime Colors — keep functional but slightly muted */
+    --orbital-leo: 217 70% 55%;
+    --orbital-meo: 142 50% 42%;
+    --orbital-geo: 45 75% 47%;
+    --orbital-heo: 0 65% 48%;
 
     /* Tier Colors */
-    --tier-1: 142 76% 45%;
-    --tier-2: 217 91% 60%;
-    --tier-3: 45 93% 47%;
-    --tier-4: 0 72% 51%;
+    --tier-1: 142 50% 42%;
+    --tier-2: 217 70% 55%;
+    --tier-3: 45 75% 47%;
+    --tier-4: 0 65% 48%;
 
-    /* Glow colors */
-    --glow-cyan: 192 100% 60%;
-    --glow-purple: 265 100% 70%;
-    --glow-blue: 217 100% 65%;
+    /* Glow colors — much more subtle */
+    --glow-cyan: 213 60% 50%;
+    --glow-purple: 215 30% 45%;
+    --glow-blue: 217 70% 55%;
   }
 
-  .light {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 217 91% 50%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 93%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 93%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 85%;
-    --input: 214 32% 85%;
-    --ring: 217 91% 50%;
-
-    --space-void: 210 40% 98%;
-    --space-deep: 210 40% 93%;
-    --space-nebula: 260 20% 95%;
-
-    --cosmic-cyan: 192 91% 40%;
-    --cosmic-blue: 217 91% 45%;
-    --stellar-purple: 265 89% 50%;
-  }
 }
 
 @layer base {
@@ -122,16 +92,16 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-feature-settings: 'rlig' 1, 'calt' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Sora', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 
   code, pre, .font-mono {
@@ -143,35 +113,21 @@
 @layer utilities {
   /* Gradient texts */
   .text-gradient-cosmic {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(var(--cosmic-cyan)) 0%, hsl(var(--cosmic-blue)) 50%, hsl(var(--stellar-purple)) 100%);
+    color: hsl(var(--primary));
+    font-weight: 700;
   }
 
   .text-gradient-aurora {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(var(--aurora-green)) 0%, hsl(var(--cosmic-cyan)) 100%);
+    color: hsl(var(--aurora-green));
+    font-weight: 700;
   }
 
   /* Glow effects */
-  .glow-sm {
-    box-shadow: 0 0 10px -3px hsl(var(--primary) / 0.4);
-  }
-
-  .glow-md {
-    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.4);
-  }
-
-  .glow-lg {
-    box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.5);
-  }
-
-  .glow-cyan {
-    box-shadow: 0 0 20px -5px hsl(var(--cosmic-cyan) / 0.5);
-  }
-
-  .glow-purple {
-    box-shadow: 0 0 20px -5px hsl(var(--stellar-purple) / 0.5);
-  }
+  .glow-sm { box-shadow: 0 0 8px -4px hsl(var(--primary) / 0.2); }
+  .glow-md { box-shadow: 0 0 15px -6px hsl(var(--primary) / 0.2); }
+  .glow-lg { box-shadow: 0 0 20px -8px hsl(var(--primary) / 0.25); }
+  .glow-cyan { box-shadow: 0 0 15px -6px hsl(var(--cosmic-cyan) / 0.2); }
+  .glow-purple { box-shadow: 0 0 15px -6px hsl(var(--stellar-purple) / 0.2); }
 
   /* Glass morphism */
   .glass {
@@ -195,7 +151,7 @@
     inset: 0;
     padding: 1px;
     border-radius: inherit;
-    background: linear-gradient(135deg, hsl(var(--cosmic-cyan) / 0.5) 0%, hsl(var(--cosmic-blue) / 0.3) 50%, hsl(var(--stellar-purple) / 0.5) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.4) 0%, hsl(var(--cosmic-blue) / 0.2) 50%, hsl(var(--primary) / 0.4) 100%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -256,7 +212,7 @@
 
   .card-hover:hover {
     @apply -translate-y-1;
-    box-shadow: 0 20px 40px -15px hsl(var(--primary) / 0.15);
+    box-shadow: 0 15px 30px -12px hsl(var(--primary) / 0.1);
   }
 }
 
@@ -421,8 +377,8 @@
   .space-bg {
     position: relative;
     background:
-      radial-gradient(ellipse at 20% 80%, hsl(var(--stellar-purple) / 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, hsl(var(--cosmic-blue) / 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 80%, hsl(var(--cosmic-blue) / 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, hsl(var(--primary) / 0.04) 0%, transparent 50%),
       radial-gradient(ellipse at 50% 50%, hsl(var(--space-nebula)) 0%, hsl(var(--space-void)) 100%);
   }
 
@@ -514,7 +470,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, hsl(var(--cosmic-cyan)), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.6), transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
   }

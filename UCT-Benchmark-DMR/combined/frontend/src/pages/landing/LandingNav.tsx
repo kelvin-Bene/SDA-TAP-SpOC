@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Sun, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useTheme } from '@/components/theme-provider';
 
 const NAV_LINKS = [
   { href: '#mission', label: 'Mission' },
@@ -13,7 +12,6 @@ const NAV_LINKS = [
 ];
 
 export function LandingNav() {
-  const { theme, setTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -59,14 +57,6 @@ export function LandingNav() {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="hover:bg-white/5"
-          >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
           <Button asChild size="sm" className="bg-gradient-cosmic hover:opacity-90 text-white border-0">
             <Link to="/login">
               <LogIn className="h-4 w-4 mr-2" />

@@ -45,7 +45,7 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="uct-benchmark-theme">
+    <ThemeProvider>
       <ErrorBoundary>
         <FeedbackProvider>
           <Suspense fallback={<PageLoader />}>

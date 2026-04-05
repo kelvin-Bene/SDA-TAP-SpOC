@@ -1,64 +1,24 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-
-type Theme = 'dark' | 'light' | 'system';
+import { createContext, useContext, useEffect } from 'react';
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
-  storageKey?: string;
 };
 
 type ThemeProviderState = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: 'dark';
 };
 
-const initialState: ThemeProviderState = {
-  theme: 'system',
-  setTheme: () => null,
-};
+const ThemeProviderContext = createContext<ThemeProviderState>({ theme: 'dark' });
 
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
-
-export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 'ui-theme', ...props }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Check current key first, then migrate from legacy key
-    const stored = localStorage.getItem(storageKey) as Theme;
-    if (stored) return stored;
-    const legacy = localStorage.getItem('spoc-theme') as Theme;
-    if (legacy) {
-      localStorage.setItem(storageKey, legacy);
-      localStorage.removeItem('spoc-theme');
-      return legacy;
-    }
-    return defaultTheme;
-  });
-
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   useEffect(() => {
     const root = window.document.documentElement;
-
-    root.classList.remove('light', 'dark');
-
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-
-      root.classList.add(systemTheme);
-      return;
-    }
-
-    root.classList.add(theme);
-  }, [theme]);
-
-  const value = {
-    theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
-    },
-  };
+    root.classList.remove('light');
+    root.classList.add('dark');
+  }, []);
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
+    <ThemeProviderContext.Provider {...props} value={{ theme: 'dark' }}>
       {children}
     </ThemeProviderContext.Provider>
   );
@@ -66,8 +26,6 @@ export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 
 
 export const useTheme = () => {
   const context = useContext(ThemeProviderContext);
-
   if (context === undefined) throw new Error('useTheme must be used within a ThemeProvider');
-
   return context;
 };
