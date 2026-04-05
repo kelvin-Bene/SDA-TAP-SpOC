@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ['class'],
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
@@ -71,8 +71,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Outfit', 'system-ui', 'sans-serif'],
-        display: ['Sora', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Consolas', 'monospace'],
       },
       fontSize: {
@@ -93,18 +93,18 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        'glow-sm': '0 0 10px -3px hsl(var(--primary) / 0.4)',
-        'glow-md': '0 0 20px -5px hsl(var(--primary) / 0.4)',
-        'glow-lg': '0 0 30px -5px hsl(var(--primary) / 0.5)',
-        'glow-cyan': '0 0 20px -5px hsl(var(--cosmic-cyan) / 0.5)',
-        'glow-purple': '0 0 20px -5px hsl(var(--stellar-purple) / 0.5)',
-        'glow-blue': '0 0 20px -5px hsl(var(--cosmic-blue) / 0.5)',
-        'inner-glow': 'inset 0 1px 0 0 hsl(var(--primary) / 0.1)',
-        'card-hover': '0 20px 40px -15px hsl(var(--primary) / 0.15)',
+        'glow-sm': '0 0 8px -4px hsl(var(--primary) / 0.2)',
+        'glow-md': '0 0 15px -6px hsl(var(--primary) / 0.2)',
+        'glow-lg': '0 0 20px -8px hsl(var(--primary) / 0.25)',
+        'glow-cyan': '0 0 15px -6px hsl(var(--cosmic-cyan) / 0.2)',
+        'glow-purple': '0 0 15px -6px hsl(var(--stellar-purple) / 0.2)',
+        'glow-blue': '0 0 15px -6px hsl(var(--cosmic-blue) / 0.2)',
+        'inner-glow': 'inset 0 1px 0 0 hsl(var(--primary) / 0.08)',
+        'card-hover': '0 15px 30px -12px hsl(var(--primary) / 0.1)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-cosmic': 'linear-gradient(135deg, hsl(var(--cosmic-cyan)) 0%, hsl(var(--cosmic-blue)) 50%, hsl(var(--stellar-purple)) 100%)',
+        'gradient-cosmic': 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--cosmic-blue)) 100%)',
         'gradient-aurora': 'linear-gradient(135deg, hsl(var(--aurora-green)) 0%, hsl(var(--cosmic-cyan)) 100%)',
         'gradient-space': 'radial-gradient(ellipse at 50% 50%, hsl(var(--space-nebula)) 0%, hsl(var(--space-void)) 100%)',
       },
