@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, Satellite, Database, Calendar, History, Loader2, BarChart3 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
 import type { Dataset } from '@/types';
-import { useDatasetVersions } from '@/hooks/useDatasets';
+import { useDatasetVersions, useDatasetObservations } from '@/hooks/useDatasets';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 interface DatasetPreviewDialogProps {
   dataset: Dataset | null;
@@ -30,6 +34,39 @@ export function DatasetPreviewDialog({
   const { data: versions = [], isLoading: versionsLoading } = useDatasetVersions(
     open && dataset ? dataset.id : null
   );
+
+  const { data: obsData, isLoading: obsLoading } = useDatasetObservations(
+    open && dataset ? dataset.id : null,
+    { limit: 500 }
+  );
+
+  const chartData = useMemo(() => {
+    const obs = obsData?.observations ?? [];
+    if (!obs.length) return null;
+
+    // Observations per satellite
+    const perSat: Record<string, number> = {};
+    obs.forEach((o: any) => {
+      const key = o.sat_no ? `SAT-${o.sat_no}` : 'Unknown';
+      perSat[key] = (perSat[key] || 0) + 1;
+    });
+    const perSatData = Object.entries(perSat)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Sensor breakdown
+    const perSensor: Record<string, number> = {};
+    obs.forEach((o: any) => {
+      const key = o.sensor_name || o.sensor_id || 'Unknown';
+      perSensor[key] = (perSensor[key] || 0) + 1;
+    });
+    const sensorData = Object.entries(perSensor)
+      .map(([name, value]) => ({ name: name.length > 15 ? name.slice(0, 15) + '...' : name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return { perSatData, sensorData };
+  }, [obsData]);
 
   if (!dataset) return null;
 
@@ -112,14 +149,76 @@ export function DatasetPreviewDialog({
           </TabsContent>
 
           <TabsContent value="statistics" className="space-y-4 mt-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p className="text-sm font-medium text-muted-foreground">Dataset Statistics Coming Soon</p>
-              <p className="text-xs text-muted-foreground/70 mt-1 max-w-sm">
-                Real-time observation density, track gap distribution, and sensor type
-                breakdowns will be available in a future release.
-              </p>
-            </div>
+            {obsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !chartData ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="text-sm text-muted-foreground">No observation data available</p>
+              </div>
+            ) : (
+              <>
+                {/* Summary stats */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Objects</p>
+                    <p className="text-lg font-bold">{dataset.objectCount}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Observations</p>
+                    <p className="text-lg font-bold">{dataset.observationCount.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Coverage</p>
+                    <p className="text-lg font-bold">{(dataset.coverage * 100).toFixed(1)}%</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Avg Obs/Object</p>
+                    <p className="text-lg font-bold">
+                      {dataset.objectCount > 0 ? Math.round(dataset.observationCount / dataset.objectCount) : 0}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Observations per satellite chart */}
+                {chartData.perSatData.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Observations per Object</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={chartData.perSatData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                        <XAxis dataKey="name" fontSize={10} stroke="hsl(222 20% 50%)" />
+                        <YAxis fontSize={10} stroke="hsl(222 20% 50%)" />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
+                        />
+                        <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Sensor breakdown */}
+                {chartData.sensorData.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Sensor Breakdown</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={chartData.sensorData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                        <XAxis type="number" fontSize={10} stroke="hsl(222 20% 50%)" />
+                        <YAxis dataKey="name" type="category" fontSize={10} stroke="hsl(222 20% 50%)" width={100} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
+                        />
+                        <Bar dataKey="value" fill="#06B6D4" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="sample" className="mt-4">
