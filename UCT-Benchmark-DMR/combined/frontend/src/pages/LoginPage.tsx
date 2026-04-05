@@ -104,9 +104,13 @@ export function LoginPage() {
       <Card className="w-full max-w-md relative z-10 glass border-white/10 shadow-2xl">
         <CardHeader className="text-center pb-2">
           {/* Organization logos */}
-          <div className="flex justify-center items-center gap-4 mb-6">
-            <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-16 w-16 object-contain" />
-            <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-14 object-contain" />
+          <div className="flex justify-center items-center gap-3 mb-6">
+            <div className="h-16 w-16 rounded-lg bg-white/90 p-1 flex items-center justify-center">
+              <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-full w-full object-contain" />
+            </div>
+            <div className="h-14 rounded-lg bg-white/90 px-2 py-1 flex items-center justify-center">
+              <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-full object-contain" />
+            </div>
           </div>
 
           <CardTitle ref={headingRef} tabIndex={-1} className="text-3xl font-display font-bold">
