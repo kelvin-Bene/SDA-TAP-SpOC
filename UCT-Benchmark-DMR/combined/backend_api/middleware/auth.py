@@ -86,7 +86,12 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
                 "app_metadata": {},
                 "user_metadata": {"display_name": "Demo User"},
             }
-        # Only allow dev bypass when explicitly opted in
+        # DEV BYPASS — only triggers when ALL of these hold:
+        #   1. SUPABASE_JWT_SECRET is empty (no real secret configured)
+        #   2. ENVIRONMENT=development (explicit opt-in)
+        #   3. SUPABASE_URL is NOT set (blocks bypass in production)
+        #   4. DATABASE_BACKEND is NOT postgres/supabase (blocks bypass with prod DB)
+        # Audit-verified 2026-04-05.
         if os.getenv("ENVIRONMENT", "").lower() == "development":
             # Safety: refuse dev bypass if a real SUPABASE_URL is configured
             if SUPABASE_URL:

@@ -10,7 +10,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
-from backend_api.auth import CurrentUser, get_current_user
+from backend_api.auth import CurrentUser
+from backend_api.middleware.auth import get_current_user
 from backend_api.database import get_db
 from backend_api.models import LeaderboardEntry, LeaderboardResponse
 from uct_benchmark.database.connection import DatabaseManager

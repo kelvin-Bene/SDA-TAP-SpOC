@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from backend_api.auth import CurrentUser, get_current_user
+from backend_api.auth import CurrentUser
+from backend_api.middleware.auth import get_current_user
 from backend_api.database import get_db
 from backend_api.services.credential_service import (
     VALID_SERVICES,
