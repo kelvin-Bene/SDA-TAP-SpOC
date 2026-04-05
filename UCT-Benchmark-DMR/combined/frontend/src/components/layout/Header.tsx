@@ -41,9 +41,13 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 mr-8 group">
-          <div className="flex items-center gap-2 group-hover:scale-[1.02] transition-transform duration-300">
-            <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-9 w-9 object-contain" />
-            <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-8 object-contain hidden sm:block" />
+          <div className="flex items-center gap-1.5 group-hover:scale-[1.02] transition-transform duration-300">
+            <div className="h-9 w-9 rounded bg-white/90 p-0.5 flex items-center justify-center">
+              <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-full w-full object-contain" />
+            </div>
+            <div className="h-9 rounded bg-white/90 px-1 py-0.5 items-center justify-center hidden sm:flex">
+              <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-full object-contain" />
+            </div>
           </div>
           <div className="hidden sm:block">
             <span className="font-display font-bold text-lg tracking-tight">
