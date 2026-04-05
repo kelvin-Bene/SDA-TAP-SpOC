@@ -341,6 +341,9 @@ CREATE TABLE IF NOT EXISTS submission_results (
     -- Raw results (JSONB blob with full breakdown)
     raw_results JSONB,
 
+    -- Composite score (weighted combination of metrics)
+    composite_score DECIMAL(10,6),
+
     -- Processing info
     processing_time_seconds DECIMAL(12,3),
 
@@ -349,6 +352,7 @@ CREATE TABLE IF NOT EXISTS submission_results (
 
 CREATE INDEX IF NOT EXISTS idx_results_submission ON submission_results(submission_id);
 CREATE INDEX IF NOT EXISTS idx_results_f1 ON submission_results(f1_score DESC);
+CREATE INDEX IF NOT EXISTS idx_results_composite ON submission_results(composite_score DESC);
 
 -- ============================================================
 -- JOBS TABLE

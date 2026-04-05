@@ -8,7 +8,7 @@ benchmark competition. No user PII is exposed through these endpoints.
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from backend_api.auth import CurrentUser, get_current_user
 from backend_api.database import get_db
@@ -93,9 +93,14 @@ async def get_leaderboard(
     query += " ORDER BY COALESCE(sr.composite_score, sr.f1_score) DESC LIMIT ?"
     params.append(limit)
 
-    result = db.execute(query, tuple(params))
-    columns = [desc[0] for desc in result.description]
-    rows = result.fetchall()
+    try:
+        result = db.execute(query, tuple(params))
+        columns = [desc[0] for desc in result.description]
+        rows = result.fetchall()
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"Failed to query leaderboard: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     # Build leaderboard entries with rank
     entries = []

@@ -541,7 +541,7 @@ export function DatasetGeneratorPage() {
           <p className="text-muted-foreground mt-1">
             Configure parameters to generate a custom benchmark dataset
           </p>
-          <DataSourceStatusIndicator />
+          <DataSourceStatusIndicator selectedPreset={null} />
           {hasUdlToken === false && (
             <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />

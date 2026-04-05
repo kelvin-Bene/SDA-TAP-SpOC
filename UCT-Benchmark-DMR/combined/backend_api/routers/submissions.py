@@ -248,9 +248,13 @@ async def list_submissions(
     query += " ORDER BY s.created_at DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
-    result = db.execute(query, tuple(params))
-    columns = [desc[0] for desc in result.description]
-    rows = result.fetchall()
+    try:
+        result = db.execute(query, tuple(params))
+        columns = [desc[0] for desc in result.description]
+        rows = result.fetchall()
+    except Exception as e:
+        logger.error(f"Failed to list submissions: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     return [_row_to_submission_summary(row, columns) for row in rows]
 
