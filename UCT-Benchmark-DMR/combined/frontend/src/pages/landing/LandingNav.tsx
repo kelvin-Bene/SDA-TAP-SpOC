@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Orbit, Moon, Sun, LogIn } from 'lucide-react';
+import { Moon, Sun, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/components/theme-provider';
 
@@ -35,12 +35,9 @@ export function LandingNav() {
       <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <a href="#mission" className="flex items-center gap-3 group">
-          <div className="relative w-10 h-10 flex items-center justify-center">
-            <div className="absolute inset-0 border border-cosmic-cyan/30 rounded-full animate-orbit-slow" />
-            <div className="absolute inset-1 border border-stellar-purple/20 rounded-full animate-orbit-reverse" />
-            <div className="relative z-10 w-6 h-6 rounded-full bg-gradient-to-br from-cosmic-cyan to-cosmic-blue flex items-center justify-center shadow-glow-cyan group-hover:shadow-glow-lg transition-shadow duration-300">
-              <Orbit className="h-3.5 w-3.5 text-white" />
-            </div>
+          <div className="flex items-center gap-2">
+            <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-9 w-9 object-contain" />
+            <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-8 object-contain hidden sm:block" />
           </div>
           <span className="font-display font-bold text-lg tracking-tight text-gradient-cosmic hidden sm:block">
             UCT Benchmark

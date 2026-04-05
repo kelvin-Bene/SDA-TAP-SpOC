@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Orbit, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
@@ -103,23 +103,10 @@ export function LoginPage() {
 
       <Card className="w-full max-w-md relative z-10 glass border-white/10 shadow-2xl">
         <CardHeader className="text-center pb-2">
-          {/* Animated orbital logo */}
-          <div className="flex justify-center mb-6">
-            <div className="relative w-20 h-20 flex items-center justify-center">
-              {/* Outer orbit rings */}
-              <div className="absolute inset-0 border-2 border-cosmic-cyan/30 rounded-full animate-orbit-slow" />
-              <div className="absolute inset-2 border border-stellar-purple/20 rounded-full animate-orbit-reverse" />
-              <div className="absolute inset-4 border border-cosmic-blue/20 rounded-full animate-orbit" style={{ animationDuration: '15s' }} />
-
-              {/* Center icon with glow */}
-              <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-cosmic-cyan to-cosmic-blue flex items-center justify-center shadow-glow-lg animate-pulse-glow">
-                <Orbit className="h-6 w-6 text-white" />
-              </div>
-
-              {/* Orbiting dots */}
-              <div className="absolute w-2 h-2 rounded-full bg-cosmic-cyan shadow-glow-cyan animate-orbit" style={{ top: '-4px', left: '50%', marginLeft: '-4px' }} />
-              <div className="absolute w-1.5 h-1.5 rounded-full bg-stellar-purple shadow-glow-purple animate-orbit-reverse" style={{ top: '50%', right: '-4px', marginTop: '-3px' }} />
-            </div>
+          {/* Organization logos */}
+          <div className="flex justify-center items-center gap-4 mb-6">
+            <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-16 w-16 object-contain" />
+            <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-14 object-contain" />
           </div>
 
           <CardTitle ref={headingRef} tabIndex={-1} className="text-3xl font-display font-bold">

@@ -7,8 +7,6 @@ import {
   Settings,
   Moon,
   Sun,
-  Monitor,
-  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,11 +16,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/components/theme-provider';
 import { useAuthStore } from '@/stores/authStore';
@@ -144,25 +137,13 @@ export function Header({ onMenuClick }: HeaderProps) {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">
-                      <Palette className="mr-2 h-4 w-4" />
-                      Theme
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="glass border-white/10">
-                      <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
-                        <DropdownMenuRadioItem value="light" className="focus:bg-white/5 cursor-pointer">
-                          <Sun className="mr-2 h-4 w-4" /> Light
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="dark" className="focus:bg-white/5 cursor-pointer">
-                          <Moon className="mr-2 h-4 w-4" /> Dark
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="system" className="focus:bg-white/5 cursor-pointer">
-                          <Monitor className="mr-2 h-4 w-4" /> System
-                        </DropdownMenuRadioItem>
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+                  <DropdownMenuItem
+                    className="focus:bg-white/5 cursor-pointer"
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  >
+                    {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={() => {
