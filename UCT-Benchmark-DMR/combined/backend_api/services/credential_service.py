@@ -2,7 +2,7 @@
 Credential management service.
 
 Provides encrypted storage, retrieval, and resolution of API credentials
-for external data services (UDL, ESA, Space-Track, CelesTrak, Orekit).
+for external data services (UDL, ESA, Orekit).
 
 Encryption reuses the existing Fernet utilities in backend_api.utils.crypto.
 Fallback chain: credentials table (encrypted) -> environment variable -> None.
@@ -24,8 +24,6 @@ if TYPE_CHECKING:
 ENV_VAR_MAP: dict[str, str] = {
     "udl": "UDL_TOKEN",
     "esa": "ESA_DISCOSWEBAPI_TOKEN",
-    "spacetrack": "SPACETRACK_USER",
-    "celestrak": "CELESTRAK_TOKEN",
     "orekit": "OREKIT_DATA_PATH",
 }
 
@@ -38,14 +36,6 @@ SERVICE_METADATA: dict[str, dict[str, str]] = {
     "esa": {
         "label": "ESA DISCOSweb",
         "description": "European Space Agency space object catalogue",
-    },
-    "spacetrack": {
-        "label": "Space-Track",
-        "description": "NORAD TLE and conjunction data (Optional - breakup event analysis only)",
-    },
-    "celestrak": {
-        "label": "CelesTrak",
-        "description": "Supplementary TLE and space data (Optional - breakup event analysis only)",
     },
     "orekit": {
         "label": "Orekit Data",
@@ -284,21 +274,14 @@ class CredentialService:
 
         # Call the appropriate validator
         from backend_api.utils.token_validation import (
-            validate_celestrak_token,
             validate_esa_token,
             validate_orekit_path,
-            validate_spacetrack_credentials,
             validate_udl_token,
         )
 
         validators = {
             "udl": lambda: validate_udl_token(primary),
             "esa": lambda: validate_esa_token(primary),
-            "spacetrack": lambda: validate_spacetrack_credentials(
-                primary,
-                CredentialService.resolve_secondary(db, user_id, service_name) or "",
-            ),
-            "celestrak": lambda: validate_celestrak_token(primary),
             "orekit": lambda: validate_orekit_path(primary),
         }
 
