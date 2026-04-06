@@ -88,7 +88,7 @@ def _make_client(
     Uses create_test_app() to skip the production lifespan (which tries
     to connect to the configured PostgreSQL instance).
     """
-    from backend_api.auth import get_current_user, get_optional_user
+    from backend_api.middleware.auth import get_current_user, get_optional_user
     from backend_api.database import get_db
     from backend_api.main import create_test_app
 
