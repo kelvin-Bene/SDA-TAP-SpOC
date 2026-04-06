@@ -12,7 +12,7 @@ export function NotFoundPage() {
       <p className="text-muted-foreground max-w-md mb-8">
         The page you are looking for does not exist or may have been moved.
       </p>
-      <Link to="/">
+      <Link to="/dashboard">
         <Button className="gap-2">
           <Home className="h-4 w-4" />
           Go Home

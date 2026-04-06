@@ -45,7 +45,7 @@ const publicNavItems: NavItem[] = [
 const authNavItems: NavItem[] = [
   {
     title: 'Dashboard',
-    href: '/',
+    href: '/dashboard',
     icon: LayoutDashboard,
   },
   {

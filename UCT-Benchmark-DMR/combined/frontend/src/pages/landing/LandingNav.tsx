@@ -61,6 +61,12 @@ export function LandingNav() {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
+          <a
+            href="https://frontend-demo-1542.up.railway.app/"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+          >
+            Try Demo
+          </a>
           <Button asChild size="sm" className="bg-gradient-cosmic hover:opacity-90 text-white border-0">
             <Link to="/login">
               <LogIn className="h-4 w-4 mr-2" />

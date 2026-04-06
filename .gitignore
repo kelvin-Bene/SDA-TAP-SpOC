@@ -77,3 +77,5 @@ validation/results/
 # Lock files for specific tools (NOT package lockfiles — those should be committed)
 uv.lock
 poetry.lock
+*.playwright-mcp/
+test-*.png

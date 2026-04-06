@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/ErrorBoundary';
@@ -50,7 +50,8 @@ function App() {
         <FeedbackProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/welcome" element={<LazyRoute><LandingPage /></LazyRoute>} />
+              <Route path="/" element={<LazyRoute><LandingPage /></LazyRoute>} />
+              <Route path="/welcome" element={<Navigate to="/" replace />} />
               <Route path="/login" element={<LazyRoute><LoginPage /></LazyRoute>} />
 
               {/* Single layout route — auth enforced per-route */}
@@ -59,10 +60,10 @@ function App() {
                 <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
 
                 {/* Authenticated routes — each individually guarded */}
+                <Route path="dashboard" element={<AuthGuard><LazyRoute><DashboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="leaderboard" element={<AuthGuard><LazyRoute><LeaderboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets" element={<AuthGuard><LazyRoute><DatasetBrowserPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/:id" element={<AuthGuard><LazyRoute><DatasetDetailPage /></LazyRoute></AuthGuard>} />
-                <Route index element={<AuthGuard><LazyRoute><DashboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/generate" element={<AuthGuard><LazyRoute><DatasetGeneratorPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/my-datasets" element={<AuthGuard><LazyRoute><MyDatasetsPage /></LazyRoute></AuthGuard>} />
                 <Route path="submit" element={<AuthGuard><LazyRoute><SubmitPage /></LazyRoute></AuthGuard>} />

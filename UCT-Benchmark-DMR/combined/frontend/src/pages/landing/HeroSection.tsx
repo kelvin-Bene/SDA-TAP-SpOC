@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowDown, LogIn } from 'lucide-react';
+import { ArrowDown, LogIn, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
@@ -65,6 +65,13 @@ export function HeroSection() {
                     Access Platform
                   </Link>
                 </Button>
+                <a
+                  href="https://frontend-demo-1542.up.railway.app/"
+                  className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium h-11 px-6 border border-white/20 hover:bg-white/5 transition-colors"
+                >
+                  <Play className="h-4 w-4" />
+                  Try Demo
+                </a>
               </div>
             </div>
 

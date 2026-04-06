@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { LogIn, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,13 @@ export function CTASection() {
                 Sign In to UCT Benchmark
               </Link>
             </Button>
+            <a
+              href="https://frontend-demo-1542.up.railway.app/"
+              className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium h-11 px-8 border border-white/20 hover:bg-white/5 transition-colors"
+            >
+              <Play className="h-4 w-4" />
+              Try Demo
+            </a>
           </div>
         </div>
       </section>
