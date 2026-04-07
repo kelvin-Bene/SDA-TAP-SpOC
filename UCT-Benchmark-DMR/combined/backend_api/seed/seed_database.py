@@ -171,11 +171,21 @@ def _load_satellites(db: "DatabaseManager", seed_dir: Path) -> int:
     select_list, target_columns = _build_select_clauses(_SATELLITES_COLUMN_MAP)
     csv_uri = csv_path.as_posix()
 
+    # Bundled CSVs may have multiple rows per satNo (e.g. catalog refreshes
+    # over time). Deduplicate by satNo before insert; the first row wins.
     sql = f"""
         INSERT INTO satellites ({target_columns})
         SELECT {select_list}
-        FROM read_csv_auto('{csv_uri}', header=true, ignore_errors=true)
-        WHERE "satNo" IS NOT NULL
+        FROM (
+            SELECT * EXCLUDE rn FROM (
+                SELECT
+                    *,
+                    row_number() OVER (PARTITION BY "satNo" ORDER BY "satNo") AS rn
+                FROM read_csv_auto('{csv_uri}', header=true, ignore_errors=true)
+                WHERE "satNo" IS NOT NULL
+            )
+            WHERE rn = 1
+        )
     """
     try:
         db.execute(sql)

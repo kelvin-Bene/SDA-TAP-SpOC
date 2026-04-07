@@ -39,6 +39,13 @@ RUN apt-get update && apt-get remove -y python3-cryptography 2>/dev/null; rm -rf
 ARG PIP_INSTALL_TARGET="."
 RUN pip install --no-cache-dir "${PIP_INSTALL_TARGET}"
 
+# python-dateutil requires 'six', but the apt-installed python3-six package
+# under /usr/lib/python3/dist-packages gets auto-removed by the later
+# `apt-get purge --auto-remove gcc ...` step. Force pip to drop an
+# independent copy into /usr/local/lib/python3.12/dist-packages so the
+# cleanup can't take it out.
+RUN pip install --no-cache-dir --ignore-installed "six>=1.16.0"
+
 # Remove build-only dependencies to reduce image size
 RUN apt-get purge -y --auto-remove gcc python3.12-dev software-properties-common && \
     rm -rf /var/lib/apt/lists/*

@@ -170,7 +170,7 @@ def _payload_to_current_user(payload: dict[str, Any]) -> CurrentUser:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security_required),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> CurrentUser:
     """
     FastAPI dependency that extracts and validates the current user from JWT.
@@ -179,11 +179,28 @@ async def get_current_user(
     with automatic HS256 fallback.
     In development (only SUPABASE_JWT_SECRET or nothing): uses HS256 directly.
 
+    DEMO_MODE short-circuit: when DEMO_MODE=true and no Authorization header
+    is present, returns a synthetic demo user without requiring any token.
+    This is the path the DGX Spark local edition uses (no Supabase session
+    exists there). Cloud builds never set DEMO_MODE so the behavior is
+    unchanged for production.
+
     Usage:
         @router.get("/protected")
         async def protected_route(user: CurrentUser = Depends(get_current_user)):
             return {"user_id": user.id}
     """
+    # DEMO_MODE: no token required — return a synthetic demo user.
+    if credentials is None:
+        if os.getenv("DEMO_MODE", "").lower() == "true":
+            logger.debug("DEMO_MODE active with no Authorization header — returning demo user")
+            return CurrentUser(id="demo-user", email="demo@uct-benchmark.example", role="authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
 
     if bool(os.getenv("SUPABASE_URL", "")):

@@ -27,6 +27,11 @@ services:
       args:
         PIP_INSTALL_TARGET: ".[local-dgx]"
     image: local/sda-tap-spoc-backend:dgx
+    # Run as root so named volumes (which Docker creates with root ownership)
+    # are writable. Safe for a sealed single-user demo appliance. The cloud
+    # build keeps the USER appuser from the Dockerfile, which is enforced by
+    # Railway. DO NOT remove the USER directive from the Dockerfile itself.
+    user: "0:0"
     environment:
       # Forces local-only behavior; backend_api/main.py lifespan reads this to
       # call maybe_seed_database() and uct_benchmark/api/apiIntegration.py
@@ -63,7 +68,10 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      # Note: `python3` symlink doesn't survive the Dockerfile's apt purge
+      # step under root PATH, so we use `python` (which the update-alternatives
+      # rule sets to point at python3.12).
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       # First-run seed import of the bundled CSVs into DuckDB takes ~30–90s
@@ -71,10 +79,9 @@ services:
       # container isn't marked unhealthy mid-seed.
       start_period: 300s
       retries: 3
-    # GPU passthrough — enabled with `--profile gpu` only.
-    profiles:
-      - default
-      - gpu
+    # NOTE: no `profiles:` key on this service so it's always brought up by
+    # `docker compose up`. The GPU-enabled twin lives in the `backend-gpu`
+    # service below, gated under `--profile gpu`.
 
   # GPU-enabled twin of the backend. Same image, same env, same volumes —
   # but with NVIDIA Container Runtime device reservation. Bring up with
@@ -119,9 +126,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    profiles:
-      - default
-      - gpu
 
 volumes:
   dgx_db_data:

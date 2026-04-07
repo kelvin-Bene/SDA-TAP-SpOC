@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Viewer, Entity, CameraFlyTo, Clock } from 'resium';
 import {
   Ion,
@@ -121,21 +121,49 @@ export function OrbitViewer({
   const [isPlaying, setIsPlaying] = useState(true);
   const [multiplier, setMultiplier] = useState(100);
 
-  // Build the offline imagery + terrain providers once when running without
-  // a Cesium Ion token. Memoized so re-renders don't recreate them.
-  const offlineImageryProvider = useMemo(
-    () =>
-      IS_OFFLINE_CESIUM
-        ? new TileMapServiceImageryProvider({
-            url: buildModuleUrl('Assets/Textures/NaturalEarthII'),
-          })
-        : undefined,
-    [],
-  );
-  const offlineTerrainProvider = useMemo(
-    () => (IS_OFFLINE_CESIUM ? new EllipsoidTerrainProvider() : undefined),
-    [],
-  );
+  // Offline Cesium mode: when no Ion token is configured, replace the default
+  // Ion world imagery with the bundled NaturalEarthII texture and switch the
+  // terrain to an ellipsoid (no elevation). This happens once after the
+  // resium Viewer has mounted, via the underlying cesium instance — we can't
+  // set these as props because resium's type definitions don't expose them.
+  useEffect(() => {
+    if (!IS_OFFLINE_CESIUM) return;
+    const viewer = viewerRef.current?.cesiumElement;
+    if (!viewer) return;
+
+    let cancelled = false;
+    // Drop whatever the default base layer was (may have tried to hit Ion).
+    try {
+      viewer.imageryLayers.removeAll();
+    } catch {
+      /* viewer may be disposed */
+    }
+
+    // Cesium >= 1.112 uses the async factory form.
+    TileMapServiceImageryProvider.fromUrl(
+      buildModuleUrl('Assets/Textures/NaturalEarthII'),
+    )
+      .then((provider) => {
+        if (cancelled || !viewerRef.current?.cesiumElement) return;
+        viewerRef.current.cesiumElement.imageryLayers.addImageryProvider(provider);
+      })
+      .catch((err) => {
+        // Not fatal — Cesium will just render a blank globe.
+        // eslint-disable-next-line no-console
+        console.warn('DGX offline imagery provider failed:', err);
+      });
+
+    try {
+      viewer.scene.terrainProvider = new EllipsoidTerrainProvider();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('DGX offline terrain provider failed:', err);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Convert satellite positions to Cesium SampledPositionProperty
   const createPositionProperty = (positions: Satellite['positions']) => {
@@ -264,8 +292,6 @@ export function OrbitViewer({
             navigationHelpButton={false}
             fullscreenButton={false}
             creditContainer={undefined}
-            imageryProvider={offlineImageryProvider as any}
-            terrainProvider={offlineTerrainProvider as any}
           >
             <Clock
               startTime={JulianDate.fromDate(startTime)}

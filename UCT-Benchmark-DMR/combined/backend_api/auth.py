@@ -201,6 +201,13 @@ async def get_current_user(request: Request) -> CurrentUser:
     """
     FastAPI dependency that validates a Supabase JWT and returns the current user.
 
+    DEMO_MODE short-circuit: when DEMO_MODE=true is set in the environment
+    and no Authorization header is present, returns a synthetic demo user
+    without requiring any token. This is the path the DGX Spark local
+    edition uses (there is no Supabase session to produce a real JWT).
+    Cloud builds (Railway master/dev) never set DEMO_MODE so the behavior
+    there is unchanged.
+
     Usage:
         @router.post("/protected")
         async def protected_endpoint(user: CurrentUser = Depends(get_current_user)):
@@ -211,6 +218,14 @@ async def get_current_user(request: Request) -> CurrentUser:
     """
     token = _extract_token(request)
     if token is None:
+        # DEMO_MODE: no token required — return a synthetic demo user.
+        if os.getenv("DEMO_MODE", "").lower() == "true":
+            logger.debug("DEMO_MODE active with no Authorization header — returning demo user")
+            return CurrentUser(
+                id="demo-user",
+                email="demo@uct-benchmark.example",
+                role="authenticated",
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
