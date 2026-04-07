@@ -62,6 +62,31 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   error: null,
 
   initialize: async () => {
+    // DGX Spark local edition: skip Supabase entirely, set a synthetic demo
+    // user immediately. The API client will send no Authorization header
+    // (because session is null), and the backend's DEMO_MODE bypass at
+    // backend_api/auth.py:get_current_user accepts that and returns the
+    // same demo user server-side. Cloud (Railway) builds never set this
+    // flag so the regular Supabase initialization below runs as normal.
+    if (import.meta.env.VITE_LOCAL_DGX_MODE === 'true') {
+      set({
+        user: {
+          id: 'demo-user',
+          username: 'demo',
+          email: 'demo@uct-benchmark.example',
+          organization: 'DGX Spark Local Edition',
+          role: 'authenticated',
+          createdAt: new Date().toISOString(),
+          submissionCount: 0,
+        },
+        session: null,
+        isAuthenticated: true,
+        isAdmin: false,
+        isLoading: false,
+      });
+      return;
+    }
+
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
 

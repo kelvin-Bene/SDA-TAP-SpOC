@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -484,6 +485,20 @@ async def create_dataset(
                 status_code=400,
                 detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
             )
+        # DGX Spark local edition: point operators at the pre-loaded seed
+        # dataset instead of a Profile Settings page that doesn't match the
+        # local-appliance story. Cloud builds (Railway) never set
+        # LOCAL_DGX_MODE so the original message surfaces there.
+        if os.getenv("LOCAL_DGX_MODE", "").lower() == "true":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "DGX Spark local edition has no UDL token configured, so new "
+                    "dataset generation is unavailable. Use the pre-loaded "
+                    "DGX_SEED_SAMPLE dataset from the Datasets page, or set "
+                    "UDL_TOKEN in .env.dgx and restart the stack."
+                ),
+            )
         raise HTTPException(
             status_code=400,
             detail="UDL API token required. Set it in Profile Settings.",
@@ -745,7 +760,7 @@ async def get_dataset_observations(
     # Per Feb 19 transcript: "Cannot arbitrarily remove fields as unknown processors may need them"
     result = db.execute(
         """
-        SELECT o.id, o.ob_time, o.ra, o.declination,
+        SELECT o.id, o.sat_no, o.ob_time, o.ra, o.declination,
                o.azimuth, o.elevation, o.range_km,
                o.sensor_id, o.sensor_name, o.data_mode, o.type_optical,
                o.send_lat, o.send_long, o.send_alt,
@@ -768,6 +783,7 @@ async def get_dataset_observations(
         observations.append(
             DatasetObservation(
                 id=str(row_dict["id"]),
+                sat_no=int(row_dict["sat_no"]) if row_dict.get("sat_no") is not None else None,
                 ob_time=row_dict["ob_time"],
                 ra=float(row_dict["ra"]) if row_dict.get("ra") is not None else None,
                 declination=float(row_dict["declination"]) if row_dict.get("declination") is not None else None,
@@ -1254,6 +1270,20 @@ async def create_dataset_from_legacy_code(
             raise HTTPException(
                 status_code=400,
                 detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+            )
+        # DGX Spark local edition: point operators at the pre-loaded seed
+        # dataset instead of a Profile Settings page that doesn't match the
+        # local-appliance story. Cloud builds (Railway) never set
+        # LOCAL_DGX_MODE so the original message surfaces there.
+        if os.getenv("LOCAL_DGX_MODE", "").lower() == "true":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "DGX Spark local edition has no UDL token configured, so new "
+                    "dataset generation is unavailable. Use the pre-loaded "
+                    "DGX_SEED_SAMPLE dataset from the Datasets page, or set "
+                    "UDL_TOKEN in .env.dgx and restart the stack."
+                ),
             )
         raise HTTPException(
             status_code=400,

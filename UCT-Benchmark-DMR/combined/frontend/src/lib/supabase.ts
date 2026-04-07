@@ -8,7 +8,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
     'Supabase environment variables are not set. Auth features will not work. ' +
     'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
   )
-  if (import.meta.env.PROD) {
+  // DGX Spark local edition intentionally has no Supabase (DEMO_MODE handles
+  // auth). Fall through to the placeholder client below. Railway (cloud)
+  // builds never set VITE_LOCAL_DGX_MODE so the error still fires there.
+  if (import.meta.env.PROD && import.meta.env.VITE_LOCAL_DGX_MODE !== 'true') {
     throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in production builds');
   }
 }

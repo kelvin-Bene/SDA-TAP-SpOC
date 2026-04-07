@@ -447,6 +447,7 @@ class DatasetObservation(BaseModel):
     """
 
     id: str
+    sat_no: Optional[int] = None
     ob_time: datetime
     ra: Optional[float] = None
     declination: Optional[float] = None

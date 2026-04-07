@@ -230,6 +230,8 @@ def _create_seed_dataset(db: "DatabaseManager", *, sat_count: int, obs_count: in
             logger.info("Seed loader: dataset '{}' already exists (id={}), skipping", _DGX_SEED_DATASET_NAME, existing[0])
             return
 
+        # Status must be "available" so the submissions router accepts the
+        # dataset for uploads (see backend_api/routers/submissions.py:355).
         db.execute(
             """
             INSERT INTO datasets (
@@ -247,7 +249,7 @@ def _create_seed_dataset(db: "DatabaseManager", *, sat_count: int, obs_count: in
                 "LEO",
                 obs_count,
                 sat_count,
-                "complete",
+                "available",
                 '{"source": "dgx_seed", "bundled": true}',
                 "demo-user",
             ),
