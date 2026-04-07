@@ -32,7 +32,12 @@ COPY pyproject.toml README.md ./
 
 # Remove system cryptography to avoid conflicts with pip version
 RUN apt-get update && apt-get remove -y python3-cryptography 2>/dev/null; rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir "."
+
+# Install spec — defaults to "." for the Railway cloud build. The DGX Spark
+# compose passes --build-arg PIP_INSTALL_TARGET=".[local-dgx]" to also pull in
+# duckdb (the DGX edition's default backend).
+ARG PIP_INSTALL_TARGET="."
+RUN pip install --no-cache-dir "${PIP_INSTALL_TARGET}"
 
 # Remove build-only dependencies to reduce image size
 RUN apt-get purge -y --auto-remove gcc python3.12-dev software-properties-common && \

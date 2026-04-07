@@ -1,0 +1,5 @@
+# Don't commit the bundled seed data CSVs — they total ~143 MB. See
+# README.md for how to populate this directory.
+*
+!.gitignore
+!README.md

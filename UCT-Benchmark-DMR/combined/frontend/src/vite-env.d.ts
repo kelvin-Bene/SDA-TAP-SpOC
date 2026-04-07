@@ -8,6 +8,9 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY: string;
   readonly VITE_SENTRY_DSN: string;
   readonly VITE_FEEDBACK_ENABLED: string;
+  // DGX Spark local edition: when "true", the UI shows local-edition badges
+  // and the OrbitViewer uses bundled NaturalEarthII imagery instead of Ion.
+  readonly VITE_LOCAL_DGX_MODE: string;
 }
 
 interface ImportMeta {

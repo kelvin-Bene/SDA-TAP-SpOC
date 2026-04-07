@@ -82,6 +82,42 @@ _supressWarn = _suppress_warnings
 
 
 # =============================================================================
+# DGX LOCAL EDITION — token guard + offline fallback
+# =============================================================================
+#
+# When LOCAL_DGX_MODE=true, missing UDL/ESA tokens or network errors are
+# converted into a single user-friendly exception that points the operator at
+# the bundled seed dataset (loaded by backend_api.seed.seed_database). The
+# cloud builds (Railway master/dev) never set LOCAL_DGX_MODE so the existing
+# behavior is unchanged.
+
+
+def _local_dgx_mode() -> bool:
+    """Whether the process is running in the DGX Spark local edition."""
+    return os.getenv("LOCAL_DGX_MODE", "").lower() == "true"
+
+
+class DGXOfflineFallback(RuntimeError):
+    """Raised when a UDL/ESA call cannot be served and the DGX seed should be used instead."""
+
+
+def _require_token_or_offline(token: Optional[str], api: str) -> None:
+    """
+    In DGX mode, raise a clear DGXOfflineFallback if the token is missing.
+    Outside DGX mode this is a no-op (the existing call sites raise their own
+    errors when the token is empty, preserving the cloud build's behavior).
+    """
+    if not _local_dgx_mode():
+        return
+    if not token:
+        raise DGXOfflineFallback(
+            f"DGX local edition: no {api} token configured. Open the bundled "
+            f"'DGX_SEED_SAMPLE' dataset from the Datasets page, or set "
+            f"{api}_TOKEN in .env.dgx and restart the stack."
+        )
+
+
+# =============================================================================
 # TARGET PERCENTAGE ENFORCEMENT (per Louis's 16-char code positions 2-3)
 # =============================================================================
 
@@ -1877,6 +1913,11 @@ def generateDataset(
         HTTPError/ClientResponseError: If a query fails.
         ImportError: If use_database=True but database module is not available.
     """
+    # DGX Spark local edition: bail out early if no UDL token. The cloud build
+    # (LOCAL_DGX_MODE unset) skips this and the existing per-call HTTP errors
+    # surface as before.
+    _require_token_or_offline(UDL_token, api="UDL")
+
     # Import DatasetStage enum for progress reporting
     try:
         from backend_api.jobs.progress import DatasetStage

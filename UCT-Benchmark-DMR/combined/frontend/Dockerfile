@@ -16,12 +16,17 @@ ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_FEEDBACK_ENABLED=true
 ARG VITE_DEMO_MODE=false
+# DGX Spark local edition flag — set to "true" by docker-compose.dgx.yml so
+# the Header and HeroSection render the "DGX Spark · Local Edition" badges.
+# Cloud (Railway) builds leave this empty/false.
+ARG VITE_LOCAL_DGX_MODE=false
 
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
 ENV VITE_FEEDBACK_ENABLED=${VITE_FEEDBACK_ENABLED}
 ENV VITE_DEMO_MODE=${VITE_DEMO_MODE}
+ENV VITE_LOCAL_DGX_MODE=${VITE_LOCAL_DGX_MODE}
 
 RUN npm run build
 

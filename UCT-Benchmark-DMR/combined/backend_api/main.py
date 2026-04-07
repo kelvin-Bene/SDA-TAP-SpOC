@@ -157,6 +157,15 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"PostgreSQL connection test FAILED: {e}")
 
+    # DGX Spark local edition: populate empty DuckDB with bundled seed data.
+    # No-op for cloud builds (LOCAL_DGX_MODE is unset there).
+    if os.getenv("LOCAL_DGX_MODE", "").lower() == "true":
+        try:
+            from .seed import maybe_seed_database
+            maybe_seed_database(db)
+        except Exception as e:
+            logger.warning(f"LOCAL_DGX_MODE seed loader failed (continuing): {e}")
+
     # Verify critical modules are importable
     try:
         import uct_benchmark.data.dataManipulation  # noqa: F401

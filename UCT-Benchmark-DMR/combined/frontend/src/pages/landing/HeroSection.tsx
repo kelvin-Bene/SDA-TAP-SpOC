@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
-import { ArrowDown, LogIn, Play } from 'lucide-react';
+import { ArrowDown, Cpu, LogIn, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { AnimatedCounter } from './components/AnimatedCounter';
 import { OrbitalGraphic } from './components/OrbitalGraphic';
+
+// Build-time flag — set to "true" by the DGX Spark compose stack.
+const IS_DGX_LOCAL = import.meta.env.VITE_LOCAL_DGX_MODE === 'true';
 
 const STATS = [
   { target: 4, label: 'Orbital Regimes' },
@@ -26,12 +29,23 @@ export function HeroSection() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left column */}
             <div className="flex flex-col gap-6">
-              <Badge
-                variant="outline"
-                className="w-fit border-white/20 bg-white/5 text-muted-foreground font-mono text-xs tracking-wider"
-              >
-                SDA TAP Lab // Combat Forces Command
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="w-fit border-white/20 bg-white/5 text-muted-foreground font-mono text-xs tracking-wider"
+                >
+                  SDA TAP Lab // Combat Forces Command
+                </Badge>
+                {IS_DGX_LOCAL && (
+                  <Badge
+                    variant="outline"
+                    className="w-fit border-cosmic-cyan/40 bg-cosmic-cyan/10 text-cosmic-cyan font-mono text-xs tracking-wider inline-flex items-center gap-1.5"
+                  >
+                    <Cpu className="h-3 w-3" />
+                    Running locally on NVIDIA DGX Spark
+                  </Badge>
+                )}
+              </div>
 
               <h1 className="font-display font-bold tracking-tight">
                 <span className="block text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">UCT Benchmark</span>
@@ -46,6 +60,19 @@ export function HeroSection() {
               <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
                 The standardized evaluation framework for UCTP algorithms across all orbital regimes.
               </p>
+
+              {IS_DGX_LOCAL && (
+                <div className="rounded-lg border border-cosmic-cyan/20 bg-cosmic-cyan/5 px-4 py-3 max-w-xl">
+                  <p className="text-sm text-cosmic-cyan font-medium mb-1">
+                    Edge deployment — no cloud round-trip
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This entire platform — backend, database, orbit propagation, and 3D
+                    visualization — is running on the NVIDIA DGX Spark in front of you.
+                    Disconnect the network and it keeps working from bundled sample data.
+                  </p>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-3 mt-2">
                 <Button

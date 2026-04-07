@@ -1,0 +1,10 @@
+# Force LF line endings for everything in this directory regardless of the
+# checkout platform. The shell scripts, systemd units, and .desktop launcher
+# all run on Linux (the DGX Spark) and will break with CRLF endings even
+# though they were authored on Windows. Without this file, git's
+# core.autocrlf=true on Windows would replace LF with CRLF on checkout.
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.service text eol=lf
+*.desktop text eol=lf

@@ -1,0 +1,130 @@
+# SDA-TAP-SpOC — DGX Spark local edition compose stack.
+#
+# Two services: backend (FastAPI + Java/Orekit + DuckDB) and frontend (nginx
+# serving the built React app and proxying /api to the backend). No Postgres.
+# All state lives on the named volumes so `docker compose down` (without -v)
+# preserves the database and seed data.
+#
+# Bring up:
+#   docker compose -f docker-compose.dgx.yml up -d
+# Stop (state preserved):
+#   docker compose -f docker-compose.dgx.yml down
+# Reset (DELETES the DuckDB and seed cache — be sure):
+#   docker compose -f docker-compose.dgx.yml down -v
+#
+# GPU passthrough is gated under `--profile gpu` so the default `up` works on
+# any Docker host (incl. dev x86 boxes without nvidia-container-toolkit).
+# Enable GPU when the LLM phase lands:
+#   docker compose -f docker-compose.dgx.yml --profile gpu up -d
+
+services:
+  backend:
+    build:
+      # Build context is two levels up so the Dockerfile can COPY pyproject.toml
+      # and the source tree.
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        PIP_INSTALL_TARGET: ".[local-dgx]"
+    image: local/sda-tap-spoc-backend:dgx
+    environment:
+      # Forces local-only behavior; backend_api/main.py lifespan reads this to
+      # call maybe_seed_database() and uct_benchmark/api/apiIntegration.py
+      # uses it for the offline-fallback guard.
+      LOCAL_DGX_MODE: "true"
+      # Bypass Supabase auth; backend_api/middleware/auth.py:80 returns a
+      # synthetic 'demo-user' when SUPABASE_JWT_SECRET is unset.
+      DEMO_MODE: "true"
+      # DuckDB at a stable path inside the container so the named volume
+      # below preserves it across restarts.
+      DATABASE_BACKEND: "duckdb"
+      DATABASE_PATH: "/app/data/database/uct_benchmark.duckdb"
+      # Where the seed loader will look first.
+      DGX_SEED_DATA_PATH: "/app/data/seed"
+      # JVM heap — Spark has 128 GB unified memory; the Dockerfile default of
+      # 256m (sized for Railway's 512 MB containers) is left in place for
+      # cloud and overridden here for DGX.
+      JAVA_TOOL_OPTIONS: "-Xmx2g -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
+      LOG_LEVEL: "INFO"
+      # Optional: live UDL/ESA fetches when present. Falls back to bundled
+      # DGX_SEED_SAMPLE dataset when missing.
+      UDL_TOKEN: "${UDL_TOKEN:-}"
+      ESA_TOKEN: "${ESA_TOKEN:-}"
+      # Workers stay at 1 — the JobManager keeps in-process state.
+      WEB_WORKERS: "1"
+      # CORS_ORIGINS intentionally unset → /docs and /redoc remain enabled
+      # (handy for demo Q&A from the box itself). main.py:184 reads this.
+    volumes:
+      - dgx_db_data:/app/data/database
+      - dgx_uploads:/app/data/uploads
+      # Bind-mount the seed data from the source tree so the seed loader has
+      # something to populate the empty DuckDB with on first boot.
+      - ./seed_data:/app/data/seed:ro
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      # First-run seed import of the bundled CSVs into DuckDB takes ~30–90s
+      # for ~143 MB of data. Override the Dockerfile default (120s) so the
+      # container isn't marked unhealthy mid-seed.
+      start_period: 300s
+      retries: 3
+    # GPU passthrough — enabled with `--profile gpu` only.
+    profiles:
+      - default
+      - gpu
+
+  # GPU-enabled twin of the backend. Same image, same env, same volumes —
+  # but with NVIDIA Container Runtime device reservation. Bring up with
+  # `docker compose --profile gpu up -d` (and stop the non-gpu backend
+  # first if it's running). Used by the future Ollama/LLM phase.
+  backend-gpu:
+    extends:
+      service: backend
+    profiles:
+      - gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "/api/v1"
+        VITE_DEMO_MODE: "true"
+        # Enables the "DGX Spark · Local Edition" badge in the header and the
+        # edge-deployment hint on the landing page (Header.tsx, HeroSection.tsx).
+        VITE_LOCAL_DGX_MODE: "true"
+        # No VITE_CESIUM_ION_TOKEN → OrbitViewer.tsx falls back to the bundled
+        # NaturalEarthII texture (zero network calls).
+    image: local/sda-tap-spoc-frontend:dgx
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      PORT: "80"
+      BACKEND_URL: "http://backend:8000"
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - default
+      - gpu
+
+volumes:
+  dgx_db_data:
+    name: dgx_db_data
+  dgx_uploads:
+    name: dgx_uploads

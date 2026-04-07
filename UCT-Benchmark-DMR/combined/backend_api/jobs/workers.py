@@ -171,6 +171,15 @@ def run_dataset_generation(
 
         # Tokens are passed directly from the authenticated user's profile
         if not udl_token:
+            # DGX local edition: point users at the bundled seed dataset instead
+            # of failing opaquely when no UDL token is configured.
+            if os.getenv("LOCAL_DGX_MODE", "").lower() == "true":
+                raise ValueError(
+                    "DGX local edition has no UDL token configured, so new dataset "
+                    "generation is unavailable. Open the pre-loaded sample "
+                    "'DGX_SEED_SAMPLE' from the Datasets page, or set UDL_TOKEN in "
+                    ".env.dgx and restart the stack."
+                )
             raise ValueError(
                 "The dataset generation service is temporarily unavailable due to a missing API credential. "
                 "Please contact the platform administrator or try again later."

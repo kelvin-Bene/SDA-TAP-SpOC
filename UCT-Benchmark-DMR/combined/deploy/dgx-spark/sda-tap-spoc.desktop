@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=SDA-TAP-SpOC (Local)
+GenericName=Space Domain Awareness Benchmark
+Comment=Launch the SDA-TAP-SpOC UCT Benchmark app running locally on this DGX Spark
+# Path is filled in at install time by the systemd setup section of README.md.
+# By convention the repo lives at /home/dmr/dmr-dgx/ on the delivered Spark.
+Exec=/home/dmr/dmr-dgx/UCT-Benchmark-DMR/combined/deploy/dgx-spark/start-dgx.sh
+Icon=applications-science
+Terminal=false
+Categories=Science;Education;Network;
+StartupNotify=true
+Keywords=satellite;orbit;UCT;benchmark;SDA;

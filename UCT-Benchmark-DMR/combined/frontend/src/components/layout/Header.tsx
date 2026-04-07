@@ -5,7 +5,9 @@ import {
   User,
   LogOut,
   Settings,
+  Cpu,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,6 +18,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/authStore';
+
+// Set at build time by docker-compose.dgx.yml. Cloud builds leave it empty.
+const IS_DGX_LOCAL = import.meta.env.VITE_LOCAL_DGX_MODE === 'true';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -58,6 +63,20 @@ export function Header({ onMenuClick }: HeaderProps) {
             </span>
           </div>
         </Link>
+
+        {/* DGX Spark local-edition badge — only visible when running on the
+            portable AI workstation build. Cloud (Railway) builds never set
+            VITE_LOCAL_DGX_MODE so this is invisible there. */}
+        {IS_DGX_LOCAL && (
+          <Badge
+            variant="outline"
+            className="hidden md:inline-flex items-center gap-1.5 mr-4 border-cosmic-cyan/40 bg-cosmic-cyan/10 text-cosmic-cyan font-mono text-xs tracking-wider"
+            title="This instance is running locally on an NVIDIA DGX Spark — no cloud round-trip"
+          >
+            <Cpu className="h-3 w-3" />
+            DGX Spark · Local Edition
+          </Badge>
+        )}
 
         {/* Primary Navigation */}
         <nav className="hidden md:flex items-center gap-1 text-sm font-medium">

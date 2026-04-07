@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Viewer, Entity, CameraFlyTo, Clock } from 'resium';
 import {
   Ion,
@@ -15,6 +15,9 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   NearFarScalar,
+  TileMapServiceImageryProvider,
+  EllipsoidTerrainProvider,
+  buildModuleUrl,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,8 +26,15 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 
-// Set Cesium Ion default access token from environment variable
-Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || '';
+// Cesium Ion access token (cloud builds set this; DGX local edition leaves it empty).
+const CESIUM_ION_TOKEN = import.meta.env.VITE_CESIUM_ION_TOKEN || '';
+Ion.defaultAccessToken = CESIUM_ION_TOKEN;
+
+// When no Ion token is present (DGX local edition / offline), Cesium would
+// otherwise try to fetch world imagery from cesium.com on startup and fail.
+// Switch to the NaturalEarthII texture that ships with the npm package and the
+// EllipsoidTerrainProvider (zero network calls).
+const IS_OFFLINE_CESIUM = !CESIUM_ION_TOKEN;
 
 interface Satellite {
   id: string;
@@ -110,6 +120,22 @@ export function OrbitViewer({
   const viewerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [multiplier, setMultiplier] = useState(100);
+
+  // Build the offline imagery + terrain providers once when running without
+  // a Cesium Ion token. Memoized so re-renders don't recreate them.
+  const offlineImageryProvider = useMemo(
+    () =>
+      IS_OFFLINE_CESIUM
+        ? new TileMapServiceImageryProvider({
+            url: buildModuleUrl('Assets/Textures/NaturalEarthII'),
+          })
+        : undefined,
+    [],
+  );
+  const offlineTerrainProvider = useMemo(
+    () => (IS_OFFLINE_CESIUM ? new EllipsoidTerrainProvider() : undefined),
+    [],
+  );
 
   // Convert satellite positions to Cesium SampledPositionProperty
   const createPositionProperty = (positions: Satellite['positions']) => {
@@ -238,6 +264,8 @@ export function OrbitViewer({
             navigationHelpButton={false}
             fullscreenButton={false}
             creditContainer={undefined}
+            imageryProvider={offlineImageryProvider as any}
+            terrainProvider={offlineTerrainProvider as any}
           >
             <Clock
               startTime={JulianDate.fromDate(startTime)}

@@ -8,7 +8,6 @@ dependencies = [
     # Core pipeline
     "aiohttp>=3.13.0",
     "astropy>=7.1.1",
-    "customtkinter>=5.2.2",
     "loguru>=0.7.0",
     "matplotlib>=3.8.0",
     "nest-asyncio",
@@ -27,7 +26,7 @@ dependencies = [
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
     "python-multipart>=0.0.6",
-    # Database (PostgreSQL only)
+    # Database (PostgreSQL only — DuckDB is a local/dgx extra)
     "psycopg2-binary>=2.9.9",
     # Migrations
     "alembic>=1.13.0",
@@ -52,6 +51,19 @@ dev = [
     "httpx",
     "duckdb>=1.0.0",
     "testcontainers[postgres]>=4.0.0",
+]
+# DGX Spark local edition: install with `pip install ".[local-dgx]"`.
+# Pulls DuckDB so the default DATABASE_BACKEND=duckdb path works without the
+# dev extras group. Cloud builds (Railway) do NOT need this group.
+local-dgx = [
+    "duckdb>=1.0.0",
+]
+# Legacy desktop GUI dependencies. Not installed by default; the cloud builds
+# never need Tk and the DGX local edition runs headless via the web frontend.
+# Kept here so anyone reviving the old CustomTkinter scripts in
+# reference-code/jovan-linuxTesting/ can `pip install ".[desktop]"`.
+desktop = [
+    "customtkinter>=5.2.2",
 ]
 docs = [
     "mkdocs",

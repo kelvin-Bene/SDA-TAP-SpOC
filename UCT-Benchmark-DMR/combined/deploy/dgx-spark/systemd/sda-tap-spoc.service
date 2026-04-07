@@ -1,0 +1,34 @@
+# SDA-TAP-SpOC autostart unit (user-level — NOT system-wide).
+#
+# Why user-level? If the compose stack ever fails to come up, a system-wide
+# unit would block the Ubuntu boot path; a user unit only runs after the
+# project manager logs in, so a broken stack just means the dock icon does
+# nothing — the box still boots normally.
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp sda-tap-spoc.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now sda-tap-spoc.service
+#
+# Status / logs:
+#   systemctl --user status sda-tap-spoc.service
+#   journalctl --user -u sda-tap-spoc.service -f
+#
+# (Edit the ExecStart path below to match where you placed the repo.)
+
+[Unit]
+Description=SDA-TAP-SpOC local stack (Docker Compose)
+After=graphical-session.target docker.service
+Wants=graphical-session.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=%h/dmr-dgx/UCT-Benchmark-DMR/combined/deploy/dgx-spark
+ExecStart=%h/dmr-dgx/UCT-Benchmark-DMR/combined/deploy/dgx-spark/start-dgx.sh
+ExecStop=/usr/bin/docker compose -f docker-compose.dgx.yml down
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target
