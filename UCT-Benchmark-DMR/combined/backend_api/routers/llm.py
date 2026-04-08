@@ -333,13 +333,16 @@ async def chat(
         logger.error(f"A3: first Ollama call failed: {exc}")
         raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}")
 
-    # Look for a <sql>...</sql> tool-use tag
-    sql_match = re.search(r"<sql>(.*?)</sql>", first, re.DOTALL | re.IGNORECASE)
-    if not sql_match or not body.include_sql:
+    # Look for a tool-use SQL query in the model's first response. We accept
+    # three forms in order of preference:
+    #   1. <sql>...</sql> tags (the system-prompt protocol — what big models do)
+    #   2. ```sql ... ``` markdown fences (what mid-size models default to)
+    #   3. A bare SELECT ... ; (what small models do when they ignore everything)
+    # extract_sql_from_response() in services/llm/sql_safety handles all three.
+    candidate = extract_sql_from_response(first) if body.include_sql else None
+    if not candidate:
         # No tool use — return the response as-is.
         return ChatResponse(text=first.strip())
-
-    candidate = sql_match.group(1).strip()
     try:
         safe_sql = validate_and_rewrite(candidate)
     except SqlSafetyError as exc:
