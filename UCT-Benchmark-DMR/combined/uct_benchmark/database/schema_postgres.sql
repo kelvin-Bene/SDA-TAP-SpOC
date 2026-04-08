@@ -236,6 +236,35 @@ CREATE TABLE IF NOT EXISTS datasets (
     -- Performance metadata from generation run
     performance_metadata JSONB,
 
+    -- Per-sensor systematic biases for the CTF poor-calibration challenge
+    -- (SDA TAP Lab UCT challenge #10 from "Need for UCT Benchmarking" paper).
+    -- NULL for standard-quality datasets. When calibration_quality='poor',
+    -- this dict carries one entry per unique sensor in the dataset:
+    --     {"GEODSS-1": {"ra_arcsec": 1.7, "dec_arcsec": -2.3}, ...}
+    -- Biases are applied virtually at download time and at eval time so
+    -- the shared observations table stays pristine.
+    sensor_biases JSONB,
+
+    -- 'standard' (default, no synthetic bias) or 'poor' (synthetic per-sensor
+    -- bias drawn at generation time). User-facing label that the frontend and
+    -- the leaderboard can display alongside the bias data above.
+    calibration_quality VARCHAR(16) NOT NULL DEFAULT 'standard',
+
+    -- CTF maneuvering-during-gap challenge (UCT challenge #6 from "Need for
+    -- UCT Benchmarking" paper). When TRUE, ~20% of satellites in the dataset
+    -- performed a synthetic delta-V maneuver during a 6-hour coverage gap at
+    -- the dataset midpoint. The post-maneuver state vector is recorded as
+    -- the canonical reference truth in dataset_references; a UCTP that
+    -- fails to detect the maneuver scores zero on those satellites.
+    maneuver_during_gap BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Per-satellite maneuver answer key. NULL when maneuver_during_gap=FALSE.
+    -- When set, contains a list of dicts with the maneuvered satellite's
+    -- sat_no, maneuver epoch, delta-V components (m/s), gap window, and
+    -- pre/post-maneuver state vectors. Never exposed via the download
+    -- endpoint — this is the answer key the participant has to figure out.
+    maneuver_metadata JSONB,
+
     -- Ownership
     user_id VARCHAR(255),
 
@@ -271,11 +300,19 @@ CREATE TABLE IF NOT EXISTS dataset_observations (
     assigned_track_id INTEGER,            -- Decorrelated track ID
     assigned_object_id INTEGER,           -- Decorrelated object ID
 
+    -- CTF train/validation/test split per the LLNL CTF paper
+    -- (provided-materials/.../A common task framework for ... .docx Section 3).
+    -- Stratified by satellite at generation time so each split contains a
+    -- representative slice. Default 'train' is safe for tests that create
+    -- rows without specifying a split.
+    split VARCHAR(16) NOT NULL DEFAULT 'train',
+
     PRIMARY KEY (dataset_id, observation_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_ds_obs_dataset ON dataset_observations(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_ds_obs_observation ON dataset_observations(observation_id);
+CREATE INDEX IF NOT EXISTS idx_ds_obs_split ON dataset_observations(dataset_id, split);
 
 -- Dataset references (truth data)
 CREATE TABLE IF NOT EXISTS dataset_references (
@@ -341,8 +378,18 @@ CREATE TABLE IF NOT EXISTS submission_results (
     -- Raw results (JSONB blob with full breakdown)
     raw_results JSONB,
 
-    -- Composite score (weighted combination of metrics)
+    -- Composite score (weighted combination of metrics) computed against
+    -- the entire dataset (all three splits combined). Kept for backward
+    -- compatibility with existing API consumers and as a leaderboard
+    -- fallback for legacy submissions.
     composite_score DECIMAL(10,6),
+
+    -- Per-split composite scores per the CTF train/val/test methodology.
+    -- The leaderboard ranks by test_composite_score because that's the
+    -- split whose answers the participant could not have seen.
+    train_composite_score DECIMAL(10,6),
+    val_composite_score DECIMAL(10,6),
+    test_composite_score DECIMAL(10,6),
 
     -- Processing info
     processing_time_seconds DECIMAL(12,3),
@@ -353,6 +400,8 @@ CREATE TABLE IF NOT EXISTS submission_results (
 CREATE INDEX IF NOT EXISTS idx_results_submission ON submission_results(submission_id);
 CREATE INDEX IF NOT EXISTS idx_results_f1 ON submission_results(f1_score DESC);
 CREATE INDEX IF NOT EXISTS idx_results_composite ON submission_results(composite_score DESC);
+CREATE INDEX IF NOT EXISTS idx_results_test_composite
+    ON submission_results(test_composite_score DESC);
 
 -- ============================================================
 -- JOBS TABLE

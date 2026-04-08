@@ -566,6 +566,26 @@ async def create_dataset(
     generation_params["target_percentage"] = dataset_request.target_percentage
     generation_params["output_tracktle"] = dataset_request.output_tracktle
 
+    # CTF poor sensor calibration challenge (UCT challenge #10).
+    # The worker reads this from config["calibration_quality"] in run_dataset_generation.
+    generation_params["calibration_quality"] = dataset_request.calibration_quality
+    if dataset_request.calibration_quality == "poor":
+        logger.info(
+            "Poor calibration quality requested — worker will generate "
+            "synthetic per-sensor biases"
+        )
+
+    # CTF maneuvering-during-gap challenge (UCT challenge #6).
+    # The worker reads this from config["maneuver_during_gap"] and, when True,
+    # injects a synthetic delta-V into ~20% of satellites at the dataset
+    # midpoint with a 6-hour coverage gap.
+    generation_params["maneuver_during_gap"] = dataset_request.maneuver_during_gap
+    if dataset_request.maneuver_during_gap:
+        logger.info(
+            "Maneuver-during-gap challenge requested — worker will inject "
+            "synthetic delta-V maneuvers into ~20% of satellites"
+        )
+
     # Generate a unique dataset name using timestamp + UUID to avoid race conditions
     # The database has a UNIQUE constraint on name, so this ensures atomicity
     # Format: {user_name}-{YYYYMMDD}-{HHMMSS}-{short_uuid}
@@ -986,6 +1006,21 @@ async def download_dataset(
 
     row_dict = dict(zip(columns, row))
 
+    # CTF poor calibration: parse the per-sensor bias dict from the dataset
+    # row. Empty when sensor_biases is NULL (the standard-quality default).
+    # Some database adapters return JSONB as already-parsed dict; others
+    # return it as a JSON string. Handle both shapes defensively.
+    _raw_biases = row_dict.get("sensor_biases")
+    if isinstance(_raw_biases, str):
+        try:
+            sensor_biases = json.loads(_raw_biases)
+        except (ValueError, TypeError):
+            sensor_biases = {}
+    elif isinstance(_raw_biases, dict):
+        sensor_biases = _raw_biases
+    else:
+        sensor_biases = {}
+
     # Ownership check: only the dataset owner or an admin can download
     if row_dict.get("user_id") != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Not authorized to download this dataset")
@@ -1021,13 +1056,23 @@ async def download_dataset(
                 ),
             )
 
-    # Get observations (streamed in batches to avoid OOM)
+    # Get observations (streamed in batches to avoid OOM).
+    #
+    # CTF train/validation/test split filtering:
+    # - Train and validation rows are returned to participants.
+    # - Test rows are NEVER downloadable; they live only in the database
+    #   and are used by the eval worker to compute the leaderboard score.
+    # - The 'split' column is included in the result so _transform_row can
+    #   strip the truth satNo from validation rows (per the LLNL CTF paper:
+    #   "The validation data set provides the data for each case but not
+    #   the solutions").
     obs_result = db.execute(
         """
-        SELECT o.*, dso.assigned_track_id, dso.assigned_object_id
+        SELECT o.*, dso.assigned_track_id, dso.assigned_object_id, dso.split
         FROM observations o
         JOIN dataset_observations dso ON o.id = dso.observation_id
         WHERE dso.dataset_id = ?
+          AND dso.split IN ('train', 'validation')
         ORDER BY o.ob_time
         """,
         (id_int,),
@@ -1089,6 +1134,9 @@ async def download_dataset(
 
     def _transform_row(obs_row: tuple) -> dict:
         obs_dict = dict(zip(obs_columns, obs_row))
+        # Pop 'split' before the field-name remap (it isn't in the doc map
+        # and we want to use it for the satNo-stripping decision below).
+        row_split = obs_dict.pop("split", "train")
         if obs_dict.get("ob_time"):
             obs_dict["ob_time"] = (
                 obs_dict["ob_time"].isoformat()
@@ -1096,6 +1144,32 @@ async def download_dataset(
                 else str(obs_dict["ob_time"])
             )
         obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
+        # CTF poor calibration: if the dataset carries per-sensor biases,
+        # add the row's sensor bias to ra and declination on the fly. The
+        # shared observations table stays pristine; biases are applied at
+        # download time only. The participant sees biased data and is
+        # expected to handle it (the test of "can your UCTP detect bias").
+        if sensor_biases:
+            sensor_id_str = str(obs_dict.get("idSensor", ""))
+            sensor_bias = sensor_biases.get(sensor_id_str)
+            if sensor_bias:
+                ra_bias_deg = float(sensor_bias.get("ra_arcsec", 0.0)) / 3600.0
+                dec_bias_deg = float(sensor_bias.get("dec_arcsec", 0.0)) / 3600.0
+                if obs_dict.get("ra") is not None:
+                    obs_dict["ra"] = float(obs_dict["ra"]) + ra_bias_deg
+                if obs_dict.get("declination") is not None:
+                    obs_dict["declination"] = float(obs_dict["declination"]) + dec_bias_deg
+        # CTF: validation rows are decorrelated — the truth satellite number
+        # is the answer key, so we strip it before sending the row to the
+        # participant. Train rows keep satNo because that's the labelled
+        # training data the participant is allowed to learn from. Test rows
+        # were already filtered out at the SQL layer above.
+        if row_split == "validation":
+            obs_dict.pop("satNo", None)
+        # Annotate each row with its split label so participants can tell
+        # which set an observation came from. The LLNL paper allows this:
+        # what's withheld is the answer key, not the partition label.
+        obs_dict["split"] = row_split
         return _make_serializable(obs_dict)
 
     dataset_metadata = _make_serializable({
@@ -1106,6 +1180,16 @@ async def download_dataset(
         "observation_count": row_dict.get("observation_count"),
         "satellite_count": row_dict.get("satellite_count"),
         "created_at": str(row_dict["created_at"]) if row_dict.get("created_at") else None,
+        # CTF: tell the participant whether they're working with biased data.
+        # The actual bias values are NOT exposed (those would be the answer
+        # key); participants are told only that the dataset is intentionally
+        # miscalibrated and they're expected to handle it.
+        "calibration_quality": row_dict.get("calibration_quality", "standard"),
+        # CTF: tell the participant whether some satellites maneuvered during
+        # a coverage gap inside the dataset's window. Specific maneuver details
+        # (which sats, when, how much delta-V) are NOT exposed — those live in
+        # the maneuver_metadata column on datasets and form the answer key.
+        "maneuver_during_gap": bool(row_dict.get("maneuver_during_gap") or False),
     })
 
     BATCH_SIZE = 5_000
