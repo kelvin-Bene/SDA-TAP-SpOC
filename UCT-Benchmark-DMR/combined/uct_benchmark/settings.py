@@ -151,13 +151,23 @@ import os
 ESA_DISCOS_API_TOKEN = os.getenv("ESA_DISCOS_API_TOKEN", "")
 ESA_DISCOS_API_URL = "https://discosweb.esoc.esa.int/api"
 
-# Close Proximity threshold
-# Angular separation below which objects are considered "close apparent position"
-PROXIMITY_ANGULAR_THRESHOLD_DEG = 0.5  # degrees - ~30 arcminutes
-# Physical proximity threshold for actual close approach
-PROXIMITY_DISTANCE_THRESHOLD_KM = 100.0  # km - objects within this distance
-# Velocity difference threshold for Close (C) object type per Louis's spec
-PROXIMITY_VELOCITY_THRESHOLD_M_S = 100.0  # m/s - relative velocity difference
+# Close Proximity thresholds — calibrated against Louis's authoritative
+# UCT Labelling schema (provided-materials/UCT Benchmarking/Misc/UCT Labelling.xlsx,
+# "Satellite Specific" column):
+#     Close Relative Space:
+#         Distance between sat < 10 km
+#         Velocity between sat: < 10 m/s
+#
+# The angular threshold for "close apparent" is not in Louis's labelling
+# sheet. We use 30 arcsec (~0.0083°) because it matches typical ground-based
+# optical sensor seeing on a normal night per the team's Smear Explanation
+# document (FWHM percentile chart, 50th percentile = 0.375 arcsec; objects
+# within ~30 arcsec sit inside the cross-tag-confusion zone for a real UCTP).
+# Previous values were 100 km / 100 m/s / 0.5° — 10× looser than Louis's
+# spec on the physical thresholds and ~60× looser on angular separation.
+PROXIMITY_ANGULAR_THRESHOLD_DEG = 30.0 / 3600.0  # 30 arcsec ≈ 0.00833°
+PROXIMITY_DISTANCE_THRESHOLD_KM = 10.0           # km — per UCT Labelling.xlsx
+PROXIMITY_VELOCITY_THRESHOLD_M_S = 10.0          # m/s — per UCT Labelling.xlsx
 
 # Calibration satellites (well-known objects with good observations)
 # These are satellites with well-determined orbits used for verification
