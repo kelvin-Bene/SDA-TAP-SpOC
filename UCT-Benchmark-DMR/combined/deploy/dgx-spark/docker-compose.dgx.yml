@@ -117,7 +117,11 @@ services:
   # restore in install-on-spark.sh stage 2.5. This keeps the Ollama image
   # small (~800 MB) and the model swap-able without rebuilding.
   ollama:
-    image: ollama/ollama:0.6.0
+    # 0.14.1 is the newest stable tag as of April 2026 that knows about
+    # qwen3.5 and the other recent Ollama library entries. Ollama's
+    # 0.6.0 returns a 412 "please upgrade" when asked to pull qwen3.5
+    # because the manifest format changed after 0.10.
+    image: ollama/ollama:0.14.1
     profiles:
       - gpu
     environment:

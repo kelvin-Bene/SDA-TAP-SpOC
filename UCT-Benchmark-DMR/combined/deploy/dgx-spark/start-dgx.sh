@@ -52,7 +52,12 @@ fi
 # ---------------------------------------------------------------------------
 
 echo "→ Starting SDA-TAP-SpOC (DGX local edition)..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+# --profile gpu brings up the ollama service for Phase 2 LLM features.
+# On Linux DGX Spark with NVIDIA Container Toolkit installed, this works
+# transparently. On dev hosts without nvidia-container-toolkit, the operator
+# can compose without the gpu profile (ollama won't start, LLM endpoints
+# return 503, the rest of the stack works).
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile gpu up -d
 
 # ---------------------------------------------------------------------------
 # Wait for the backend healthcheck (proxied through nginx at /health)
@@ -72,6 +77,23 @@ while true; do
     fi
     sleep 3
 done
+
+# ---------------------------------------------------------------------------
+# Phase 2: warm-start the Ollama model so the first query is snappy
+# ---------------------------------------------------------------------------
+#
+# Best-effort: doesn't fail the script if ollama isn't running (e.g. dev host
+# without --profile gpu). On a real Spark, Ollama loads the ~24 GB Qwen
+# weights into VRAM on first request — that takes 30-60s. Doing it here means
+# the project manager's first click in the browser feels instant.
+
+if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile gpu ps ollama 2>/dev/null | grep -q "Up\|running"; then
+    OLLAMA_MODEL_VAR="${OLLAMA_MODEL:-qwen3.5:35b-a3b}"
+    echo "→ Warming Ollama model ($OLLAMA_MODEL_VAR) — first request can take 30-60s..."
+    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile gpu exec -T ollama \
+        sh -c "echo 'ok' | ollama run '$OLLAMA_MODEL_VAR' >/dev/null 2>&1" \
+        >/dev/null 2>&1 && echo "  ✓ model warm" || echo "  (warm-start failed gracefully — first browser query will trigger load)"
+fi
 
 # ---------------------------------------------------------------------------
 # Open the app in the default browser (best effort)
