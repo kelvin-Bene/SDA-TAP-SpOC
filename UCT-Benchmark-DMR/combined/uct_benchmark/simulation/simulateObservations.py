@@ -19,22 +19,61 @@ def simulateObs(
     step=10.0,
     satelliteParameters=[99999, 0, 0],
     seed: int | None = None,
+    use_physical_noise: bool = True,
+    seeing_bias: str = "median",
+    sample_seeing_per_obs: bool = False,
 ):
     """
     Simulate RA/Dec observations from TLE using Orekit-generated ephemeris.
 
+    Two noise paths are supported:
+
+    * **Physical** (default, ``use_physical_noise=True``) — applies the team's
+      research-grade noise model: velocity aberration shift, atmospheric
+      refraction shift via Bennett's formula, and per-observation noise sampled
+      from a Fried's-law airmass-scaled atmospheric seeing profile calibrated
+      against the Smear Explanation document (518,092 real observations).
+      Sensor characteristics come from the GEODSS profile by default. This is
+      the path Louis Caves asked for in the Jan 22 and Aug 28 2025 meetings
+      ("more accurate noise characteristics ... we just haven't had a chance
+      to incorporate that into the simulation workflow").
+
+    * **Legacy** (``use_physical_noise=False``) — applies a flat isotropic
+      Gaussian to RA/Dec independently with sigma=``angularNoise`` and to
+      ECI xyz with sigma=``positionNoise``. Preserved for backward compat with
+      callers that need deterministic noise-free output (``angularNoise=0``)
+      and for the existing test fixtures.
+
     Parameters:
     input1: state vector (6x1 np.array) OR TLE line 1 (string)
     input2: Epoch of state vector (datetime) OR TLE line 2 (string)
-    timespan (float OR datetime list): Duration in seconds from to simulate obs for OR list of epochs to simulate observations at.
-    sensorsDataFrame (pd.DataFrame): DataFrame containing sensor information with columns ['idSensor', 'senlat', 'senlon', 'senalt', 'sensorLikelihood'].
-    positionNoise (float): Standard deviation of the position noise in meters (default is 0).
-    angularNoise (float): Standard deviation of the angular noise in degrees (default is 1/3600 or 1 arcsecond).
+    timespan (float OR datetime list): Duration in seconds from to simulate
+        obs for OR list of epochs to simulate observations at.
+    sensorsDataFrame (pd.DataFrame): DataFrame containing sensor information
+        with columns ['idSensor', 'senlat', 'senlon', 'senalt', 'count'].
+        senlat/senlon are in degrees, senalt is in km.
+    positionNoise (float): Standard deviation of the position noise in the
+        same units as the propagator output. Used only by the legacy path.
+    angularNoise (float): Standard deviation of the angular noise in degrees
+        (default is 1/3600 or 1 arcsecond). Used only by the legacy path.
     step (float): Sampling interval in seconds (default is 10s).
-    satelliteParameters (list): List of satellite parameters [satNo, mass, cross-sectional area] (default is [99999, 0, 0]), only used for state vector input.
+    satelliteParameters (list): List of satellite parameters
+        [satNo, mass, cross-sectional area] (default is [99999, 0, 0]).
+        Only used for state vector input.
+    seed (int|None): RNG seed.
+    use_physical_noise (bool): Switch to the physical noise pipeline. Default
+        True so new datasets get realistic noise out of the box.
+    seeing_bias (str): When ``sample_seeing_per_obs=False``, anchor the entire
+        run at this Smear percentile. One of 'best', 'good_day', 'median'
+        (default), 'bad_day', 'really_bad', 'worst'.
+    sample_seeing_per_obs (bool): When True, draw a fresh seeing sigma from
+        the Smear distribution for every observation. Default False (one
+        sigma per run, deterministic for tests).
 
     Returns:
-    pandas dataframe in UDL EOobs schema:
+    pandas dataframe in UDL EOobs schema, with one row per simulated
+    observation. The ``sensorStDev`` column carries the per-row noise sigma
+    in degrees (varies across rows when ``use_physical_noise=True``).
     """
     from datetime import timezone
 
@@ -45,6 +84,33 @@ def simulateObs(
 
     # Import propagator functions
     from uct_benchmark.simulation.propagator import TLEpropagator, ephemerisPropagator
+
+    # Lazy imports for physical-noise dependencies — keeps the legacy path
+    # cheap when use_physical_noise=False.
+    if use_physical_noise:
+        from uct_benchmark.simulation.atmospheric import (
+            compute_observer_velocity,
+            compute_velocity_aberration,
+            refraction_correction_for_ra_dec,
+        )
+        from uct_benchmark.simulation.noiseModels import (
+            AtmosphericConditions,
+            apply_physical_noise,
+            get_sensor_profile,
+            sample_smear_seeing_arcsec,
+        )
+
+        # Default sensor profile for ground-based optical (GEODSS-class).
+        # This is the canonical sensor type Louis's project targets per the
+        # Jan 22 transcript ("optical only for the time being").
+        default_sensor_profile = get_sensor_profile("GEODSS")
+
+        # Anchor seeing sigma for the run unless caller asks for per-obs sampling.
+        run_seeing_sigma = (
+            None
+            if sample_seeing_per_obs
+            else sample_smear_seeing_arcsec(rng=None, bias=seeing_bias)
+        )
 
     # Use ephemeris propagator functions that already exists
     if isinstance(input1, str):  # TLE input
@@ -83,55 +149,179 @@ def simulateObs(
 
     for i in range(nSteps):
         tstring = datetimeList[i].astimezone(timezone.utc).isoformat()
-        x, y, z = propagatedStates[i][0:3]  # Extract position from propagated state vector
-        x = float(x) + rng.normal(0, positionNoise)
-        y = float(y) + rng.normal(0, positionNoise)
-        z = float(z) + rng.normal(0, positionNoise)
-        r = np.linalg.norm([x, y, z])
-        # Guard against division by zero when position vector norm is too small
-        if r < 1e-10:
+        state = propagatedStates[i]
+        x, y, z = float(state[0]), float(state[1]), float(state[2])
+
+        # Detect units: TLEpropagator returns km/km·s^-1, ephemerisPropagator
+        # returns m/m·s^-1 unless the caller passed km (in which case km is
+        # preserved). Use the same threshold radec2azel uses (line 251).
+        pos_norm = np.linalg.norm([x, y, z])
+        if pos_norm < 1e-10:
             continue
-        ra = (float(np.arctan2(y, x) % (2 * np.pi)) * 180.0 / np.pi) + rng.normal(
-            0, angularNoise
+        in_km = pos_norm < 100000  # < 100,000 means km, else meters
+
+        if in_km:
+            sat_pos_km = np.array([x, y, z])
+            sat_vel_km_s = (
+                np.array([float(state[3]), float(state[4]), float(state[5])])
+                if len(state) >= 6
+                else None
+            )
+            range_for_az_el = pos_norm  # km, radec2azel will auto-convert
+        else:
+            sat_pos_km = np.array([x, y, z]) / 1000.0
+            sat_vel_km_s = (
+                np.array([float(state[3]), float(state[4]), float(state[5])]) / 1000.0
+                if len(state) >= 6
+                else None
+            )
+            range_for_az_el = pos_norm  # meters, radec2azel passes through
+
+        # Apply legacy ECI position noise BEFORE computing geometric RA/Dec.
+        # Physical-noise path keeps positionNoise=0 by default; noise lives
+        # in the angular domain via apply_physical_noise instead.
+        if not use_physical_noise and positionNoise:
+            sat_pos_km = sat_pos_km + rng.normal(0, positionNoise, size=3) / (
+                1.0 if in_km else 1000.0
+            )
+
+        r_km = float(np.linalg.norm(sat_pos_km))
+        if r_km < 1e-10:
+            continue
+
+        # True geometric RA/Dec from xyz (degrees)
+        ra_true = float(np.degrees(np.arctan2(sat_pos_km[1], sat_pos_km[0]) % (2 * np.pi)))
+        dec_true = float(
+            np.degrees(np.arcsin(np.clip(sat_pos_km[2] / r_km, -1.0, 1.0)))
         )
-        dec = (float(np.arcsin(np.clip(z / r, -1.0, 1.0))) * 180.0 / np.pi) + rng.normal(0, angularNoise)
-        rangeVal = np.linalg.norm([x, y, z])  # Range in meters
-        # Pick a random sensor to simulate observations for (but keep constant for debugging purposes)
-        # Sample sensor every group_size observations
+
+        # Sensor selection — pick a fresh sensor every groupSize observations
+        # so each sensor "owns" a small burst of consecutive obs.
         if i % groupSize == 0:
-            randomSensor = sensorsDataFrame.sample(weights="count", random_state=seed).iloc[0]
+            randomSensor = sensorsDataFrame.sample(
+                weights="count", random_state=seed
+            ).iloc[0]
             sensorPosition = randomSensor[["senlat", "senlon", "senalt"]].tolist()
             sensorID = randomSensor["idSensor"]
+        sen_lat, sen_lon, sen_alt_km = (
+            float(sensorPosition[0]),
+            float(sensorPosition[1]),
+            float(sensorPosition[2]),
+        )
+
+        # First-pass az/el using the GEOMETRIC RA/Dec — used to gate on
+        # elevation before we spend cycles on aberration/refraction/noise.
         az, el = radec2azel(
-            ra, dec, rangeVal, sensorPosition, datetimeList[i]
-        )  # Convert RA/Dec to azimuth/elevation
+            ra_true, dec_true, range_for_az_el, sensorPosition, datetimeList[i]
+        )
+
+        # If too low, try other sensors until we find one that can see it
+        # (legacy retry loop, kept verbatim).
         triedSensors = set()
-        while el < 6:  # If elevation is less than 6 degrees, try another sensor
+        while el < 6:
             triedSensors.add(sensorID)
-            availableSensors = sensorsDataFrame[~sensorsDataFrame["idSensor"].isin(triedSensors)]
+            availableSensors = sensorsDataFrame[
+                ~sensorsDataFrame["idSensor"].isin(triedSensors)
+            ]
             if availableSensors.empty:
                 break
-            randomSensor = availableSensors.sample(weights="count", random_state=seed).iloc[0]
+            randomSensor = availableSensors.sample(
+                weights="count", random_state=seed
+            ).iloc[0]
             sensorPosition = randomSensor[["senlat", "senlon", "senalt"]].tolist()
             sensorID = randomSensor["idSensor"]
-            az, el = radec2azel(
-                ra, dec, rangeVal, sensorPosition, datetimeList[i]
-            )  # Convert RA/Dec to azimuth/elevation
-        if el >= 6:  # Only save observation if there is a valid elevation angle
-            results.append(
-                (
-                    tstring,
-                    ra,
-                    dec,
-                    sensorID,
-                    sensorPosition[0],
-                    sensorPosition[1],
-                    sensorPosition[2],
-                    az,
-                    el,
-                    rangeVal,
-                )
+            sen_lat, sen_lon, sen_alt_km = (
+                float(sensorPosition[0]),
+                float(sensorPosition[1]),
+                float(sensorPosition[2]),
             )
+            az, el = radec2azel(
+                ra_true, dec_true, range_for_az_el, sensorPosition, datetimeList[i]
+            )
+
+        if el < 6:
+            continue  # No sensor can see it; skip this epoch.
+
+        if use_physical_noise:
+            # 1. Velocity aberration shift (apparent position differs from
+            #    geometric due to finite c + observer/satellite motion).
+            try:
+                obs_vel = compute_observer_velocity(
+                    sen_lat, sen_lon, sen_alt_km, datetimeList[i]
+                )
+                ra_apparent, dec_apparent = compute_velocity_aberration(
+                    ra_true,
+                    dec_true,
+                    obs_vel,
+                    target_velocity=sat_vel_km_s,
+                )
+            except Exception:
+                # If aberration math fails (e.g. missing satellite velocity),
+                # fall through with the geometric position.
+                ra_apparent, dec_apparent = ra_true, dec_true
+
+            # 2. Atmospheric refraction shift via Bennett's formula. Returns
+            #    the input unchanged below 6° elevation.
+            try:
+                ra_apparent, dec_apparent = refraction_correction_for_ra_dec(
+                    ra_apparent,
+                    dec_apparent,
+                    sen_lat,
+                    sen_lon,
+                    sen_alt_km,
+                    datetimeList[i],
+                )
+            except Exception:
+                pass  # Refraction is best-effort; geometric position is the fallback.
+
+            # 3. Sample physical noise from the team's noise model.
+            seeing_sigma_arcsec = (
+                sample_smear_seeing_arcsec(rng=rng, bias=seeing_bias)
+                if sample_seeing_per_obs
+                else run_seeing_sigma
+            )
+            atmosphere = AtmosphericConditions(seeing_arcsec=seeing_sigma_arcsec)
+            ra_obs, dec_obs, noise_model = apply_physical_noise(
+                ra_apparent,
+                dec_apparent,
+                el,
+                sensor=default_sensor_profile,
+                atmosphere=atmosphere,
+                rng=rng,
+            )
+            # The reported per-row sigma is the RA noise component in degrees.
+            row_sigma_deg = float(noise_model.angular_noise_ra_arcsec) / 3600.0
+
+            # Recompute az/el from the noised RA/Dec for the output schema.
+            az, el = radec2azel(
+                ra_obs, dec_obs, range_for_az_el, sensorPosition, datetimeList[i]
+            )
+            if el < 6:
+                continue  # Noise pushed us below the horizon; rare but possible.
+        else:
+            # Legacy path — flat isotropic Gaussian on RA and Dec independently.
+            ra_obs = ra_true + rng.normal(0, angularNoise)
+            dec_obs = dec_true + rng.normal(0, angularNoise)
+            row_sigma_deg = float(angularNoise)
+            az, el = radec2azel(
+                ra_obs, dec_obs, range_for_az_el, sensorPosition, datetimeList[i]
+            )
+
+        results.append(
+            (
+                tstring,
+                ra_obs,
+                dec_obs,
+                sensorID,
+                sen_lat,
+                sen_lon,
+                sen_alt_km,
+                az,
+                el,
+                range_for_az_el,
+                row_sigma_deg,
+            )
+        )
 
     df = toObsSchema(results, satNo=satNo, noiseCharacteristics=angularNoise)
 
@@ -291,13 +481,20 @@ def toObsSchema(results, satNo, noiseCharacteristics):
     Convert results to observation schema.
 
     Parameters:
-    results (np array): List of tuples (AbsoluteDate, RA [deg], Dec [deg]).
+    results (list): List of tuples produced by simulateObs. Each tuple is
+        either the legacy 10-element shape
+        ``(ts, ra, dec, sensorID, senLat, senLon, senAlt, Az, El, rangeVal)``
+        or the post-physical-noise 11-element shape that adds a trailing
+        per-row sigma in degrees:
+        ``(..., rangeVal, row_sigma_deg)``.
     satNo (int): Satellite number.
-    noiseCharacteristics (float): Standard deviation of the noise [deg].
-    AzEl (list): List of tuples (sensorID, sensorLat, sensorLon, sensorAlt, azimuth [deg], elevation [deg]) if available.
+    noiseCharacteristics (float): Fallback noise sigma in degrees applied to
+        rows that don't carry their own per-row sigma (i.e. legacy 10-tuples).
 
     Returns:
-    pd.DataFrame: DataFrame with columns ['satNo', 'time', 'ra', 'dec'].
+    pd.DataFrame: DataFrame in the UDL EOObs schema. The ``sensorStDev``
+    column carries the per-row sigma for 11-tuple rows and falls back to the
+    scalar ``noiseCharacteristics`` for legacy 10-tuple rows.
     """
     import uuid
     from datetime import datetime, timezone
@@ -305,10 +502,17 @@ def toObsSchema(results, satNo, noiseCharacteristics):
     import numpy as np
     import pandas as pd
 
-    # convert to pandas DataFrame with necessary columns
-    # satNo = int(TLEline1[2:7])
-    df = pd.DataFrame(
-        [
+    rows = []
+    for r in results:
+        # Accept either the 10-element legacy tuple or the 11-element
+        # tuple that includes a per-row sigma at index 10.
+        if len(r) >= 11:
+            ts, ra, dec, sensorID, senLat, senLon, senAlt, Az, El, rangeVal, row_sigma = r
+        else:
+            ts, ra, dec, sensorID, senLat, senLon, senAlt, Az, El, rangeVal = r
+            row_sigma = noiseCharacteristics
+
+        rows.append(
             {
                 "id": str(uuid.uuid4()),
                 "classificationMarking": "U//LOU-SIM",
@@ -349,7 +553,7 @@ def toObsSchema(results, satNo, noiseCharacteristics):
                 "solarEqPhaseAngle": np.nan,
                 "solarDecAngle": np.nan,
                 "shutterDelay": 0,
-                "sensorStDev": noiseCharacteristics,
+                "sensorStDev": float(row_sigma),
                 "rawFileURI": "",
                 "source": "LOU",
                 "dataMode": "SIMULATED",
@@ -358,11 +562,9 @@ def toObsSchema(results, satNo, noiseCharacteristics):
                 "origNetwork": "N/A",
                 "type": "OPTICAL",
             }
-            for ts, ra, dec, sensorID, senLat, senLon, senAlt, Az, El, rangeVal in results
-        ]
-    )
+        )
 
-    return df
+    return pd.DataFrame(rows)
 
 
 def epochsToSim(

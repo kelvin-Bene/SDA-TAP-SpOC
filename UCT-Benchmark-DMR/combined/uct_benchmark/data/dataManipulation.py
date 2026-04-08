@@ -1802,7 +1802,12 @@ def apply_simulation_to_gaps(
             if not epochs:
                 continue
 
-            # Generate simulated observations
+            # Generate simulated observations.
+            # When config.apply_sensor_noise is True (the production default),
+            # route through the physical noise pipeline (velocity aberration +
+            # Bennett refraction + Smear-calibrated airmass-scaled seeing).
+            # When False, fall back to the legacy noise-free path so existing
+            # callers that explicitly disable noise stay deterministic.
             sim_obs = simulateObs(
                 orbit_info["line1"],
                 orbit_info["line2"],
@@ -1812,6 +1817,8 @@ def apply_simulation_to_gaps(
                 angularNoise=1 / 3600 if config.apply_sensor_noise else 0,
                 step=30.0,
                 satelliteParameters=[sat_id, 1000, 10],
+                use_physical_noise=config.apply_sensor_noise,
+                seeing_bias="median",
             )
 
             if sim_obs is not None and not sim_obs.empty:

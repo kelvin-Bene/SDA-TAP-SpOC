@@ -630,3 +630,56 @@ SENSOR_PROFILES = {
 def get_sensor_profile(sensor_name: str) -> SensorCharacteristics:
     """Get a predefined sensor profile by name."""
     return SENSOR_PROFILES.get(sensor_name, GEODSS_SENSOR)
+
+
+# =============================================================================
+# CALIBRATED ATMOSPHERIC SEEING (Smear Explanation reference)
+# =============================================================================
+
+# Atmospheric seeing percentiles in arcseconds, calibrated against
+# 518,092 real observations from Muztagh-ata Site II + Lijiang Observatory,
+# plus reference values from Maidanek (best) and Antarctic stations (worst).
+#
+# Source: provided-materials/UCT Benchmarking/Measurement Simulation/
+#         Smear Explanation, Results, Documentation.docx (Binyamin Stivi).
+# Louis Caves explicitly cited this research in the Aug 28 2025 SDATap
+# meeting as the calibration the simulator should be using instead of
+# the constant 1 arcsec Gaussian default.
+SMEAR_SEEING_PERCENTILES_ARCSEC = {
+    "best":       0.25,    # Maidanek observatory, "best reasonable"
+    "good_day":   0.30,    # 75th percentile (better than 75% of days)
+    "median":     0.375,   # 50th percentile / "OK day"
+    "bad_day":    0.4875,  # 25th percentile (worse than 75% of days)
+    "really_bad": 0.70,    # 10th percentile (worse than 90% of days)
+    "worst":      1.32,    # Antarctic stations, worst recorded
+}
+
+
+def sample_smear_seeing_arcsec(
+    rng=None,
+    bias: str = "median",
+) -> float:
+    """Sample atmospheric seeing in arcseconds from the Smear percentile chart.
+
+    Args:
+        rng: numpy random Generator for sampling. When None, returns the
+            ``bias`` percentile deterministically. Useful for tests and for
+            anchoring an entire simulation run at a known seeing level.
+        bias: which percentile to anchor on when ``rng`` is None. One of
+            'best', 'good_day', 'median' (default), 'bad_day', 'really_bad',
+            'worst'.
+
+    Returns:
+        Seeing sigma in arcseconds, suitable for
+        ``AtmosphericConditions.seeing_arcsec``.
+    """
+    if rng is None:
+        return SMEAR_SEEING_PERCENTILES_ARCSEC[bias]
+
+    # Right-skewed empirical distribution: most days are good, occasional
+    # bad days. Matches the Lijiang FWHM histogram described in the Smear
+    # doc as "noticeably skew right".
+    levels = ["best", "good_day", "median", "bad_day", "really_bad", "worst"]
+    weights = [0.10, 0.25, 0.35, 0.20, 0.07, 0.03]  # sums to 1.0
+    pick = rng.choice(levels, p=weights)
+    return SMEAR_SEEING_PERCENTILES_ARCSEC[pick]
