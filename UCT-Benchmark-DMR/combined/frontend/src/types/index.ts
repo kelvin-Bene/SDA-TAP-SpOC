@@ -387,6 +387,13 @@ export interface LeaderboardEntry {
   algorithmName: string;
   team: string;
   version: string;
+  compositeScore: number;
+  // CTF train/validation/test breakdown. The headline `compositeScore`
+  // above is sourced from `testCompositeScore` on the backend (the only
+  // un-cheatable split) with fallback to the legacy whole-dataset score.
+  trainCompositeScore?: number;
+  valCompositeScore?: number;
+  testCompositeScore?: number;
   f1Score: number;
   precision: number;
   recall: number;

@@ -1337,6 +1337,7 @@ class DatasetRepository(BaseRepository):
         observation_ids: List[str],
         track_assignments: Optional[Dict[str, int]] = None,
         object_assignments: Optional[Dict[str, int]] = None,
+        split_assignment: Optional[Dict[str, str]] = None,
     ) -> int:
         """
         Associate observations with a dataset.
@@ -1346,12 +1347,18 @@ class DatasetRepository(BaseRepository):
             observation_ids: List of observation IDs
             track_assignments: Optional dict mapping obs ID to track ID
             object_assignments: Optional dict mapping obs ID to object ID
+            split_assignment: Optional dict mapping obs ID to CTF split label
+                (one of 'train', 'validation', 'test'). Observations not in
+                the dict default to 'train' so callers that don't pass any
+                split assignment retain the legacy "everything is training
+                data" behaviour for backward compatibility.
 
         Returns:
             Number of observations added
         """
         track_assignments = track_assignments or {}
         object_assignments = object_assignments or {}
+        split_assignment = split_assignment or {}
 
         data = [
             (
@@ -1359,13 +1366,15 @@ class DatasetRepository(BaseRepository):
                 obs_id,
                 track_assignments.get(obs_id),
                 object_assignments.get(obs_id),
+                split_assignment.get(obs_id, "train"),
             )
             for obs_id in observation_ids
         ]
 
         query = """
-            INSERT INTO dataset_observations (dataset_id, observation_id, assigned_track_id, assigned_object_id)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO dataset_observations
+                (dataset_id, observation_id, assigned_track_id, assigned_object_id, split)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (dataset_id, observation_id) DO NOTHING
         """
         self.executemany(query, data)
