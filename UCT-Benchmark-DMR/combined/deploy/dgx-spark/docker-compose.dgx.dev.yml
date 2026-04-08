@@ -1,0 +1,41 @@
+# Dev-only overlay for the DGX compose stack on Windows ARM64.
+#
+# Differences from docker-compose.dgx.yml:
+#
+#  1. The `ollama` service uses a bind-mount to /d/dgx-ollama-staging instead
+#     of the dgx_ollama_models named volume. Reason: Docker Desktop on
+#     Windows stores named volumes in a WSL2 VHD on C:, but the user wants
+#     the multi-GB model files on D:. Bind-mounts let us point at D: directly
+#     and bypass the named-volume-on-C constraint.
+#
+#  2. The `ollama` service has its `deploy.resources` GPU section nuked —
+#     Windows Docker Desktop's Linux ARM64 VM does NOT have nvidia-container-
+#     toolkit, so any `--gpus all` request fails. CPU-mode Ollama is slow
+#     but functional for development validation.
+#
+# This file is NEVER shipped to a real DGX Spark. The production
+# docker-compose.dgx.yml is the file the install-on-spark.sh script uses.
+#
+# Usage:
+#   docker compose --env-file .env.dgx \
+#       -f docker-compose.dgx.yml \
+#       -f docker-compose.dgx.dev.yml \
+#       --profile gpu up -d
+
+services:
+  ollama:
+    volumes:
+      - /d/dgx-ollama-staging:/root/.ollama
+    # Drop the GPU device reservation so docker-compose doesn't try to
+    # request CUDA passthrough on a host that doesn't have it.
+    deploy:
+      resources: {}
+
+  # The `backend-gpu` service in the production compose file extends `backend`
+  # with an NVIDIA device reservation. On Windows ARM64 dev hosts, that
+  # reservation fails (`WSL environment detected but no adapters were found`).
+  # For dev validation we don't need a separate GPU twin — the regular
+  # `backend` service is the one bound to port 8000. Stub backend-gpu out
+  # so `--profile gpu up` brings up the rest of the stack without it.
+  backend-gpu:
+    profiles: ["never"]   # never matched, so backend-gpu is excluded

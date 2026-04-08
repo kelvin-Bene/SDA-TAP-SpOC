@@ -256,4 +256,29 @@ export const api = {
 
   deleteEvent: (id: string) =>
     apiClient.delete(`/events/${id}`),
+
+  // LLM (Phase 2 — DGX Spark local edition only).
+  // These endpoints are mounted server-side only when LOCAL_DGX_MODE=true,
+  // so cloud builds will get a 404 if anything calls them. The frontend
+  // gates the UI surface (sidebar entries, route entries) on the matching
+  // VITE_LOCAL_DGX_MODE flag, so the UI never reaches these calls in cloud.
+
+  // A1 — Natural-language SQL query
+  queryDatabase: (question: string) =>
+    apiClient.post('/llm/sql', { question }),
+
+  // A2 — Explain a submission's results in plain English
+  explainResults: (submissionId: number) =>
+    apiClient.post('/llm/explain-results', { submission_id: submissionId }),
+
+  // A3 — Multi-turn chat with the catalog (stateless server, full history each turn)
+  chatWithLeaderboard: (
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    includeSql: boolean = true,
+  ) =>
+    apiClient.post('/llm/chat', { messages, include_sql: includeSql }),
+
+  // A4 — Suggest a fix for a UCTP submission that failed schema validation
+  suggestUctpFix: (parsedJson: unknown, errors: string[], hint?: string) =>
+    apiClient.post('/llm/suggest-fix', { parsed_json: parsedJson, errors, hint: hint || null }),
 };

@@ -41,6 +41,22 @@ const publicNavItems: NavItem[] = [
   },
 ];
 
+// Phase 2: AI Tools group only renders on the DGX Spark local edition.
+// Cloud builds (Railway) leave VITE_LOCAL_DGX_MODE unset so this is empty
+// and the sidebar renders identically to before.
+const IS_DGX_LOCAL = import.meta.env.VITE_LOCAL_DGX_MODE === 'true';
+
+const aiToolsNavItem: NavItem | null = IS_DGX_LOCAL
+  ? {
+      title: 'AI Tools',
+      icon: Sparkles,
+      children: [
+        { title: 'Query Database', href: '/llm/sql' },
+        { title: 'Chat Assistant', href: '/llm/chat' },
+      ],
+    }
+  : null;
+
 // Authenticated-only nav items
 const authNavItems: NavItem[] = [
   {
@@ -70,6 +86,9 @@ const authNavItems: NavItem[] = [
     href: '/leaderboard',
     icon: Trophy,
   },
+  // AI Tools (DGX local edition only) — splice in here so it sits between
+  // Leaderboard and Settings.
+  ...(aiToolsNavItem ? [aiToolsNavItem] : []),
   {
     title: 'Settings',
     href: '/settings',

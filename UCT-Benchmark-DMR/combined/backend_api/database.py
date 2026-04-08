@@ -144,58 +144,46 @@ def init_database(
 
 def close_database() -> None:
     """Close the database connection and clear the singleton."""
-    global _db_manager, _llm_db_manager
+    global _db_manager
     if _db_manager is not None:
         _db_manager.close()
         _db_manager = None
-    if _llm_db_manager is not None:
-        _llm_db_manager.close()
-        _llm_db_manager = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase 2 LLM features: lazy read-only singleton
+# Phase 2 LLM features: shared DB handle for SQL execution
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# The four LLM endpoints in backend_api/routers/llm.py execute LLM-generated
-# SQL against a SECOND DatabaseManager instance opened in read-only mode.
-# DuckDB allows multiple read-only handles to coexist with the single writer
-# (the main get_db handle), so this is safe.
-#
-# The handle is constructed lazily on first use so it doesn't add startup
-# cost for the cloud build (which never imports llm.py anyway since the
-# router mount is gated on LOCAL_DGX_MODE in main.py).
-#
-# Only meaningful when DATABASE_BACKEND=duckdb (the DGX local edition default).
-
-_llm_db_manager: Optional[DatabaseManager] = None
+# See the docstring on get_llm_db() for why this is just an alias for
+# get_db() rather than a separate read-only handle. The original plan was
+# to open a second read-only DuckDB connection alongside the writer; that
+# fails because DuckDB blocks intra-process secondary opens of an already-
+# held file. The sqlglot AST validator in services/llm/sql_safety.py is
+# the primary safety control instead.
 
 
 def get_llm_db() -> DatabaseManager:
     """
-    Return a read-only DatabaseManager handle for LLM-generated SQL execution.
+    Return a DatabaseManager handle for LLM-generated SQL execution.
 
-    Used as a FastAPI dependency by backend_api/routers/llm.py. Cloud builds
-    never instantiate this because the llm router is never mounted there.
+    Originally this was supposed to be a SECOND read-only handle alongside
+    the main writer. That doesn't work in practice — DuckDB blocks intra-
+    process secondary opens of a file already held by another connection
+    in the same process ("Conflicting lock is held in PID X"). Cross-
+    process read-only handles ARE allowed, but spawning a worker process
+    per LLM call is more complexity than the security gain warrants.
+
+    Instead, we return the SAME singleton as get_db(). The five-layer SQL
+    safety pipeline in backend_api/services/llm/sql_safety.py is the
+    primary control — it parses every LLM-generated query with sqlglot
+    and rejects anything that isn't a SELECT against an allowlisted
+    table. DuckDB read-only mode would have been defense-in-depth on top
+    of that, but it's not load-bearing.
+
+    Used as a FastAPI dependency by backend_api/routers/llm.py. Cloud
+    builds never call this because the llm router is never mounted there.
     """
-    global _llm_db_manager
-    if _llm_db_manager is not None:
-        return _llm_db_manager
-
-    backend = get_database_backend()
-    if backend not in ("duckdb",):
-        raise RuntimeError(
-            f"get_llm_db() requires DATABASE_BACKEND=duckdb, got {backend}. "
-            f"LLM features are only supported in the DGX local edition."
-        )
-
-    path = get_database_path()
-    _llm_db_manager = DatabaseManager(db_path=path, read_only=True)
-    # Note: do NOT call .initialize() — that runs CREATE TABLE IF NOT EXISTS,
-    # which fails on a read-only handle. The main writer (init_database) has
-    # already created the schema. We just need an open connection.
-    _llm_db_manager.adapter.connect()
-    return _llm_db_manager
+    return get_db()
 
 
 @asynccontextmanager

@@ -25,6 +25,11 @@ const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const LandingPage = lazy(() => import('@/pages/LandingPage'));
 
+// Phase 2 LLM features (DGX Spark local edition only — sidebar hides them
+// in cloud builds, but the routes are always present so deep links work).
+const SqlQueryPage = lazy(() => import('@/pages/llm/SqlQueryPage').then(m => ({ default: m.SqlQueryPage })));
+const LeaderboardChatPage = lazy(() => import('@/pages/llm/LeaderboardChatPage').then(m => ({ default: m.LeaderboardChatPage })));
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
@@ -71,6 +76,14 @@ function App() {
                 <Route path="results/:submissionId" element={<AuthGuard><LazyRoute><ResultsPage /></LazyRoute></AuthGuard>} />
                 <Route path="profile" element={<AuthGuard><LazyRoute><ProfilePage /></LazyRoute></AuthGuard>} />
                 <Route path="settings" element={<AuthGuard><LazyRoute><SettingsPage /></LazyRoute></AuthGuard>} />
+
+                {/* Phase 2 LLM features — DGX Spark local edition only.
+                    The backend mounts /api/v1/llm/* only when LOCAL_DGX_MODE=true,
+                    so cloud builds will get a 404 from the API even if the
+                    route resolves on the frontend. The sidebar hides these
+                    entries when VITE_LOCAL_DGX_MODE !== 'true'. */}
+                <Route path="llm/sql" element={<AuthGuard><LazyRoute><SqlQueryPage /></LazyRoute></AuthGuard>} />
+                <Route path="llm/chat" element={<AuthGuard><LazyRoute><LeaderboardChatPage /></LazyRoute></AuthGuard>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<LazyRoute><NotFoundPage /></LazyRoute>} />
