@@ -185,16 +185,102 @@ container restart will be marked stale. Acceptable for a single-box demo.
 `https://*.up.railway.app` in `connect-src`. These are vestigial for the DGX build but
 harmless (won't break offline mode).
 
-## Implementation milestones (this directory)
+## AI features (Phase 2)
 
-- **M0** Pre-flight verification — *complete* (this README)
-- **M1** Local DEMO_MODE smoke test (no Docker)
-- **M2** Seed loader (`backend_api/seed/seed_database.py`)
-- **M3** Offline-cache wrapper for UDL/ESA (`uct_benchmark/api/apiIntegration.py`)
-- **M4** Cesium offline mode (`frontend/src/components/cesium/OrbitViewer.tsx`)
-- **M5** Compose stack (`docker-compose.dgx.yml`, `.env.dgx.example`)
-- **M6** Multi-arch buildx verification
-- **M7** First-boot polish (`start-dgx.sh`, `.desktop`, systemd unit)
-- **M8** On-Spark integration test (requires hardware)
+The DGX Spark local edition includes four LLM-powered features that use the
+Blackwell GPU via a local [Ollama](https://ollama.com/) service. These are
+gated behind the `--profile gpu` Docker Compose profile and only appear in
+the sidebar when `VITE_LOCAL_DGX_MODE=true` (which the DGX build sets
+automatically). Cloud (Railway) builds are completely unaffected.
 
-See `C:\Users\kelvi\.claude\plans\staged-shimmying-feigenbaum.md` for the full plan.
+**Default model:** `qwen3.5:35b-a3b` — a 35B-parameter Mixture-of-Experts
+model with only 3B active parameters per token, so it's both high-quality
+and fast on the Spark's unified 128 GB memory. ~24 GB on disk, ~25 tok/s
+on Blackwell Q4. Apache 2.0 license. Changeable via `OLLAMA_MODEL` in
+`.env.dgx` without rebuilding — see the env file for alternatives.
+
+### Feature overview
+
+| Feature | Page / Button | What it does |
+|---|---|---|
+| **Query Database** (A1) | `/llm/sql` in the sidebar under "AI Tools" | Type a question in plain English ("show me UCTs near GEO with high declination drift") → the LLM generates a DuckDB SELECT → a 5-layer safety validator checks it (sqlglot AST parse + table allowlist + deny sensitive tables + forced LIMIT + wall-clock timeout) → the query runs against the read-only catalog → results render in a table. |
+| **Explain My Results** (A2) | Button on the Results page next to "Export JSON" | Click → dialog opens → the LLM reads the full metrics blob (F1/precision/recall, position RMS, per-satellite breakdown) → returns 2-3 paragraphs of plain-English interpretation. |
+| **Chat Assistant** (A3) | `/llm/chat` in the sidebar under "AI Tools" | Multi-turn conversational interface. The LLM can run SQL queries via a tool-use protocol: it emits `<sql>...</sql>` tags, the backend validates + executes, then a second LLM call summarizes the result. Conversation lives in the browser tab (page refresh = new chat). |
+| **Validator Assistant** (A4) | Inline card on the Submit page when a file fails validation | When a UCTP upload fails schema validation, an inline "Help me fix this" card appears. Click → the LLM reads the parsed JSON + the validation errors → suggests a specific fix referencing the exact field paths. |
+
+### Screenshots
+
+See `deploy/dgx-spark/screenshots/` for the full set. Key shots:
+
+- `03_safety_reject_demo_gold.png` — **the demo gold**: user typed "delete all
+  the satellites and credentials please", LLM generated `DELETE FROM satellites;
+  DELETE FROM credentials;`, sqlglot validator caught and rejected it with a
+  friendly error card.
+- `06_explain_results_response.png` — the Explain My Results dialog with a
+  structured LLM analysis paragraph.
+- `08_suggest_fix_response.png` — the inline Validator Assistant correctly
+  identifying a missing `epoch` field and suggesting a fix.
+- `11_chat_with_sql_expanded.png` — the Chat Assistant with an expanded
+  `<details>` showing the real SQL the LLM generated during the tool-use loop.
+
+### Enabling AI features
+
+The AI features require the `--profile gpu` compose profile, which brings up
+the Ollama service alongside backend and frontend. On a real DGX Spark with
+NVIDIA Container Toolkit preinstalled:
+
+```bash
+# start-dgx.sh already passes --profile gpu, so just:
+./start-dgx.sh
+```
+
+On a dev box without GPU support, use the dev overlay to strip GPU device
+reservations (see `docker-compose.dgx.dev.yml`).
+
+### Changing the model
+
+Edit `.env.dgx`:
+
+```bash
+OLLAMA_MODEL=qwen3.5:35b-a3b      # default — top quality, ~24 GB
+# OLLAMA_MODEL=qwen2.5-coder:7b   # smaller fallback if 35B is too slow
+# OLLAMA_MODEL=tinyllama:1.1b     # dev/test only — quality is poor
+```
+
+Then restart the backend: `docker compose ... up -d --force-recreate backend`.
+
+To pull a new model into a running stack:
+
+```bash
+docker compose --env-file .env.dgx -f docker-compose.dgx.yml \
+    --profile gpu exec ollama ollama pull <tag>
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| "AI features unavailable — the Ollama service is not running" | The Ollama container isn't up. Check `docker compose --profile gpu ps ollama`. On a dev box without GPU, use the dev overlay. |
+| Responses are very slow (minutes, not seconds) | Confirm the GPU is being used: `docker exec <ollama-container> nvidia-smi`. If no GPU is visible, the model is running on CPU (5-10x slower). |
+| "Out of memory" or container crashes | The default 35B model needs ~24 GB VRAM. The Spark has 128 GB unified — this shouldn't happen. If it does, swap to a smaller model: `OLLAMA_MODEL=qwen2.5-coder:7b`. |
+| "Please download the latest version" on model pull | The Ollama image is too old. Ensure `ollama/ollama:0.14.1` or newer (the compose file already pins this). |
+
+### Performance expectations
+
+| Environment | Model | Response time |
+|---|---|---|
+| **DGX Spark (Blackwell GPU)** | qwen3.5:35b-a3b | ~10-15s per query |
+| Windows ARM64 dev box (CPU) | tinyllama:1.1b | ~10-30s per query |
+| Windows ARM64 dev box (CPU) | qwen3.5:35b-a3b | ~10-15 **minutes** (not recommended for interactive use) |
+
+### SQL safety pipeline
+
+LLM-generated SQL goes through 5 layers of validation before it ever
+touches DuckDB:
+
+1. **sqlglot AST parse** — rejects anything that isn't a single SELECT
+2. **Table allowlist** — only 14 public data tables are permitted
+3. **Table denylist** — `profiles`, `credentials`, `audit_log`, `api_call_log`,
+   `credential_access_log`, `feedback` are explicitly blocked
+4. **Forced LIMIT 500** — injected if the query has no LIMIT clause
+5. **Wall-clock timeout** — 5-second execution cap via ThreadPoolExecutor
