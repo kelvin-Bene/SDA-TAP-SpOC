@@ -33,6 +33,10 @@ import {
 import { useState, useMemo } from 'react';
 import { useResults, useSubmission, useExportResults, useDownloadReport } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
+import { ExplainResultsButton } from '@/components/llm/ExplainResultsButton';
+
+// Phase 2 LLM features (DGX Spark local edition only).
+const IS_DGX_LOCAL = import.meta.env.VITE_LOCAL_DGX_MODE === 'true';
 
 export function ResultsPage() {
   const { submissionId } = useParams<{ submissionId: string }>();
@@ -237,6 +241,9 @@ export function ResultsPage() {
             )}
             Export JSON
           </Button>
+          {IS_DGX_LOCAL && submissionId && (
+            <ExplainResultsButton submissionId={submissionId} />
+          )}
         </div>
       </div>
 
