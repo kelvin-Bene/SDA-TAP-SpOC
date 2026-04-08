@@ -37,7 +37,9 @@ export function LeaderboardPage() {
     datasetId: 'all',
   });
   const [activeTab, setActiveTab] = useState('rankings');
-  const [sortColumn, setSortColumn] = useState<'f1Score' | 'precision' | 'recall' | 'positionRmsKm'>('f1Score');
+  const [sortColumn, setSortColumn] = useState<
+    'compositeScore' | 'f1Score' | 'precision' | 'recall' | 'positionRmsKm'
+  >('compositeScore');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Use real API hooks
@@ -134,9 +136,11 @@ export function LeaderboardPage() {
                 <div className="font-semibold mt-2 truncate">{topThree[1].algorithmName}</div>
                 <div className="text-xs text-muted-foreground">{topThree[1].team}</div>
                 <div className="mt-3 text-xl font-mono font-bold text-gray-400">
-                  {topThree[1].f1Score.toFixed(4)}
+                  {topThree[1].compositeScore.toFixed(4)}
                 </div>
-                <div className="text-xs text-muted-foreground">F1-Score</div>
+                <div className="text-xs text-muted-foreground">
+                  Composite &middot; F1 {topThree[1].f1Score.toFixed(3)}
+                </div>
               </div>
             </div>
           )}
@@ -154,9 +158,11 @@ export function LeaderboardPage() {
                 <div className="font-semibold mt-2 truncate text-lg">{topThree[0].algorithmName}</div>
                 <div className="text-sm text-muted-foreground">{topThree[0].team}</div>
                 <div className="mt-4 text-2xl font-mono font-bold text-gradient-cosmic">
-                  {topThree[0].f1Score.toFixed(4)}
+                  {topThree[0].compositeScore.toFixed(4)}
                 </div>
-                <div className="text-xs text-muted-foreground">F1-Score</div>
+                <div className="text-xs text-muted-foreground">
+                  Composite &middot; F1 {topThree[0].f1Score.toFixed(3)}
+                </div>
               </div>
             </div>
           )}
@@ -171,9 +177,11 @@ export function LeaderboardPage() {
                 <div className="font-semibold mt-2 truncate">{topThree[2].algorithmName}</div>
                 <div className="text-xs text-muted-foreground">{topThree[2].team}</div>
                 <div className="mt-3 text-xl font-mono font-bold text-amber-600">
-                  {topThree[2].f1Score.toFixed(4)}
+                  {topThree[2].compositeScore.toFixed(4)}
                 </div>
-                <div className="text-xs text-muted-foreground">F1-Score</div>
+                <div className="text-xs text-muted-foreground">
+                  Composite &middot; F1 {topThree[2].f1Score.toFixed(3)}
+                </div>
               </div>
             </div>
           )}
@@ -295,13 +303,27 @@ export function LeaderboardPage() {
                         <TooltipProvider>
                           <RankTooltip>
                             <TooltipTrigger><Info className="h-3 w-3 ml-1 text-muted-foreground" /></TooltipTrigger>
-                            <TooltipContent>Rank is based on F1 score</TooltipContent>
+                            <TooltipContent>
+                              Rank is based on Composite Score on the test split.
+                              Test data is withheld from training so this score
+                              cannot be cheated by copying the truth file.
+                            </TooltipContent>
                           </RankTooltip>
                         </TooltipProvider>
                       </span>
                     </TableHead>
                     <TableHead scope="col">Algorithm</TableHead>
                     <TableHead scope="col">Team</TableHead>
+                    <TableHead
+                      scope="col"
+                      className="cursor-pointer hover:text-foreground transition-colors"
+                      tabIndex={0}
+                      role="columnheader"
+                      onClick={() => handleSort('compositeScore')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('compositeScore'); } }}
+                    >
+                      Score <SortIndicator column="compositeScore" />
+                    </TableHead>
                     <TableHead
                       scope="col"
                       className="cursor-pointer hover:text-foreground transition-colors"
@@ -372,11 +394,16 @@ export function LeaderboardPage() {
                       <TableCell className="text-muted-foreground">{entry.team}</TableCell>
                       <TableCell>
                         <span className={cn(
-                          'font-mono font-semibold',
+                          'font-mono font-bold',
                           idx === 0 && 'text-yellow-500',
                           idx === 1 && 'text-gray-400',
                           idx === 2 && 'text-amber-600'
                         )}>
+                          {entry.compositeScore.toFixed(4)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono">
                           {entry.f1Score.toFixed(4)}
                         </span>
                       </TableCell>

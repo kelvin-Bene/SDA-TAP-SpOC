@@ -8,6 +8,13 @@ interface LeaderboardEntryResponse {
   algorithm_name: string;
   team?: string;
   version: string;
+  // Headline composite — sourced from test_composite_score on the backend
+  // (with COALESCE fallback to legacy composite_score and then f1_score).
+  composite_score?: number | null;
+  // CTF per-split breakdown. Test is the rank-defining split.
+  train_composite_score?: number | null;
+  val_composite_score?: number | null;
+  test_composite_score?: number | null;
   f1_score: number;
   precision: number;
   recall: number;
@@ -32,6 +39,13 @@ function transformLeaderboardEntry(data: LeaderboardEntryResponse): LeaderboardE
     algorithmName: data.algorithm_name,
     team: data.team || 'Independent',
     version: data.version,
+    // Fall back to f1_score when composite_score is null so legacy submissions
+    // still render a sensible headline number in the UI.
+    compositeScore: data.composite_score ?? data.f1_score,
+    // CTF per-split breakdown. Backend nullables map to undefined in TS.
+    trainCompositeScore: data.train_composite_score ?? undefined,
+    valCompositeScore: data.val_composite_score ?? undefined,
+    testCompositeScore: data.test_composite_score ?? undefined,
     f1Score: data.f1_score,
     precision: data.precision,
     recall: data.recall,
