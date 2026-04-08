@@ -1,0 +1,167 @@
+import { useMutation } from '@tanstack/react-query';
+import { Sparkles, Loader2, AlertCircle, X } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { api } from '@/api/client';
+import { LlmMarkdown } from './LlmMarkdown';
+
+export interface SubmissionValidationError {
+  message: string;
+  errors: string[];
+  hint?: string;
+  /** The parsed JSON from the file the user tried to upload — used as LLM context. */
+  parsedJson: unknown;
+}
+
+interface SuggestFixCardProps {
+  validationError: SubmissionValidationError;
+  onDismiss?: () => void;
+}
+
+interface SuggestFixResponse {
+  text: string;
+}
+
+/**
+ * A4 — "Help me fix this" inline card for UCTP submission validation errors.
+ *
+ * Replaces the destructive toast that SubmitPage used to show on 422
+ * responses. The card persists below the upload form so the user can read
+ * the error and the LLM suggestion side-by-side without dismissing it.
+ *
+ * The LLM call is user-initiated (a button inside the card) — not automatic
+ * on render — so accidental rendering doesn't burn LLM tokens.
+ *
+ * Phase 2 — DGX Spark local edition only. The "Help me fix this" button is
+ * gated on VITE_LOCAL_DGX_MODE; in cloud builds the card just shows the
+ * raw validation errors with no LLM affordance.
+ */
+export function SuggestFixCard({ validationError, onDismiss }: SuggestFixCardProps) {
+  const isDgxLocal = import.meta.env.VITE_LOCAL_DGX_MODE === 'true';
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.suggestUctpFix(
+        validationError.parsedJson,
+        validationError.errors,
+        validationError.hint,
+      );
+      return response.data as SuggestFixResponse;
+    },
+  });
+
+  const errorMessage = mutation.error ? formatError(mutation.error) : null;
+
+  return (
+    <Card className="border-destructive/40 bg-destructive/5">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-base text-destructive flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            {validationError.message || 'UCTP schema validation failed'}
+          </CardTitle>
+          {onDismiss && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onDismiss}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Raw validation errors */}
+        {validationError.errors.length > 0 && (
+          <div className="rounded-md border border-destructive/20 bg-black/20 p-3 text-sm font-mono text-destructive/90 max-h-48 overflow-y-auto">
+            <ul className="space-y-1">
+              {validationError.errors.map((err, i) => (
+                <li key={i}>• {err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validationError.hint && (
+          <p className="text-xs text-muted-foreground italic">
+            Hint: {validationError.hint}
+          </p>
+        )}
+
+        {/* Help button — only when AI is available (DGX local) */}
+        {isDgxLocal && !mutation.data && !mutation.isPending && !errorMessage && (
+          <Button
+            onClick={() => mutation.mutate()}
+            className="gap-2 bg-cosmic-cyan/10 border border-cosmic-cyan/40 text-cosmic-cyan hover:bg-cosmic-cyan/20"
+            variant="outline"
+          >
+            <Sparkles className="h-4 w-4" />
+            Help me fix this
+          </Button>
+        )}
+
+        {/* Loading state */}
+        {mutation.isPending && (
+          <div className="flex items-center gap-3 text-sm text-cosmic-cyan">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Local LLM is analyzing your file...
+          </div>
+        )}
+
+        {/* LLM error */}
+        {errorMessage && !mutation.isPending && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p className="font-medium text-destructive mb-1">Could not generate suggestion</p>
+            <p className="text-muted-foreground">{errorMessage}</p>
+          </div>
+        )}
+
+        {/* LLM success */}
+        {mutation.data && !mutation.isPending && (
+          <div className="rounded-md border border-cosmic-cyan/30 bg-cosmic-cyan/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-cosmic-cyan">
+              <Sparkles className="h-4 w-4" />
+              AI Suggestion
+            </div>
+            <LlmMarkdown>{mutation.data.text}</LlmMarkdown>
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground italic">
+                Generated by the local LLM. Verify before applying.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  mutation.reset();
+                  mutation.mutate();
+                }}
+              >
+                Regenerate
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatError(err: unknown): string {
+  const axiosErr = err as {
+    response?: { status?: number; data?: { detail?: string } };
+    message?: string;
+  };
+  const status = axiosErr?.response?.status;
+  if (status === 503) {
+    return 'AI features are unavailable — Ollama service is not running.';
+  }
+  if (status === 502) {
+    return 'The local LLM server returned an error.';
+  }
+  if (typeof axiosErr?.response?.data?.detail === 'string') {
+    return axiosErr.response.data.detail;
+  }
+  return axiosErr?.message || 'Unknown error';
+}

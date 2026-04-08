@@ -27,6 +27,7 @@ import { cn, formatFileSize } from '@/lib/utils';
 import { useDatasets } from '@/hooks/useDatasets';
 import { useCreateSubmission } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
+import { SuggestFixCard, type SubmissionValidationError } from '@/components/llm/SuggestFixCard';
 
 interface ValidationStep {
   id: string;
@@ -45,6 +46,11 @@ export function SubmitPage() {
   const [description, setDescription] = useState('');
   const [organization, setOrganization] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  // Phase 2 A4: validation error state for the inline SuggestFixCard.
+  // Set in the catch block when the backend returns 422 with a structured
+  // detail. Cleared when the user picks a new file.
+  const [validationError, setValidationError] = useState<SubmissionValidationError | null>(null);
 
   // Prefill form from URL search params (e.g. re-submit from failed submission)
   useEffect(() => {
@@ -179,11 +185,16 @@ export function SubmitPage() {
 
       if (missingFields.length > 0) {
         const formatLabel = isTLE ? 'TLE' : 'state-vector';
-        updateStep(
-          'schema',
-          'failed',
-          `Missing required ${formatLabel} fields in first record: ${missingFields.join(', ')}`
-        );
+        const errMsg = `Missing required ${formatLabel} fields in first record: ${missingFields.join(', ')}`;
+        updateStep('schema', 'failed', errMsg);
+        // Phase 2 A4: also surface the inline SuggestFixCard so the user
+        // can ask the LLM for a specific fix without having to submit first.
+        setValidationError({
+          message: 'UCTP schema validation failed (client-side)',
+          errors: [errMsg],
+          hint: `Required fields for ${formatLabel} format: ${requiredFields.join(', ')}`,
+          parsedJson,
+        });
         setIsValidating(false);
         return;
       }
@@ -300,6 +311,7 @@ export function SubmitPage() {
     if (acceptedFiles.length > 0) {
       const uploadedFile = acceptedFiles[0];
       setFile(uploadedFile);
+      setValidationError(null); // clear stale Phase 2 A4 error card
       runValidation(uploadedFile);
     }
   };
@@ -315,6 +327,7 @@ export function SubmitPage() {
 
   const clearFile = () => {
     setFile(null);
+    setValidationError(null);
     setValidationSteps((steps) =>
       steps.map((step) => ({ ...step, status: 'pending' }))
     );
@@ -376,6 +389,23 @@ export function SubmitPage() {
         if (hint) {
           toastDescription += '. ' + hint;
         }
+        // Phase 2 A4: capture the structured error for the inline card.
+        // We re-parse the file content here so the LLM has the same JSON
+        // body the backend rejected. Best-effort — if the file isn't valid
+        // JSON we just leave parsedJson as null.
+        let parsedJson: unknown = null;
+        try {
+          const text = await file.text();
+          parsedJson = JSON.parse(text);
+        } catch {
+          parsedJson = null;
+        }
+        setValidationError({
+          message: detail.message || 'UCTP schema validation failed',
+          errors: schemaErrors,
+          hint,
+          parsedJson,
+        });
       } else if (status === 422) {
         toastDescription = typeof detail === 'string'
           ? detail
@@ -428,6 +458,17 @@ export function SubmitPage() {
           Upload your UCT algorithm results for evaluation against benchmark datasets
         </p>
       </div>
+
+      {/* Phase 2 A4: inline validator assistant card. Shown when the backend
+          returns a structured 422 from POST /api/v1/submissions. The user
+          can read the raw errors AND click "Help me fix this" for an LLM
+          suggestion (DGX local edition only). */}
+      {validationError && (
+        <SuggestFixCard
+          validationError={validationError}
+          onDismiss={() => setValidationError(null)}
+        />
+      )}
 
       {/* File Upload */}
       <Card>
