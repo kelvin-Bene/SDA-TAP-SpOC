@@ -55,8 +55,19 @@ dev = [
 # DGX Spark local edition: install with `pip install ".[local-dgx]"`.
 # Pulls DuckDB so the default DATABASE_BACKEND=duckdb path works without the
 # dev extras group. Cloud builds (Railway) do NOT need this group.
+#
+# Phase 2 LLM features (NL-to-SQL, Explain Results, Chat, Validator Assistant)
+# also live behind the LOCAL_DGX_MODE env flag and need:
+#   - httpx: thin async HTTP client used by backend_api/services/llm/client.py
+#     to talk to the in-cluster Ollama service. (Already in [dev]; promoted
+#     here so the local-dgx install pulls it without the rest of dev.)
+#   - sqlglot: pure-Python SQL AST parser used by services/llm/sql_safety.py
+#     to validate that LLM-generated queries are read-only SELECTs against
+#     allowlisted tables before they ever reach DuckDB.
 local-dgx = [
     "duckdb>=1.0.0",
+    "httpx>=0.27",
+    "sqlglot>=25.0",
 ]
 # Legacy desktop GUI dependencies. Not installed by default; the cloud builds
 # never need Tk and the DGX local edition runs headless via the web frontend.

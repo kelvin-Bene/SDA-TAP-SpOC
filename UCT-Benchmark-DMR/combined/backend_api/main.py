@@ -363,6 +363,24 @@ app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["Auth"])
 # Feedback router — POST is public (optional auth), GET/PATCH are admin-only
 app.include_router(feedback.router, prefix="/api/v1", tags=["Feedback"])
 
+# ──────────────────────────────────────────────────────────────────────
+# Phase 2: LLM-powered features (DGX Spark local edition only).
+#
+# Mounted ONLY when LOCAL_DGX_MODE=true. Cloud builds (Railway) never
+# import backend_api.routers.llm or its services tree because the import
+# happens inside this guarded block — there's no top-level import.
+# ──────────────────────────────────────────────────────────────────────
+if os.getenv("LOCAL_DGX_MODE", "").lower() == "true":
+    try:
+        from backend_api.routers import llm as llm_router
+        app.include_router(
+            llm_router.router, prefix="/api/v1/llm", tags=["LLM"],
+            dependencies=_auth_deps,
+        )
+        logger.info("LLM router mounted under /api/v1/llm (LOCAL_DGX_MODE=true)")
+    except Exception as e:
+        logger.warning(f"LOCAL_DGX_MODE: failed to mount LLM router: {e}")
+
 
 @app.get("/")
 async def root():

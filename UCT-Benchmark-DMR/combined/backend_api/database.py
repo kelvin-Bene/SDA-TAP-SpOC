@@ -144,10 +144,58 @@ def init_database(
 
 def close_database() -> None:
     """Close the database connection and clear the singleton."""
-    global _db_manager
+    global _db_manager, _llm_db_manager
     if _db_manager is not None:
         _db_manager.close()
         _db_manager = None
+    if _llm_db_manager is not None:
+        _llm_db_manager.close()
+        _llm_db_manager = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 2 LLM features: lazy read-only singleton
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# The four LLM endpoints in backend_api/routers/llm.py execute LLM-generated
+# SQL against a SECOND DatabaseManager instance opened in read-only mode.
+# DuckDB allows multiple read-only handles to coexist with the single writer
+# (the main get_db handle), so this is safe.
+#
+# The handle is constructed lazily on first use so it doesn't add startup
+# cost for the cloud build (which never imports llm.py anyway since the
+# router mount is gated on LOCAL_DGX_MODE in main.py).
+#
+# Only meaningful when DATABASE_BACKEND=duckdb (the DGX local edition default).
+
+_llm_db_manager: Optional[DatabaseManager] = None
+
+
+def get_llm_db() -> DatabaseManager:
+    """
+    Return a read-only DatabaseManager handle for LLM-generated SQL execution.
+
+    Used as a FastAPI dependency by backend_api/routers/llm.py. Cloud builds
+    never instantiate this because the llm router is never mounted there.
+    """
+    global _llm_db_manager
+    if _llm_db_manager is not None:
+        return _llm_db_manager
+
+    backend = get_database_backend()
+    if backend not in ("duckdb",):
+        raise RuntimeError(
+            f"get_llm_db() requires DATABASE_BACKEND=duckdb, got {backend}. "
+            f"LLM features are only supported in the DGX local edition."
+        )
+
+    path = get_database_path()
+    _llm_db_manager = DatabaseManager(db_path=path, read_only=True)
+    # Note: do NOT call .initialize() — that runs CREATE TABLE IF NOT EXISTS,
+    # which fails on a read-only handle. The main writer (init_database) has
+    # already created the schema. We just need an open connection.
+    _llm_db_manager.adapter.connect()
+    return _llm_db_manager
 
 
 @asynccontextmanager

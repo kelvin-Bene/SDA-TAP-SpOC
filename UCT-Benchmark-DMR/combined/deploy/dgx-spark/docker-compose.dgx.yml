@@ -59,6 +59,11 @@ services:
       WEB_WORKERS: "1"
       # CORS_ORIGINS intentionally unset → /docs and /redoc remain enabled
       # (handy for demo Q&A from the box itself). main.py:184 reads this.
+      # Phase 2 LLM service URL. The `ollama` compose service is gated under
+      # --profile gpu; when not running, the LLM router endpoints return 503.
+      OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen3.5:35b}"
+      OLLAMA_TIMEOUT: "${OLLAMA_TIMEOUT:-120}"
     volumes:
       - dgx_db_data:/app/data/database
       - dgx_uploads:/app/data/uploads
@@ -100,6 +105,46 @@ services:
               count: all
               capabilities: [gpu]
 
+  # Phase 2: Ollama LLM service.
+  #
+  # Hosts the local Qwen 3.5 35B-A3B model (or whatever OLLAMA_MODEL points
+  # to) for the four LLM features in backend_api/routers/llm.py. Mounted
+  # under --profile gpu so dev boxes without nvidia-container-toolkit can
+  # still bring up the rest of the stack.
+  #
+  # The model itself is NOT in the image — it's loaded from the
+  # dgx_ollama_models volume that prepare-package.sh seeds via a tarball
+  # restore in install-on-spark.sh stage 2.5. This keeps the Ollama image
+  # small (~800 MB) and the model swap-able without rebuilding.
+  ollama:
+    image: ollama/ollama:0.6.0
+    profiles:
+      - gpu
+    environment:
+      OLLAMA_KEEP_ALIVE: "24h"           # keep the model resident in VRAM
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_HOST: "0.0.0.0:11434"
+    volumes:
+      - dgx_ollama_models:/root/.ollama
+    ports:
+      # Exposed for direct curl debugging from the host. Backend talks to
+      # the in-cluster `ollama` hostname so this isn't required for normal
+      # operation; remove it for a sealed deployment.
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 5
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   frontend:
     build:
       context: ../../frontend
@@ -132,3 +177,9 @@ volumes:
     name: dgx_db_data
   dgx_uploads:
     name: dgx_uploads
+  # Holds the Ollama model weights. Populated by install-on-spark.sh stage
+  # 2.5 from the ollama-models.tar tarball that prepare-package.sh produced.
+  # ~20 GB for Qwen 3.5 35B-A3B Q4. Survives `docker compose down`; only
+  # `down -v` would wipe it.
+  dgx_ollama_models:
+    name: dgx_ollama_models
