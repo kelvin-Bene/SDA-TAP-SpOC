@@ -87,6 +87,10 @@ done
 # weights into VRAM on first request — that takes 30-60s. Doing it here means
 # the project manager's first click in the browser feels instant.
 
+# Source .env.dgx so OLLAMA_MODEL reflects the operator's choice (not just
+# the shell environment default).
+set -a; source "$ENV_FILE" 2>/dev/null; set +a
+
 if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile gpu ps ollama 2>/dev/null | grep -q "Up\|running"; then
     OLLAMA_MODEL_VAR="${OLLAMA_MODEL:-qwen3.5:35b-a3b}"
     echo "→ Warming Ollama model ($OLLAMA_MODEL_VAR) — first request can take 30-60s..."

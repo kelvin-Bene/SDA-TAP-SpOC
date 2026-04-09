@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Dict, List, Optional
 
@@ -56,9 +57,17 @@ _DEFAULT_QUERY_TIMEOUT_S = 5.0
 # the Ollama sidecar is unreachable.
 # ─────────────────────────────────────────────────────────────────────────────
 
+_ollama_healthy_until: float = 0.0
+
+
 async def _ensure_ollama_up() -> None:
+    """Check Ollama is reachable, caching the result for 30s to avoid per-request overhead."""
+    global _ollama_healthy_until
+    if time.time() < _ollama_healthy_until:
+        return
     client = OllamaClient()
     if not await client.health():
+        _ollama_healthy_until = 0.0  # reset on failure
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -67,6 +76,7 @@ async def _ensure_ollama_up() -> None:
                 "`docker compose --profile gpu up -d`"
             ),
         )
+    _ollama_healthy_until = time.time() + 30.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -110,6 +120,12 @@ async def nl_to_sql(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"LLM call failed: {exc}",
+        )
+
+    if not raw or not raw.strip():
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="LLM returned an empty response — try again or check Ollama logs.",
         )
 
     # Extract SQL — the model may have ignored the "ONLY SQL" instruction
@@ -267,6 +283,9 @@ async def explain_results(
         logger.error(f"A2: Ollama call failed: {exc}")
         raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}")
 
+    if not text or not text.strip():
+        raise HTTPException(status_code=502, detail="LLM returned an empty response — try again or check Ollama logs.")
+
     return ExplainResultsResponse(text=text.strip())
 
 
@@ -332,6 +351,9 @@ async def chat(
     except Exception as exc:
         logger.error(f"A3: first Ollama call failed: {exc}")
         raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}")
+
+    if not first or not first.strip():
+        raise HTTPException(status_code=502, detail="LLM returned an empty response — try again or check Ollama logs.")
 
     # Look for a tool-use SQL query in the model's first response. We accept
     # three forms in order of preference:
@@ -467,5 +489,8 @@ async def suggest_fix(
     except Exception as exc:
         logger.error(f"A4: Ollama call failed: {exc}")
         raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}")
+
+    if not text or not text.strip():
+        raise HTTPException(status_code=502, detail="LLM returned an empty response — try again or check Ollama logs.")
 
     return SuggestFixResponse(text=text.strip())

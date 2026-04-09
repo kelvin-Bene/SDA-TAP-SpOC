@@ -159,8 +159,6 @@ services:
         # Enables the "DGX Spark · Local Edition" badge in the header and the
         # edge-deployment hint on the landing page (Header.tsx, HeroSection.tsx).
         VITE_LOCAL_DGX_MODE: "true"
-        # No VITE_CESIUM_ION_TOKEN → OrbitViewer.tsx falls back to the bundled
-        # NaturalEarthII texture (zero network calls).
     image: local/sda-tap-spoc-frontend:dgx
     depends_on:
       backend:
