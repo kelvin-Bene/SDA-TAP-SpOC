@@ -1,6 +1,6 @@
 [project]
 name = "uct_benchmark"
-version = "2.0.0"
+version = "2.0.1"
 description = "UCT Benchmark - Combined Pipeline and Demo UI"
 readme = "README.md"
 requires-python = ">=3.12"
