@@ -746,8 +746,17 @@ export function DatasetGeneratorPage() {
                         { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km' },
                         { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7' },
                         { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO' },
+                        // 2-regime combos
                         { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits' },
+                        { value: 'LGO', label: 'LEO + GEO', desc: 'Low + geostationary' },
+                        { value: 'LHO', label: 'LEO + HEO', desc: 'Low + highly elliptical' },
+                        { value: 'MGO', label: 'MEO + GEO', desc: 'Medium + geostationary' },
+                        { value: 'MHO', label: 'MEO + HEO', desc: 'Medium + highly elliptical' },
+                        { value: 'GHO', label: 'GEO + HEO', desc: 'Geostationary + highly elliptical' },
+                        // 3-regime combos
                         { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO' },
+                        { value: 'LMH', label: 'LEO + MEO + HEO', desc: 'All except GEO' },
+                        { value: 'LGH', label: 'LEO + GEO + HEO', desc: 'All except MEO' },
                         { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO' },
                       ].map((regime) => (
                         <Label
@@ -1181,8 +1190,17 @@ export function DatasetGeneratorPage() {
                     { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km', color: 'bg-orbital-geo' },
                     { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7', color: 'bg-orbital-heo' },
                     { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO', color: 'bg-gray-400' },
+                    // 2-regime combos
                     { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits', color: 'bg-orbital-leo' },
+                    { value: 'LGO', label: 'LEO + GEO', desc: 'Low + geostationary', color: 'bg-orbital-leo' },
+                    { value: 'LHO', label: 'LEO + HEO', desc: 'Low + highly elliptical', color: 'bg-orbital-leo' },
+                    { value: 'MGO', label: 'MEO + GEO', desc: 'Medium + geostationary', color: 'bg-orbital-meo' },
+                    { value: 'MHO', label: 'MEO + HEO', desc: 'Medium + highly elliptical', color: 'bg-orbital-meo' },
+                    { value: 'GHO', label: 'GEO + HEO', desc: 'Geostationary + highly elliptical', color: 'bg-orbital-geo' },
+                    // 3-regime combos
                     { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO', color: 'bg-orbital-meo' },
+                    { value: 'LMH', label: 'LEO + MEO + HEO', desc: 'All except GEO', color: 'bg-orbital-meo' },
+                    { value: 'LGH', label: 'LEO + GEO + HEO', desc: 'All except MEO', color: 'bg-orbital-geo' },
                     { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO', color: 'bg-orbital-geo' },
                   ].map((regime) => (
                     <Label

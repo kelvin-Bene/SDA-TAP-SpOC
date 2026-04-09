@@ -142,7 +142,12 @@ export function validateLegacyCode(code: string): { valid: boolean; errors: stri
   if (!['50', '10', '01', 'UN'].includes(code.slice(1, 3))) {
     errors.push(`Invalid target percentage '${code.slice(1, 3)}' at positions 2-3. Valid: 50, 10, 01, UN`);
   }
-  if (!['LEO', 'MEO', 'GEO', 'HEO', 'ALL', 'LMO', 'LMG', 'MGH'].includes(code.slice(3, 6))) {
+  // Per Lewis's Benchmarking Doc: singles + all 2-regime and 3-regime combos
+  // (convention: "first letter of each regime in the order LEO/MEO/GEO/HEO").
+  if (!['LEO', 'MEO', 'GEO', 'HEO', 'ALL',
+        'LMO', 'LGO', 'LHO', 'MGO', 'MHO', 'GHO',   // 2-regime combos
+        'LMG', 'LMH', 'LGH', 'MGH',                  // 3-regime combos
+       ].includes(code.slice(3, 6))) {
     errors.push(`Invalid regime '${code.slice(3, 6)}' at positions 4-6`);
   }
   if (!['MB', 'BU', 'LL', 'NE'].includes(code.slice(6, 8))) {
