@@ -73,15 +73,26 @@ import {
 } from '@/components/ui/select';
 
 // Fallback coverage thresholds in case backend config endpoint is unavailable
+// Combo regimes use the most permissive (largest) threshold of their constituents
+// so a satellite only qualifies as "low" if it's low for ALL regimes in the combo.
 const DEFAULT_COVERAGE_THRESHOLDS: Record<OrbitalRegime, { low: number; display: string }> = {
   LEO: { low: 0.000213, display: '<0.02%' },
   MEO: { low: 0.000449, display: '<0.05%' },
   GEO: { low: 0.41656, display: '<42%' },
   HEO: { low: 0.20, display: '<20%' },
   ALL: { low: 0.10, display: '<10%' },
-  LMO: { low: 0.000331, display: '<0.03%' },
-  LMG: { low: 0.14, display: '<14%' },
-  MGH: { low: 0.20, display: '<20%' },
+  // 2-regime combos
+  LMO: { low: 0.000331, display: '<0.03%' },  // LEO+MEO
+  LGO: { low: 0.20843, display: '<21%' },     // LEO+GEO
+  LHO: { low: 0.10011, display: '<10%' },     // LEO+HEO
+  MGO: { low: 0.20850, display: '<21%' },     // MEO+GEO
+  MHO: { low: 0.10022, display: '<10%' },     // MEO+HEO
+  GHO: { low: 0.30828, display: '<31%' },     // GEO+HEO
+  // 3-regime combos
+  LMG: { low: 0.14, display: '<14%' },        // LEO+MEO+GEO
+  LMH: { low: 0.06689, display: '<7%' },      // LEO+MEO+HEO
+  LGH: { low: 0.20559, display: '<21%' },     // LEO+GEO+HEO
+  MGH: { low: 0.20, display: '<20%' },        // MEO+GEO+HEO
 };
 
 function buildThresholds(

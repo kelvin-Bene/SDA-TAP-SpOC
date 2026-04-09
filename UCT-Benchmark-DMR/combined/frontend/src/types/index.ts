@@ -1,5 +1,7 @@
 // Orbital Regimes (includes combo regimes per Louis's documentation)
-export type OrbitalRegime = 'LEO' | 'MEO' | 'GEO' | 'HEO' | 'ALL' | 'LMO' | 'LMG' | 'MGH';
+export type OrbitalRegime = 'LEO' | 'MEO' | 'GEO' | 'HEO' | 'ALL'
+  | 'LMO' | 'LGO' | 'LHO' | 'MGO' | 'MHO' | 'GHO'   // 2-regime combos
+  | 'LMG' | 'LMH' | 'LGH' | 'MGH';                     // 3-regime combos
 
 // Data Tiers (T5 = impossible criteria detected, per Aug 2025 transcript)
 export type DataTier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';

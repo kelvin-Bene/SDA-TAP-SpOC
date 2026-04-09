@@ -60,6 +60,50 @@ const regimeStyles: Record<OrbitalRegime, { color: string; bgColor: string; bord
     borderColor: 'border-orange-400/30',
     glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(27_96%_61%_/_0.5)]',
   },
+  // Additional 2-regime combos (per Lewis's naming convention)
+  LGO: {
+    color: 'text-cyan-400',
+    bgColor: 'bg-cyan-400/10',
+    borderColor: 'border-cyan-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(189_94%_55%_/_0.5)]',
+  },
+  LHO: {
+    color: 'text-rose-400',
+    bgColor: 'bg-rose-400/10',
+    borderColor: 'border-rose-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(351_95%_71%_/_0.5)]',
+  },
+  MGO: {
+    color: 'text-lime-400',
+    bgColor: 'bg-lime-400/10',
+    borderColor: 'border-lime-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(83_78%_55%_/_0.5)]',
+  },
+  MHO: {
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-400/10',
+    borderColor: 'border-pink-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(329_86%_70%_/_0.5)]',
+  },
+  GHO: {
+    color: 'text-yellow-400',
+    bgColor: 'bg-yellow-400/10',
+    borderColor: 'border-yellow-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(54_96%_53%_/_0.5)]',
+  },
+  // Additional 3-regime combos
+  LMH: {
+    color: 'text-violet-400',
+    bgColor: 'bg-violet-400/10',
+    borderColor: 'border-violet-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(258_90%_66%_/_0.5)]',
+  },
+  LGH: {
+    color: 'text-fuchsia-400',
+    bgColor: 'bg-fuchsia-400/10',
+    borderColor: 'border-fuchsia-400/30',
+    glowColor: 'group-hover:shadow-[0_0_20px_-5px_hsl(292_84%_61%_/_0.5)]',
+  },
 };
 
 const tierStyles: Record<DataTier, { color: string; bgColor: string; borderColor: string; label: string }> = {
