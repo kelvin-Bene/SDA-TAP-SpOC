@@ -27,7 +27,7 @@ export function LoginPage() {
 
   const handleDemoSSO = async () => {
     clearError();
-    await login('demo@spoc-benchmark.org', 'demo');
+    await login('demo@uct-benchmark.org', 'demo');
     const currentError = useAuthStore.getState().error;
     if (!currentError) {
       navigate(from, { replace: true });
@@ -191,7 +191,7 @@ export function LoginPage() {
 
               {/* Demo user hint */}
               <p className="text-center text-xs text-muted-foreground/50">
-                You will be signed in as Demo User (demo@spoc-benchmark.org)
+                You will be signed in as Demo User (demo@uct-benchmark.org)
               </p>
             </>
           )}

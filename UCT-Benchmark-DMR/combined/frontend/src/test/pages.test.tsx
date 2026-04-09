@@ -38,7 +38,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 // Mock the __APP_VERSION__ global that LoginPage references
-vi.stubGlobal('__APP_VERSION__', '1.3.0');
+vi.stubGlobal('__APP_VERSION__', '2.0.0');
 
 describe('LoginPage', () => {
   beforeEach(() => {

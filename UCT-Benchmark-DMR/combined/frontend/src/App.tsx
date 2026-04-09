@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/ErrorBoundary';
@@ -21,9 +21,7 @@ const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => (
 const DocumentationPage = lazy(() => import('@/pages/DocumentationPage').then(m => ({ default: m.DocumentationPage })));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
-const LandingPage = lazy(() => import('@/pages/LandingPage'));
 
 function PageLoader() {
   return (
@@ -45,24 +43,26 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="uct-benchmark-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="uct-benchmark-theme">
       <ErrorBoundary>
         <FeedbackProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/welcome" element={<LazyRoute><LandingPage /></LazyRoute>} />
-              <Route path="/login" element={<LazyRoute><LoginPage /></LazyRoute>} />
+              {/* Demo mode: redirect root and legacy routes to dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/welcome" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/login" element={<Navigate to="/dashboard" replace />} />
 
               {/* Single layout route — auth enforced per-route */}
-              <Route path="/" element={<MainLayout />}>
+              <Route element={<MainLayout />}>
                 {/* Public routes — no auth required */}
                 <Route path="docs" element={<LazyRoute><DocumentationPage /></LazyRoute>} />
 
                 {/* Authenticated routes — each individually guarded */}
+                <Route path="dashboard" element={<AuthGuard><LazyRoute><DashboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="leaderboard" element={<AuthGuard><LazyRoute><LeaderboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets" element={<AuthGuard><LazyRoute><DatasetBrowserPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/:id" element={<AuthGuard><LazyRoute><DatasetDetailPage /></LazyRoute></AuthGuard>} />
-                <Route index element={<AuthGuard><LazyRoute><DashboardPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/generate" element={<AuthGuard><LazyRoute><DatasetGeneratorPage /></LazyRoute></AuthGuard>} />
                 <Route path="datasets/my-datasets" element={<AuthGuard><LazyRoute><MyDatasetsPage /></LazyRoute></AuthGuard>} />
                 <Route path="submit" element={<AuthGuard><LazyRoute><SubmitPage /></LazyRoute></AuthGuard>} />
