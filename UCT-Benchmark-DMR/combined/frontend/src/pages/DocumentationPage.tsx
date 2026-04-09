@@ -278,8 +278,11 @@ export function DocumentationPage() {
 
               <h3>Leaderboard Ranking</h3>
               <p>
-                Algorithms are ranked primarily by F1-Score. In case of ties, position RMS is used
-                as a secondary criterion (lower is better).
+                Algorithms are ranked by a composite score combining Binary (F1, weight 0.4),
+                State (Mahalanobis p-score, weight 0.3), and Residual (great-circle RMS, weight
+                0.3) metrics. The composite score captures Lewis's evaluation philosophy: poor
+                orbit estimation, incorrect track correlation, or high observation residuals each
+                reduce your score.
               </p>
             </CardContent>
           </Card>

@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 if TYPE_CHECKING:
     from .connection import DatabaseManager
 
@@ -852,7 +854,7 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
                 except Exception as e:
                     # Log but don't crash on individual statement failures
                     # (e.g., table already exists with different column order)
-                    pass  # Statement already applied or not applicable
+                    logger.debug(f"DDL statement skipped (may already exist): {e}")
 
         # Run inline migrations for existing databases initialized with older SQL.
         # All are idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS).
