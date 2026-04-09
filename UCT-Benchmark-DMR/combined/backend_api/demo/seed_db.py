@@ -304,7 +304,7 @@ def _seed_demo_profile(db) -> None:
     """Insert a demo user profile."""
     db.execute("""
         INSERT INTO profiles (id, email, role, display_name, organization, created_at, updated_at)
-        VALUES ('dev-user', 'dev@localhost', 'admin', 'Demo User', 'SpOC Demo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        VALUES ('demo-user', 'demo@uct-benchmark.org', 'admin', 'Demo User', 'UCT Benchmark Demo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT (id) DO NOTHING
     """)
     logger.info("DEMO MODE: Seeded demo user profile")

@@ -81,7 +81,7 @@ def _decode_token_hs256(token: str) -> dict[str, Any]:
             logger.info("DEMO_MODE active — returning demo user (read-only)")
             return {
                 "sub": "demo-user",
-                "email": "demo@uct-benchmark.example",
+                "email": "demo@uct-benchmark.org",
                 "role": "authenticated",
                 "app_metadata": {},
                 "user_metadata": {"display_name": "Demo User"},
@@ -191,7 +191,7 @@ async def get_current_user(
         logger.info("DEMO_MODE active — accepting demo-token")
         return _payload_to_current_user({
             "sub": "demo-user",
-            "email": "demo@uct-benchmark.example",
+            "email": "demo@uct-benchmark.org",
             "role": "authenticated",
             "app_metadata": {},
             "user_metadata": {"display_name": "Demo User"},
@@ -237,7 +237,7 @@ async def get_optional_user(
         logger.info("DEMO_MODE active — accepting demo-token (optional auth)")
         return _payload_to_current_user({
             "sub": "demo-user",
-            "email": "demo@uct-benchmark.example",
+            "email": "demo@uct-benchmark.org",
             "role": "authenticated",
             "app_metadata": {},
             "user_metadata": {"display_name": "Demo User"},

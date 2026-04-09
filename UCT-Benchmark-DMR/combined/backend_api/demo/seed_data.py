@@ -1,5 +1,5 @@
 """
-Mock data constants for SpOC demo mode.
+Mock data constants for UCT Benchmark demo mode.
 
 All data uses realistic satellite names, NORAD IDs, and plausible metrics
 to demonstrate the full platform capabilities without requiring real API keys.

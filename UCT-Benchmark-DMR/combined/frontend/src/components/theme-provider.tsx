@@ -10,7 +10,7 @@ type ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>({ theme: 'dark' });
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light');
@@ -18,7 +18,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   }, []);
 
   return (
-    <ThemeProviderContext.Provider {...props} value={{ theme: 'dark' }}>
+    <ThemeProviderContext.Provider value={{ theme: 'dark' }}>
       {children}
     </ThemeProviderContext.Provider>
   );

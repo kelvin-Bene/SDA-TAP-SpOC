@@ -24,7 +24,7 @@ function TestProviders({ children }: TestProvidersProps) {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="light" storageKey="test-theme">
+        <ThemeProvider>
           {children}
         </ThemeProvider>
       </QueryClientProvider>
