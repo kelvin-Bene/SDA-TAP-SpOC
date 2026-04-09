@@ -109,7 +109,7 @@ describe('NotFoundPage', () => {
   it('renders a link to go home', () => {
     render(<NotFoundPage />);
 
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/dashboard');
     expect(screen.getByText('Go Home')).toBeInTheDocument();
   });
 });
