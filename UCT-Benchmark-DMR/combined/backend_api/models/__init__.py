@@ -277,6 +277,40 @@ class DatasetCreate(BaseModel):
         default=False,
         description="Generate TrackTLE (TLEs from single-pass observations) for UCTP compatibility",
     )
+    # CTF poor sensor calibration challenge (SDA TAP Lab UCT challenge #10
+    # from "Need for UCT Benchmarking" paper). When 'poor', the worker draws
+    # a per-sensor systematic bias from a uniform [-3, +3] arcsec distribution
+    # and applies it virtually at download/eval time so the shared
+    # observations table stays pristine.
+    calibration_quality: str = Field(
+        default="standard",
+        description=(
+            "Sensor calibration quality. 'standard' applies no synthetic "
+            "bias (default). 'poor' applies a per-sensor systematic bias "
+            "drawn from a uniform [-3, +3] arcsec distribution per axis, "
+            "simulating miscalibrated sensors per the SDA TAP Lab UCT "
+            "challenge #10."
+        ),
+    )
+    # CTF maneuvering-during-gap challenge (UCT challenge #6).
+    # When True, ~20% of satellites perform a synthetic delta-V maneuver
+    # during a 6-hour coverage gap at the dataset midpoint. The post-maneuver
+    # state vector becomes the canonical truth for those satellites — a
+    # UCTP that fails to detect the maneuver scores zero on them.
+    maneuver_during_gap: bool = Field(
+        default=False,
+        description=(
+            "When True, ~20% of satellites in the dataset will perform a "
+            "synthetic delta-V maneuver during a 6-hour sensor coverage "
+            "gap at the midpoint of the dataset's time window. The "
+            "maneuver is drawn from a uniform [1, 50] m/s distribution "
+            "per axis. The post-maneuver state vector is recorded as the "
+            "canonical truth, so a UCTP that fails to detect the maneuver "
+            "will score zero on those satellites. Implements SDA TAP Lab "
+            "UCT challenge #6 (objects maneuvering during long sensor "
+            "coverage gaps)."
+        ),
+    )
 
 
 class LegacyDatasetCreate(BaseModel):
@@ -671,7 +705,16 @@ class LeaderboardEntry(BaseModel):
     precision: float
     recall: float
     position_rms_km: float
+    # Headline composite score used for the leaderboard rank. Sourced from
+    # test_composite_score when present, falling back to the legacy
+    # whole-dataset composite_score and then f1_score (see leaderboard.py
+    # ORDER BY clause for the COALESCE chain).
     composite_score: Optional[float] = None
+    # CTF train/validation/test sub-scores. Test is the only one that
+    # cannot be cheated by reading the truth in the download.
+    train_composite_score: Optional[float] = None
+    val_composite_score: Optional[float] = None
+    test_composite_score: Optional[float] = None
     submission_id: str
     submitted_at: datetime
     is_current_user: bool = False
