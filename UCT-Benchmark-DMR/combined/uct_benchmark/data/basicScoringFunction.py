@@ -13,6 +13,7 @@ from loguru import logger
 import uct_benchmark.settings as config
 from uct_benchmark.simulation.orbitCoverage import orbitCoverage
 from uct_benchmark.simulation.propagator import orbit2OE
+from uct_benchmark.utils.orbital import determine_orbital_regime
 
 
 def _evaluate_criterion(
@@ -149,20 +150,21 @@ def basicScoring(datasetCode, allObs, satData):
         else:
             maxGap = np.nan
 
-        # Classify orbit regime based on semi-major axis
+        # Classify orbit regime using semi-major axis AND eccentricity
+        # (matches determine_orbital_regime in utils/orbital.py for consistency
+        # with the downsampling pipeline — Lewis's original only used SMA here,
+        # causing HEO satellites to be misclassified as MEO)
         try:
             a = orbElems["Semi-Major Axis"]
+            ecc = orbElems.get("Eccentricity", 0.0)
         except Exception:
             a = np.nan
+            ecc = 0.0
 
-        if a <= config.semiMajorAxis_LEO:
-            regime = "LEO"
-        elif a >= config.semiMajorAxis_GEO:
-            regime = "GEO"
-        elif np.isnan(a):
+        if np.isnan(a):
             regime = "N/A"
         else:
-            regime = "MEO"
+            regime = determine_orbital_regime(float(a), float(ecc))
 
         # Save results
         results.append(
@@ -212,6 +214,7 @@ def basicScoring(datasetCode, allObs, satData):
         "LEO": config.lowCoverage_LEO,
         "MEO": config.lowCoverage_MEO,
         "GEO": config.lowCoverage_GEO,
+        "HEO": config.lowCoverage_HEO,
     }
     # Initialize empty lists to append to for each regime
     stdCovgSats = []

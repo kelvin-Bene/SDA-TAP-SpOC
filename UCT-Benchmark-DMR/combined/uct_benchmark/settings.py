@@ -104,6 +104,9 @@ COVERAGE_THRESHOLDS = {
     "LEO": 0.000213,   # < 0.0213% orbital arc is LOW coverage (as fraction)
     "MEO": 0.000449,   # < 0.0449% orbital arc is LOW coverage (as fraction)
     "GEO": 0.41656,    # < 41.656% orbital arc is LOW coverage (as fraction)
+    "HEO": 0.20,       # < 20% orbital arc is LOW coverage (estimate — HEO not in Lewis's doc;
+                        #   HEO coverage varies widely due to changing altitude; the downsampling
+                        #   profile uses min_coverage_pct=0.01, max_coverage_pct=0.10)
 }
 
 # =============================================================================
@@ -199,6 +202,7 @@ lowPercentage = (0.0, 0.05, 0.1)
 lowCoverage_LEO = COVERAGE_THRESHOLDS["LEO"]   # 0.000213 = 0.0213% (per Lewis's Benchmarking Doc)
 lowCoverage_MEO = COVERAGE_THRESHOLDS["MEO"]   # 0.000449 = 0.0449% (per Lewis's Benchmarking Doc)
 lowCoverage_GEO = COVERAGE_THRESHOLDS["GEO"]   # 0.41656  = 41.656% (per Lewis's Benchmarking Doc)
+lowCoverage_HEO = COVERAGE_THRESHOLDS["HEO"]   # 0.20     = 20%     (estimate — not in Lewis's doc)
 # orbital coverage below which is too small to include in datasets
 # (set arbitrarily, arbitrarily assumed to be the same for all regimes) #
 tooLowtoInclude = 0.001
