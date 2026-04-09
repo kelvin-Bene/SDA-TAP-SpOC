@@ -219,7 +219,7 @@ async def get_current_user(request: Request) -> CurrentUser:
 
     # Accept demo-token in demo mode without JWT validation
     if os.getenv("DEMO_MODE", "").lower() == "true" and token == "demo-token":
-        return CurrentUser(id="demo-user", email="demo@spoc-benchmark.org", role="authenticated")
+        return CurrentUser(id="demo-user", email="demo@uct-benchmark.org", role="authenticated")
 
     payload = _decode_jwt(token)
     return _build_current_user(payload)
