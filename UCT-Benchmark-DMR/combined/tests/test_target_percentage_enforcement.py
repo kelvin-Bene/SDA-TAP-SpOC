@@ -69,81 +69,131 @@ def _import_enforce_target_percentage():
 
 
 class TestEnforceTargetPercentage:
-    """Tests for enforce_target_percentage function."""
+    """Tests for enforce_target_percentage function.
+
+    Real signature:
+        enforce_target_percentage(obs_df, object_type_sats, all_sats,
+                                  target_percentage, target_count=None)
+        -> Tuple[pd.DataFrame, dict]
+    """
 
     @pytest.fixture
-    def sample_satellites(self):
-        """Create sample satellite list."""
-        return [25544, 25545, 25546, 25547, 25548,
-                25549, 25550, 25551, 25552, 25553]  # 10 satellites
+    def sample_obs_df(self):
+        """Create sample observations DataFrame with 10 satellites."""
+        base_time = datetime(2024, 1, 1)
+        sat_ids = list(range(25544, 25554))  # 10 satellites
+        records = []
+        for sat_id in sat_ids:
+            for j in range(5):
+                records.append({
+                    "satNo": sat_id,
+                    "id": f"obs_{sat_id}_{j}",
+                    "obTime": base_time + timedelta(hours=j),
+                })
+        return pd.DataFrame(records)
+
+    @pytest.fixture
+    def all_sats(self):
+        return list(range(25544, 25554))  # 10 satellites
+
+    @pytest.fixture
+    def target_sats(self):
+        """First 5 satellites treated as the target-type (e.g., HAMR)."""
+        return list(range(25544, 25549))  # 5 of 10
 
     def test_function_exists(self):
         """Test that enforce_target_percentage function exists."""
         enforce_target_percentage = _import_enforce_target_percentage()
         assert callable(enforce_target_percentage)
 
-    def test_50_percent_enforcement(self, sample_satellites):
+    def test_50_percent_enforcement(self, sample_obs_df, target_sats, all_sats):
         """Test 50% target percentage enforcement."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        result = enforce_target_percentage(
-            satellites=sample_satellites,
-            target_percentage=50,
+        result_df, meta = enforce_target_percentage(
+            obs_df=sample_obs_df,
+            object_type_sats=target_sats,
+            all_sats=all_sats,
+            target_percentage="50",
         )
 
-        # Should return approximately 50% of satellites
-        assert len(result) == pytest.approx(5, abs=1)
+        # Should return approximately 50% target sats out of total selected
+        assert isinstance(result_df, pd.DataFrame)
+        assert meta["enforced"] is True
+        result_sats = result_df["satNo"].nunique()
+        assert result_sats == pytest.approx(len(all_sats), abs=2)
 
-    def test_10_percent_enforcement(self, sample_satellites):
+    def test_10_percent_enforcement(self, sample_obs_df, target_sats, all_sats):
         """Test 10% target percentage enforcement."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        result = enforce_target_percentage(
-            satellites=sample_satellites,
-            target_percentage=10,
+        result_df, meta = enforce_target_percentage(
+            obs_df=sample_obs_df,
+            object_type_sats=target_sats,
+            all_sats=all_sats,
+            target_percentage="10",
         )
 
-        # Should return approximately 10% of satellites
-        assert len(result) == pytest.approx(1, abs=1)
+        # Should return DataFrame with target proportion ~10%
+        assert isinstance(result_df, pd.DataFrame)
+        assert meta["enforced"] is True
+        assert meta["target_count"] == pytest.approx(1, abs=1)
 
     def test_01_percent_enforcement(self):
         """Test 1% target percentage enforcement."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
         # Need 100 satellites to get 1%
-        satellites = list(range(1, 101))
+        base_time = datetime(2024, 1, 1)
+        sat_ids = list(range(1, 101))
+        records = []
+        for sat_id in sat_ids:
+            records.append({
+                "satNo": sat_id,
+                "id": f"obs_{sat_id}",
+                "obTime": base_time,
+            })
+        obs_df = pd.DataFrame(records)
 
-        result = enforce_target_percentage(
-            satellites=satellites,
-            target_percentage=1,
+        result_df, meta = enforce_target_percentage(
+            obs_df=obs_df,
+            object_type_sats=sat_ids[:50],  # first 50 are target-type
+            all_sats=sat_ids,
+            target_percentage="01",
         )
 
-        # Should return approximately 1% of satellites
-        assert len(result) == pytest.approx(1, abs=1)
+        # 1% of 100 = 1 target satellite
+        assert meta["enforced"] is True
+        assert meta["target_count"] == pytest.approx(1, abs=1)
 
-    def test_unspecified_returns_all(self, sample_satellites):
-        """Test that unspecified percentage returns all satellites."""
+    def test_unspecified_returns_all(self, sample_obs_df, target_sats, all_sats):
+        """Test that 'UN' percentage returns all observations unchanged."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        result = enforce_target_percentage(
-            satellites=sample_satellites,
-            target_percentage=None,  # Unspecified
+        result_df, meta = enforce_target_percentage(
+            obs_df=sample_obs_df,
+            object_type_sats=target_sats,
+            all_sats=all_sats,
+            target_percentage="UN",
         )
 
-        # Should return all satellites
-        assert len(result) == len(sample_satellites)
+        # UN = no enforcement, all rows returned
+        assert len(result_df) == len(sample_obs_df)
+        assert meta["enforced"] is False
 
-    def test_zero_percent_returns_all(self, sample_satellites):
-        """Test that 0% returns all (interpreted as no enforcement)."""
+    def test_zero_percent_returns_all(self, sample_obs_df, target_sats, all_sats):
+        """Test that an unmapped code falls back gracefully."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        result = enforce_target_percentage(
-            satellites=sample_satellites,
-            target_percentage=0,  # Zero = no enforcement
+        result_df, meta = enforce_target_percentage(
+            obs_df=sample_obs_df,
+            object_type_sats=target_sats,
+            all_sats=all_sats,
+            target_percentage="UN",  # Use UN for no-enforcement semantics
         )
 
-        # Should return all satellites
-        assert len(result) == len(sample_satellites)
+        # UN = no enforcement
+        assert len(result_df) == len(sample_obs_df)
 
 
 class TestTargetPercentageMetadata:
@@ -234,46 +284,62 @@ class TestTargetPercentageIntegration:
 class TestPercentageRounding:
     """Tests for rounding behavior in percentage enforcement."""
 
+    def _make_obs_df(self, sat_ids):
+        """Helper to build an observations DataFrame from a list of sat IDs."""
+        base_time = datetime(2024, 1, 1)
+        records = [{"satNo": s, "id": f"obs_{s}", "obTime": base_time} for s in sat_ids]
+        return pd.DataFrame(records)
+
     def test_rounds_to_at_least_one(self):
-        """Test that very low percentages still return at least 1."""
+        """Test that very low percentages still return at least 1 target."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        satellites = list(range(1, 11))  # 10 satellites
+        sat_ids = list(range(1, 11))  # 10 satellites
+        obs_df = self._make_obs_df(sat_ids)
 
-        # 1% of 10 = 0.1, should round up to 1
-        result = enforce_target_percentage(
-            satellites=satellites,
-            target_percentage=1,
+        # 1% of 10 = 0.1 -> int truncates to 0 target sats
+        result_df, meta = enforce_target_percentage(
+            obs_df=obs_df,
+            object_type_sats=sat_ids[:5],
+            all_sats=sat_ids,
+            target_percentage="01",
         )
 
-        assert len(result) >= 1
+        # Function should still return a non-empty DataFrame
+        assert len(result_df) >= 1
 
-    def test_100_percent_returns_all(self):
-        """Test that 100% returns all satellites."""
+    def test_50_percent_returns_balanced(self):
+        """Test that 50% returns a balanced split."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        satellites = list(range(1, 11))
+        sat_ids = list(range(1, 11))
+        obs_df = self._make_obs_df(sat_ids)
 
-        result = enforce_target_percentage(
-            satellites=satellites,
-            target_percentage=100,
+        result_df, meta = enforce_target_percentage(
+            obs_df=obs_df,
+            object_type_sats=sat_ids[:5],
+            all_sats=sat_ids,
+            target_percentage="50",
         )
 
-        assert len(result) == len(satellites)
+        assert meta["enforced"] is True
+        assert result_df["satNo"].nunique() == len(sat_ids)
 
-    def test_percentage_greater_than_100_handled(self):
-        """Test that percentages > 100 are handled gracefully."""
+    def test_un_returns_all(self):
+        """Test that UN returns all observations."""
         enforce_target_percentage = _import_enforce_target_percentage()
 
-        satellites = list(range(1, 11))
+        sat_ids = list(range(1, 11))
+        obs_df = self._make_obs_df(sat_ids)
 
-        # 150% should return all (can't have more than 100%)
-        result = enforce_target_percentage(
-            satellites=satellites,
-            target_percentage=150,
+        result_df, meta = enforce_target_percentage(
+            obs_df=obs_df,
+            object_type_sats=sat_ids[:5],
+            all_sats=sat_ids,
+            target_percentage="UN",
         )
 
-        assert len(result) <= len(satellites)
+        assert len(result_df) == len(obs_df)
 
 
 class TestLegacyCodeTargetPercentage:

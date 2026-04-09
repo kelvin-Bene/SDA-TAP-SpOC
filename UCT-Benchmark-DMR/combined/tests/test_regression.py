@@ -374,7 +374,7 @@ class TestEnforceTargetPercentageBackwardCompatibility:
         return pd.DataFrame({
             "satNo": [25544] * 10 + [25545] * 10 + [25546] * 10,
             "id": [f"obs_{i}" for i in range(30)],
-            "obTime": [datetime(2024, 1, 1, i) for i in range(30)],
+            "obTime": [datetime(2024, 1, 1) + timedelta(hours=i) for i in range(30)],
         })
 
     def test_returns_tuple(self, sample_df):
