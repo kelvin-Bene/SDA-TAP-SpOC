@@ -79,7 +79,7 @@ class TestBackwardCompatibility:
         )
 
         # These values should remain consistent
-        assert HAMR_THRESHOLD == 0.1
+        assert HAMR_THRESHOLD == 1.0  # Per Lewis's doc: A/M > 1 m^2/kg
         assert NON_REF_OBS_PER_SATELLITE == 2
         assert semiMajorAxis_LEO == 8378
         assert semiMajorAxis_GEO == 42164

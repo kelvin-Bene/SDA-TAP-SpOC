@@ -292,7 +292,12 @@ def stateMetrics(ref, candidate, propagator, elset_mode=False):
         delta = candidate[VELOCITY_COLUMNS].values - prop_ref[VELOCITY_COLUMNS].values
         stats["Velocity Error Norm"] = np.linalg.norm(delta, axis=1)
 
-        # Bias — per-pair, per-dimension difference (no averaging)
+        # Bias — per-pair, per-dimension difference.
+        # INTENTIONAL DEVIATION from Lewis's original (which divided by
+        # point_size, spreading each pair's error across all pairs).  We store
+        # the raw per-pair difference because each row is an independent
+        # measurement; the mean bias can be derived by aggregating downstream.
+        # This does not affect the composite score (which uses RMS/Mahalanobis).
         bias = candidate[STATE_COLUMNS].values - prop_ref[STATE_COLUMNS].values
         stats[[f"{col} Bias" for col in STATE_COLUMNS]] = bias
         stats["Total Bias"] = np.sum(bias, axis=1)

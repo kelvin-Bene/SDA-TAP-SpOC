@@ -762,18 +762,13 @@ class TestOrbitalRegimeTypeComboRegimes:
         )
 
     def test_orbital_regime_type_line(self):
-        """The OrbitalRegime type declaration line should list all combo regimes."""
+        """The OrbitalRegime type declaration should list all combo regimes."""
         content = self._read_types_file()
-        # Find the OrbitalRegime type line
-        orbital_regime_line = next(
-            (line for line in content.splitlines() if "OrbitalRegime" in line and "export type" in line),
-            None,
-        )
-        assert orbital_regime_line is not None, "Could not find `export type OrbitalRegime` in index.ts"
-        for regime in ("ALL", "LMO", "LMG", "MGH"):
-            assert regime in orbital_regime_line, (
-                f"Combo regime '{regime}' not found in OrbitalRegime type declaration: "
-                f"{orbital_regime_line.strip()}"
+        # The type may span multiple lines, so search the full content
+        assert "OrbitalRegime" in content, "Could not find `OrbitalRegime` in index.ts"
+        for regime in ("ALL", "LMO", "LMG", "MGH", "LGO", "LHO", "MGO", "MHO", "GHO", "LMH", "LGH"):
+            assert regime in content, (
+                f"Combo regime '{regime}' not found in OrbitalRegime type declaration"
             )
 
 

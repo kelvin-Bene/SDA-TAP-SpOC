@@ -296,7 +296,7 @@ class TestHAMRFiltering:
 
         satellite_ids = [1, 2, 3]
         physical_data = {
-            1: {"mass": 10, "cross_section": 5},  # A/M = 0.5 (HAMR)
+            1: {"mass": 10, "cross_section": 15},  # A/M = 1.5 > 1.0 (HAMR)
             # 2 is missing physical data
             # 3 is missing physical data
         }
@@ -305,7 +305,7 @@ class TestHAMRFiltering:
             satellite_ids, physical_data, HAMR_THRESHOLD
         )
 
-        # Satellite 1 should be HAMR
+        # Satellite 1 should be HAMR (A/M = 1.5 > HAMR_THRESHOLD = 1.0)
         assert 1 in hamr_sats
 
         # Satellites 2, 3 should be in normal (no data = can't confirm HAMR)

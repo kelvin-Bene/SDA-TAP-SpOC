@@ -90,8 +90,8 @@ eccentricity_HEO = 0.7  # a HEO object has eccentricity greater than or equal to
 
 # High Area-to-Mass Ratio (HAMR) threshold
 # Objects with A/M ratio above this are considered HAMR
-# Per Louis's documentation: HAMR objects have A/M > 0.1 m²/kg
-HAMR_THRESHOLD = 1.0  # m^2/kg - objects above this are HAMR (per Louis's documentation: A/M > 1 m²/kg)
+# Per Louis's documentation: HAMR objects have A/M > 1 m²/kg
+HAMR_THRESHOLD = 1.0  # m^2/kg
 
 # =============================================================================
 # ORBITAL COVERAGE THRESHOLDS (per Louis's Benchmarking Documentation)
@@ -190,12 +190,15 @@ highPercentage = (0.9, 0.95, 1.0)
 standardPercentage = (0.4, 0.5, 0.6)
 lowPercentage = (0.0, 0.05, 0.1)
 
-# What is considered low orbital coverage (percentage), defined differently for LEO, MEO, and GEO
+# What is considered low orbital coverage, defined differently for LEO, MEO, and GEO
 # Orbit coverage is taken over a timespan of 3 orbital periods
 # Determined from taking bottom 25 percentile of orbit coverage from real observation data over a 10 day window
-lowCoverage_LEO = 0.0213   # 2.13% as fraction
-lowCoverage_MEO = 0.0449   # 4.49% as fraction
-lowCoverage_GEO = 0.41656  # 41.656% as fraction
+# NOTE: orbitCoverage() returns a FRACTION (0.0-1.0), so "0.0213% covered" = 0.000213 as fraction.
+# These MUST match COVERAGE_THRESHOLDS above. The original reference code had ambiguous units
+# (LEO=0.0213, GEO=41.656 — mixing fractions and percentages). We now use fractions consistently.
+lowCoverage_LEO = COVERAGE_THRESHOLDS["LEO"]   # 0.000213 = 0.0213% (per Lewis's Benchmarking Doc)
+lowCoverage_MEO = COVERAGE_THRESHOLDS["MEO"]   # 0.000449 = 0.0449% (per Lewis's Benchmarking Doc)
+lowCoverage_GEO = COVERAGE_THRESHOLDS["GEO"]   # 0.41656  = 41.656% (per Lewis's Benchmarking Doc)
 # orbital coverage below which is too small to include in datasets
 # (set arbitrarily, arbitrarily assumed to be the same for all regimes) #
 tooLowtoInclude = 0.001
@@ -680,8 +683,17 @@ LEGACY_TARGET_PERCENTAGE_VALUES = ["50", "10", "01", "UN"]
 # Legacy Orbital Regime (Positions 4-6: 3 characters)
 LEGACY_REGIME_VALUES = [
     "LEO", "MEO", "GEO", "HEO", "ALL",
+    # 2-regime combinations (per Lewis's Benchmarking Documentation)
     "LMO",  # LEO + MEO
+    "LGO",  # LEO + GEO
+    "LHO",  # LEO + HEO
+    "MGO",  # MEO + GEO
+    "MHO",  # MEO + HEO
+    "GHO",  # GEO + HEO
+    # 3-regime combinations
     "LMG",  # LEO + MEO + GEO
+    "LMH",  # LEO + MEO + HEO
+    "LGH",  # LEO + GEO + HEO
     "MGH",  # MEO + GEO + HEO
 ]
 
