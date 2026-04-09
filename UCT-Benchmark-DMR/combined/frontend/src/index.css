@@ -535,15 +535,6 @@
   }
 }
 
-/* === CESIUM OVERRIDES === */
-.cesium-viewer {
-  @apply w-full h-full;
-}
-
-.cesium-viewer-bottom {
-  display: none !important;
-}
-
 /* === SKELETON LOADER === */
 .skeleton {
   @apply bg-gradient-to-r from-muted via-muted-foreground/10 to-muted;

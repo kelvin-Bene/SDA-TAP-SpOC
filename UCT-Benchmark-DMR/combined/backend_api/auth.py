@@ -216,16 +216,20 @@ async def get_current_user(request: Request) -> CurrentUser:
     Raises:
         HTTPException(401): If the token is missing, expired, or invalid.
     """
+    # DEMO_MODE: bypass all token validation — return a synthetic demo user.
+    # Checked BEFORE _extract_token so that stale/fake tokens from a prior
+    # cloud session (still in the browser's localStorage) don't cause a 500
+    # when _decode_jwt tries to reach a non-existent JWKS endpoint.
+    if os.getenv("DEMO_MODE", "").lower() == "true":
+        logger.debug("DEMO_MODE active — returning demo user (token ignored)")
+        return CurrentUser(
+            id="demo-user",
+            email="demo@uct-benchmark.example",
+            role="authenticated",
+        )
+
     token = _extract_token(request)
     if token is None:
-        # DEMO_MODE: no token required — return a synthetic demo user.
-        if os.getenv("DEMO_MODE", "").lower() == "true":
-            logger.debug("DEMO_MODE active with no Authorization header — returning demo user")
-            return CurrentUser(
-                id="demo-user",
-                email="demo@uct-benchmark.example",
-                role="authenticated",
-            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
@@ -243,6 +247,14 @@ async def get_optional_user(request: Request) -> Optional[CurrentUser]:
     Returns a CurrentUser if a valid token is present, or None if no
     Authorization header is provided.
     """
+    # DEMO_MODE: always return the synthetic demo user (same as get_current_user).
+    if os.getenv("DEMO_MODE", "").lower() == "true":
+        return CurrentUser(
+            id="demo-user",
+            email="demo@uct-benchmark.example",
+            role="authenticated",
+        )
+
     token = _extract_token(request)
     if token is None:
         return None

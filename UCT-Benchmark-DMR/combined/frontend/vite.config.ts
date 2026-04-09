@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import cesium from 'vite-plugin-cesium';
 import path from 'path';
 import { version } from './package.json';
 
@@ -9,7 +8,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version || 'unknown'),
   },
-  plugins: [react(), cesium()],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

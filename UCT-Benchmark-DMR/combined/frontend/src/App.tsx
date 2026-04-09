@@ -8,7 +8,7 @@ import { AuthGuard } from '@/components/AuthGuard';
 import { MainLayout } from '@/components/layout/MainLayout';
 
 // U2/P1: Lazy-load all page components for code splitting
-// Heavy deps (Cesium ~1.4MB, Recharts ~260KB) only load when needed
+// Heavy deps (Recharts ~260KB) only load when needed
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const DatasetBrowserPage = lazy(() => import('@/pages/DatasetBrowserPage').then(m => ({ default: m.DatasetBrowserPage })));
 const DatasetGeneratorPage = lazy(() => import('@/pages/DatasetGeneratorPage').then(m => ({ default: m.DatasetGeneratorPage })));

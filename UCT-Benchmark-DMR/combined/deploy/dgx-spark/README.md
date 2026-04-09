@@ -13,7 +13,6 @@ unaffected.
 | Auth | Supabase JWT | `DEMO_MODE` (single shared user, no login) |
 | Sample data | Generated from UDL/ESA on demand | Bundled seed CSVs (~143 MB) populated on first run |
 | Network | Always-on | Online + offline cache (UDL/ESA pulls when available, seed fallback when not) |
-| Cesium 3D viewer | Cesium Ion world imagery | Bundled NaturalEarthII texture (no Ion token needed) |
 | Sentry | Active | Disabled |
 | Packaging | Railway services | `docker compose` orchestration |
 | Architecture | linux/amd64 | linux/arm64 (multi-arch image works on both) |
@@ -123,8 +122,8 @@ The full run-book is in `staged-shimmying-feigenbaum.md` under "Verification
 1. Open `http://localhost` — landing page should show the **"Running locally
    on NVIDIA DGX Spark"** badge.
 2. Browse to **Datasets**, confirm `DGX_SEED_SAMPLE` is listed.
-3. Open it, verify the 3D Cesium viewer renders with the bundled NaturalEarthII
-   imagery (no network calls to `*.cesium.com`).
+3. Open the dataset detail page, confirm the stats cards and the 20-row
+   observations sample table render correctly.
 4. Upload a sample UCTP JSON, watch the job score.
 5. Unplug the network cable, reload — everything still works from cache.
 6. Plug it back in, generate a fresh dataset — UDL pull works.
