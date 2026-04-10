@@ -1455,12 +1455,22 @@ def run_evaluation_pipeline(
                 if md_series is not None and md_series.notna().any()
                 else None
             )
+            # Anonymize per-satellite breakdown: replace NORAD IDs with
+            # sequential labels so the results endpoint never leaks the
+            # answer key (per Louis, Apr 9 2026: "we don't ever give the
+            # answer key away"). Users see "Satellite 1", "Satellite 2" etc.
+            state_df_anon = state_df.copy()
+            if "satNo" in state_df_anon.columns:
+                sat_ids = state_df_anon["satNo"].unique()
+                anon_map = {sat: f"Satellite {i+1}" for i, sat in enumerate(sat_ids)}
+                state_df_anon["satNo"] = state_df_anon["satNo"].map(anon_map)
+
             state_results = {
                 "position_rms_km": float(np.sqrt(np.mean(pos_err.values ** 2))),
                 "velocity_rms_km_s": float(np.sqrt(np.mean(vel_err.values ** 2))),
                 "mahalanobis_distance": md_mean,
                 "per_satellite": _convert_numpy_to_native(
-                    state_df.to_dict(orient="records")
+                    state_df_anon.to_dict(orient="records")
                 ),
             }
         job_manager.update_job(job_id, progress=85)

@@ -1058,17 +1058,23 @@ async def download_dataset(
 
     # Get observations (streamed in batches to avoid OOM).
     #
-    # CTF train/validation/test split filtering:
+    # Split filtering:
     # - Train and validation rows are returned to participants.
     # - Test rows are NEVER downloadable; they live only in the database
     #   and are used by the eval worker to compute the leaderboard score.
-    # - The 'split' column is included in the result so _transform_row can
-    #   strip the truth satNo from validation rows (per the LLNL CTF paper:
-    #   "The validation data set provides the data for each case but not
-    #   the solutions").
+    #
+    # Field minimization (per Louis, Apr 9 2026 transcript):
+    # - Select ONLY the essential observation fields participants need.
+    # - All identifying fields (sat_no, orig_object_id, id_on_orbit) are
+    #   excluded at the SQL layer so they never reach the download.
+    # - Extraneous UDL metadata (ECI coords, uncertainties, geographic
+    #   fields, admin fields) are excluded for storage efficiency.
     obs_result = db.execute(
         """
-        SELECT o.*, dso.assigned_track_id, dso.assigned_object_id, dso.split
+        SELECT o.ob_time, o.ra, o.declination, o.azimuth, o.elevation,
+               o.send_lat, o.send_long, o.send_alt, o.sensor_id,
+               o.range_km, o.range_rate_km_s, o.track_id,
+               dso.split
         FROM observations o
         JOIN dataset_observations dso ON o.id = dso.observation_id
         WHERE dso.dataset_id = ?
@@ -1080,37 +1086,23 @@ async def download_dataset(
 
     obs_columns = [desc[0] for desc in obs_result.description]
 
-    # Map DB snake_case columns to Benchmarking Documentation camelCase names
-    DB_TO_DOC_FIELD_MAP = {
+    # Essential observation fields only (per Louis, Apr 9 2026 transcript).
+    # All identifying fields (satNo, origObjectId, idOnOrbit) and extraneous
+    # UDL metadata are excluded. Truth data lives only in the database
+    # (state_vectors + dataset_references) and is accessed by the eval worker.
+    DOWNLOAD_FIELD_WHITELIST = {
         "ob_time": "obTime",
-        "sat_no": "satNo",
-        "range_km": "range",
-        "range_rate_km_s": "rangeRate",
-        "sensor_id": "idSensor",
-        "sensor_name": "sensorName",
-        "data_mode": "dataMode",
-        "type_optical": "typeOptical",
+        "ra": "ra",
+        "declination": "declination",
+        "azimuth": "azimuth",
+        "elevation": "elevation",
         "send_lat": "senlat",
         "send_long": "senlon",
         "send_alt": "senalt",
+        "sensor_id": "idSensor",
+        "range_km": "range",
+        "range_rate_km_s": "rangeRate",
         "track_id": "trackId",
-        "is_uct": "uct",
-        "is_simulated": "isSimulated",
-        "created_at": "createdAt",
-        "classification_marking": "classificationMarking",
-        "id_on_orbit": "idOnOrbit",
-        "task_id": "taskId",
-        "orig_object_id": "origObjectId",
-        "orig_sensor_id": "origSensorId",
-        "sen_x": "senx",
-        "sen_y": "seny",
-        "sen_z": "senz",
-        "exp_duration": "expDuration",
-        "mag_unc": "magUnc",
-        "geo_lat": "geolat",
-        "geo_lon": "geolon",
-        "geo_alt": "geoalt",
-        "geo_range": "georange",
     }
 
     import math
@@ -1134,43 +1126,36 @@ async def download_dataset(
 
     def _transform_row(obs_row: tuple) -> dict:
         obs_dict = dict(zip(obs_columns, obs_row))
-        # Pop 'split' before the field-name remap (it isn't in the doc map
-        # and we want to use it for the satNo-stripping decision below).
         row_split = obs_dict.pop("split", "train")
-        if obs_dict.get("ob_time"):
-            obs_dict["ob_time"] = (
-                obs_dict["ob_time"].isoformat()
-                if hasattr(obs_dict["ob_time"], "isoformat")
-                else str(obs_dict["ob_time"])
-            )
-        obs_dict = {DB_TO_DOC_FIELD_MAP.get(k, k): v for k, v in obs_dict.items()}
-        # CTF poor calibration: if the dataset carries per-sensor biases,
-        # add the row's sensor bias to ra and declination on the fly. The
-        # shared observations table stays pristine; biases are applied at
-        # download time only. The participant sees biased data and is
-        # expected to handle it (the test of "can your UCTP detect bias").
+
+        # Whitelist: include only essential observation fields, skip nulls.
+        # No identifying fields (satNo, origObjectId, idOnOrbit) are in the
+        # SELECT or whitelist — they never reach the download response.
+        filtered: dict = {}
+        for db_col, doc_name in DOWNLOAD_FIELD_WHITELIST.items():
+            val = obs_dict.get(db_col)
+            if val is None:
+                continue
+            if db_col == "ob_time":
+                val = val.isoformat() if hasattr(val, "isoformat") else str(val)
+            filtered[doc_name] = val
+
+        # CTF poor calibration: apply per-sensor biases on the fly.
+        # The shared observations table stays pristine; biases are applied
+        # at download time only.
         if sensor_biases:
-            sensor_id_str = str(obs_dict.get("idSensor", ""))
+            sensor_id_str = str(filtered.get("idSensor", ""))
             sensor_bias = sensor_biases.get(sensor_id_str)
             if sensor_bias:
                 ra_bias_deg = float(sensor_bias.get("ra_arcsec", 0.0)) / 3600.0
                 dec_bias_deg = float(sensor_bias.get("dec_arcsec", 0.0)) / 3600.0
-                if obs_dict.get("ra") is not None:
-                    obs_dict["ra"] = float(obs_dict["ra"]) + ra_bias_deg
-                if obs_dict.get("declination") is not None:
-                    obs_dict["declination"] = float(obs_dict["declination"]) + dec_bias_deg
-        # CTF: validation rows are decorrelated — the truth satellite number
-        # is the answer key, so we strip it before sending the row to the
-        # participant. Train rows keep satNo because that's the labelled
-        # training data the participant is allowed to learn from. Test rows
-        # were already filtered out at the SQL layer above.
-        if row_split == "validation":
-            obs_dict.pop("satNo", None)
-        # Annotate each row with its split label so participants can tell
-        # which set an observation came from. The LLNL paper allows this:
-        # what's withheld is the answer key, not the partition label.
-        obs_dict["split"] = row_split
-        return _make_serializable(obs_dict)
+                if filtered.get("ra") is not None:
+                    filtered["ra"] = float(filtered["ra"]) + ra_bias_deg
+                if filtered.get("declination") is not None:
+                    filtered["declination"] = float(filtered["declination"]) + dec_bias_deg
+
+        filtered["split"] = row_split
+        return _make_serializable(filtered)
 
     dataset_metadata = _make_serializable({
         "id": row_dict["id"],
