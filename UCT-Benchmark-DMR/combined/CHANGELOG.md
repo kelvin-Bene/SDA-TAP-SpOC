@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.0.1 (2026-04-09)
+
+### Fixed
+- **Coverage threshold bug**: LEO/MEO coverage thresholds were 100x too permissive (0.0213 instead of 0.000213 as fraction), causing incorrect tier classification. GEO was already correct.
+- **HEO coverage scoring**: Added missing HEO coverage threshold (0.20) — HEO satellites were silently excluded from coverage classification in basicScoringFunction.
+- **HEO regime classification**: basicScoringFunction now uses eccentricity (via `determine_orbital_regime`) instead of semi-major axis only, consistent with the downsampling pipeline.
+- **Combo regime pipeline**: Added 7 missing regime combo mappings (LGO, LHO, MGO, MHO, GHO, LMH, LGH) to windowSelection's `regime_map` — previously these silently defaulted to LEO-only.
+- **HAMR threshold comment**: Corrected misleading comment from "A/M > 0.1" to "A/M > 1" (code value was already correct at 1.0).
+- **Frontend regime combos**: All 15 regime options (4 singles + ALL + 6 two-regime + 4 three-regime combos) are now visible in both the Standard Wizard and Legacy Code wizard, and accepted by the client-side validator.
+- **SQL injection pattern**: Removed f-string interpolation from events.py WHERE clause construction.
+- **Silent DDL error swallowing**: schema.py DDL init now logs caught exceptions instead of bare `pass`.
+- **22 pre-existing test failures**: Fixed attribute name mismatches, function signature mismatches, auth fixtures, datetime fixture bug, and timer test flakiness (849 → 890 tests passing).
+- **Documentation**: Updated Evaluation Metrics docs to describe composite scoring (was stale "ranked by F1-Score").
+- **Composite scoring gap**: Marked as resolved — `compute_composite_score()` implements Lewis's Feb 19 "you lose points there" philosophy with weights 0.4/0.3/0.3.
+
 ## v2.0.0 (2026-04-01)
 
 ### Added

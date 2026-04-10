@@ -149,24 +149,24 @@ async def list_events(
 
     where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-    query = f"""
-        SELECT
-            e.id,
-            et.name as event_type,
-            e.primary_sat_no,
-            e.secondary_sat_no,
-            e.event_time_start,
-            e.event_time_end,
-            e.confidence,
-            e.detection_method,
-            e.source,
-            e.dataset_id
-        FROM events e
-        JOIN event_types et ON e.event_type_id = et.id
-        WHERE {where_clause}
-        ORDER BY e.event_time_start DESC
-        LIMIT ? OFFSET ?
-    """
+    query = (
+        "SELECT"
+        " e.id,"
+        " et.name as event_type,"
+        " e.primary_sat_no,"
+        " e.secondary_sat_no,"
+        " e.event_time_start,"
+        " e.event_time_end,"
+        " e.confidence,"
+        " e.detection_method,"
+        " e.source,"
+        " e.dataset_id"
+        " FROM events e"
+        " JOIN event_types et ON e.event_type_id = et.id"
+        " WHERE " + where_clause +
+        " ORDER BY e.event_time_start DESC"
+        " LIMIT ? OFFSET ?"
+    )
     params.extend([limit, offset])
 
     try:

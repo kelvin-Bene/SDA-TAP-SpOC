@@ -107,7 +107,10 @@ def retrieveResiduals(args):
             )
         )
 
-        # Convert to arcseconds (consistent with stateMetrics.py)
+        # Convert to arcseconds for human-readable output and consistency
+        # with the composite score normalisation (100 arcsec cap in
+        # compute_composite_score).  INTENTIONAL DEVIATION from Lewis's
+        # original which stored residuals in radians.
         res_temp = np.degrees(res_rad) * 3600
 
         # Compute the RMSE running sum

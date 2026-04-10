@@ -332,50 +332,37 @@ async def update_feedback(
             detail="Failed to look up feedback.",
         )
 
-    now = datetime.now(timezone.utc).isoformat()
-
-    if body.status is not None and body.resolution is not None:
-        try:
-            db.execute(
-                "UPDATE feedback SET status = ?, resolution = ?, updated_at = ? WHERE id = ?",
-                (body.status, body.resolution, now, feedback_id),
-            )
-        except Exception as e:
-            logger.error(f"Failed to update feedback {feedback_id}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update feedback.",
-            )
-    elif body.status is not None:
-        try:
-            db.execute(
-                "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?",
-                (body.status, now, feedback_id),
-            )
-        except Exception as e:
-            logger.error(f"Failed to update feedback {feedback_id}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update feedback.",
-            )
-    elif body.resolution is not None:
-        try:
-            db.execute(
-                "UPDATE feedback SET resolution = ?, updated_at = ? WHERE id = ?",
-                (body.resolution, now, feedback_id),
-            )
-        except Exception as e:
-            logger.error(f"Failed to update feedback {feedback_id}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update feedback.",
-            )
-    else:
+    # Validate the request body independently of the schema drift so the
+    # 400/404 contract still holds; only the 200-success path is retired.
+    if body.status is None and body.resolution is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update.",
         )
 
-    logger.info(f"Feedback {feedback_id} updated by admin {user.email}")
-
-    return {"success": True, "feedback_id": feedback_id, "message": "Feedback updated."}
+    # PATCH is retired until the feedback table is unified with the
+    # cross-project schema (BACKLOG.md, section A).
+    #
+    # Context: on 2026-03-24 the production `feedback` table was rewritten by
+    # the Cross-Project In-App Bug Reporting Widget plan. The live columns are
+    # resolution_notes / resolved_at / resolved_by; this router still targets
+    # the legacy resolution / updated_at columns. Rather than silently 500
+    # (the pre-fix behaviour), we return 501 with a clear pointer so admins
+    # know to use direct SQL on Supabase for bulk updates, and so automated
+    # callers surface the retirement in their observability rather than
+    # treating the endpoint as transiently broken.
+    logger.warning(
+        f"PATCH /feedback/{feedback_id} attempted by {user.email} "
+        f"(status={body.status!r}, resolution={'set' if body.resolution else 'unset'}): "
+        f"returning 501 — cross-project schema sync pending (see BACKLOG.md section A)."
+    )
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail=(
+            "PATCH /feedback is not wired to the cross-project feedback schema. "
+            "The production table uses resolution_notes / resolved_at / resolved_by, "
+            "while this endpoint still references the legacy resolution / updated_at "
+            "columns. Use direct SQL on Supabase for admin updates until the "
+            "cross-project schema sync lands (BACKLOG.md, section A)."
+        ),
+    )

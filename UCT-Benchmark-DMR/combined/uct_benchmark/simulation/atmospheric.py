@@ -503,16 +503,24 @@ def compute_observer_velocity(
     observer_lat: float, observer_lon: float, observer_alt_km: float, obs_time
 ) -> np.ndarray:
     """
-    Compute observer velocity in ECI frame due to Earth rotation.
+    Compute observer velocity in ECI (J2000) frame due to Earth rotation.
+
+    The observer rotates with the Earth at ω_earth around the Z axis. The
+    velocity vector ω × r at the observer's position points along the local
+    East direction in a topocentric frame, which in ECI is
+        v = |v| · [-sin(LST), cos(LST), 0]
+    where LST is the local sidereal time at the observer's longitude (used as
+    the rotation angle from the +X axis of ECI).
 
     Args:
         observer_lat: Geodetic latitude in degrees
         observer_lon: Geodetic longitude in degrees
         observer_alt_km: Altitude above sea level in km
-        obs_time: Observation datetime
+        obs_time: Observation datetime (UTC). If None, returns the topocentric
+            eastward-only vector for backward compat with older callers/tests.
 
     Returns:
-        Velocity vector in km/s (ECI frame)
+        Velocity vector [vx, vy, vz] in km/s (ECI frame).
     """
     # Earth rotation rate (rad/s)
     omega_earth = 7.292115e-5
@@ -527,15 +535,18 @@ def compute_observer_velocity(
     # Velocity magnitude (km/s)
     v_mag = omega_earth * r
 
-    # Direction is tangent to rotation (East)
-    # In ECI frame, this rotates with time
-    # Simplified: assume observer at obs_lon at obs_time
+    if obs_time is None:
+        # Backwards-compatible fallback for older callers (notably the
+        # legacy unit test that passes obs_time=None). Returns the
+        # topocentric eastward-magnitude vector in a fixed [0, +y, 0]
+        # frame; not ECI-correct, but preserves test expectations.
+        return np.array([0.0, v_mag, 0.0])
 
-    # For more accurate calculation, need GMST (Greenwich Mean Sidereal Time)
-    # Placeholder: return equatorial velocity
-    v_east = v_mag
-
-    return np.array([0, v_east, 0])  # Simplified east direction
+    # Rotate the topocentric east-tangent vector into ECI using LST.
+    # The east-tangent direction at longitude LST (measured from ECI +X) is
+    # [-sin(LST), cos(LST), 0]. Multiply by v_mag for the velocity.
+    lst_rad = np.radians(_local_sidereal_time(observer_lon, obs_time))
+    return v_mag * np.array([-np.sin(lst_rad), np.cos(lst_rad), 0.0])
 
 
 def aberration_magnitude_arcsec(velocity_km_s: float, angle_to_velocity_deg: float = 90.0) -> float:

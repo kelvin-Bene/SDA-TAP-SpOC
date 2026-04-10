@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 if TYPE_CHECKING:
     from .connection import DatabaseManager
 
@@ -264,6 +266,25 @@ CREATE TABLE IF NOT EXISTS datasets (
     -- Actual satellite NORAD IDs that ended up in the dataset
     actual_satellite_ids JSON,
 
+    -- Per-sensor systematic biases for the CTF poor-calibration challenge
+    -- (SDA TAP Lab UCT challenge #10 from "Need for UCT Benchmarking" paper).
+    -- NULL for standard-quality datasets. When calibration_quality='poor',
+    -- this dict carries one entry per unique sensor in the dataset:
+    --     {"GEODSS-1": {"ra_arcsec": 1.7, "dec_arcsec": -2.3}, ...}
+    sensor_biases JSON,
+
+    -- 'standard' (default, no synthetic bias) or 'poor' (synthetic per-sensor
+    -- bias drawn at generation time).
+    calibration_quality VARCHAR(16) NOT NULL DEFAULT 'standard',
+
+    -- CTF maneuvering-during-gap challenge (UCT challenge #6).
+    -- When TRUE, ~20% of satellites maneuvered during a 6-hour gap window;
+    -- the post-maneuver state vector is recorded as canonical truth.
+    maneuver_during_gap BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Per-satellite maneuver answer key (NULL when maneuver_during_gap=FALSE).
+    maneuver_metadata JSON,
+
     -- Status
     status VARCHAR(20) DEFAULT 'created', -- created, processing, complete, failed
     error_message TEXT,                   -- User-facing error when status = 'failed'
@@ -301,6 +322,13 @@ CREATE TABLE IF NOT EXISTS dataset_observations (
     assigned_track_id INTEGER,            -- Decorrelated track ID
     assigned_object_id INTEGER,           -- Decorrelated object ID
 
+    -- CTF train/validation/test split per the LLNL CTF paper
+    -- (provided-materials/.../A common task framework for ... .docx Section 3).
+    -- Stratified by satellite at generation time so each split contains a
+    -- representative slice. Default 'train' is safe for tests that create
+    -- rows without specifying a split.
+    split VARCHAR(16) NOT NULL DEFAULT 'train',
+
     PRIMARY KEY (dataset_id, observation_id)
 );
 """
@@ -308,6 +336,7 @@ CREATE TABLE IF NOT EXISTS dataset_observations (
 DATASET_OBSERVATIONS_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_ds_obs_dataset ON dataset_observations(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_ds_obs_observation ON dataset_observations(observation_id);
+CREATE INDEX IF NOT EXISTS idx_ds_obs_split ON dataset_observations(dataset_id, split);
 """
 
 DATASET_REFERENCES_TABLE = """
@@ -388,8 +417,18 @@ CREATE TABLE IF NOT EXISTS submission_results (
     -- Raw results (JSON blob with full breakdown)
     raw_results JSON,
 
-    -- Composite score (weighted combination of metrics)
+    -- Composite score (weighted combination of metrics) computed against
+    -- the entire dataset (all three splits combined). Kept for backward
+    -- compatibility with existing API consumers and as a leaderboard
+    -- fallback for legacy submissions.
     composite_score DECIMAL(10,6),
+
+    -- Per-split composite scores per the CTF train/val/test methodology.
+    -- The leaderboard ranks by test_composite_score because that's the
+    -- split whose answers the participant could not have seen.
+    train_composite_score DECIMAL(10,6),
+    val_composite_score DECIMAL(10,6),
+    test_composite_score DECIMAL(10,6),
 
     -- Processing info
     processing_time_seconds DECIMAL(12,3),
@@ -401,6 +440,7 @@ CREATE TABLE IF NOT EXISTS submission_results (
 SUBMISSION_RESULTS_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_results_submission ON submission_results(submission_id);
 CREATE INDEX IF NOT EXISTS idx_results_f1 ON submission_results(f1_score DESC);
+CREATE INDEX IF NOT EXISTS idx_results_test_composite ON submission_results(test_composite_score DESC);
 """
 
 # ============================================================
@@ -884,7 +924,7 @@ def _initialize_postgres_schema(db: "DatabaseManager") -> None:
                 except Exception as e:
                     # Log but don't crash on individual statement failures
                     # (e.g., table already exists with different column order)
-                    pass  # Statement already applied or not applicable
+                    logger.debug(f"DDL statement skipped (may already exist): {e}")
 
         # Run inline migrations for existing databases initialized with older SQL.
         # All are idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS).

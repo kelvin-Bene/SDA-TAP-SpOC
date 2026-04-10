@@ -239,5 +239,215 @@ class TestPhotometricSimulation:
         assert not is_satellite_illuminated(sat_shadow, sun_pos)
 
 
+class TestSmearSeeingSampler:
+    """Tests for the calibrated atmospheric seeing sampler from the
+    Smear Explanation reference (518,092 real observations from
+    Muztagh-ata II + Lijiang)."""
+
+    def test_smear_seeing_deterministic_default(self):
+        """rng=None returns the median percentile (0.375 arcsec)."""
+        from uct_benchmark.simulation.noiseModels import sample_smear_seeing_arcsec
+
+        assert sample_smear_seeing_arcsec(rng=None) == 0.375
+
+    def test_smear_seeing_bias_lookup(self):
+        """All named percentiles are accessible via the bias parameter."""
+        from uct_benchmark.simulation.noiseModels import (
+            SMEAR_SEEING_PERCENTILES_ARCSEC,
+            sample_smear_seeing_arcsec,
+        )
+
+        for level in ["best", "good_day", "median", "bad_day", "really_bad", "worst"]:
+            assert sample_smear_seeing_arcsec(rng=None, bias=level) == \
+                SMEAR_SEEING_PERCENTILES_ARCSEC[level]
+
+    def test_smear_seeing_within_chart_range(self):
+        """Sampled values stay inside [0.25, 1.32] arcsec — the full
+        observed range from the Smear doc."""
+        from uct_benchmark.simulation.noiseModels import sample_smear_seeing_arcsec
+
+        rng = np.random.default_rng(42)
+        samples = [sample_smear_seeing_arcsec(rng=rng) for _ in range(200)]
+        assert all(0.25 <= s <= 1.32 for s in samples)
+        # Verify the distribution is right-skewed: median should be at or
+        # below 0.4875 (worse than the bad_day percentile is rare).
+        median_sample = sorted(samples)[len(samples) // 2]
+        assert median_sample <= 0.4875
+
+
+class TestObserverVelocityECI:
+    """Tests for the LST-rotated observer velocity in ECI frame.
+
+    The observer at (lat=0, lon=0) at LST=0 has a tangent velocity pointing
+    along the +Y ECI axis. As LST rotates 90°, the tangent rotates to -X.
+    """
+
+    def test_observer_velocity_magnitude_at_equator(self):
+        """At the equator, |v| should be ~0.465 km/s (Earth rotation)."""
+        from datetime import datetime, timezone
+
+        from uct_benchmark.simulation.atmospheric import compute_observer_velocity
+
+        v = compute_observer_velocity(
+            observer_lat=0.0,
+            observer_lon=0.0,
+            observer_alt_km=0.0,
+            obs_time=datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        )
+        speed = np.linalg.norm(v)
+        # ω·R_eq ≈ 7.292e-5 · 6378.137 ≈ 0.465 km/s
+        assert 0.45 < speed < 0.48
+        # Z-component must be zero — the tangent vector lies in the equatorial plane
+        assert abs(v[2]) < 1e-10
+
+    def test_observer_velocity_obs_time_none_legacy(self):
+        """obs_time=None preserves the legacy [0, v_mag, 0] return for the
+        existing test_observer_velocity test (backward compat)."""
+        from uct_benchmark.simulation.atmospheric import compute_observer_velocity
+
+        v = compute_observer_velocity(0.0, 0.0, 0.0, None)
+        # Legacy path: x and z are zero, y is positive
+        assert v[0] == 0.0
+        assert v[2] == 0.0
+        assert v[1] > 0.0
+
+
+class TestPhysicalNoisePipelineUnit:
+    """Unit tests for the physical-noise pieces wired into simulateObs.
+
+    These tests do NOT exercise the Orekit propagator (which requires the JVM
+    to be started before import). Instead they invoke the inner physics
+    helpers directly with synthetic ECI inputs. The end-to-end propagator
+    integration is exercised in production by the dataset generation worker
+    (combined/backend_api/jobs/workers.py) and in the dataset_completeness
+    test suite.
+    """
+
+    def test_aberration_then_refraction_pipeline(self):
+        """The two systematic shifts can be chained without loss of precision
+        and produce shifts in the expected arcsecond range for a LEO geometry."""
+        from datetime import datetime, timezone
+
+        from uct_benchmark.simulation.atmospheric import (
+            compute_observer_velocity,
+            compute_velocity_aberration,
+            refraction_correction_for_ra_dec,
+        )
+
+        # Observer at Maui (GEODSS Haleakala), midnight UTC
+        sen_lat, sen_lon, sen_alt_km = 20.7, -156.43, 3.052
+        obs_time = datetime(2026, 1, 1, 6, 0, 0, tzinfo=timezone.utc)
+
+        # Synthetic LEO-target geometry
+        ra_true, dec_true = 180.0, 30.0
+        sat_vel_km_s = np.array([0.0, 7.5, 0.0])  # tangential velocity
+
+        obs_vel = compute_observer_velocity(sen_lat, sen_lon, sen_alt_km, obs_time)
+        ra_aberr, dec_aberr = compute_velocity_aberration(
+            ra_true, dec_true, obs_vel, target_velocity=sat_vel_km_s
+        )
+
+        # Aberration shift should be small (sub-arcminute) for a non-relativistic
+        # target. v/c ≈ 7.5/299792 ≈ 2.5e-5 rad ≈ 5 arcsec maximum.
+        assert abs(ra_aberr - ra_true) < 1.0 / 60.0  # < 1 arcmin
+        assert abs(dec_aberr - dec_true) < 1.0 / 60.0
+
+        # Refraction is a no-op for the input frame because we don't have a
+        # below-6° elevation here, but the call must not crash and must
+        # return finite floats.
+        ra_refr, dec_refr = refraction_correction_for_ra_dec(
+            ra_aberr, dec_aberr, sen_lat, sen_lon, sen_alt_km, obs_time
+        )
+        assert np.isfinite(ra_refr) and np.isfinite(dec_refr)
+
+    def test_apply_physical_noise_uses_smear_seeing(self):
+        """A higher seeing percentile must produce a wider noise distribution
+        than a lower percentile, holding sensor and elevation fixed."""
+        from uct_benchmark.simulation.noiseModels import (
+            AtmosphericConditions,
+            apply_physical_noise,
+            get_sensor_profile,
+            sample_smear_seeing_arcsec,
+        )
+
+        sensor = get_sensor_profile("GEODSS")
+        rng = np.random.default_rng(0)
+
+        # Median day → narrow distribution; really_bad day → wide
+        good_atm = AtmosphericConditions(
+            seeing_arcsec=sample_smear_seeing_arcsec(rng=None, bias="best")
+        )
+        bad_atm = AtmosphericConditions(
+            seeing_arcsec=sample_smear_seeing_arcsec(rng=None, bias="really_bad")
+        )
+
+        _, _, good_model = apply_physical_noise(
+            180.0, 30.0, 60.0, sensor=sensor, atmosphere=good_atm, rng=rng
+        )
+        _, _, bad_model = apply_physical_noise(
+            180.0, 30.0, 60.0, sensor=sensor, atmosphere=bad_atm, rng=rng
+        )
+
+        # Bad seeing → larger angular noise sigma
+        assert bad_model.angular_noise_ra_arcsec > good_model.angular_noise_ra_arcsec
+
+    def test_apply_physical_noise_airmass_scaling(self):
+        """At the same atmospheric condition, lower elevation must produce a
+        larger noise sigma (Fried's law: σ ∝ airmass^0.6)."""
+        from uct_benchmark.simulation.noiseModels import (
+            AtmosphericConditions,
+            apply_physical_noise,
+            get_sensor_profile,
+        )
+
+        sensor = get_sensor_profile("GEODSS")
+        atmosphere = AtmosphericConditions(seeing_arcsec=0.375)
+        rng = np.random.default_rng(0)
+
+        _, _, zenith_model = apply_physical_noise(
+            180.0, 60.0, 80.0, sensor=sensor, atmosphere=atmosphere, rng=rng
+        )
+        _, _, low_model = apply_physical_noise(
+            180.0, 60.0, 15.0, sensor=sensor, atmosphere=atmosphere, rng=rng
+        )
+
+        assert low_model.angular_noise_ra_arcsec > zenith_model.angular_noise_ra_arcsec
+
+    def test_to_obs_schema_handles_per_row_sigma(self):
+        """toObsSchema must accept both the legacy 10-tuple shape and the
+        post-physical-noise 11-tuple shape with per-row sigma."""
+        from uct_benchmark.simulation.simulateObservations import toObsSchema
+
+        # Legacy 10-tuple — sensorStDev should fall back to scalar
+        legacy_results = [
+            (
+                "2026-01-01T00:00:00",  # ts
+                180.0, 30.0,            # ra, dec
+                "MUI123",               # sensorID (must be parseable as MUI<digits>)
+                20.7, -156.43, 3.052,   # senLat, senLon, senAlt
+                90.0, 60.0,             # az, el
+                7078e3,                 # rangeVal in meters
+            )
+        ]
+        df_legacy = toObsSchema(legacy_results, satNo=12345, noiseCharacteristics=1.0 / 3600.0)
+        assert len(df_legacy) == 1
+        assert abs(df_legacy["sensorStDev"].iloc[0] - 1.0 / 3600.0) < 1e-12
+
+        # New 11-tuple with per-row sigma — sensorStDev should use the row value
+        new_results = [
+            (
+                "2026-01-01T00:00:00",
+                180.0, 30.0,
+                "MUI123",
+                20.7, -156.43, 3.052,
+                90.0, 60.0,
+                7078e3,
+                0.5 / 3600.0,  # 0.5 arcsec in degrees
+            )
+        ]
+        df_new = toObsSchema(new_results, satNo=12345, noiseCharacteristics=1.0 / 3600.0)
+        assert abs(df_new["sensorStDev"].iloc[0] - 0.5 / 3600.0) < 1e-12
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

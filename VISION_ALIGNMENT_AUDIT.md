@@ -110,7 +110,7 @@ The UCT Benchmark application captures approximately **75-80%** of the original 
 
 ## Missing Features (from transcripts)
 
-1. **Composite/Weighted Scoring System**: Louis (Feb 19, lines 553-561) described a calibration approach: "if the states are off, you lose points there... if your observations are incorrectly correlated, you lose points there. If your sum of residuals is really high, then you lose points there." The leaderboard currently ranks only by F1 score. There is no composite score combining binary metrics, state metrics, and residual metrics into a single weighted ranking.
+1. ~~**Composite/Weighted Scoring System**~~: **RESOLVED (2026-04-08)**. `compute_composite_score()` in `workers.py` implements Lewis's Feb 19 philosophy with weights 0.4/0.3/0.3 (binary/state/residual). Leaderboard ranks by `COALESCE(test_composite_score, composite_score, f1_score)`.
 
 2. **Event-Based Dataset Filtering (Maneuver/Breakup/Low-Thrust)**: Louis (Jan 22): "the different types of events... like breakup events or maneuver events, we would need a database of when objects are maneuvering... that's something that we didn't have readily available." The event tables exist in schema (`events`, `event_types`, `event_observations`) but contain no data. No ML labeling team output was ever integrated (Benchmarking Doc line 321: "the ML Model is not operating").
 

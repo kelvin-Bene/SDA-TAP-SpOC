@@ -41,7 +41,10 @@ def monteCarloPropagator(
 
     # unpack parameters list
     satelliteMass, crossSectionalArea, dragCoefficient, solarCoefficient = satelliteParameters
-    # Use config defaults only when caller passes 0 (meaning "use default")
+    # Honour caller-provided drag/solar coefficients when nonzero — the
+    # evaluation pipeline passes real per-satellite values from UDL/ESA
+    # DiscoWeb that are more accurate than the generic config defaults.
+    # Fall back to config defaults only when the caller passes 0.
     if dragCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
         dragCoefficient = config.dragCoef
     if solarCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
@@ -244,7 +247,8 @@ def ephemerisPropagator(
 
     # unpack parameters list
     satelliteMass, crossSectionalArea, dragCoefficient, solarCoefficient = satelliteParameters
-    # Use config defaults only when caller passes 0 (meaning "use default")
+    # Same as ephemerisPropagator: honour real per-satellite coefficients;
+    # fall back to config defaults for zero.
     if dragCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:
         dragCoefficient = config.dragCoef
     if solarCoefficient == 0 and satelliteMass != 0 and crossSectionalArea != 0:

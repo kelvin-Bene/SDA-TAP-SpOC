@@ -421,13 +421,13 @@ class TestLegacyCodeParsing:
         assert code.object_type == "H"  # HAMR
         assert code.target_percentage == "50"  # 50% target
         assert code.orbital_regime == "LEO"  # LEO
-        assert code.event_type == "NE"  # No Events
+        assert code.event == "NE"  # No Events
         assert code.sensor_type == "OP"  # Optical
         assert code.orbit_coverage == "S"
         assert code.track_gap == "S"
         assert code.observation_count == "S"
         assert code.object_count == "S"
-        assert code.fit_span_days == 7
+        assert code.fitspan_days == 7
 
     def test_roundtrip_code_generation(self):
         """Test that code can be parsed and regenerated."""

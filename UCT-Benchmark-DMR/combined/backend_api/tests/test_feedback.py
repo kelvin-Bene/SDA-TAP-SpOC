@@ -400,8 +400,11 @@ class TestUpdateFeedback:
         )
         assert resp.status_code == 404
 
-    def test_update_status(self, admin_client: TestClient):
-        """Admin can update the status of a feedback entry."""
+    def test_update_status_returns_501(self, admin_client: TestClient):
+        """PATCH /feedback is retired until the cross-project schema sync lands.
+        Admin attempts return 501 with a pointer to BACKLOG.md section A.
+        The previous 200-success behaviour referenced legacy columns
+        (resolution/updated_at) that no longer exist on production."""
         created = _create_feedback(admin_client)
         feedback_id = created["feedback_id"]
 
@@ -409,17 +412,13 @@ class TestUpdateFeedback:
             f"/api/v1/feedback/{feedback_id}",
             json={"status": "resolved"},
         )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["success"] is True
-        assert body["feedback_id"] == feedback_id
+        assert resp.status_code == 501
+        detail = resp.json()["detail"].lower()
+        assert "cross-project feedback schema" in detail
+        assert "backlog.md" in detail
 
-        # Verify the change persisted
-        detail = admin_client.get(f"/api/v1/feedback/{feedback_id}")
-        assert detail.json()["status"] == "resolved"
-
-    def test_update_resolution(self, admin_client: TestClient):
-        """Admin can add a resolution note."""
+    def test_update_resolution_returns_501(self, admin_client: TestClient):
+        """PATCH /feedback is retired (see test_update_status_returns_501)."""
         created = _create_feedback(admin_client)
         feedback_id = created["feedback_id"]
 
@@ -427,10 +426,7 @@ class TestUpdateFeedback:
             f"/api/v1/feedback/{feedback_id}",
             json={"resolution": "Fixed in v2.1.0"},
         )
-        assert resp.status_code == 200
-
-        detail = admin_client.get(f"/api/v1/feedback/{feedback_id}")
-        assert detail.json()["resolution"] == "Fixed in v2.1.0"
+        assert resp.status_code == 501
 
     def test_update_no_fields_returns_400(self, admin_client: TestClient):
         """Sending an empty update body (no status, no resolution) returns 400."""

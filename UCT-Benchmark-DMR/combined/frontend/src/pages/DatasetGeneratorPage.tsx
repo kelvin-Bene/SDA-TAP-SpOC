@@ -74,15 +74,26 @@ import {
 } from '@/components/ui/select';
 
 // Fallback coverage thresholds in case backend config endpoint is unavailable
+// Combo regimes use the most permissive (largest) threshold of their constituents
+// so a satellite only qualifies as "low" if it's low for ALL regimes in the combo.
 const DEFAULT_COVERAGE_THRESHOLDS: Record<OrbitalRegime, { low: number; display: string }> = {
   LEO: { low: 0.000213, display: '<0.02%' },
   MEO: { low: 0.000449, display: '<0.05%' },
   GEO: { low: 0.41656, display: '<42%' },
   HEO: { low: 0.20, display: '<20%' },
   ALL: { low: 0.10, display: '<10%' },
-  LMO: { low: 0.000331, display: '<0.03%' },
-  LMG: { low: 0.14, display: '<14%' },
-  MGH: { low: 0.20, display: '<20%' },
+  // 2-regime combos
+  LMO: { low: 0.000331, display: '<0.03%' },  // LEO+MEO
+  LGO: { low: 0.20843, display: '<21%' },     // LEO+GEO
+  LHO: { low: 0.10011, display: '<10%' },     // LEO+HEO
+  MGO: { low: 0.20850, display: '<21%' },     // MEO+GEO
+  MHO: { low: 0.10022, display: '<10%' },     // MEO+HEO
+  GHO: { low: 0.30828, display: '<31%' },     // GEO+HEO
+  // 3-regime combos
+  LMG: { low: 0.14, display: '<14%' },        // LEO+MEO+GEO
+  LMH: { low: 0.06689, display: '<7%' },      // LEO+MEO+HEO
+  LGH: { low: 0.20559, display: '<21%' },     // LEO+GEO+HEO
+  MGH: { low: 0.20, display: '<20%' },        // MEO+GEO+HEO
 };
 
 function buildThresholds(
@@ -737,8 +748,17 @@ export function DatasetGeneratorPage() {
                         { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km' },
                         { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7' },
                         { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO' },
+                        // 2-regime combos
                         { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits' },
+                        { value: 'LGO', label: 'LEO + GEO', desc: 'Low + geostationary' },
+                        { value: 'LHO', label: 'LEO + HEO', desc: 'Low + highly elliptical' },
+                        { value: 'MGO', label: 'MEO + GEO', desc: 'Medium + geostationary' },
+                        { value: 'MHO', label: 'MEO + HEO', desc: 'Medium + highly elliptical' },
+                        { value: 'GHO', label: 'GEO + HEO', desc: 'Geostationary + highly elliptical' },
+                        // 3-regime combos
                         { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO' },
+                        { value: 'LMH', label: 'LEO + MEO + HEO', desc: 'All except GEO' },
+                        { value: 'LGH', label: 'LEO + GEO + HEO', desc: 'All except MEO' },
                         { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO' },
                       ].map((regime) => (
                         <Label
@@ -1172,8 +1192,17 @@ export function DatasetGeneratorPage() {
                     { value: 'GEO', label: 'Geosynchronous Orbit', desc: 'a ≥ 42164 km', color: 'bg-orbital-geo' },
                     { value: 'HEO', label: 'Highly Elliptical Orbit', desc: 'Eccentricity ≥ 0.7', color: 'bg-orbital-heo' },
                     { value: 'ALL', label: 'All Regimes', desc: 'LEO + MEO + GEO + HEO', color: 'bg-gray-400' },
+                    // 2-regime combos
                     { value: 'LMO', label: 'LEO + MEO', desc: 'Combined low/medium orbits', color: 'bg-orbital-leo' },
+                    { value: 'LGO', label: 'LEO + GEO', desc: 'Low + geostationary', color: 'bg-orbital-leo' },
+                    { value: 'LHO', label: 'LEO + HEO', desc: 'Low + highly elliptical', color: 'bg-orbital-leo' },
+                    { value: 'MGO', label: 'MEO + GEO', desc: 'Medium + geostationary', color: 'bg-orbital-meo' },
+                    { value: 'MHO', label: 'MEO + HEO', desc: 'Medium + highly elliptical', color: 'bg-orbital-meo' },
+                    { value: 'GHO', label: 'GEO + HEO', desc: 'Geostationary + highly elliptical', color: 'bg-orbital-geo' },
+                    // 3-regime combos
                     { value: 'LMG', label: 'LEO + MEO + GEO', desc: 'All except HEO', color: 'bg-orbital-meo' },
+                    { value: 'LMH', label: 'LEO + MEO + HEO', desc: 'All except GEO', color: 'bg-orbital-meo' },
+                    { value: 'LGH', label: 'LEO + GEO + HEO', desc: 'All except MEO', color: 'bg-orbital-geo' },
                     { value: 'MGH', label: 'MEO + GEO + HEO', desc: 'All except LEO', color: 'bg-orbital-geo' },
                   ].map((regime) => (
                     <Label

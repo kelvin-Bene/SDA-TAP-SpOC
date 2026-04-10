@@ -66,29 +66,73 @@ npm run dev
 
 Navigate to: **http://localhost:5173**
 
-## 4. Generate Your First Dataset
+## 4. Configure Your UDL API Key
 
-### Option A: Web Interface
+1. Go to **Settings** (gear icon in the navigation)
+2. Paste your UDL API token in the API Key field
+3. Click **Save** — the connection indicator should turn green
 
-1. Open http://localhost:5173
-2. Click "Datasets" in the navigation
-3. Click "Generate New Dataset"
-4. Select orbital regime (LEO recommended for quick tests)
-5. Click "Generate"
+> **Demo mode:** If you don't have a UDL token, the demo site generates synthetic data. You can skip this step for demo/testing.
 
-### Option B: Command Line
+## 5. Generate Your First Dataset
 
-```python
-from uct_benchmark.database import DatabaseManager
-from uct_benchmark.api.apiIntegration import generateDataset
+1. Click **Generate Dataset** in the navigation
+2. **Select orbital regime:** LEO (Low Earth Orbit) is recommended for quick tests
+3. **Choose object type:** Unspecified is a safe default
+4. **Set observation parameters:**
+   - Sensor type (optical recommended)
+   - Event type (normal for first test)
+   - Date range (1 week is a good starting range)
+   - Search strategy (Hybrid is the default)
+5. **Enable optional features** (if desired):
+   - Downsampling (T2+): reduces observation density
+   - Simulation (T3+): fills coverage gaps with synthetic observations
+6. **Name your dataset** — this is how you'll find it later
+7. Click **Generate** — progress will display as the system queries UDL
 
-# Initialize database
-db = DatabaseManager()
-db.initialize()
+Once generation completes, you'll see a summary: number of objects, observation count, and tier.
 
-# Generate a test dataset (requires UDL token for real data)
-# For demo/testing, use the web interface with demo mode
-```
+## 6. Download Your Dataset
+
+1. Go to **My Datasets** to find your generated dataset
+2. Click the dataset to view its details and preview
+3. Click **Download** to save the JSON file
+
+The downloaded file contains only the essential observation fields:
+- `obTime` — observation timestamp
+- `ra`, `declination` — angular position (optical)
+- `azimuth`, `elevation` — angular position (radar)
+- `senlat`, `senlon`, `senalt` — sensor location
+- `idSensor` — which telescope/sensor
+- `range`, `rangeRate` — distance measurements (radar)
+- `trackId` — track association
+- `split` — train or validation label
+
+> **Important:** No satellite identification numbers are included. This is by design — participants must determine which observations belong to which objects using their UCT processor.
+
+## 7. Submit Your Results for Evaluation
+
+After running the downloaded dataset through your UCT processor:
+
+1. Click **Submit** in the navigation
+2. **Select the dataset** you evaluated against
+3. **Upload your UCTP output file** (JSON format) — supports both state-vector and TLE formats
+4. **Fill in metadata:**
+   - Algorithm name (required)
+   - Version (required)
+   - Description (optional)
+5. Click **Submit for Evaluation**
+
+The system will validate your file format, then queue evaluation. Results include:
+- **F1 Score** — observation-to-satellite correlation accuracy
+- **Position/Velocity RMS** — orbit determination accuracy
+- **Residual RMS** — predicted vs. actual observation fit
+- **Composite Score** — weighted combination (40% binary + 30% state + 30% residual)
+
+## 8. View Results & Leaderboard
+
+- **My Submissions** — view your evaluation results and per-satellite breakdowns
+- **Leaderboard** — see how your processor ranks against others, filterable by regime and tier
 
 ## Quick Reference
 

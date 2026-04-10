@@ -45,7 +45,13 @@ async def get_leaderboard(
     # S10: Clamp limit to safe range
     limit = max(1, min(limit, 500))
 
-    # Build query for completed submissions with results
+    # Build query for completed submissions with results.
+    #
+    # CTF train/val/test note: the leaderboard ranks by `test_composite_score`
+    # because the test split is the only one whose answer key participants
+    # could not have downloaded. The legacy `composite_score` (computed
+    # against the full dataset) and `f1_score` columns remain in the SELECT
+    # as fallbacks for submissions that pre-date the per-split scoring.
     query = """
         SELECT
             s.id as submission_id,
@@ -60,7 +66,10 @@ async def get_leaderboard(
             sr.precision,
             sr.recall,
             sr.position_rms_km,
-            sr.composite_score
+            sr.composite_score,
+            sr.train_composite_score,
+            sr.val_composite_score,
+            sr.test_composite_score
         FROM submissions s
         JOIN submission_results sr ON s.id = sr.submission_id
         JOIN datasets d ON s.dataset_id = d.id
@@ -90,8 +99,15 @@ async def get_leaderboard(
         query += " AND s.completed_at >= ?"
         params.append(month_cutoff)
 
-    # Order by composite score (falls back to F1 if composite not yet computed)
-    query += " ORDER BY COALESCE(sr.composite_score, sr.f1_score) DESC LIMIT ?"
+    # Rank by test_composite_score (CTF: only the test split is uncheatable).
+    # Triple COALESCE provides graceful degradation:
+    #   - test_composite_score: the canonical post-split metric
+    #   - composite_score: legacy submissions before per-split scoring
+    #   - f1_score: very old submissions before composite scoring
+    query += (
+        " ORDER BY COALESCE(sr.test_composite_score, sr.composite_score, sr.f1_score)"
+        " DESC LIMIT ?"
+    )
     params.append(limit)
 
     try:
@@ -103,10 +119,26 @@ async def get_leaderboard(
         logger.error(f"Failed to query leaderboard: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
-    # Build leaderboard entries with rank
+    # Build leaderboard entries with rank.
+    # The frontend reads `composite_score` as its headline column. To keep
+    # the visible ranking honest with the SQL ORDER BY (which uses the
+    # COALESCE chain on test_composite_score first), we shadow the
+    # `composite_score` field with the same COALESCE chain. The original
+    # legacy whole-dataset `composite_score` and the per-split breakdown
+    # are still exposed via the train/val/test_composite_score fields
+    # below, which the frontend can render in tooltips/details.
     entries = []
     for rank, row in enumerate(rows, start=1):
         row_dict = dict(zip(columns, row))
+        test_comp = row_dict.get("test_composite_score")
+        legacy_comp = row_dict.get("composite_score")
+        f1 = row_dict.get("f1_score")
+        # Headline composite for the leaderboard rank. Use test if present,
+        # else legacy whole-dataset composite, else f1.
+        headline_composite = (
+            test_comp if test_comp is not None
+            else (legacy_comp if legacy_comp is not None else f1)
+        )
         entries.append(
             LeaderboardEntry(
                 rank=rank,
@@ -117,7 +149,26 @@ async def get_leaderboard(
                 precision=float(row_dict.get("precision") or 0),
                 recall=float(row_dict.get("recall") or 0),
                 position_rms_km=float(row_dict.get("position_rms_km") or 0),
-                composite_score=float(row_dict["composite_score"]) if row_dict.get("composite_score") is not None else None,
+                composite_score=(
+                    float(headline_composite)
+                    if headline_composite is not None
+                    else None
+                ),
+                train_composite_score=(
+                    float(row_dict["train_composite_score"])
+                    if row_dict.get("train_composite_score") is not None
+                    else None
+                ),
+                val_composite_score=(
+                    float(row_dict["val_composite_score"])
+                    if row_dict.get("val_composite_score") is not None
+                    else None
+                ),
+                test_composite_score=(
+                    float(row_dict["test_composite_score"])
+                    if row_dict.get("test_composite_score") is not None
+                    else None
+                ),
                 submission_id=str(row_dict["submission_id"]),
                 submitted_at=row_dict.get("completed_at") or datetime.now(timezone.utc),
                 is_current_user=False,  # Would need auth context

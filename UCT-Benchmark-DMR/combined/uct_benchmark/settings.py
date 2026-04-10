@@ -90,8 +90,8 @@ eccentricity_HEO = 0.7  # a HEO object has eccentricity greater than or equal to
 
 # High Area-to-Mass Ratio (HAMR) threshold
 # Objects with A/M ratio above this are considered HAMR
-# Per Louis's documentation: HAMR objects have A/M > 0.1 m²/kg
-HAMR_THRESHOLD = 1.0  # m^2/kg - objects above this are HAMR (per Louis's documentation: A/M > 1 m²/kg)
+# Per Louis's documentation: HAMR objects have A/M > 1 m²/kg
+HAMR_THRESHOLD = 1.0  # m^2/kg
 
 # =============================================================================
 # ORBITAL COVERAGE THRESHOLDS (per Louis's Benchmarking Documentation)
@@ -104,6 +104,9 @@ COVERAGE_THRESHOLDS = {
     "LEO": 0.000213,   # < 0.0213% orbital arc is LOW coverage (as fraction)
     "MEO": 0.000449,   # < 0.0449% orbital arc is LOW coverage (as fraction)
     "GEO": 0.41656,    # < 41.656% orbital arc is LOW coverage (as fraction)
+    "HEO": 0.20,       # < 20% orbital arc is LOW coverage (estimate — HEO not in Lewis's doc;
+                        #   HEO coverage varies widely due to changing altitude; the downsampling
+                        #   profile uses min_coverage_pct=0.01, max_coverage_pct=0.10)
 }
 
 # =============================================================================
@@ -151,13 +154,23 @@ import os
 ESA_DISCOS_API_TOKEN = os.getenv("ESA_DISCOS_API_TOKEN", "")
 ESA_DISCOS_API_URL = "https://discosweb.esoc.esa.int/api"
 
-# Close Proximity threshold
-# Angular separation below which objects are considered "close apparent position"
-PROXIMITY_ANGULAR_THRESHOLD_DEG = 0.5  # degrees - ~30 arcminutes
-# Physical proximity threshold for actual close approach
-PROXIMITY_DISTANCE_THRESHOLD_KM = 100.0  # km - objects within this distance
-# Velocity difference threshold for Close (C) object type per Louis's spec
-PROXIMITY_VELOCITY_THRESHOLD_M_S = 100.0  # m/s - relative velocity difference
+# Close Proximity thresholds — calibrated against Louis's authoritative
+# UCT Labelling schema (provided-materials/UCT Benchmarking/Misc/UCT Labelling.xlsx,
+# "Satellite Specific" column):
+#     Close Relative Space:
+#         Distance between sat < 10 km
+#         Velocity between sat: < 10 m/s
+#
+# The angular threshold for "close apparent" is not in Louis's labelling
+# sheet. We use 30 arcsec (~0.0083°) because it matches typical ground-based
+# optical sensor seeing on a normal night per the team's Smear Explanation
+# document (FWHM percentile chart, 50th percentile = 0.375 arcsec; objects
+# within ~30 arcsec sit inside the cross-tag-confusion zone for a real UCTP).
+# Previous values were 100 km / 100 m/s / 0.5° — 10× looser than Louis's
+# spec on the physical thresholds and ~60× looser on angular separation.
+PROXIMITY_ANGULAR_THRESHOLD_DEG = 30.0 / 3600.0  # 30 arcsec ≈ 0.00833°
+PROXIMITY_DISTANCE_THRESHOLD_KM = 10.0           # km — per UCT Labelling.xlsx
+PROXIMITY_VELOCITY_THRESHOLD_M_S = 10.0          # m/s — per UCT Labelling.xlsx
 
 # Calibration satellites (well-known objects with good observations)
 # These are satellites with well-determined orbits used for verification
@@ -180,12 +193,16 @@ highPercentage = (0.9, 0.95, 1.0)
 standardPercentage = (0.4, 0.5, 0.6)
 lowPercentage = (0.0, 0.05, 0.1)
 
-# What is considered low orbital coverage (percentage), defined differently for LEO, MEO, and GEO
+# What is considered low orbital coverage, defined differently for LEO, MEO, and GEO
 # Orbit coverage is taken over a timespan of 3 orbital periods
 # Determined from taking bottom 25 percentile of orbit coverage from real observation data over a 10 day window
-lowCoverage_LEO = 0.0213   # 2.13% as fraction
-lowCoverage_MEO = 0.0449   # 4.49% as fraction
-lowCoverage_GEO = 0.41656  # 41.656% as fraction
+# NOTE: orbitCoverage() returns a FRACTION (0.0-1.0), so "0.0213% covered" = 0.000213 as fraction.
+# These MUST match COVERAGE_THRESHOLDS above. The original reference code had ambiguous units
+# (LEO=0.0213, GEO=41.656 — mixing fractions and percentages). We now use fractions consistently.
+lowCoverage_LEO = COVERAGE_THRESHOLDS["LEO"]   # 0.000213 = 0.0213% (per Lewis's Benchmarking Doc)
+lowCoverage_MEO = COVERAGE_THRESHOLDS["MEO"]   # 0.000449 = 0.0449% (per Lewis's Benchmarking Doc)
+lowCoverage_GEO = COVERAGE_THRESHOLDS["GEO"]   # 0.41656  = 41.656% (per Lewis's Benchmarking Doc)
+lowCoverage_HEO = COVERAGE_THRESHOLDS["HEO"]   # 0.20     = 20%     (estimate — not in Lewis's doc)
 # orbital coverage below which is too small to include in datasets
 # (set arbitrarily, arbitrarily assumed to be the same for all regimes) #
 tooLowtoInclude = 0.001
@@ -670,8 +687,17 @@ LEGACY_TARGET_PERCENTAGE_VALUES = ["50", "10", "01", "UN"]
 # Legacy Orbital Regime (Positions 4-6: 3 characters)
 LEGACY_REGIME_VALUES = [
     "LEO", "MEO", "GEO", "HEO", "ALL",
+    # 2-regime combinations (per Lewis's Benchmarking Documentation)
     "LMO",  # LEO + MEO
+    "LGO",  # LEO + GEO
+    "LHO",  # LEO + HEO
+    "MGO",  # MEO + GEO
+    "MHO",  # MEO + HEO
+    "GHO",  # GEO + HEO
+    # 3-regime combinations
     "LMG",  # LEO + MEO + GEO
+    "LMH",  # LEO + MEO + HEO
+    "LGH",  # LEO + GEO + HEO
     "MGH",  # MEO + GEO + HEO
 ]
 

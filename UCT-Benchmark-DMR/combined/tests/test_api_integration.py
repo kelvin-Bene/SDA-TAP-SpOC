@@ -1,68 +1,120 @@
 # -*- coding: utf-8 -*-
 """
-Integration Tests for Backend API with Supabase Database
+Integration Tests for Backend API
 
-These tests require the Supabase database to be configured via environment variables.
-They test the actual API endpoints with real database connections.
+Tests the FastAPI endpoints with auth dependency overridden (stub user)
+and a temp file-backed DuckDB so no real Supabase connection is needed.
 """
 
-import os
+import shutil
+import tempfile
+from pathlib import Path
+
 import pytest
 from datetime import datetime
-from dotenv import load_dotenv
-
-# Load environment variables before importing app
-load_dotenv()
-
 from fastapi.testclient import TestClient
-from contextlib import contextmanager
 
 
 # API prefix
 API_PREFIX = "/api/v1"
 
 
-@pytest.fixture(scope="module")
+# ---------------------------------------------------------------------------
+# Shared mock user + file-backed DuckDB for auth/database bypass.
+#
+# Uses a temp *file* rather than :memory: because DuckDB in-memory databases
+# are per-connection and Starlette's TestClient dispatches requests on a
+# background thread, which would get a separate (empty) in-memory database.
+# ---------------------------------------------------------------------------
+def _mock_current_user():
+    from backend_api.auth import CurrentUser
+    return CurrentUser(id="test-user", email="test@localhost", role="authenticated")
+
+
+# Module-level file-backed DB so all tests share the same schema
+_test_db = None
+_test_db_dir = None
+
+
+def _get_test_db():
+    global _test_db, _test_db_dir
+    if _test_db is None:
+        from uct_benchmark.database.connection import DatabaseManager
+        _test_db_dir = tempfile.mkdtemp()
+        db_path = Path(_test_db_dir) / "test_api_integration.duckdb"
+        _test_db = DatabaseManager(backend="duckdb", db_path=db_path)
+        _test_db.initialize(force=True)
+    return _test_db
+
+
+def _cleanup_test_db():
+    global _test_db, _test_db_dir
+    if _test_db is not None:
+        _test_db.close()
+        _test_db = None
+    if _test_db_dir is not None:
+        shutil.rmtree(_test_db_dir, ignore_errors=True)
+        _test_db_dir = None
+
+
+def _make_authed_client():
+    """Create a TestClient with auth + database dependencies overridden.
+
+    Uses create_test_app() to skip the production lifespan (which tries
+    to connect to a real database) and overrides both auth paths plus
+    the get_db dependency with a file-backed DuckDB.
+    """
+    import backend_api.database as db_module
+    from backend_api.main import create_test_app
+    from backend_api.auth import get_current_user as prod_get_current_user
+    from backend_api.middleware.auth import get_current_user as mw_get_current_user
+    from backend_api.database import get_db
+
+    test_app = create_test_app()
+    db = _get_test_db()
+
+    # Set the global _db_manager so any direct get_db() calls also work
+    db_module._db_manager = db
+
+    test_app.dependency_overrides[prod_get_current_user] = _mock_current_user
+    test_app.dependency_overrides[mw_get_current_user] = _mock_current_user
+    test_app.dependency_overrides[get_db] = lambda: db
+
+    client = TestClient(test_app)
+    return client, test_app
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_overrides():
+    """Clear dependency overrides and reset test mode after every test."""
+    yield
+    from backend_api.main import app, reset_test_mode
+    app.dependency_overrides.clear()
+    reset_test_mode()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Clean up the temp database after all tests complete."""
+    _cleanup_test_db()
+
+
+@pytest.fixture
 def client():
-    """Create FastAPI test client with database initialization."""
-    # Import after loading .env
-    from backend_api.main import app
-    from backend_api.database import init_database, close_database, _db_manager
-
-    # Initialize database for tests
-    try:
-        db = init_database()
-        print(f"Database initialized: {db.backend}")
-    except Exception as e:
-        pytest.skip(f"Could not initialize database: {e}")
-
-    # Create test client
-    with TestClient(app) as test_client:
-        yield test_client
-
-    # Cleanup
-    close_database()
+    """Create FastAPI test client with auth bypassed."""
+    client, _app = _make_authed_client()
+    return client
 
 
 class TestDatasetsEndpointIntegration:
     """Integration tests for /datasets endpoints."""
 
     def test_list_datasets(self, client):
-        """Test listing all datasets from Supabase."""
+        """Test listing datasets returns 200 with a list."""
         response = client.get(f"{API_PREFIX}/datasets/")
 
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-
-        # Dataset count is dynamic; just verify we got a non-empty list
-        assert len(data) > 0, "Expected at least one dataset in the database"
-
-        if len(data) > 0:
-            # Check dataset structure
-            dataset = data[0]
-            assert "id" in dataset
-            assert "name" in dataset
 
     def test_get_existing_dataset(self, client):
         """Test getting an existing dataset by ID."""

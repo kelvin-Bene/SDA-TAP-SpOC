@@ -368,13 +368,13 @@ class TestLegacyCodeParsing:
         assert code.object_type == "H"
         assert code.target_percentage == "50"
         assert code.orbital_regime == "LEO"
-        assert code.event_type == "NE"
+        assert code.event == "NE"
         assert code.sensor_type == "OP"
         assert code.orbit_coverage == "S"
         assert code.track_gap == "S"
         assert code.observation_count == "S"
         assert code.object_count == "S"
-        assert code.fit_span_days == 7
+        assert code.fitspan_days == 7
 
     def test_code_roundtrip(self):
         """Test that code can be parsed and regenerated."""
@@ -402,7 +402,7 @@ class TestLegacyCodeParsing:
         for event in ["MB", "BU", "LL", "NE"]:
             code = f"U50LEO{event}OPSSSS07"
             parsed = LegacyDatasetCode.from_code(code)
-            assert parsed.event_type == event
+            assert parsed.event == event
 
     def test_all_target_percentages(self):
         """Test all target percentage codes parse correctly."""

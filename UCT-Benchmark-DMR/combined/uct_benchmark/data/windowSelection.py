@@ -95,9 +95,6 @@ from uct_benchmark.settings import (
     lowPercentage,
     highPercentage,
     standardPercentage,
-    lowCoverage_LEO,
-    lowCoverage_MEO,
-    lowCoverage_GEO,
     longTrackGap,
     slide_resolution,
     batchSizeMultiplier,
@@ -1609,8 +1606,17 @@ def create_criteria_from_legacy_code(
         "GEO": ["GEO"],
         "HEO": ["HEO"],
         "ALL": ["LEO", "MEO", "GEO", "HEO"],
+        # 2-regime combos (per Lewis's "first letter of each + O" convention)
         "LMO": ["LEO", "MEO"],
+        "LGO": ["LEO", "GEO"],
+        "LHO": ["LEO", "HEO"],
+        "MGO": ["MEO", "GEO"],
+        "MHO": ["MEO", "HEO"],
+        "GHO": ["GEO", "HEO"],
+        # 3-regime combos (per Lewis's "first initials" convention)
         "LMG": ["LEO", "MEO", "GEO"],
+        "LMH": ["LEO", "MEO", "HEO"],
+        "LGH": ["LEO", "GEO", "HEO"],
         "MGH": ["MEO", "GEO", "HEO"],
     }
     regimes = regime_map.get(orbital_regime, ["LEO"])

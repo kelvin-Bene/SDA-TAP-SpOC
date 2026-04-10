@@ -225,9 +225,9 @@ class TestLegacyCodeIntegration:
         assert parsed.object_type == "H"
         assert parsed.target_percentage == "50"
         assert parsed.orbital_regime == "LEO"
-        assert parsed.event_type == "NE"
+        assert parsed.event == "NE"
         assert parsed.sensor_type == "OP"
-        assert parsed.fit_span_days == 7
+        assert parsed.fitspan_days == 7
 
     def test_legacy_code_generates_window_criteria(self):
         """Test legacy code can generate window criteria."""
@@ -620,8 +620,8 @@ class TestCrossComponentFlow:
             "object_type_code": parsed.object_type,
             "target_percentage": parsed.target_percentage,
             "regime": parsed.orbital_regime,
-            "event_code": parsed.event_type,
-            "timeframe": parsed.fit_span_days,
+            "event_code": parsed.event,
+            "timeframe": parsed.fitspan_days,
             "timeunit": "days",
         }
 
