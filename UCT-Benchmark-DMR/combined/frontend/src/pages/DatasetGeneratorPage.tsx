@@ -278,23 +278,8 @@ export function DatasetGeneratorPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
 
-  // Token availability check — demo mode skips this (no real API keys needed)
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
-  const [hasUdlToken, setHasUdlToken] = useState<boolean | null>(isDemoMode ? true : null);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    // Check credentials table first (new system), fall back to legacy profile token
-    api.getCredential('udl').then((res) => {
-      setHasUdlToken(res.data.is_configured);
-    }).catch(() => {
-      api.getCurrentUser().then((res) => {
-        setHasUdlToken(!!res.data.udl_token);
-      }).catch(() => {
-        setHasUdlToken(false);
-      });
-    });
-  }, [isDemoMode]);
+  // Demo branch: no token check needed — always allow generation
+  const hasUdlToken = true;
 
   // Optional user-provided dataset name
   const [customName, setCustomName] = useState('');
@@ -458,12 +443,6 @@ export function DatasetGeneratorPage() {
         ).join('\n');
       } else if (typeof detail === 'string') {
         errorMessage = detail;
-        // Only mark token as missing for genuinely-missing-token errors,
-        // not for validation failures like "token validation failed"
-        if (detail.toLowerCase().includes('token required') ||
-            detail.toLowerCase().includes('re-enter your token')) {
-          setHasUdlToken(false);
-        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
