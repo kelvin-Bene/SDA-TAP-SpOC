@@ -33,7 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
-import { api, apiClient } from '@/api/client';
+import { apiClient } from '@/api/client';
 import type {
   OrbitalRegime,
   DatasetGenerationConfig,
@@ -277,9 +277,6 @@ export function DatasetGeneratorPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
-
-  // Demo branch: no token check needed — always allow generation
-  const hasUdlToken = true;
 
   // Optional user-provided dataset name
   const [customName, setCustomName] = useState('');
@@ -532,20 +529,6 @@ export function DatasetGeneratorPage() {
           <p className="text-muted-foreground mt-1">
             Configure parameters to generate a custom benchmark dataset
           </p>
-          {hasUdlToken === false && (
-            <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-              <div>
-                <p className="font-medium text-destructive">UDL API Token Required</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  You need a UDL API token to generate datasets. Generation is disabled until a token is configured.
-                </p>
-                <Button variant="link" className="h-auto p-0 mt-1 text-primary" onClick={() => navigate('/settings')}>
-                  Go to Settings &rarr;
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Mode Tabs */}
@@ -637,18 +620,7 @@ export function DatasetGeneratorPage() {
         </div>
 
         {/* Step Content */}
-        <Card className={cn(hasUdlToken === false && 'relative')}>
-          {hasUdlToken === false && (
-            <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
-              <div className="text-center p-6">
-                <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                <p className="font-medium text-destructive">UDL API Token Required</p>
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate('/settings')}>
-                  Go to Settings
-                </Button>
-              </div>
-            </div>
-          )}
+        <Card>
           {/* ============ LEGACY MODE STEPS ============ */}
           {mode === 'legacy' && codeInputMode === 'wizard' && (
             <>
@@ -2255,7 +2227,7 @@ export function DatasetGeneratorPage() {
               ) : (
                 <Button
                   onClick={handleGenerate}
-                  disabled={isGenerating || !isTimeframeValid || !hasUdlToken}
+                  disabled={isGenerating || !isTimeframeValid}
                   className="gap-2"
                 >
                   {isGenerating ? (
@@ -2282,7 +2254,7 @@ export function DatasetGeneratorPage() {
                 ) : (
                   <Button
                     onClick={handleLegacyGenerate}
-                    disabled={isGenerating || !legacyCodeValidation.valid || !hasUdlToken}
+                    disabled={isGenerating || !legacyCodeValidation.valid}
                     className="gap-2"
                   >
                     {isGenerating ? (
@@ -2302,7 +2274,7 @@ export function DatasetGeneratorPage() {
                 // Direct code entry mode
                 <Button
                   onClick={handleLegacyGenerate}
-                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16 || !hasUdlToken}
+                  disabled={isGenerating || !legacyCodeValidation.valid || directCodeInput.length !== 16}
                   className="gap-2"
                 >
                   {isGenerating ? (
