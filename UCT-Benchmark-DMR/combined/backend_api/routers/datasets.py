@@ -14,6 +14,7 @@ from starlette.responses import StreamingResponse
 from loguru import logger
 
 from backend_api.auth import CurrentUser, get_current_user
+from backend_api.demo import is_demo_mode
 from backend_api.middleware.auth import require_admin
 from backend_api.database import get_db
 from backend_api.jobs.workers import submit_dataset_generation
@@ -472,29 +473,32 @@ async def create_dataset(
         f"Creating dataset with: name={dataset_request.name}, regime={dataset_request.regime}, tier={dataset_request.tier}"
     )
 
-    # Fetch and validate user's API tokens
-    tokens = get_user_tokens(db, user.id)
-    if tokens["udl_token"] is None:
-        # Check if token exists but decryption failed vs never set
-        raw = db.execute(
-            "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
-        ).fetchone()
-        if raw and raw[0]:
+    # Fetch and validate user's API tokens (skipped in demo mode)
+    _demo = is_demo_mode()
+    tokens: dict = {"udl_token": None, "esa_token": None}
+    if not _demo:
+        tokens = get_user_tokens(db, user.id)
+        if tokens["udl_token"] is None:
+            # Check if token exists but decryption failed vs never set
+            raw = db.execute(
+                "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
+            ).fetchone()
+            if raw and raw[0]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+                )
             raise HTTPException(
                 status_code=400,
-                detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+                detail="UDL API token required. Set it in Profile Settings.",
             )
-        raise HTTPException(
-            status_code=400,
-            detail="UDL API token required. Set it in Profile Settings.",
-        )
 
-    valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
-    if not valid:
-        raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
+        valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
+        if not valid:
+            raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
 
-    if not tokens.get("esa_token"):
-        logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
+        if not tokens.get("esa_token"):
+            logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
 
     # Prepare generation parameters (name will be set after uniqueness check)
     generation_params = {
@@ -643,10 +647,22 @@ async def create_dataset(
 
     # Submit background job AFTER commit so the worker can see the dataset row
     try:
-        job = submit_dataset_generation(
-            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
-            user_id=user.id,
-        )
+        if _demo:
+            from backend_api.demo.mock_workers import run_mock_dataset_generation
+            from backend_api.jobs import get_job_manager, JobType
+            from concurrent.futures import ThreadPoolExecutor
+            job_manager = get_job_manager()
+            job = job_manager.create_job(
+                JobType.DATASET_GENERATION,
+                metadata={"dataset_id": dataset_id, "config": generation_params, "user_id": user.id},
+            )
+            _executor = ThreadPoolExecutor(max_workers=1)
+            _executor.submit(run_mock_dataset_generation, job.id, dataset_id, generation_params)
+        else:
+            job = submit_dataset_generation(
+                dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
+                user_id=user.id,
+            )
 
         # Update dataset with job_id (outside transaction, non-critical)
         db.execute(
@@ -1244,28 +1260,31 @@ async def create_dataset_from_legacy_code(
 
     logger.info(f"Creating dataset from legacy code: {legacy_code}")
 
-    # Fetch and validate user's API tokens (same check as create_dataset)
-    tokens = get_user_tokens(db, user.id)
-    if tokens["udl_token"] is None:
-        raw = db.execute(
-            "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
-        ).fetchone()
-        if raw and raw[0]:
+    # Fetch and validate user's API tokens (skipped in demo mode)
+    _demo = is_demo_mode()
+    tokens: dict = {"udl_token": None, "esa_token": None}
+    if not _demo:
+        tokens = get_user_tokens(db, user.id)
+        if tokens["udl_token"] is None:
+            raw = db.execute(
+                "SELECT udl_token FROM profiles WHERE id = ?", (user.id,)
+            ).fetchone()
+            if raw and raw[0]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+                )
             raise HTTPException(
                 status_code=400,
-                detail="UDL token decryption failed. Please re-enter your token in Profile Settings.",
+                detail="UDL API token required. Set it in Profile Settings.",
             )
-        raise HTTPException(
-            status_code=400,
-            detail="UDL API token required. Set it in Profile Settings.",
-        )
 
-    valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
-    if not valid:
-        raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
+        valid, err = await asyncio.to_thread(validate_udl_token, tokens["udl_token"])
+        if not valid:
+            raise HTTPException(status_code=400, detail=f"UDL token validation failed: {err}")
 
-    if not tokens.get("esa_token"):
-        logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
+        if not tokens.get("esa_token"):
+            logger.warning(f"User {user.id} has no ESA token — DiscoWeb data will be unavailable")
 
     # Map regime to OrbitalRegime enum
     regime_map = {"LEO": OrbitalRegime.LEO, "MEO": OrbitalRegime.MEO, "GEO": OrbitalRegime.GEO, "HEO": OrbitalRegime.HEO}
@@ -1313,11 +1332,22 @@ async def create_dataset_from_legacy_code(
         )
         dataset_id = result.fetchone()[0]
 
-        # Submit background job (pass validated tokens)
-        job = submit_dataset_generation(
-            dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
-            user_id=user.id,
-        )
+        # Submit background job (mock in demo mode, real otherwise)
+        if _demo:
+            from backend_api.demo.mock_workers import run_mock_dataset_generation
+            from backend_api.jobs import get_job_manager as _get_jm, JobType
+            from concurrent.futures import ThreadPoolExecutor
+            _jm = _get_jm()
+            job = _jm.create_job(
+                JobType.DATASET_GENERATION,
+                metadata={"dataset_id": dataset_id, "config": generation_params, "user_id": user.id},
+            )
+            ThreadPoolExecutor(max_workers=1).submit(run_mock_dataset_generation, job.id, dataset_id, generation_params)
+        else:
+            job = submit_dataset_generation(
+                dataset_id, generation_params, tokens["udl_token"], tokens.get("esa_token"),
+                user_id=user.id,
+            )
 
         # Update with job_id (separate auto-committed statement)
         db.execute(
