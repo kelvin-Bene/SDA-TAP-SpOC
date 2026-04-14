@@ -278,10 +278,12 @@ export function DatasetGeneratorPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
 
-  // Token availability check
-  const [hasUdlToken, setHasUdlToken] = useState<boolean | null>(null);
+  // Token availability check — demo mode skips this (no real API keys needed)
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  const [hasUdlToken, setHasUdlToken] = useState<boolean | null>(isDemoMode ? true : null);
 
   useEffect(() => {
+    if (isDemoMode) return;
     // Check credentials table first (new system), fall back to legacy profile token
     api.getCredential('udl').then((res) => {
       setHasUdlToken(res.data.is_configured);
@@ -292,7 +294,7 @@ export function DatasetGeneratorPage() {
         setHasUdlToken(false);
       });
     });
-  }, []);
+  }, [isDemoMode]);
 
   // Optional user-provided dataset name
   const [customName, setCustomName] = useState('');
