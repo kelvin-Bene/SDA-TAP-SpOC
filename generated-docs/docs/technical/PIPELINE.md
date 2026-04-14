@@ -4,7 +4,7 @@
 purpose: High-level overview of the UCT Benchmark data pipeline and flow
 status: active
 related_files: [technical/PIPELINE_DEEP_DIVE.md, technical/ARCHITECTURE.md, technical/CONFIGURATION.md]
-last_updated: 2026-02-03
+last_updated: 2026-04-14
 -->
 
 ## Overview
@@ -54,76 +54,242 @@ The pipeline operates in three main phases:
 
 <!-- AI_SECTION: phase1_dataset_creation -->
 
-## Phase 1: Dataset Creation
+## Phase 1: Dataset Creation (Detailed Step Order)
 
-### Step 1: Configuration (GUI)
-**File**: `uct_benchmark/Create_Dataset.py` → `launch_gui()`
+The `generateDataset()` function in `apiIntegration.py` executes the following steps in order. Each step is described below.
 
-Users configure dataset parameters through a CustomTKinter GUI:
-- **Orbital Regime**: LEO, MEO, GEO, or combinations
-- **Sensor Type**: Optical, Radar, or specific sensors
-- **Time Window**: Duration of observation window (days)
-- **Object Count**: Number of satellites in dataset
-
-### Step 2: Dataset Code Generation
-**File**: `uct_benchmark/data/windowTools.py` → `codeGenerator()`
-
-Converts user configuration into standardized "Dataset Codes" that encode:
-- Regime classification
-- Sensor requirements
-- Time span parameters
-- Object count targets
-
-### Step 3: Batch Data Pull
-**File**: `uct_benchmark/data/windowCheck.py` → `batchPull()`
-
-Queries the Unified Data Library (UDL) for observation data:
 ```
-1. Construct query parameters from dataset code
-2. Loop through sensor types and orbital regimes
-3. Pull data in 10-minute time chunks to avoid timeouts
-4. Compile results into a single DataFrame
+┌──────────────────────────────────────────────────────────────────────────┐
+│                  generateDataset() — FULL PIPELINE                      │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Step 1   Calculate Time Window                                          │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 2   Fetch Observations (with fallback strategy)                    │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 3   Resilient Satellite Filtering                                  │
+│     │     (skip satellites with no data, continue with the rest)         │
+│     ▼                                                                    │
+│  Step 4   Query State Vectors                                            │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 5   Query TLEs                                                     │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 6   Window Selection Algorithm (optional)                          │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 7   Object Type Filtering (optional)                               │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 8   Target Percentage Enforcement (optional)                       │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 9   Event Filtering (optional)                                     │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 10  Downsampling — T1/T2 (tier-driven)                             │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 11  Simulation — T3 (tier-driven)                                  │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 12  True Negative Addition (non-reference observations)            │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 13  Track Binning                                                  │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 14  TrackTLE Generation (optional)                                 │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 15  Decorrelation (satNo removal + answer key)                     │
+│     │                                                                    │
+│     ▼                                                                    │
+│  Step 16  Output / Persist                                               │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Step 4: Window Selection
-**File**: `uct_benchmark/data/windowCheck.py` → `windowMain()`, `windowCheck()`, `bisect()`, `slide()`
+---
 
-Intelligent window selection algorithm:
+### Step 1: Calculate Time Window
 
-1. **Initial Batch Pull**: Pull data for `batchSizeMultiplier × windowSize` days
-2. **Threshold Check**: Score the batch against desired tier
-3. **Bisection**: Recursively divide batch to find high-quality sub-regions
-4. **Sliding Window**: Fine-tune window position for optimal score
-5. **Exponential Decay**: If threshold not met, expand search with decaying batch sizes
+**File**: `uct_benchmark/api/apiIntegration.py` — top of `generateDataset()`
 
-```python
-# Threshold Tiers
-T1 = 4  # May require downsampling (best)
-T2 = 3  # Requires downsampling
-T3 = 2  # Requires observation simulation
-T4 = 1  # Requires object simulation
-T5 = 0  # Impossible (worst)
+Converts user-supplied `timeframe`, `timeunit`, and `end_time` into concrete UTC start/end timestamps used for all subsequent API queries.
+
+- If `end_time` is `"now"`, uses the current UTC time.
+- Otherwise, uses the caller-supplied datetime and computes the start via `end_time - Timedelta(timeframe)`.
+- Produces the UDL-formatted `sweep_time` range string (e.g. `">now-7 days"` or `"2026-01-01T00:00:00Z..2026-01-08T00:00:00Z"`).
+
+---
+
+### Step 2: Fetch Observations (with Fallback Strategy)
+
+**File**: `uct_benchmark/api/apiIntegration.py` — `_fetch_observations_fast()`, `_fetch_observations_windowed()`, `_fetch_observations_hybrid()`
+
+Queries the Unified Data Library (UDL) for observation records. Three strategies are available, controlled by the `search_strategy` parameter:
+
+| Strategy   | How It Works                                                                 |
+|------------|-----------------------------------------------------------------------------|
+| `fast`     | Single batch query per satellite using `satNo` filter                       |
+| `windowed` | Time-based chunked query in `window_size_minutes`-minute intervals          |
+| `hybrid`   | Tries `fast` first; falls back to `windowed` if no results are returned     |
+
+**Automatic fallback**: If the selected strategy (fast or hybrid) returns zero observations, the pipeline automatically retries with the `windowed` strategy. This handles cases where satellite-number-based queries fail but time-based queries succeed.
+
+---
+
+### Step 3: Resilient Satellite Filtering
+
+**File**: `uct_benchmark/api/apiIntegration.py` — "RESILIENT SATELLITE FILTERING" block
+
+This step prevents the pipeline from failing when some of the requested satellites have no observation data in UDL. This is documented as the **number-one failure mode in production** -- randomly selected satellites often have no recent observations.
+
+**How it works:**
+
+1. After observations are fetched, the pipeline identifies which of the requested `satIDs` actually have rows in the returned DataFrame.
+2. Satellites with zero observations are logged as warnings and **skipped** rather than causing the entire pipeline to error.
+3. The `satIDs` list is culled to include only satellites that returned data.
+4. A post-fetch date filter removes any observations outside the requested `[start, end]` range (the UDL API can return slightly out-of-range records).
+
+**Failure conditions:**
+- If *zero* satellites have any data, a `ValueError` is raised with a diagnostic message suggesting the user expand the time range or pick different satellites.
+- If some satellites are missing, a warning is logged listing the skipped NORAD IDs, and the pipeline continues with the remainder.
+
+```
+Requested: [25544, 28654, 99999, 12345]
+                │
+                ▼
+   UDL returns data for: [25544, 28654]
+   No data for:          [99999, 12345]  ← logged as warning, skipped
+                │
+                ▼
+   Pipeline continues with satIDs = [25544, 28654]
 ```
 
-### Step 5: Scoring
-**File**: `uct_benchmark/data/basicScoringFunction.py` → `basicScoring()`
+---
 
-Evaluates data quality based on:
-- **Orbital Coverage**: Percentage of orbit observed
-- **Observation Count**: Number of observations per period
-- **Track Gap**: Longest duration between observations
-- **Object Completeness**: Number of objects meeting criteria
+### Step 4: Query State Vectors
 
-Returns a tier classification (T1-T5) that determines subsequent processing.
+**File**: `uct_benchmark/api/apiIntegration.py` — `asyncUDLBatchQuery()` for `"statevector"`
 
-### Step 5b: Tier-Based Processing
+For each satellite that survived Step 3, queries UDL for state vectors (position, velocity, covariance) within the sweep time range.
 
-Based on the tier classification, additional processing is applied:
+- Duplicate state vectors are deduplicated, preferring records that include covariance data.
+- The most recent state vector with covariance is kept per satellite.
+- Drag coefficient and solar radiation pressure coefficient are filled with defaults if missing.
+- Physical parameters (mass, cross-sectional area) are retrieved from ESA Discosweb. If no ESA token is available, reasonable defaults are applied (1000 kg, 10 m^2).
+- If a satellite has observations but no state vector, it is dropped from all downstream data.
 
-#### T1/T2: Downsampling
-**File**: `uct_benchmark/data/dataManipulation.py` → `downsampleData()`
+---
 
-When data quality is too high, downsampling reduces it to target levels:
+### Step 5: Query TLEs
+
+**File**: `uct_benchmark/api/apiIntegration.py` — `UDLQuery()` for `"elset/current"` or `asyncUDLBatchQuery()` for `"elset"`
+
+Retrieves Two-Line Element sets for each satellite.
+
+- If `end_time == "now"`, uses the `elset/current` endpoint (single batch call).
+- Otherwise, queries individual TLEs within the sweep time range.
+- **Fallback**: If the time-ranged query returns empty, falls back to `elset/current`.
+- TLE lines are parsed into orbital elements via `parseTLE()`.
+- If a satellite has observations and state vectors but no TLE, it is dropped from all downstream data.
+
+---
+
+### Step 6: Window Selection Algorithm (Optional)
+
+**File**: `uct_benchmark/data/windowCheck.py` — `find_optimal_window()`
+
+Enabled when `use_window_selection=True`. Uses a bisecting search to find the optimal sub-window within the fetched observation batch.
+
+1. **Bisection**: Recursively divides the batch to find high-quality sub-regions.
+2. **Sliding window**: Fine-tunes window position for optimal score.
+3. **Tier assignment**: Maps the window quality to a data tier (`T1`-`T4`), which controls later downsampling/simulation behavior.
+
+If window selection fails, the pipeline logs a warning and continues with the full time range.
+
+---
+
+### Step 7: Object Type Filtering (Optional)
+
+**File**: `uct_benchmark/api/apiIntegration.py` — `filter_by_object_type_code()`
+
+Controlled by the `object_type_code` parameter (positions in the 16-character dataset code):
+
+| Code | Meaning          | Description                                                |
+|------|------------------|------------------------------------------------------------|
+| `U`  | Unspecified      | No filtering applied (default)                             |
+| `H`  | HAMR             | High Area-to-Mass Ratio objects only                       |
+| `C`  | Close            | Close-proximity objects (physical proximity filtering)     |
+| `A`  | Apparent         | Apparent-magnitude-based filtering                         |
+| `N`  | Calibration      | Calibration objects only                                   |
+
+When code is not `U`, satellites and their observations are filtered based on physical properties (mass, cross-section), orbital elements, and state data. The `satIDs`, `state_truth_data`, and `elset_truth_data` are all updated to reflect the filtered set.
+
+---
+
+### Step 8: Target Percentage Enforcement (Optional)
+
+**File**: `uct_benchmark/api/apiIntegration.py` — `enforce_target_percentage()`
+
+Controlled by the `target_percentage` parameter (positions 2-3 of the 16-character dataset code). This step adjusts the ratio of "target" (correlated) objects to "UCT" (uncorrelated) objects in the final dataset.
+
+**How it works:**
+
+1. The step receives the list of satellites that matched the object type filter (from Step 7) as the "target" set and all current satellites as the full pool.
+2. It enforces a specific fraction of the dataset's objects to be from the target set.
+3. If too many target objects exist, excess targets are randomly removed. If too few exist, additional non-target objects are added or target objects are supplemented.
+4. After enforcement, `satIDs`, `state_truth_data`, and `elset_truth_data` are updated.
+
+**Parameter values:**
+
+| Value | Meaning                                               |
+|-------|-------------------------------------------------------|
+| `UN`  | Unspecified -- no enforcement applied (default)       |
+| `25`  | 25% of objects should be targets                      |
+| `50`  | 50% of objects should be targets                      |
+| `75`  | 75% of objects should be targets                      |
+
+**Precondition**: Only applied when `object_type_code` is not `U` (since targets are defined by the object type filter).
+
+---
+
+### Step 9: Event Filtering (Optional)
+
+**File**: `uct_benchmark/api/apiIntegration.py` — `filter_satellites_by_event_code()`
+
+Controlled by the `event_code` parameter. This step filters the dataset to include only satellites that have experienced (or not experienced) specific orbital events within the observation window.
+
+**How it works:**
+
+1. The filter examines TLE data (`elset_truth_data`) for each satellite to detect orbital events (maneuvers, breakups, long-duration thrusts).
+2. Only satellites matching the requested event type are retained.
+3. If no satellites match the event code, a warning is logged and the pipeline continues with all satellites (graceful degradation).
+
+**Event codes:**
+
+| Code | Event Type    | Description                                                    |
+|------|---------------|----------------------------------------------------------------|
+| `NE` | No Events     | Default -- no event filtering applied                          |
+| `MB` | Maneuver      | Include only satellites that performed orbital maneuvers       |
+| `BU` | Breakup       | Include only satellites involved in breakup events             |
+| `LL` | Long Thrust   | Include only satellites with long-duration thrust events       |
+
+**Failure handling**: If event filtering raises an exception, the pipeline logs a warning and continues with unfiltered data.
+
+---
+
+### Step 10: Downsampling (T1/T2) -- Tier-Driven
+
+**File**: `uct_benchmark/data/dataManipulation.py` — `apply_downsampling()`
+
+Automatically enabled for tiers T2, T3, and T4. Disabled for T1 (data quality already sufficient). Reduces observation density to match the target tier's quality profile.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │              THREE-STAGE DOWNSAMPLING PIPELINE                   │
@@ -139,10 +305,14 @@ When data quality is too high, downsampling reduces it to target levels:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-#### T3: Observation Simulation
-**File**: `uct_benchmark/simulation/simulateObservations.py` → `epochsToSim()`, `simulateObs()`
+---
 
-When data quality is insufficient, synthetic observations are added:
+### Step 11: Simulation (T3) -- Tier-Driven
+
+**File**: `uct_benchmark/data/dataManipulation.py` — `apply_simulation_to_gaps()`
+
+Automatically enabled for tiers T3 and T4. Fills observation gaps with synthetic observations.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │              T3 SIMULATION PIPELINE                              │
@@ -165,29 +335,76 @@ When data quality is insufficient, synthetic observations are added:
 ```
 
 #### T4: Object Simulation (Not Yet Implemented)
-For very sparse data, entire synthetic satellites may need to be generated.
+For very sparse data, entire synthetic satellites may need to be generated. T4 currently behaves identically to T3.
 
 <!-- AI_IMPROVEMENT_OPPORTUNITY: T4 object simulation is not implemented. See planning/FUTURE_IMPLEMENTATIONS.md for details. -->
 
-### Step 6: Reference State Pull
-**File**: `uct_benchmark/api/apiIntegration.py` → `pullStates()`
+---
 
-For selected window, retrieves:
-- Reference State Vectors (position, velocity, covariance)
-- Reference TLEs (Two-Line Elements)
-- Satellite physical parameters (mass, cross-section)
+### Step 12: True Negative Addition
 
-### Step 7: Dataset Save
-**File**: `uct_benchmark/api/apiIntegration.py` → `saveDataset()`
+**File**: `uct_benchmark/api/apiIntegration.py` — `add_non_reference_observations()`
 
-Creates output JSON with structure:
-```json
-{
-  "dataset_obs": [...],      // Decorrelated observations (UCTs)
-  "dataset_elset": [...],    // Decorrelated TLEs
-  "reference": [...]         // Ground truth with correlations
-}
-```
+Enabled when `include_non_ref_obs=True`. Adds observations from satellites that are **not** in the reference set. These serve as True Negatives during evaluation -- observations that a correct UCTP algorithm should *not* associate with any known reference orbit.
+
+- Queries UDL for additional observations in the same time window.
+- Selects satellites not in the reference `satIDs` list.
+- Adds exactly 2 observations per non-reference satellite (per Louis's spec, this makes Initial Orbit Determination impossible).
+- The `non_ref_ratio` parameter controls how many non-reference observations to add relative to the reference count (default 10%).
+
+---
+
+### Step 13: Track Binning
+
+**File**: `uct_benchmark/api/apiIntegration.py` — `binTracks()`
+
+Groups observations into artificial track bins based on temporal proximity. Each bin represents a contiguous observation arc for a single satellite.
+
+- Assigns a `trackId` and `origObjectId` to each observation in the decorrelated dataset.
+- These IDs replace the removed `satNo` so that UCTP algorithms can see track structure without knowing true identity.
+
+---
+
+### Step 14: TrackTLE Generation (Optional)
+
+**File**: `uct_benchmark/simulation/tracktle.py` — `generate_tracktle()`
+
+Enabled when `output_tracktle=True`. Performs Initial Orbit Determination (IOD) on each satellite's observation track to produce a fitted TLE.
+
+- Requires at least 3 observations per satellite.
+- Outputs TLE line pairs, convergence status, RMS residuals, and iteration count.
+- Failures for individual satellites are logged as warnings; the pipeline continues.
+
+---
+
+### Step 15: Decorrelation
+
+**File**: `uct_benchmark/api/apiIntegration.py` — answer key generation + column removal
+
+The decorrelation step removes identifying metadata so that UCTP algorithms cannot trivially correlate observations:
+
+1. **Answer key generation**: Maps each observation `id` to its true `satNo`. Stored separately for evaluation.
+2. **Column removal**: Drops `satNo`, `idOnOrbit`, `origObjectId`, `rawFileURI`, `createdAt`, `trackId`, `is_non_reference`, and other identifying columns from the dataset output.
+3. **Shuffle**: The dataset is randomly shuffled to prevent ordering-based correlation.
+
+---
+
+### Step 16: Output / Persist
+
+**File**: `uct_benchmark/api/apiIntegration.py` — end of `generateDataset()`
+
+Returns the final artifacts:
+
+| Return Value        | Description                                            |
+|---------------------|--------------------------------------------------------|
+| `dataset`           | Decorrelated observations (UCTs) -- no `satNo`         |
+| `obs_truth_data`    | Truth observations with `satNo` intact                 |
+| `state_truth_data`  | Reference state vectors (position, velocity, covariance) |
+| `elset_truth_data`  | Reference TLEs (Two-Line Elements)                     |
+| `satIDs`            | Array of satellite NORAD IDs that made it through      |
+| `performance_data`  | Dict with timing, tier, metadata from all steps        |
+
+If `use_database=True`, all data is also persisted to a DuckDB database.
 
 <!-- /AI_SECTION -->
 
@@ -321,8 +538,34 @@ Creates PDF report containing:
                               │
                               ▼
                     ┌─────────────────────┐
+                    │  Resilient Filter   │
+                    │  (skip missing)     │
+                    └──────────┬──────────┘
+                               │
+                              ▼
+                    ┌─────────────────────┐
                     │   Window Selection  │
                     │   & Scoring         │
+                    └──────────┬──────────┘
+                               │
+                              ▼
+                    ┌─────────────────────┐
+                    │  Object Type /      │
+                    │  Target % / Event   │
+                    │  Filtering          │
+                    └──────────┬──────────┘
+                               │
+                              ▼
+                    ┌─────────────────────┐
+                    │  Downsample / Sim   │
+                    │  (Tier-Driven)      │
+                    └──────────┬──────────┘
+                               │
+                              ▼
+                    ┌─────────────────────┐
+                    │  True Negatives +   │
+                    │  Track Binning +    │
+                    │  Decorrelation      │
                     └──────────┬──────────┘
                                │
                               ▼
@@ -370,13 +613,14 @@ Creates PDF report containing:
 | Phase | File | Purpose |
 |-------|------|---------|
 | 1 | `Create_Dataset.py` | Main driver for dataset creation |
+| 1 | `apiIntegration.py` | API calls, pipeline orchestration, data saving |
 | 1 | `windowCheck.py` | Window selection algorithm |
 | 1 | `windowTools.py` | GUI and code generation |
 | 1 | `basicScoringFunction.py` | Data quality scoring |
-| 1 | `apiIntegration.py` | API calls and data saving |
 | 1 | `dataManipulation.py` | **T1/T2 Downsampling** (3-stage pipeline) |
 | 1 | `simulateObservations.py` | **T3 Simulation** (epoch selection + obs generation) |
 | 1 | `propagator.py` | Orbit propagation for simulation |
+| 1 | `tracktle.py` | TrackTLE generation from observation tracks |
 | 2 | `MainMVP.py` | UCTP execution driver |
 | 2 | `dummyUCTP.py` | Test UCTP implementation |
 | 3 | `Evaluation.py` | Main evaluation driver |
@@ -403,6 +647,9 @@ See `uct_benchmark/settings.py` for adjustable parameters:
   - `simulation_bins_per_period`, `simulation_min_obs_per_bin`
   - `simulation_max_ratio`, `simulation_target_increase`
   - `simulation_track_size`, `simulation_track_spacing`
+- **Event filtering**: `event_code` (NE, MB, BU, LL)
+- **Target percentage**: `target_percentage` (UN, 25, 50, 75)
+- **Object type**: `object_type_code` (U, H, C, A, N)
 
 See [CONFIGURATION.md](CONFIGURATION.md) for detailed parameter documentation.
 

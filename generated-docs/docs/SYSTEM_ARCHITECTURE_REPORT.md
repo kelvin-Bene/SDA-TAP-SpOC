@@ -38,13 +38,13 @@
 │  └────────┘ └──────────┘ └───────────┘ └───────────┘ └───────────┘ │
 │         Zustand State  |  Shadcn/UI  |  Cesium 3D  |  TailwindCSS  │
 └───────────────────────────────┬──────────────────────────────────────┘
-                                │ HTTP (localhost:5173 → :8000)
+                                │ HTTP (localhost:3000 → :8000)
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                     BACKEND API (FastAPI :8000)                       │
 │                                                                      │
 │  Routers:  /datasets  /submissions  /results  /leaderboard           │
-│            /jobs      /uctp         /credentials  /auth              │
+│            /jobs      /events       /credentials  /auth  /feedback   │
 │                                                                      │
 │  Middleware:  CORS  │  AuditMiddleware  │  QueryLoggingMiddleware     │
 │  Auth:        JWT (HS256) via Supabase  │  Feature-flagged           │
@@ -479,8 +479,7 @@ The system supports two database backends controlled by the `DB_BACKEND` environ
 | `created_by` | `UUID` | FK to `users(id)` |
 | `created_at` | `TIMESTAMPTZ` | Record creation time |
 
-**Written by:** UCTP router (`POST /api/v1/uctp/runs/`), `uctp_workers.py`
-**Read by:** UCTP router (`GET /api/v1/uctp/runs/`)
+**Status:** *Planned — UCTP router and tables not yet implemented in code*
 
 ---
 
@@ -1145,10 +1144,11 @@ Job status updated to `completed` with progress 100.
 
 ### Architecture Overview
 
-The UCTP Lab provides two entry points:
+The UCTP Lab provides entry points:
 
 1. **CLI:** `run_uctp_lab.py` — direct command-line execution
-2. **REST API:** `POST /api/v1/uctp/runs/` — background job execution
+
+> **Note:** The UCTP REST API endpoints (`/api/v1/uctp/*`) are planned but not yet implemented.
 
 Both converge on `UCTPPipeline.run()` in `uct_benchmark/uctp_lab/pipeline.py`.
 
@@ -1741,7 +1741,7 @@ submissions
 | `OREKIT_DATA_PATH` | `./orekit-data-main` | Orbit propagation | Path to Orekit data directory |
 | `PG_POOL_MIN` | `2` | PostgreSQL | Min pool connections |
 | `PG_POOL_MAX` | `10` | PostgreSQL | Max pool connections |
-| `CORS_ORIGINS` | `localhost:3000,localhost:5173` | API | Allowed CORS origins |
+| `CORS_ORIGINS` | `localhost:3000` | API | Allowed CORS origins |
 | `LOG_LEVEL` | `INFO` | Always | Logging level |
 | `API_PORT` | `8000` | API server | FastAPI server port |
 

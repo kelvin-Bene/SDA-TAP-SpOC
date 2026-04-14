@@ -1,100 +1,205 @@
+---
+title: Frontend Architecture
+last_updated: 2026-04-14
+---
+
 # Frontend Architecture
 
 ## Overview
 
-The SpOC frontend follows a modern React architecture with clear separation of concerns, type safety, and scalable patterns.
+The UCT Benchmark frontend is a React 18 single-page application built with Vite. It uses lazy-loaded routes, Supabase authentication, and a layered component architecture with shadcn/ui as the design system.
+
+---
 
 ## Technology Stack
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Framework | React 18 | UI Components |
-| Build Tool | Vite | Fast development/build |
-| Styling | Tailwind CSS | Utility-first CSS |
-| Components | shadcn/ui + Radix | Accessible components |
-| State | React Query + Zustand | Server & client state |
-| Routing | React Router | SPA navigation |
-| Forms | React Hook Form + Zod | Form handling & validation |
+| Category | Technology | Version | Purpose |
+|----------|------------|---------|---------|
+| Framework | React | ^18.3.1 | UI Components |
+| Build Tool | Vite | ^5.4.6 | Dev server & production bundling |
+| Language | TypeScript | ^5.6.2 | Type safety |
+| Styling | Tailwind CSS | ^3.4.12 | Utility-first CSS |
+| Component Library | shadcn/ui + Radix UI | -- | Accessible, themed primitives |
+| Server State | TanStack React Query | ^5.56.2 | Caching, fetching, mutations |
+| Client State | Zustand | ^4.5.5 | Auth, theme, UI preferences |
+| Routing | React Router DOM | ^6.26.2 | SPA navigation |
+| Forms | React Hook Form + Zod | ^7.53 / ^3.23 | Validation & form state |
+| Tables | TanStack React Table | ^8.20.5 | Virtual/sortable data tables |
+| 3D Visualization | Cesium + Resium | ^1.122 / ^1.18 | Orbit viewer (globe) |
+| Charts | Recharts | ^2.12.7 | Dashboard charts |
+| HTTP Client | Axios | ^1.7.7 | API requests |
+| Auth Provider | Supabase JS | ^2.100.0 | Authentication & session |
+| Error Tracking | Sentry React | ^8.55.0 | Runtime error reporting |
+| Testing | Vitest + Testing Library | ^2.1 / ^16.0 | Unit & component tests |
 
-## Architecture Diagram
+---
+
+## Dev Server
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Browser                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                     React App (Vite)                      │  │
-│  │                                                           │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │  │
-│  │  │   Pages     │  │  Components │  │    Hooks        │  │  │
-│  │  │             │  │             │  │                 │  │  │
-│  │  │ - Dashboard │  │ - UI (20+)  │  │ - useDatasets   │  │  │
-│  │  │ - Datasets  │  │ - Layout    │  │ - useSubmissions│  │  │
-│  │  │ - Submit    │  │ - Dashboard │  │ - useLeaderboard│  │  │
-│  │  │ - Results   │  │ - Datasets  │  │ - useToast      │  │  │
-│  │  │ - Leaderbd  │  │ - Cesium    │  │                 │  │  │
-│  │  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │  │
-│  │         │                │                   │           │  │
-│  │         └────────────────┼───────────────────┘           │  │
-│  │                          │                               │  │
-│  │  ┌───────────────────────┴───────────────────────────┐  │  │
-│  │  │              State Management                      │  │  │
-│  │  │                                                    │  │  │
-│  │  │  ┌────────────────┐    ┌────────────────────┐    │  │  │
-│  │  │  │  React Query   │    │      Zustand       │    │  │  │
-│  │  │  │ (Server State) │    │  (Client State)    │    │  │  │
-│  │  │  │                │    │                    │    │  │  │
-│  │  │  │ - datasets     │    │ - auth             │    │  │  │
-│  │  │  │ - submissions  │    │ - theme            │    │  │  │
-│  │  │  │ - leaderboard  │    │ - ui preferences   │    │  │  │
-│  │  │  └────────────────┘    └────────────────────┘    │  │  │
-│  │  └────────────────────────┬──────────────────────────┘  │  │
-│  │                           │                              │  │
-│  │  ┌────────────────────────┴─────────────────────────┐   │  │
-│  │  │                 API Client (Axios)                │   │  │
-│  │  │  - Request/Response interceptors                  │   │  │
-│  │  │  - Auth token injection                           │   │  │
-│  │  │  - Error handling                                 │   │  │
-│  │  └────────────────────────┬─────────────────────────┘   │  │
-│  │                           │                              │  │
-│  └───────────────────────────┼──────────────────────────────┘  │
-│                              │                                  │
-└──────────────────────────────┼──────────────────────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │    Backend API      │
-                    │     (FastAPI)       │
-                    └─────────────────────┘
+Port:   3000          (configured in vite.config.ts)
+Proxy:  /api  -->  http://localhost:8000
+URL:    http://localhost:3000
 ```
+
+Start commands:
+
+```bash
+cd UCT-Benchmark-DMR/combined/frontend
+
+npm install        # install dependencies
+npm run dev        # start dev server on port 3000
+npm run build      # production build (tsc && vite build)
+npm run test       # run vitest
+npm run lint       # eslint
+```
+
+---
+
+## Routing Architecture
+
+All routes are **flat** (no nested `<Route>` groups for datasets/submit). Three top-level categories exist: standalone pages, the `MainLayout` wrapper (public + authenticated), and a catch-all.
+
+```
+App
+ |
+ |-- ThemeProvider
+ |    |-- ErrorBoundary
+ |         |-- FeedbackProvider
+ |              |-- <Routes>
+ |
+ |  STANDALONE (no MainLayout)
+ |  ────────────────────────────────────────
+ |  /                          LandingPage
+ |  /welcome                   --> redirect to /
+ |  /login                     LoginPage
+ |
+ |  INSIDE MainLayout
+ |  ────────────────────────────────────────
+ |  PUBLIC
+ |  /docs                      DocumentationPage
+ |
+ |  AUTHENTICATED (AuthGuard)
+ |  /dashboard                 DashboardPage
+ |  /leaderboard               LeaderboardPage
+ |  /datasets                  DatasetBrowserPage
+ |  /datasets/:id              DatasetDetailPage
+ |  /datasets/generate         DatasetGeneratorPage
+ |  /datasets/my-datasets      MyDatasetsPage
+ |  /submit                    SubmitPage
+ |  /submit/my-submissions     MySubmissionsPage
+ |  /results/:submissionId     ResultsPage
+ |  /profile                   ProfilePage
+ |  /settings                  SettingsPage
+ |
+ |  CATCH-ALL
+ |  /*                         NotFoundPage
+```
+
+Every page component is **lazy-loaded** via `React.lazy()` and wrapped in `<Suspense>` + `<RouteErrorBoundary>` for code splitting and per-route error isolation.
+
+---
+
+## Page Components (15 total)
+
+| # | Component | Route | Auth | Description |
+|---|-----------|-------|------|-------------|
+| 1 | `LandingPage` | `/` | No | Public landing / marketing page |
+| 2 | `LoginPage` | `/login` | No | Supabase authentication |
+| 3 | `DocumentationPage` | `/docs` | No | Platform documentation |
+| 4 | `DashboardPage` | `/dashboard` | Yes | Overview stats, quick actions |
+| 5 | `LeaderboardPage` | `/leaderboard` | Yes | Algorithm rankings |
+| 6 | `DatasetBrowserPage` | `/datasets` | Yes | Browse & filter all datasets |
+| 7 | `DatasetDetailPage` | `/datasets/:id` | Yes | Single dataset detail view |
+| 8 | `DatasetGeneratorPage` | `/datasets/generate` | Yes | Generate new datasets |
+| 9 | `MyDatasetsPage` | `/datasets/my-datasets` | Yes | User's own datasets |
+| 10 | `SubmitPage` | `/submit` | Yes | Upload algorithm submissions |
+| 11 | `MySubmissionsPage` | `/submit/my-submissions` | Yes | User's submission history |
+| 12 | `ResultsPage` | `/results/:submissionId` | Yes | Submission scoring results |
+| 13 | `ProfilePage` | `/profile` | Yes | User profile |
+| 14 | `SettingsPage` | `/settings` | Yes | App & credential settings |
+| 15 | `NotFoundPage` | `/*` | No | 404 catch-all |
+
+---
+
+## Component Tree
+
+```
+src/
+ |-- components/
+ |    |-- ui/                        # shadcn/ui primitives (Radix-based)
+ |    |    |-- button, input, dialog, select, tabs, toast,
+ |    |    |   card, badge, progress, skeleton, table,
+ |    |    |   dropdown-menu, tooltip, scroll-area, ...
+ |    |
+ |    |-- layout/                    # App shell
+ |    |    |-- MainLayout.tsx        # Sidebar + Header + <Outlet />
+ |    |    |-- Header.tsx            # Top nav bar
+ |    |    |-- Sidebar.tsx           # Collapsible side navigation
+ |    |
+ |    |-- dashboard/                 # Dashboard widgets
+ |    |    |-- StatCard.tsx          # Stat with trend indicator
+ |    |    |-- QuickActions.tsx      # Primary action buttons
+ |    |    |-- RecentSubmissions.tsx # Submission activity feed
+ |    |    |-- LeaderboardSnapshot.tsx # Top-5 rankings
+ |    |
+ |    |-- datasets/                  # Dataset-related
+ |    |    |-- DatasetCard.tsx       # Preview card
+ |    |    |-- DatasetFilters.tsx    # Filter controls
+ |    |    |-- DatasetPreviewDialog.tsx # Detail modal
+ |    |
+ |    |-- cesium/                    # 3D visualization
+ |    |    |-- OrbitViewer.tsx       # Cesium globe + orbit tracks
+ |    |
+ |    |-- settings/                  # Settings page components
+ |    |    |-- CredentialFormDialog.tsx
+ |    |    |-- ServiceCredentialCard.tsx
+ |    |
+ |    |-- generator/                 # Dataset generator
+ |    |    |-- DataSourceStatusIndicator.tsx
+ |    |
+ |    |-- pipeline/                  # Pipeline visualization
+ |    |    |-- PipelineVisualizer.tsx
+ |    |
+ |    |-- feedback/                  # User feedback system
+ |    |    |-- FeedbackProvider.tsx  # Context provider
+ |    |    |-- FeedbackWidget.tsx    # Floating feedback UI
+ |    |
+ |    |-- AuthGuard.tsx              # Redirects unauthenticated users
+ |    |-- AdminGuard.tsx             # Restricts to admin role
+ |    |-- ErrorBoundary.tsx          # App-wide + per-route error boundaries
+ |    |-- theme-provider.tsx         # Dark/light theme context
+ |
+ |-- pages/                         # 15 page components (see table above)
+ |-- hooks/                         # Custom React hooks
+ |-- stores/                        # Zustand stores
+ |-- lib/                           # Utilities, API client
+ |-- types/                         # TypeScript type definitions
+```
+
+---
 
 ## Design Patterns
 
-### 1. Component Composition
+### 1. Lazy Loading with Error Isolation
 
-Components are built using composition patterns with clear boundaries:
+Every route is wrapped in `LazyRoute` which combines `<Suspense>` (loading spinner) with `<RouteErrorBoundary>` (per-route crash recovery):
 
 ```typescript
-// Page-level component
-function DatasetBrowserPage() {
+function LazyRoute({ children }: { children: React.ReactNode }) {
   return (
-    <div>
-      <DatasetFilters />        {/* Filter controls */}
-      <DatasetGrid>             {/* Layout container */}
-        {datasets.map(d => (
-          <DatasetCard />       {/* Presentation component */}
-        ))}
-      </DatasetGrid>
-      <DatasetPreviewDialog />  {/* Modal component */}
-    </div>
+    <RouteErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </RouteErrorBoundary>
   );
 }
 ```
 
 ### 2. Custom Hooks for Data Fetching
 
-All API calls are encapsulated in custom hooks:
+All API calls are encapsulated in custom hooks using React Query:
 
 ```typescript
 // hooks/useDatasets.ts
@@ -103,12 +208,6 @@ export function useDatasets(filters?: DatasetFilters) {
     queryKey: ['datasets', filters],
     queryFn: () => api.getDatasets(filters),
   });
-}
-
-// Usage in components
-function DatasetBrowserPage() {
-  const { data, isLoading, error } = useDatasets(filters);
-  // ...
 }
 ```
 
@@ -122,15 +221,11 @@ interface DatasetCardProps {
   onPreview?: (dataset: Dataset) => void;
   onDownload?: (dataset: Dataset) => void;
 }
-
-function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps) {
-  // ...
-}
 ```
 
-### 4. Controlled Forms
+### 4. Controlled Forms with Zod
 
-Forms use React Hook Form with Zod validation:
+Forms use React Hook Form with Zod schema validation:
 
 ```typescript
 const schema = z.object({
@@ -143,26 +238,25 @@ function SubmitForm() {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
   });
-  // ...
 }
 ```
 
-## State Management Strategy
+---
 
-### Server State (React Query)
+## State Management
 
-For data that comes from the API:
+### Server State -- React Query
+
 - Automatic caching with configurable stale times
 - Background refetching
 - Optimistic updates for mutations
 - Query invalidation on related mutations
 
-### Client State (Zustand)
+### Client State -- Zustand
 
-For UI and auth state:
-- Persisted to localStorage (auth token, theme)
-- Simple, minimal stores
-- No boilerplate
+- Auth session (user, token) persisted to localStorage
+- Theme preference (dark/light)
+- UI preferences
 
 ```typescript
 // stores/authStore.ts
@@ -179,94 +273,29 @@ export const useAuthStore = create<AuthState>()(
 );
 ```
 
-## Routing Architecture
-
-```typescript
-// App.tsx - Route configuration
-<Routes>
-  <Route path="/login" element={<LoginPage />} />
-  <Route path="/" element={<MainLayout />}>
-    <Route index element={<DashboardPage />} />
-    <Route path="datasets">
-      <Route index element={<DatasetBrowserPage />} />
-      <Route path="generate" element={<DatasetGeneratorPage />} />
-      <Route path="my-datasets" element={<MyDatasetsPage />} />
-    </Route>
-    <Route path="submit">
-      <Route index element={<SubmitPage />} />
-      <Route path="my-submissions" element={<MySubmissionsPage />} />
-    </Route>
-    <Route path="results/:submissionId" element={<ResultsPage />} />
-    <Route path="leaderboard" element={<LeaderboardPage />} />
-    <Route path="docs" element={<DocumentationPage />} />
-    <Route path="profile" element={<ProfilePage />} />
-  </Route>
-</Routes>
-```
-
-## Component Library
-
-The SpOC frontend uses shadcn/ui as the base component library, built on Radix UI primitives with Tailwind CSS styling.
-
-### UI Components
-
-#### Form Components
-- Button (variants: default, outline, ghost, destructive)
-- Input, Textarea
-- Select, Radio Group, Switch, Slider
-
-#### Display Components
-- Card, Badge, Progress, Table, Skeleton
-
-#### Overlay Components
-- Dialog, Dropdown Menu, Tooltip, Toast
-
-#### Navigation Components
-- Tabs, Scroll Area
-
-### Custom Application Components
-
-#### Dashboard Components
-- StatCard - Statistics with trend indicators
-- RecentSubmissions - Submission activity feed
-- LeaderboardSnapshot - Top 5 rankings
-- QuickActions - Primary action buttons
-
-#### Dataset Components
-- DatasetCard - Dataset preview card
-- DatasetFilters - Filter controls
-- DatasetPreviewDialog - Detailed preview modal
-
-#### Layout Components
-- MainLayout - App shell
-- Header - Top navigation
-- Sidebar - Collapsible navigation
-
-#### Visualization Components
-- OrbitViewer - Cesium-based 3D orbit visualization
+---
 
 ## Styling Architecture
 
-### Tailwind CSS + CSS Variables
+### Tailwind CSS + CSS Variables (theming)
 
 ```css
-/* Global CSS variables for theming */
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
   --primary: 221.2 83.2% 53.3%;
 }
-
 .dark {
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
 }
 ```
 
-### Component Styling with CVA
+### Class Variance Authority (CVA)
+
+Component variants are defined declaratively:
 
 ```typescript
-// Class Variance Authority for component variants
 const buttonVariants = cva(
   'inline-flex items-center justify-center rounded-md text-sm font-medium',
   {
@@ -286,42 +315,58 @@ const buttonVariants = cva(
 );
 ```
 
-## Build & Bundle
+---
 
-### Vite Configuration
+## Vite Configuration
 
 ```typescript
 // vite.config.ts
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version || 'unknown'),
+  },
   plugins: [react(), cesium()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: { '@': path.resolve(__dirname, './src') },
   },
   server: {
     port: 3000,
     proxy: {
-      '/api': 'http://localhost:8000',
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 });
 ```
 
-### Path Aliases
+Path alias `@/` maps to `src/` for clean imports:
 
-Using `@/` prefix for clean imports:
 ```typescript
 import { Button } from '@/components/ui/button';
 import { useDatasets } from '@/hooks/useDatasets';
 import type { Dataset } from '@/types';
 ```
 
+---
+
 ## Error Handling
 
 ### API Errors
 
-Centralized error handling in Axios interceptors:
+Centralized in Axios interceptors -- 401 responses trigger redirect to login:
+
 ```typescript
 apiClient.interceptors.response.use(
   (response) => response,
@@ -336,7 +381,8 @@ apiClient.interceptors.response.use(
 
 ### UI Error States
 
-React Query provides loading/error states:
+React Query provides per-query loading/error states:
+
 ```typescript
 const { data, isLoading, error } = useDatasets();
 
@@ -345,31 +391,14 @@ if (error) return <ErrorMessage error={error} />;
 return <DatasetList data={data} />;
 ```
 
-## Performance Considerations
+---
 
-1. **Code Splitting** - Route-based lazy loading
-2. **Memoization** - useMemo/useCallback for expensive operations
-3. **Virtual Lists** - For large data tables (TanStack Table)
-4. **Image Optimization** - Lazy loading, proper sizing
-5. **Bundle Analysis** - Vite build analyzer
+## Performance
 
-## Running the Frontend
-
-```bash
-# Navigate to frontend directory
-cd UCT-Benchmark-DMR/combined/frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-```
-
-Access the application at http://localhost:5173
+1. **Code Splitting** -- Every page is `React.lazy()` loaded; heavy deps (Cesium ~1.4 MB, Recharts ~260 KB) only load when their route is visited
+2. **Memoization** -- `useMemo` / `useCallback` for expensive computations
+3. **Virtual Tables** -- TanStack Table for large data sets
+4. **Bundle Output** -- `dist/` with source maps disabled in production
 
 ---
 

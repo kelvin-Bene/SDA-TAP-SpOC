@@ -4,7 +4,7 @@
 purpose: Detailed technical documentation of the dataset generation pipeline
 status: active
 related_files: [technical/PIPELINE.md, technical/CONFIGURATION.md, planning/PROJECT_STATUS.md]
-last_updated: 2026-02-03
+last_updated: 2026-04-14
 -->
 
 This document provides in-depth technical details about the UCT Benchmark dataset generation pipeline, including the tier system, downsampling algorithms, simulation processes, and scoring functions.
@@ -120,8 +120,8 @@ When data quality is too high (T1/T2), a three-stage downsampling pipeline reduc
 
 **Configuration** (`settings.py`):
 ```python
-downsample_coverage_bounds = (0.3, 0.7)  # Target coverage range
-downsample_coverage_target = 0.5         # Target coverage percentage
+downsample_coverage_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of satellites
+downsample_coverage_target = (0.15, 0.05)     # (max, min) orbital coverage targets
 ```
 
 **Code Location**: `dataManipulation.py:_lowerOrbitCoverage()`
@@ -140,8 +140,8 @@ downsample_coverage_target = 0.5         # Target coverage percentage
 
 **Configuration** (`settings.py`):
 ```python
-downsample_gap_bounds = (1.0, 3.0)    # Target gap range (orbital periods)
-downsample_gap_target = 2.0          # Target gap duration
+downsample_gap_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of satellites
+downsample_gap_target = 2.0              # Target gap duration (orbital periods)
 ```
 
 **Code Location**: `dataManipulation.py:_increaseTrackDistance()`
@@ -160,8 +160,9 @@ downsample_gap_target = 2.0          # Target gap duration
 
 **Configuration** (`settings.py`):
 ```python
-downsample_obs_bounds = (30, 100)    # Target observation count range
-downsample_obs_max = 75              # Maximum observations per satellite
+downsample_obs_bounds = (0.3, 0.5, 0.7)  # (min%, target%, max%) of satellites
+downsample_obs_max = 50                  # Max observations per satellite per 3 days
+downsample_min_obs = 5                   # Minimum observations to retain
 ```
 
 **Code Location**: `dataManipulation.py:_downsampleAbsolute()`
@@ -176,7 +177,7 @@ downsample_obs_max = 75              # Maximum observations per satellite
 
 **Stage 2 Output**: Gaps widened to 2 periods, ~200 observations remain
 
-**Stage 3 Output**: Final count reduced to 75 observations
+**Stage 3 Output**: Final count reduced to 50 observations
 
 **Result**: Challenging dataset with sparse coverage and wide gaps
 
@@ -244,14 +245,15 @@ def epochsToSim(df, satNo, period, bins_per_period, min_obs_per_bin,
 **Configuration** (`settings.py:164-188`):
 ```python
 # Simulation parameters
-simulation_bins_per_period = 6       # Bins per orbital period
-simulation_min_obs_per_bin = 2       # Minimum obs per bin
+simulation_bins_per_period = 10      # Bins per orbital period
+simulation_min_obs_per_bin = 1       # Minimum obs per bin
 simulation_max_ratio = 0.5           # Max simulated/real ratio
-simulation_target_increase = 1.5     # Target improvement factor
+simulation_target_increase = 0.5     # Target improvement factor (50%)
 
 # Track structure
-simulation_track_size = 5            # Observations per simulated track
+simulation_track_size = 3            # Observations per simulated track
 simulation_track_spacing = 30        # Seconds between obs in track
+simulation_min_existing_obs = 3      # Minimum real obs required before simulating
 ```
 
 **Code Location**: `simulateObservations.py:358-507`
@@ -315,15 +317,13 @@ Simulated observations are grouped into "tracks" to mimic real sensor behavior:
 track = [
     obs_t0,           # First observation
     obs_t0 + 30s,     # 30 seconds later
-    obs_t0 + 60s,     # 60 seconds later
-    obs_t0 + 90s,     # 90 seconds later
-    obs_t0 + 120s,    # Last observation
+    obs_t0 + 60s,     # 60 seconds later (last observation)
 ]
 # Gap of several hours, then next track
 ```
 
 **Configuration**:
-- `track_size`: Observations per track (default: 5)
+- `track_size`: Observations per track (default: 3)
 - `track_spacing`: Seconds between observations in track (default: 30)
 
 <!-- /AI_SECTION -->
@@ -441,23 +441,25 @@ All pipeline parameters are configurable in `uct_benchmark/settings.py`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `downsample_coverage_bounds` | (0.3, 0.7) | Target coverage range |
-| `downsample_coverage_target` | 0.5 | Target coverage percentage |
-| `downsample_gap_bounds` | (1.0, 3.0) | Target gap range (periods) |
-| `downsample_gap_target` | 2.0 | Target gap duration |
-| `downsample_obs_bounds` | (30, 100) | Target observation count |
-| `downsample_obs_max` | 75 | Max observations per satellite |
+| `downsample_coverage_bounds` | (0.3, 0.5, 0.7) | (min%, target%, max%) of satellites |
+| `downsample_coverage_target` | (0.15, 0.05) | (max, min) orbital coverage targets |
+| `downsample_gap_bounds` | (0.3, 0.5, 0.7) | (min%, target%, max%) of satellites |
+| `downsample_gap_target` | 2.0 | Target gap duration (orbital periods) |
+| `downsample_obs_bounds` | (0.3, 0.5, 0.7) | (min%, target%, max%) of satellites |
+| `downsample_obs_max` | 50 | Max observations per satellite per 3 days |
+| `downsample_min_obs` | 5 | Minimum observations to retain |
 
 ### Simulation Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `simulation_bins_per_period` | 6 | Time bins per orbital period |
-| `simulation_min_obs_per_bin` | 2 | Minimum obs per bin |
+| `simulation_bins_per_period` | 10 | Time bins per orbital period |
+| `simulation_min_obs_per_bin` | 1 | Minimum obs per bin |
 | `simulation_max_ratio` | 0.5 | Max simulated/real ratio |
-| `simulation_target_increase` | 1.5 | Target improvement factor |
-| `simulation_track_size` | 5 | Obs per simulated track |
-| `simulation_track_spacing` | 30 | Seconds between obs |
+| `simulation_target_increase` | 0.5 | Target improvement factor (50%) |
+| `simulation_track_size` | 3 | Obs per simulated track |
+| `simulation_track_spacing` | 30 | Seconds between obs in track |
+| `simulation_min_existing_obs` | 3 | Min real obs required before simulating |
 
 ### Scoring Thresholds
 
@@ -493,4 +495,4 @@ All pipeline parameters are configurable in `uct_benchmark/settings.py`.
 
 ---
 
-*Created 2026-02-03*
+*Created 2026-02-03 | Updated 2026-04-14*

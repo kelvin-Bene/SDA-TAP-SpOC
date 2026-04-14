@@ -4,7 +4,7 @@
 purpose: Project timeline and milestone tracking for UCT Benchmark
 status: active
 related_files: [planning/PROJECT_STATUS.md, planning/SDA_TAP_LAB_PLAN.md, planning/SPOC_PLAN.md, planning/FUTURE_IMPLEMENTATIONS.md]
-last_updated: 2026-02-03
+last_updated: 2026-04-14
 -->
 
 ## Project Vision
@@ -21,7 +21,7 @@ Deliver a fully functional Web-hosted Common Task Framework for UCT Processing t
 
 ## Milestone Overview
 
-<!-- STATUS_UPDATED: 2026-02-03 - Phases 1-4 are largely complete -->
+<!-- STATUS_UPDATED: 2026-04-14 - Phases 1-4 complete, Phase 5 at 75% -->
 
 ```
 Phase 1: Foundation ✅ COMPLETE (90%)
@@ -53,11 +53,11 @@ Phase 4: Algorithm Framework ✅ COMPLETE (90%)
 ├── Leaderboard ✓
 └── UCTP Lab Framework ✓
 
-Phase 5: Production (IN PROGRESS - 40%)
-├── Security Hardening
+Phase 5: Production (IN PROGRESS - 75%)
+├── Security Hardening ✓
 ├── Performance Optimization
 ├── Documentation ← Current
-└── Launch
+└── Launch ✓ (Deployed to Railway)
 
 Phase 6: Open Evolve Integration (Stretch Goal)
 ├── Evaluation Script Validation with Real UCTP
@@ -160,7 +160,7 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 **Implementation Details**:
 - React 18+ with TypeScript, Vite build system
 - 45+ React components in `frontend/src/`
-- FastAPI backend with 5 routers (datasets, submissions, results, leaderboard, jobs)
+- FastAPI backend with 9 routers (datasets, submissions, results, leaderboard, jobs, events, credentials, feedback, auth)
 - Supabase authentication with anonymous fallback mode
 - Professional space-themed UI design
 - Zustand state management
@@ -209,23 +209,44 @@ Phase 6: Open Evolve Integration (Stretch Goal)
 
 <!-- AI_SECTION: phase5_production -->
 
-### PHASE 5: Production (IN PROGRESS - 40%)
+### PHASE 5: Production (IN PROGRESS - 75%)
 
-**Status**: Documentation and hardening in progress
+**Status**: Deployed to production; documentation and optimization in progress
 
 | Milestone | Owner | Status | Progress | Dependency |
 |-----------|-------|--------|----------|------------|
-| 5.1 Security Audit | Shared | In Progress | 30% | Phase 4 |
-| 5.2 Performance Testing | Shared | Not Started | 10% | Phase 4 |
-| 5.3 User Documentation | Shared | In Progress | 60% | Phase 4 |
-| 5.4 Deployment Setup | Shared | In Progress | 40% | 5.1-5.3 |
-| 5.5 Beta Testing | Shared | Not Started | 0% | 5.4 |
-| 5.6 Public Launch | Shared | Not Started | 0% | 5.5 |
+| 5.1 Security Hardening | Shared | ✅ Complete | 90% | Phase 4 |
+| 5.2 Performance Optimization | Shared | In Progress | 40% | Phase 4 |
+| 5.3 User Documentation | Shared | ← Current | 70% | Phase 4 |
+| 5.4 Deployment Setup | Shared | ✅ Complete | 95% | 5.1-5.3 |
+| 5.5 Beta Testing | Shared | In Progress | 30% | 5.4 |
+| 5.6 Public Launch | Shared | ✅ Deployed | 80% | 5.5 |
+
+**Security Hardening (Completed)**:
+- SQL injection fixes across backend
+- Auth consolidation with Supabase
+- IDOR vulnerability closures
+- 22 pre-existing test failures resolved
 
 **Current Focus**:
 - Documentation synchronization (this update)
-- API documentation via OpenAPI/Swagger
-- Security review for authentication system
+- Performance optimization
+- Remaining beta testing with stakeholders
+
+### Recent Accomplishments (Apr 2026)
+
+| Accomplishment | Version | Details |
+|----------------|---------|---------|
+| **Production Deployment** | v2.0.0+ | Railway hosting with Docker + NGINX reverse proxy |
+| **Major Rebrand** | v2.0.0 | USSF dark theme, Supabase auth, full UI overhaul |
+| **Vision Alignment** | v2.0.1 | Pipeline aligned to Louis's transcript specs |
+| **UCT Challenges** | v2.0.0 | 5 CTF-style challenges (physical noise, sensor calibration, train/test split, etc.) |
+| **Answer-Key Separation** | v2.0.1 | Download whitelist per Louis's Apr 9 feedback |
+| **HEO Scoring Fix** | v2.0.1 | HEO coverage scoring + regime combo pipeline corrections |
+| **Security Hardening** | v2.0.1 | SQL injection fixes, auth consolidation, IDOR closures |
+| **Test Stability** | v2.0.1 | 22 pre-existing test failures resolved |
+| **Regime Combos** | v2.0.1 | All 10 regime combo codes in frontend UI and validator |
+| **Backend Expansion** | v2.0.0+ | 9 routers (added events, credentials, feedback, auth) |
 
 <!-- /AI_SECTION -->
 
@@ -376,11 +397,11 @@ Shared:
 - [x] Results displayed accurately
 - [x] UCTP Lab framework functional
 
-### Phase 5 Exit Criteria (In Progress)
-- [ ] Security audit passed
-- [ ] Performance targets met
+### Phase 5 Exit Criteria (75% Complete)
+- [x] Security hardening passed (SQL injection, auth consolidation, IDOR closures)
+- [ ] Performance targets met (optimization in progress)
 - [ ] Documentation complete ← In progress
-- [ ] System deployed and accessible
+- [x] System deployed and accessible (Railway production)
 
 ---
 

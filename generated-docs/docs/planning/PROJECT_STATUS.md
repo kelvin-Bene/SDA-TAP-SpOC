@@ -4,7 +4,7 @@
 purpose: Authoritative source for project status - component completion percentages and implementation state
 status: active
 related_files: [planning/INTEGRATED_ROADMAP.md, planning/FUTURE_IMPLEMENTATIONS.md, planning/SDA_TAP_LAB_PLAN.md, planning/SPOC_PLAN.md]
-last_updated: 2026-02-03
+last_updated: 2026-04-14
 -->
 
 > **This is the authoritative source** for project status information. All other documents should reference this file for current progress percentages and component status.
@@ -13,11 +13,21 @@ last_updated: 2026-02-03
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~85% Complete** *(Updated 2026-01-25)*
+**Overall Progress: ~90% Complete** *(Updated 2026-04-14)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
 
-### Recent Updates (2026-02-03)
+### Recent Updates (2026-04-14)
+- ✅ **Production Deployment**: Deployed on Railway with Docker + NGINX reverse proxy
+- ✅ **v2.0.0 Major Release**: Rebrand, USSF dark theme, Supabase auth integration
+- ✅ **v2.0.1 Vision Alignment**: Pipeline fixes aligned to Louis's transcript specs
+- ✅ **UCT Challenges**: 5 CTF-style challenge implementations (physical noise, sensor calibration, train/test split, etc.)
+- ✅ **Answer-Key Separation**: Download whitelist implemented per Louis's Apr 9 feedback
+- ✅ **HEO Coverage Scoring**: Fixed HEO coverage scoring and regime combo pipeline
+- ✅ **Test Stability**: 22 pre-existing test failures resolved + security hardening
+- ✅ **Regime Combos**: All 10 regime combo codes exposed in frontend UI and validator
+
+### Previous Updates (2026-02-03)
 - ✅ **Authentication System**: Complete JWT-based auth with Supabase integration (95%)
 - ✅ **Open Source Data**: GCAT, UCS, SatNOGS, ILRS integration complete (90%)
 - ✅ **UCTP Lab**: Algorithm development framework implemented (85%)
@@ -26,7 +36,7 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 
 ### Previous Updates (2026-01-25)
 - ✅ **Web UI**: Full React frontend with 45+ components implemented
-- ✅ **Backend API**: FastAPI backend with 5 routers (datasets, submissions, results, leaderboard, jobs)
+- ✅ **Backend API**: FastAPI backend with 9 routers (datasets, submissions, results, leaderboard, jobs, events, credentials, feedback, auth)
 - ✅ **Centralized Database**: DuckDB schema with 14+ tables, repository pattern
 - ✅ **Algorithm Submission**: Complete submission and evaluation pipeline
 - ✅ **Leaderboard**: Functional leaderboard with ranking system
@@ -58,19 +68,21 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 | Orbit Association | Complete | SpOC | 95% |
 | PDF Report Generation | Complete | SpOC | 80% |
 | Observation Simulation | ✅ **Complete** | SDA TAP | **95%** |
-| Event Labelling | Not Started | SDA TAP | 0% |
+| Event Labelling | In Progress | SDA TAP | 40% |
 | Centralized Database | ✅ **Complete** | SDA TAP | **95%** |
 | **T3 Processing** | ✅ **Complete** | SDA TAP | **100%** |
 | T4 Processing | Not Started | SDA TAP | 0% |
 | **Downsampling (T1/T2)** | ✅ **Complete** | SDA TAP | **100%** |
-| Web UI | ✅ **Complete** | SpOC | **90%** |
-| Algorithm Submission | ✅ **Complete** | SpOC | **90%** |
-| Leaderboard | ✅ **Complete** | SpOC | **90%** |
+| Web UI | ✅ **Complete** | SpOC | **95%** |
+| Algorithm Submission | ✅ **Complete** | SpOC | **95%** |
+| Leaderboard | ✅ **Complete** | SpOC | **95%** |
 | Multi-Dataset Support | In Progress | Shared | 60% |
 | **Authentication System** | ✅ **Complete** | SpOC | **95%** |
 | **Open Source Data (GCAT/UCS/SatNOGS/ILRS)** | ✅ **Complete** | Shared | **90%** |
 | **UCTP Lab Framework** | ✅ **Complete** | Shared | **85%** |
 | **Data Source Status UI** | ✅ **Complete** | SpOC | **85%** |
+| **UCT Challenges (CTF)** | In Progress | Shared | **60%** |
+| **Production Deployment** | ✅ **Complete** | Shared | **95%** |
 
 <!-- /AI_SECTION -->
 
@@ -258,15 +270,16 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 <!-- AI_IMPROVEMENT_OPPORTUNITY: These are the main areas where new development is needed -->
 
 #### 9. Event Labelling System
-**Status: NOT STARTED (0%)**
+**Status: IN PROGRESS (40%)**
 **Owner: SDA TAP Lab**
 
 Required for classifying data by event type:
+- [x] Event detection framework implemented
+- [x] Breakup event caching (`breakup_events.json`)
 - [ ] Launch event detection and labelling
 - [ ] Maneuver event detection and labelling
 - [ ] Proximity event detection and labelling
-- [ ] Breakup event detection and labelling
-- [ ] Label storage schema
+- [ ] Label storage schema refinement
 - [ ] SME review interface
 
 ---
@@ -329,7 +342,7 @@ Implemented components:
 ---
 
 #### 12. Web UI
-**Status: ✅ COMPLETE (90%)**
+**Status: ✅ COMPLETE (95%)**
 **Owner: SpOC**
 
 Implemented components:
@@ -345,13 +358,13 @@ Implemented components:
 - 45+ React components in `frontend/src/`
 - Professional space-themed UI design
 - Zustand for state management
-- FastAPI backend with 5 routers (datasets, submissions, results, leaderboard, jobs)
+- FastAPI backend with 9 routers (datasets, submissions, results, leaderboard, jobs, events, credentials, feedback, auth)
 - Real-time job status updates
 
 ---
 
 #### 13. Algorithm Submission Interface
-**Status: ✅ COMPLETE (90%)**
+**Status: ✅ COMPLETE (95%)**
 **Owner: SpOC**
 
 Implemented components:
@@ -370,7 +383,7 @@ Implemented components:
 ---
 
 #### 14. Leaderboard/Comparison System
-**Status: ✅ COMPLETE (90%)**
+**Status: ✅ COMPLETE (95%)**
 **Owner: SpOC**
 
 Implemented components:

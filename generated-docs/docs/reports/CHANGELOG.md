@@ -2,6 +2,52 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [2.0.1] - 2026-04-10
+
+### Vision Alignment & Pipeline Fixes
+- Answer-key separation per Louis's Apr 9 feedback
+- Field minimization in dataset downloads
+- HEO coverage scoring and regime classification fixes
+- All 10 regime combo codes exposed in frontend UI
+- 5 UCT challenge implementations (physical noise, sensor calibration, train/test split, maneuvering-during-gap, orbit-association thresholds)
+- 22 pre-existing test failures resolved
+- Security/docs hardening
+
+---
+
+## [2.0.0] - 2026-04-05
+
+### Major Release — Production Deployment
+- Rebrand: SpOC → UCT Benchmark, Space Operations Command → Combat Forces Command
+- USSF-aligned dark theme with military-grade aesthetic
+- Full production deployment on Railway with Docker + NGINX
+- PostgreSQL/Supabase dual-backend support
+- Supabase JWT authentication with 3-tier access (admin/user/public)
+- Landing page with "Try Demo" button
+- Per-user encrypted API credentials
+- Real dataset statistics charts
+- Feedback/bug report widget
+- 50+ bug fixes from QA and user feedback
+- Comprehensive audit logging
+- CI/CD auto-deploy on push to master
+
+---
+
+## [1.3.0] - 2026-03-31
+
+### Production Readiness
+- 3-tier authentication system
+- Regime classification fixes
+- 429 rate limit retry logic
+- Dataset download fixes
+- Date range filtering improvements
+- App versioning displayed in UI
+- Military time format for date displays
+- Leaderboard dataset filter
+- 36 bugs resolved from user feedback
+
+---
+
 ## [1.2.0] - 2026-01-25
 
 ### Added
@@ -207,14 +253,14 @@ No new dependencies added. Uses existing:
 
 ## Future Work
 
-### Phase 2 (Planned)
+### Completed
+- ~~Data migration utilities for existing files~~ (v2.0.0)
+- ~~Query caching layer~~ (v2.0.0)
+
+### Planned
 - Add `use_database=True` flag to `generateDataset()`
 - Automatic persistence during dataset generation
-- Data migration utilities for existing files
-
-### Phase 3 (Planned)
 - Event detection hooks
-- Query caching layer
 - Automated daily backups
 - Performance optimization
 

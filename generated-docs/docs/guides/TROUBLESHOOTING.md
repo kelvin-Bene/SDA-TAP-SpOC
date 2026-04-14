@@ -192,9 +192,9 @@ print(f"Line 2 length: {len(line2)}")  # Should be 69
 
 3. **Check for port conflicts**
    ```bash
-   # Find process using port 5173
-   lsof -i :5173  # macOS/Linux
-   netstat -ano | findstr :5173  # Windows
+   # Find process using port 3000
+   lsof -i :3000  # macOS/Linux
+   netstat -ano | findstr :3000  # Windows
    ```
 
 ---

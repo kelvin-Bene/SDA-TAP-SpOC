@@ -2,9 +2,79 @@
 
 All notable changes to the UCT Benchmark project.
 
-## [2.1.0] - 2026-02-02
+## [2.0.1] - 2026-04-10
 
-### Merged from Kelvin's Branch
+### Vision Alignment
+- **Answer-key separation**: Moved answer keys to separate download-protected endpoint per Louis's Apr 9 feedback
+- **Field minimization**: Reduced dataset download payload to only fields needed by UCTP algorithms
+- **HEO coverage scoring**: Fixed coverage threshold calculations for HEO regime
+- **Regime classification**: Fixed combo regime pipeline for multi-regime datasets
+- **Coverage thresholds**: Aligned with Louis's transcript specifications (LEO 0.0213%, MEO 0.0449%, GEO 41.656%, HEO 20%)
+- **HAMR filtering**: Corrected High Area-to-Mass Ratio object filtering logic
+- **Regime combo codes**: Exposed all 10 regime combination codes (LMO, LGO, LHO, MGO, MHO, GHO, LMG, LMH, LGH, MGH) in frontend UI and validator
+
+### UCT Challenges (CTF Framework)
+- **Physical noise pipeline** (`cfa687b`): Realistic noise models for simulated observations (challenge #4)
+- **Orbit-association thresholds** (`53c41a3`): Tightened proximity thresholds (challenge #1)
+- **Sensor calibration** (`b5a6ea0`): Synthetic per-sensor bias generator (challenge #10)
+- **Train/test split** (`ccc10e7`): CTF train/validation/test dataset stratification (LLNL methodology)
+- **Maneuvering-during-gap** (`f969b7e`): Challenge scenario + shared backend infrastructure
+
+### Security & Testing
+- Resolved 22 pre-existing test failures across the test suite
+- Security hardening: SQL injection fixes, IDOR vulnerability closures, auth consolidation
+- CI gating improvements and audit finding remediation
+- Retired PATCH /feedback endpoint until cross-project schema sync
+
+---
+
+## [2.0.0] - 2026-04-05
+
+### Major Release
+
+#### Rebrand & UI Overhaul
+- **Rebrand**: Renamed SpOC → UCT Benchmark, Space Operations Command → Combat Forces Command
+- **Military-grade aesthetic**: USSF-aligned dark theme with professional space domain styling
+- **CFC + SDA TAP Lab logos**: Replaced orbital icon in header with organizational branding
+- **Landing page**: New default route with "Try Demo" button for unauthenticated users
+
+#### Production Deployment
+- Full production deployment on Railway with Docker containerization
+- PostgreSQL/Supabase backend for multi-user production use
+- NGINX reverse proxy with security headers and CSP
+- GitHub Actions CI/CD auto-deploy on push to master
+
+#### Features
+- **Real dataset statistics charts** on dashboard
+- **Bug report feedback widget** with browser context capture
+- **Password visibility toggle** on login
+- **App versioning**: Display version in UI, auto-include in bug reports
+- **Dataset filter on leaderboard** page
+- **Per-user API tokens**: Encrypted UDL/ESA credential storage
+- **3-tier auth**: Admin, authenticated, and public access levels
+
+#### Infrastructure
+- Supabase/PostgreSQL migration with dual-backend support
+- Database retry logic with connection recovery
+- Rate limiting with slowapi
+- Comprehensive audit logging (API calls, credential access, system events)
+- Blake's branch integration: publisher, audit tables, config, status indicator
+
+#### Bug Fixes (50+)
+- Resilient pipeline: handle partial satellite data instead of crashing
+- Timezone-aware datetime comparison in pipeline
+- CORS middleware ordering fix
+- Full SSOT alignment: 32 fixes across 6 phases
+- Dataset download serialization (NaN, Infinity, Decimal, datetime)
+- Credential source field mismatch fix
+- React hooks ordering (useMemo above early returns)
+- 36 bugs resolved from user feedback and QA reports
+
+---
+
+## [2.0.0-docs] - 2026-02-02
+
+### Documentation Merge (from Kelvin's Branch)
 
 - **Repository reorganization**: Moved `docs/` to `generated-docs/docs/` for consistency
 - **Security**: Removed hardcoded credentials from `start_supabase.bat`
@@ -31,11 +101,9 @@ All notable changes to the UCT Benchmark project.
 
 ---
 
-## [2.0.0] - 2026-01-27
+## [2.0.0-supabase] - 2026-01-27
 
-### Added
-
-#### Supabase / PostgreSQL Migration
+### Added (Supabase / PostgreSQL Migration)
 
 Full migration from DuckDB-only to dual-backend (DuckDB + PostgreSQL/Supabase) with feature-flagged auth, audit logging, and production data tracking.
 

@@ -23,7 +23,7 @@ The UCT Benchmark project is a full-stack application for generating and evaluat
 │  │  │  React Frontend │  │  FastAPI Backend │  │  Database (DuckDB) │ │   │
 │  │  │  (Vite/TS)      │─▶│  (REST API)      │─▶│  (Analytics)       │ │   │
 │  │  └─────────────────┘  └─────────────────┘  └─────────────────────┘ │   │
-│  │         Port 5173          Port 8000                                │   │
+│  │         Port 3000          Port 8000                                │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                     │                                       │
 │                                     ▼                                       │

@@ -25,7 +25,7 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/uct-benchmark.git
+   git clone <your-repo-url>
    cd uct-benchmark/UCT-Benchmark-DMR/combined
    ```
 
@@ -62,7 +62,7 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
 
 1. **Clone and navigate**
    ```bash
-   git clone https://github.com/your-org/uct-benchmark.git
+   git clone <your-repo-url>
    cd uct-benchmark/UCT-Benchmark-DMR/combined
    ```
 
@@ -234,7 +234,7 @@ npm install
 npm run dev
 ```
 
-Access the application at http://localhost:5173
+Access the application at http://localhost:3000
 
 ## Troubleshooting
 
@@ -285,9 +285,6 @@ python -c "import os; print('Token set:', bool(os.getenv('UDL_TOKEN')))"
 
 **5. Package Version Conflicts**
 ```bash
-# Known compatibility: uvicorn must be <0.25.0 for Solara
-pip install "uvicorn==0.24.0.post1"
-
 # Check for conflicts
 pip check
 ```

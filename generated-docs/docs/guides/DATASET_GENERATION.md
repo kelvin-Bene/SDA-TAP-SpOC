@@ -37,7 +37,7 @@ npm run dev
 
 ### Step 2: Navigate to Dataset Generator
 
-1. Open http://localhost:5173
+1. Open http://localhost:3000
 2. Click **Datasets** in the navigation
 3. Click **Generate New Dataset**
 

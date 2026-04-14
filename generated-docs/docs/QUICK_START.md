@@ -13,7 +13,7 @@ Get the UCT Benchmark system running in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/uct-benchmark.git
+git clone <your-repo-url>
 cd uct-benchmark/UCT-Benchmark-DMR/combined
 
 # Create virtual environment
@@ -64,7 +64,7 @@ npm run dev
 
 ### Open in Browser
 
-Navigate to: **http://localhost:5173**
+Navigate to: **http://localhost:3000**
 
 ## 4. Configure Your UDL API Key
 
@@ -138,7 +138,7 @@ The system will validate your file format, then queue evaluation. Results includ
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Frontend | http://localhost:5173 | Web interface |
+| Frontend | http://localhost:3000 | Web interface |
 | Backend API | http://localhost:8000 | REST API |
 | API Docs | http://localhost:8000/docs | Swagger documentation |
 

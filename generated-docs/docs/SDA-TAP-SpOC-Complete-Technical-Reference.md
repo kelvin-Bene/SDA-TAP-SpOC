@@ -1802,7 +1802,8 @@ talks to the database and to external data sources.
   |  /api/results/*    - View evaluation results                     |
   |  /api/leaderboard/*- Rankings + statistics                       |
   |  /api/jobs/*       - Background job tracking                     |
-  |  /api/uctp/*       - UCTP Lab (runs, models, connectivity)      |
+  |  /api/events/*     - Event detection + management               |
+  |  /api/feedback/*   - User feedback/bug reports                  |
   |  /api/credentials/*- Encrypted credential management            |
   +-----------+-------------------+-------------------+--------------+
               |                   |                   |
@@ -1822,11 +1823,9 @@ talks to the database and to external data sources.
 
 | Router | Method | Path | Purpose |
 |--------|--------|------|---------|
-| **Auth** | POST | /api/auth/signup | Create new user account |
-| | POST | /api/auth/login | Authenticate with email + password |
-| | POST | /api/auth/logout | Log out current session |
-| | GET | /api/auth/me | Get current user profile |
-| | PATCH | /api/auth/me | Update user profile |
+| **Auth** | POST | /api/v1/auth/verify | Verify JWT and return user profile |
+| | GET | /api/v1/auth/me | Get current user profile |
+| | PATCH | /api/v1/auth/me | Update user profile |
 | **Datasets** | GET | /api/datasets/ | List all datasets |
 | | GET | /api/datasets/{id} | Get dataset details |
 | | POST | /api/datasets/ | Create + generate new dataset |
@@ -1849,22 +1848,15 @@ talks to the database and to external data sources.
 | | GET | /api/leaderboard/statistics | Aggregate statistics |
 | **Jobs** | GET | /api/jobs/ | List background jobs |
 | | GET | /api/jobs/{id} | Get job status |
-| **UCTP Lab** | GET | /api/uctp/dashboard/stats | Dashboard overview |
-| | GET | /api/uctp/runs/ | List pipeline runs |
-| | POST | /api/uctp/runs/ | Start new pipeline run |
-| | GET | /api/uctp/runs/{id} | Get run details |
-| | DELETE | /api/uctp/runs/{id} | Delete a run |
-| | GET | /api/uctp/runs/{id}/logs | Get run logs |
-| | GET | /api/uctp/runs/compare/ | Compare multiple runs |
-| | GET | /api/uctp/models/ | List ML models |
-| | POST | /api/uctp/models/train | Train new model |
-| | GET | /api/uctp/models/{id} | Get model details |
-| | DELETE | /api/uctp/models/{id} | Delete model |
-| | POST | /api/uctp/models/{id}/evaluate | Evaluate model on dataset |
-| | GET | /api/uctp/connectivity/ | API connection statuses |
-| | POST | /api/uctp/connectivity/test | Test specific connection |
-| | POST | /api/uctp/connectivity/test-all | Test all connections |
-| | GET | /api/uctp/algorithms/ | Available algorithm options |
+| **UCTP Lab** | | | *Planned — not yet implemented* |
+| **Events** | GET | /api/v1/events/types | List event types |
+| | GET | /api/v1/events/ | List events with filters |
+| | GET | /api/v1/events/{id} | Get event detail |
+| | POST | /api/v1/events/detect | Trigger event detection |
+| | DELETE | /api/v1/events/{id} | Delete event (admin) |
+| **Feedback** | POST | /api/v1/feedback | Submit feedback (public) |
+| | GET | /api/v1/feedback | List feedback (admin) |
+| | GET | /api/v1/feedback/{id} | Get feedback detail (admin) |
 | **Credentials** | GET | /api/credentials/ | List credential services |
 | | GET | /api/credentials/{service} | Get credential metadata |
 | | PUT | /api/credentials/{service} | Store encrypted credentials |
