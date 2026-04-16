@@ -43,8 +43,11 @@ export default defineConfig({
       },
   projects: [
     {
+      // iPhone SE 2/3 (375×667) — our stated minimum target viewport.
+      // Playwright's built-in `devices['iPhone SE']` profile uses 320×568
+      // (1st gen), which is below target, so we override the viewport.
       name: 'mobile-safari',
-      use: { ...devices['iPhone SE'] },
+      use: { ...devices['iPhone SE'], viewport: { width: 375, height: 667 } },
     },
     {
       name: 'mobile-chrome',
