@@ -71,6 +71,7 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ secrets.DEMO_BACKEND_URL }}
           VITE_DEMO_MODE: "true"
+          VITE_CESIUM_ION_TOKEN: ${{ secrets.VITE_CESIUM_ION_TOKEN }}
       - name: Prepare deploy directory
         run: |
           mkdir -p deploy-dist

@@ -1,7 +1,9 @@
+import { lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   ArrowLeft,
@@ -17,6 +19,11 @@ import { formatDate, formatFileSize } from '@/lib/utils';
 import { downloadBlob } from '@/lib/downloadUtils';
 import { useDataset, useDatasetObservations, useDatasetVersions, useDownloadDataset } from '@/hooks/useDatasets';
 import { useToast } from '@/hooks/use-toast';
+
+// Cesium weighs ~1.4MB — only pull it in when someone actually opens a dataset.
+const OrbitViewer = lazy(() =>
+  import('@/components/cesium/OrbitViewer').then((m) => ({ default: m.OrbitViewer }))
+);
 
 export function DatasetDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -190,6 +197,14 @@ export function DatasetDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 3D Orbital Visualization — mock orbits seeded from dataset regime + count */}
+      <Suspense fallback={<Skeleton className="h-[480px] w-full rounded-lg" />}>
+        <OrbitViewer
+          regime={dataset.regime as 'LEO' | 'MEO' | 'GEO' | 'HEO'}
+          objectCount={Math.min(dataset.objectCount, 8)}
+        />
+      </Suspense>
 
       {/* Metadata */}
       <Card>

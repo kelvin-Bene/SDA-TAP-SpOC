@@ -16,7 +16,7 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cesium.com; connect-src 'self' https://*.supabase.co https://*.cesium.com https://assets.cesium.com https://*.up.railway.app; font-src 'self' data:; worker-src 'self' blob:;" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cesium.com https://*.ion.cesium.com; connect-src 'self' https://*.supabase.co https://*.cesium.com https://*.ion.cesium.com https://assets.cesium.com https://*.up.railway.app; font-src 'self' data:; worker-src 'self' blob:;" always;
 
     # Max upload size for UCTP submissions
     client_max_body_size 50m;
@@ -28,6 +28,14 @@ server {
 
     # Cache static assets (JS/CSS with content hashes)
     location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Cesium static assets (widgets.css, workers, textures) copied into
+    # dist/cesium/ by vite-plugin-cesium at build time. Serve them directly
+    # instead of letting the SPA fallback return 403 / index.html.
+    location /cesium/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }

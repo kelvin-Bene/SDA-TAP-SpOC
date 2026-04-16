@@ -26,87 +26,172 @@ import { Play, Pause, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 // Set Cesium Ion default access token from environment variable
 Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || '';
 
+type Regime = 'LEO' | 'MEO' | 'GEO' | 'HEO';
+type RegimeOrMixed = Regime | 'mixed';
+
 interface Satellite {
   id: string;
   name: string;
-  regime: 'LEO' | 'MEO' | 'GEO' | 'HEO';
+  regime: Regime;
   positions: { time: Date; x: number; y: number; z: number }[];
   color?: string;
 }
 
 interface OrbitViewerProps {
   satellites?: Satellite[];
+  regime?: RegimeOrMixed;
+  objectCount?: number;
   startTime?: Date;
   endTime?: Date;
   showGroundTracks?: boolean;
   className?: string;
 }
 
-// Mock satellite data for demonstration
-const generateMockSatellites = (): Satellite[] => {
-  const now = new Date();
-  const satellites: Satellite[] = [];
+// Mu for Earth (km^3/s^2)
+const MU_EARTH = 398600.4418;
 
-  // Generate a few LEO satellites
-  for (let i = 0; i < 3; i++) {
-    const positions = [];
-    const semiMajorAxis = 6800 + i * 100; // km
-    const inclination = (45 + i * 15) * (Math.PI / 180);
-    const period = 2 * Math.PI * Math.sqrt(Math.pow(semiMajorAxis, 3) / 398600.4418); // seconds
+// Build an orbit track over `duration` seconds for a circular or elliptical
+// Keplerian orbit. Approximates true-anomaly = mean-anomaly (eccentric-anomaly
+// iteration isn't needed for a visualization).
+function buildOrbit(
+  baseTime: Date,
+  semiMajorAxisKm: number,
+  inclinationRad: number,
+  raanRad: number,
+  eccentricity: number,
+  phaseRad: number,
+  duration: number,
+  step: number,
+): Satellite['positions'] {
+  const period = 2 * Math.PI * Math.sqrt(Math.pow(semiMajorAxisKm, 3) / MU_EARTH);
+  const positions: Satellite['positions'] = [];
+  for (let t = 0; t <= duration; t += step) {
+    const M = (2 * Math.PI * t) / period + phaseRad;
+    const r = semiMajorAxisKm * (1 - eccentricity * Math.cos(M));
+    // Position in orbital plane (x toward periapsis)
+    const xop = r * Math.cos(M);
+    const yop = r * Math.sin(M);
+    // Rotate by inclination (around x-axis) then by RAAN (around z-axis)
+    const cosI = Math.cos(inclinationRad);
+    const sinI = Math.sin(inclinationRad);
+    const cosR = Math.cos(raanRad);
+    const sinR = Math.sin(raanRad);
+    const xi = xop;
+    const yi = yop * cosI;
+    const zi = yop * sinI;
+    const x = xi * cosR - yi * sinR;
+    const y = xi * sinR + yi * cosR;
+    const z = zi;
+    positions.push({
+      time: new Date(baseTime.getTime() + t * 1000),
+      x,
+      y,
+      z,
+    });
+  }
+  return positions;
+}
 
-    for (let t = 0; t < period * 2; t += 60) {
-      const meanAnomaly = (2 * Math.PI * t) / period;
-      const x = semiMajorAxis * Math.cos(meanAnomaly);
-      const y = semiMajorAxis * Math.sin(meanAnomaly) * Math.cos(inclination);
-      const z = semiMajorAxis * Math.sin(meanAnomaly) * Math.sin(inclination);
+// Default satellite counts per regime when objectCount isn't specified.
+const DEFAULT_COUNTS: Record<Regime, number> = { LEO: 4, MEO: 3, GEO: 3, HEO: 2 };
 
-      positions.push({
-        time: new Date(now.getTime() + t * 1000),
-        x,
-        y,
-        z,
-      });
+const REGIME_COLOR: Record<Regime, string> = {
+  LEO: '#3B82F6', // cosmic blue
+  MEO: '#10B981', // green
+  GEO: '#F59E0B', // amber
+  HEO: '#EF4444', // red
+};
+
+function generateSatellitesForRegime(
+  regime: Regime,
+  count: number,
+  baseTime: Date,
+): Satellite[] {
+  const out: Satellite[] = [];
+  const color = REGIME_COLOR[regime];
+  for (let i = 0; i < count; i++) {
+    let a: number;
+    let inc: number;
+    let ecc = 0;
+    let duration = 0;
+    let step = 60;
+    // Spread satellites evenly in RAAN + phase so they don't overlap
+    const raan = (2 * Math.PI * i) / Math.max(count, 1);
+    const phase = (2 * Math.PI * i) / Math.max(count, 1);
+
+    switch (regime) {
+      case 'LEO':
+        // 400-1000 km altitude, varied inclinations (polar, sun-synch, ISS-like)
+        a = 6800 + (i % 4) * 100;
+        inc = (45 + (i * 15) % 45) * (Math.PI / 180);
+        duration = 2.5 * 60 * 60; // 2.5h, ~1.5 revolutions
+        step = 30;
+        break;
+      case 'MEO':
+        // Navigation-altitude (GPS ~20200 km, GLONASS ~19100 km)
+        a = 26600 + (i % 3) * 200;
+        inc = 55 * (Math.PI / 180);
+        duration = 12 * 60 * 60; // 12h
+        step = 120;
+        break;
+      case 'GEO':
+        // Geostationary belt
+        a = 42164;
+        inc = 0;
+        duration = 24 * 60 * 60; // 24h, full revolution
+        step = 300;
+        break;
+      case 'HEO':
+        // Molniya-like: highly elliptical with critical inclination
+        a = 26600;
+        inc = 63.4 * (Math.PI / 180);
+        ecc = 0.72;
+        duration = 12 * 60 * 60;
+        step = 120;
+        break;
     }
 
-    satellites.push({
-      id: `leo-${i + 1}`,
-      name: `LEO-SAT-${i + 1}`,
-      regime: 'LEO',
-      positions,
-      color: ['#3B82F6', '#60A5FA', '#93C5FD'][i],
+    out.push({
+      id: `${regime.toLowerCase()}-${i + 1}`,
+      name: `${regime}-SAT-${i + 1}`,
+      regime,
+      positions: buildOrbit(baseTime, a, inc, raan, ecc, phase, duration, step),
+      color,
     });
   }
+  return out;
+}
 
-  // Add a GEO satellite
-  const geoRadius = 42164; // km
-  const geoPositions = [];
-  for (let t = 0; t < 86400 * 2; t += 300) {
-    const angle = (2 * Math.PI * t) / 86400;
-    geoPositions.push({
-      time: new Date(now.getTime() + t * 1000),
-      x: geoRadius * Math.cos(angle),
-      y: geoRadius * Math.sin(angle),
-      z: 0,
-    });
+// Generate a set of mock satellites. When regime is set, returns `count` (or
+// regime default) satellites of that regime. When regime is 'mixed', returns
+// a visually diverse platform showcase across all four regimes.
+const generateMockSatellites = (
+  regime: RegimeOrMixed = 'mixed',
+  count?: number,
+): Satellite[] => {
+  const now = new Date();
+  if (regime === 'mixed') {
+    return [
+      ...generateSatellitesForRegime('LEO', 3, now),
+      ...generateSatellitesForRegime('MEO', 1, now),
+      ...generateSatellitesForRegime('GEO', 2, now),
+      ...generateSatellitesForRegime('HEO', 1, now),
+    ];
   }
-  satellites.push({
-    id: 'geo-1',
-    name: 'GEO-SAT-1',
-    regime: 'GEO',
-    positions: geoPositions,
-    color: '#F59E0B',
-  });
-
-  return satellites;
+  const n = Math.max(1, count ?? DEFAULT_COUNTS[regime]);
+  return generateSatellitesForRegime(regime, n, now);
 };
 
 export function OrbitViewer({
-  satellites = generateMockSatellites(),
+  satellites,
+  regime = 'mixed',
+  objectCount,
   startTime = new Date(),
-  endTime = new Date(Date.now() + 2 * 60 * 60 * 1000),
+  endTime = new Date(Date.now() + 12 * 60 * 60 * 1000),
   showGroundTracks = true,
   className,
 }: OrbitViewerProps) {
+  const resolvedSatellites = satellites ?? generateMockSatellites(regime, objectCount);
   const viewerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [multiplier, setMultiplier] = useState(100);
@@ -259,7 +344,7 @@ export function OrbitViewer({
               duration={0}
             />
 
-            {satellites.map((satellite) => {
+            {resolvedSatellites.map((satellite) => {
               const positionProperty = createPositionProperty(satellite.positions);
               const color = satellite.color
                 ? Color.fromCssColorString(satellite.color)
@@ -312,7 +397,7 @@ export function OrbitViewer({
 
         {/* Legend */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Showing {satellites.length} satellites</span>
+          <span>Showing {resolvedSatellites.length} satellites</span>
           <span>Click and drag to rotate • Scroll to zoom</span>
         </div>
       </CardContent>

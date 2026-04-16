@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, FileText, Target, TrendingUp, ArrowRight, Plus, Upload, Sparkles, Rocket } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -6,6 +7,12 @@ import { LeaderboardSnapshot } from '@/components/dashboard/LeaderboardSnapshot'
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Cesium is heavy — lazy-load so the dashboard's first paint stays fast.
+const OrbitViewer = lazy(() =>
+  import('@/components/cesium/OrbitViewer').then((m) => ({ default: m.OrbitViewer }))
+);
 
 const ANNOUNCEMENTS = [
   {
@@ -168,6 +175,11 @@ export function DashboardPage() {
           </div>
         </Link>
       </div>
+
+      {/* 3D Orbital Regimes Showcase — mixed LEO/MEO/GEO/HEO satellites */}
+      <Suspense fallback={<Skeleton className="h-[480px] w-full rounded-lg" />}>
+        <OrbitViewer regime="mixed" />
+      </Suspense>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
