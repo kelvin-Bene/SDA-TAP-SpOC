@@ -211,7 +211,6 @@ async def get_dataset(
 
     # Parse generation parameters
     params = {}
-    satellites = []
     sensor_types = ["optical"]
 
     if row_dict.get("generation_params"):
@@ -221,7 +220,6 @@ async def get_dataset(
                 if isinstance(row_dict["generation_params"], str)
                 else row_dict.get("generation_params", {})
             )
-            satellites = params.get("satIDs", [])
             sensor_types = params.get("sensors", ["optical"])
         except (json.JSONDecodeError, TypeError):
             pass
@@ -238,6 +236,18 @@ async def get_dataset(
             actual_satellite_ids = json.loads(raw) if isinstance(raw, str) else (raw or [])
         except (json.JSONDecodeError, TypeError):
             pass
+
+    # Resolve canonical satellite list. Priority:
+    #   1. actual_satellite_ids — ground truth, populated post-generation by both
+    #      real workers and the demo seeder.
+    #   2. generation_params keys — fallbacks for in-progress datasets. The codebase
+    #      historically uses "satIDs" in some paths and "satellites" in others.
+    satellites = (
+        actual_satellite_ids
+        or params.get("satIDs")
+        or params.get("satellites")
+        or []
+    )
 
     performance_metadata = None
     if row_dict.get("performance_metadata"):
@@ -1190,7 +1200,6 @@ async def get_dataset_by_legacy_code(
 
     # Parse generation parameters
     params = {}
-    satellites = []
     sensor_types = ["optical"]
 
     if row_dict.get("generation_params"):
@@ -1200,7 +1209,6 @@ async def get_dataset_by_legacy_code(
                 if isinstance(row_dict["generation_params"], str)
                 else row_dict.get("generation_params", {})
             )
-            satellites = params.get("satIDs", [])
             sensor_types = params.get("sensors", ["optical"])
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"Failed to parse generation_params for dataset {legacy_code}: {e}")
@@ -1216,6 +1224,14 @@ async def get_dataset_by_legacy_code(
             actual_satellite_ids = json.loads(raw) if isinstance(raw, str) else (raw or [])
         except (json.JSONDecodeError, TypeError):
             pass
+
+    # Same satellite-resolution priority as get_dataset(): actual_satellite_ids first.
+    satellites = (
+        actual_satellite_ids
+        or params.get("satIDs")
+        or params.get("satellites")
+        or []
+    )
 
     performance_metadata = None
     if row_dict.get("performance_metadata"):
