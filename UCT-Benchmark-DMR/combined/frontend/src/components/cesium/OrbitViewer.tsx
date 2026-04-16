@@ -218,6 +218,10 @@ export function OrbitViewer({
       selectionIndicator: false,
       navigationHelpButton: false,
       fullscreenButton: false,
+      // infoBox uses knockout.js which does `new Function(...)` (requires
+      // 'unsafe-eval' in CSP). We don't need click-to-show entity info for
+      // the mock demo, so disable it.
+      infoBox: false,
     });
     viewerRef.current = viewer;
 

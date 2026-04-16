@@ -16,7 +16,7 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cesium.com https://*.ion.cesium.com; connect-src 'self' https://*.supabase.co https://*.cesium.com https://*.ion.cesium.com https://assets.cesium.com https://*.up.railway.app; font-src 'self' data:; worker-src 'self' blob:;" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cesium.com https://*.ion.cesium.com https://*.virtualearth.net https://*.bing.com; connect-src 'self' https://*.supabase.co https://*.cesium.com https://*.ion.cesium.com https://assets.cesium.com https://*.virtualearth.net https://*.bing.com https://*.up.railway.app; font-src 'self' data:; worker-src 'self' blob:;" always;
 
     # Max upload size for UCTP submissions
     client_max_body_size 50m;
