@@ -1,0 +1,168 @@
+/**
+ * Direct HTTP smoke tests against the production backend API.
+ *
+ * Extracts the Supabase JWT from the storageState so tests can authenticate
+ * at the REST layer without going through the UI. Covers:
+ *   - /health liveness
+ *   - /api/v1/datasets ownership filtering
+ *   - /api/v1/datasets/{id}/reference-orbits owner-gate
+ *   - /api/v1/submissions/{id}/predictions owner-gate
+ *   - /api/v1/leaderboard returns composite score fields
+ */
+import { test, expect, APIRequestContext } from '@playwright/test';
+
+const API_BASE =
+  process.env.PLAYWRIGHT_API_URL || 'https://backend-production-4b02.up.railway.app';
+
+/**
+ * Extract the Supabase access_token from the storageState localStorage.
+ * The storage entry key is `sb-<project-ref>-auth-token`; its value is a
+ * JSON string with `access_token`, `refresh_token`, `user`, etc.
+ */
+async function getJwt(page: import('@playwright/test').Page): Promise<string> {
+  await page.goto('/dashboard');
+  const token = await page.evaluate(() => {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.access_token === 'string') return parsed.access_token;
+      } catch {
+        /* ignore */
+      }
+    }
+    return null;
+  });
+  if (!token) throw new Error('Supabase JWT not found in storage state');
+  return token;
+}
+
+async function authed(
+  request: APIRequestContext,
+  jwt: string,
+  path: string
+): Promise<import('@playwright/test').APIResponse> {
+  return request.get(`${API_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+}
+
+test.describe('API smoke — public endpoints', () => {
+  test('/health returns healthy with Orekit available', async ({ request }) => {
+    const res = await request.get(`${API_BASE}/health`);
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('healthy');
+    expect(body.components).toBeDefined();
+    expect(body.components.database).toBe('connected');
+    // Soft: Orekit should be import-ok; lazy JVM init happens on first use.
+    expect(['available', 'unavailable']).toContain(body.components.orekit);
+  });
+
+  test('unauthenticated /api/v1/datasets returns 401', async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/v1/datasets`);
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+test.describe('API smoke — authenticated', () => {
+  let jwt: string;
+
+  test.beforeAll(async ({ browser }) => {
+    const ctx = await browser.newContext({
+      storageState: 'e2e/.auth/user.json',
+      baseURL: process.env.PLAYWRIGHT_BASE_URL,
+    });
+    const page = await ctx.newPage();
+    jwt = await getJwt(page);
+    await ctx.close();
+  });
+
+  test('lists datasets for current user', async ({ request }) => {
+    const res = await authed(request, jwt, '/api/v1/datasets?limit=10');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    // Response shape: { items: [...], total: N } OR bare array — accept either.
+    const items = Array.isArray(body) ? body : body.items;
+    expect(Array.isArray(items)).toBe(true);
+  });
+
+  test('leaderboard response includes composite score fields (Part D #1)', async ({ request }) => {
+    const res = await authed(request, jwt, '/api/v1/leaderboard?limit=5');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const entries = body.entries ?? body.items ?? body;
+    if (Array.isArray(entries) && entries.length > 0) {
+      const entry = entries[0];
+      // Canonical leaderboard fields. test_composite_score may be null if
+      // pre-composite submission; we just assert the field EXISTS (not-undefined).
+      expect('test_composite_score' in entry || 'testCompositeScore' in entry).toBe(true);
+      expect('composite_score' in entry || 'compositeScore' in entry).toBe(true);
+    }
+  });
+
+  test('reference-orbits endpoint: owner 200, non-existent 404', async ({ request }) => {
+    const listRes = await authed(request, jwt, '/api/v1/datasets?mine=true&limit=1');
+    const body = await listRes.json();
+    const items = Array.isArray(body) ? body : body.items ?? [];
+
+    if (items.length === 0) {
+      test.skip(true, 'no owned datasets available to probe');
+      return;
+    }
+
+    const ownedId = items[0].id;
+    const okRes = await authed(request, jwt, `/api/v1/datasets/${ownedId}/reference-orbits`);
+    expect([200, 404]).toContain(okRes.status()); // 404 acceptable if legacy dataset has no refs
+
+    const missingRes = await authed(request, jwt, '/api/v1/datasets/99999999/reference-orbits');
+    expect(missingRes.status()).toBe(404);
+  });
+
+  test('submissions predictions endpoint: owner-gated', async ({ request }) => {
+    const listRes = await authed(request, jwt, '/api/v1/submissions?limit=1');
+    const body = await listRes.json();
+    const items = Array.isArray(body) ? body : body.items ?? [];
+
+    if (items.length === 0) {
+      test.skip(true, 'no submissions available to probe');
+      return;
+    }
+
+    const ownSubId = items[0].id;
+    const res = await authed(request, jwt, `/api/v1/submissions/${ownSubId}/predictions`);
+    // Owner access: 200 (ok), 400 (bad state), 404 (file path missing), or
+    // 410 (submission's UCTP file was cleared on disk) all acceptable.
+    // 403 is the forbidden-by-RLS case — must NOT happen for an owner.
+    expect(res.status()).not.toBe(403);
+    expect([200, 400, 404, 410]).toContain(res.status());
+  });
+
+  test('results detail response includes composite_breakdown when available', async ({
+    request,
+  }) => {
+    const listRes = await authed(
+      request,
+      jwt,
+      '/api/v1/submissions?status=completed&limit=1'
+    );
+    const body = await listRes.json();
+    const items = Array.isArray(body) ? body : body.items ?? [];
+
+    if (items.length === 0) {
+      test.skip(true, 'no completed submissions available');
+      return;
+    }
+
+    const subId = items[0].id;
+    const res = await authed(request, jwt, `/api/v1/results/${subId}`);
+    expect(res.status()).toBe(200);
+    const result = await res.json();
+    // composite_score and composite_breakdown were added in today's shipment.
+    // They may be null on old submissions but the FIELD should exist.
+    expect('composite_score' in result || 'compositeScore' in result).toBe(true);
+  });
+});

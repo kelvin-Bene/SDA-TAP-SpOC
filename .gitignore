@@ -78,4 +78,27 @@ validation/results/
 uv.lock
 poetry.lock
 *.playwright-mcp/
+
+# Test / QA artifacts — these accumulate at repo root from Playwright MCP
+# runs, manual QA screenshotting, and DEMO_TEST_REPORT captures. Keep them
+# local only.
 test-*.png
+prod-*.png
+A[0-9]*-*.png
+B[0-9]*-*.png
+C[0-9]*-*.png
+D[0-9]*-*.png
+E[0-9]*-*.png
+F[0-9]*-*.png
+G[0-9]*-*.png
+test-screenshots/
+snapshot-*.md
+DEMO_TEST_REPORT.md
+architecture-diagrams/
+
+# Playwright output (reports, traces, screenshots)
+UCT-Benchmark-DMR/combined/frontend/test-results/
+UCT-Benchmark-DMR/combined/frontend/playwright-report/
+
+# Playwright auth storage state (contains Supabase session tokens)
+UCT-Benchmark-DMR/combined/frontend/e2e/.auth/

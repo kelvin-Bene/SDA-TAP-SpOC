@@ -1,24 +1,38 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Playwright configuration for the UCT Benchmark frontend.
  *
- * Four projects cover mobile / tablet / desktop viewports:
- *   - mobile-safari: iPhone SE (375×667) with WebKit + touch
- *   - mobile-chrome: Pixel 5 (393×851) with Chromium + touch
- *   - tablet:        iPad (gen 7) (810×1080) with WebKit + touch
- *   - desktop:       Chromium 1280×800 (no touch)
+ * Two test surfaces:
  *
- * Use `devices[...]` profiles over raw `viewport` so `hasTouch`, `isMobile`,
- * UA, and device pixel ratio are all set correctly — the `touch:` Tailwind
- * variant and any `useBreakpoint` / touch feature-detects rely on these.
+ *   1. Dev-scope (default) — four projects (mobile-safari, mobile-chrome,
+ *      tablet, desktop) that run the existing e2e/*.spec.ts against a local
+ *      dev server with auth disabled (VITE_AUTH_ENABLED=false).
  *
- * To run against a deployed URL (e.g. Railway prod):
- *   PLAYWRIGHT_BASE_URL=https://frontend-production-6d80.up.railway.app npx playwright test
- * When PLAYWRIGHT_BASE_URL is set, the local dev webServer is skipped.
+ *   2. Prod-scope (opt-in) — two projects (desktop-auth, mobile-safari-auth)
+ *      that run e2e/prod/*.spec.ts against a real deployed URL with a real
+ *      Supabase session. Depends on the `setup` project which logs in once
+ *      via auth.setup.ts and saves storageState to e2e/.auth/user.json.
+ *
+ * Run dev-scope (local):
+ *   npx playwright test
+ *
+ * Run prod-scope (against Railway):
+ *   npm run test:e2e:prod
  */
+
+// Load frontend/.env.local (gitignored) for PLAYWRIGHT_TEST_EMAIL / PASSWORD /
+// BASE_URL / API_URL. Does nothing if the file is absent.
+loadDotenv({ path: path.resolve(__dirname, '.env.local') });
+
 const EXTERNAL_BASE_URL = process.env.PLAYWRIGHT_BASE_URL;
 const BASE_URL = EXTERNAL_BASE_URL || 'http://localhost:3000';
+const STORAGE_STATE = path.resolve(__dirname, 'e2e/.auth/user.json');
 
 export default defineConfig({
   testDir: './e2e',
@@ -42,26 +56,59 @@ export default defineConfig({
         timeout: 120_000,
       },
   projects: [
+    // Dev-scope projects (run existing e2e/*.spec.ts, skip e2e/prod/**).
     {
-      // iPhone SE 2/3 (375×667) — our stated minimum target viewport.
-      // Playwright's built-in `devices['iPhone SE']` profile uses 320×568
-      // (1st gen), which is below target, so we override the viewport.
       name: 'mobile-safari',
+      testIgnore: /prod\//,
       use: { ...devices['iPhone SE'], viewport: { width: 375, height: 667 } },
     },
     {
       name: 'mobile-chrome',
+      testIgnore: /prod\//,
       use: { ...devices['Pixel 5'] },
     },
     {
       name: 'tablet',
+      testIgnore: /prod\//,
       use: { ...devices['iPad (gen 7)'] },
     },
     {
       name: 'desktop',
+      testIgnore: /prod\//,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },
+      },
+    },
+
+    // Prod-scope — logs in once, stores session for auth projects.
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+
+    // Prod-scope — desktop authenticated specs (most of the prod suite).
+    {
+      name: 'desktop-auth',
+      dependencies: ['setup'],
+      testMatch: /prod\/.*\.spec\.ts/,
+      testIgnore: /prod\/90-mobile-parity/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: STORAGE_STATE,
+      },
+    },
+
+    // Prod-scope — iPhone SE authenticated specs (mobile overhaul regression).
+    {
+      name: 'mobile-safari-auth',
+      dependencies: ['setup'],
+      testMatch: /prod\/(00-public|90-mobile-parity|10-dashboard|20-datasets-browse|30-submit-filter|40-results-composite|50-leaderboard)\.spec\.ts/,
+      use: {
+        ...devices['iPhone SE'],
+        viewport: { width: 375, height: 667 },
+        storageState: STORAGE_STATE,
       },
     },
   ],
