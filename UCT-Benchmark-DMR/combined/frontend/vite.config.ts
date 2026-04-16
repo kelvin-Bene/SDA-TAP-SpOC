@@ -26,9 +26,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    // Temporarily on for the globe debug session — we need minified stack
-    // traces to map back to source lines. Revert after the fix lands.
-    sourcemap: true,
+    sourcemap: false,
     // vite-plugin-cesium already externalises the Cesium runtime (copies
     // Cesium assets + injects the CDN-style worker shims), so we cannot
     // add cesium/resium to manualChunks — Rollup rejects externalised
