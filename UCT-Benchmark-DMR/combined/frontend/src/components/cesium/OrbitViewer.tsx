@@ -1,5 +1,13 @@
 import { useRef, useState } from 'react';
-import { Viewer, Entity, CameraFlyTo, Clock } from 'resium';
+import {
+  Viewer,
+  Entity,
+  CameraFlyTo,
+  Clock,
+  PointGraphics,
+  PathGraphics,
+  LabelGraphics,
+} from 'resium';
 import {
   Ion,
   Cartesian3,
@@ -322,9 +330,6 @@ export function OrbitViewer({
             selectionIndicator={false}
             navigationHelpButton={false}
             fullscreenButton={false}
-            creditContainer={undefined}
-            requestRenderMode={true}
-            maximumRenderTimeChange={Infinity}
           >
             <Clock
               startTime={JulianDate.fromDate(startTime)}
@@ -352,37 +357,36 @@ export function OrbitViewer({
                   key={satellite.id}
                   name={satellite.name}
                   position={positionProperty}
-                  point={{
-                    pixelSize: 8,
-                    color: color,
-                    outlineColor: Color.WHITE,
-                    outlineWidth: 1,
-                    scaleByDistance: new NearFarScalar(1e7, 1.5, 1e9, 0.5),
-                  }}
-                  path={
-                    showGroundTracks
-                      ? {
-                          resolution: 120,
-                          material: color.withAlpha(0.5),
-                          width: 2,
-                          leadTime: 3600,
-                          trailTime: 3600,
-                        }
-                      : undefined
-                  }
-                  label={{
-                      text: satellite.name,
-                      font: '12px sans-serif',
-                      fillColor: Color.WHITE,
-                      outlineColor: Color.BLACK,
-                      outlineWidth: 2,
-                      style: 2, // FILL_AND_OUTLINE
-                      verticalOrigin: VerticalOrigin.BOTTOM,
-                      horizontalOrigin: HorizontalOrigin.CENTER,
-                      pixelOffset: new Cartesian2(0, -12),
-                      scaleByDistance: new NearFarScalar(1e7, 1, 1e9, 0.3),
-                    }}
-                />
+                >
+                  <PointGraphics
+                    pixelSize={8}
+                    color={color}
+                    outlineColor={Color.WHITE}
+                    outlineWidth={1}
+                    scaleByDistance={new NearFarScalar(1e7, 1.5, 1e9, 0.5)}
+                  />
+                  {showGroundTracks && (
+                    <PathGraphics
+                      resolution={120}
+                      material={color.withAlpha(0.5)}
+                      width={2}
+                      leadTime={3600}
+                      trailTime={3600}
+                    />
+                  )}
+                  <LabelGraphics
+                    text={satellite.name}
+                    font="12px sans-serif"
+                    fillColor={Color.WHITE}
+                    outlineColor={Color.BLACK}
+                    outlineWidth={2}
+                    style={2}
+                    verticalOrigin={VerticalOrigin.BOTTOM}
+                    horizontalOrigin={HorizontalOrigin.CENTER}
+                    pixelOffset={new Cartesian2(0, -12)}
+                    scaleByDistance={new NearFarScalar(1e7, 1, 1e9, 0.3)}
+                  />
+                </Entity>
               );
             })}
           </Viewer>
