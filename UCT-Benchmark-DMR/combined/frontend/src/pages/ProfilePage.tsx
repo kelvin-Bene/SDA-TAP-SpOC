@@ -30,12 +30,15 @@ export function ProfilePage() {
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
-      const payload: Record<string, string> = {
-        display_name: displayName,
-        organization,
-      };
-
-      await api.updateProfile(payload);
+      // In demo mode the synthetic user isn't persisted server-side, so
+      // skip the PATCH and let the on-page state act as the source of truth.
+      if (!import.meta.env.VITE_DEMO_MODE) {
+        const payload: Record<string, string> = {
+          display_name: displayName,
+          organization,
+        };
+        await api.updateProfile(payload);
+      }
 
       toast({
         title: 'Profile Updated',

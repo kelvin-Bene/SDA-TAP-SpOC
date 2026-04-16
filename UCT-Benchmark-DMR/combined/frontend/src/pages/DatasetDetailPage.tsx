@@ -68,6 +68,16 @@ export function DatasetDetailPage() {
   }
 
   if (error || !dataset) {
+    const axiosErr = error as { response?: { status?: number } } | undefined;
+    const status = axiosErr?.response?.status;
+    const friendlyMsg =
+      status === 404
+        ? "The dataset you're looking for doesn't exist or has been removed."
+        : status === 403
+          ? "You don't have access to this dataset."
+          : status && status >= 500
+            ? 'The server is temporarily unavailable. Please try again in a moment.'
+            : 'This dataset could not be loaded. Please try again or go back to browse.';
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -79,9 +89,7 @@ export function DatasetDetailPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
             <AlertTriangle className="h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground text-center">
-              {error instanceof Error ? error.message : 'This dataset could not be found or you do not have access to it.'}
-            </p>
+            <p className="text-muted-foreground text-center">{friendlyMsg}</p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => navigate(-1)}>
                 Go Back

@@ -4,10 +4,13 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    'Supabase environment variables are not set. Auth features will not work. ' +
-    'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
-  )
+  // Demo builds intentionally ship without Supabase — suppress the warning there.
+  if (!import.meta.env.VITE_DEMO_MODE) {
+    console.warn(
+      'Supabase environment variables are not set. Auth features will not work. ' +
+      'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
+    )
+  }
   if (import.meta.env.PROD && !import.meta.env.VITE_DEMO_MODE) {
     throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in production builds');
   }

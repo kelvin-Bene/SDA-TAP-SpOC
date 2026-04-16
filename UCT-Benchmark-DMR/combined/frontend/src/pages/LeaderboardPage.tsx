@@ -64,9 +64,10 @@ export function LeaderboardPage() {
   const topThree = sortedLeaderboard.slice(0, 3);
 
   // Transform history data for chart
-  const { trendData, algDisplayNames } = useMemo(() => {
+  const { trendData, algDisplayNames, topAlgKeys } = useMemo(() => {
     const byMonth: Record<string, Record<string, number>> = {};
     const displayNames: Record<string, string> = {};
+    const latestByAlg: Record<string, { month: string; f1: number }> = {};
 
     historyData.forEach((entry) => {
       const month = entry.date.substring(0, 7); // YYYY-MM
@@ -78,6 +79,11 @@ export function LeaderboardPage() {
       if (!byMonth[month][algKey] || entry.bestF1 > byMonth[month][algKey]) {
         byMonth[month][algKey] = entry.bestF1;
       }
+      // Track each algorithm's latest-month F1 for ranking which 4 lines to draw
+      const existing = latestByAlg[algKey];
+      if (!existing || month > existing.month || (month === existing.month && entry.bestF1 > existing.f1)) {
+        latestByAlg[algKey] = { month, f1: entry.bestF1 };
+      }
     });
 
     const data = Object.entries(byMonth)
@@ -87,7 +93,14 @@ export function LeaderboardPage() {
       }))
       .sort((a, b) => a.month.localeCompare(b.month));
 
-    return { trendData: data, algDisplayNames: displayNames };
+    // Pick top 4 algorithms by their latest-month F1 score (not alphabetical,
+    // not just the earliest month's keys — prior bug: chart read trendData[0]
+    // keys and missed any algorithm absent from month 1).
+    const ranked = Object.entries(latestByAlg)
+      .sort((a, b) => b[1].f1 - a[1].f1)
+      .map(([algKey]) => algKey);
+
+    return { trendData: data, algDisplayNames: displayNames, topAlgKeys: ranked.slice(0, 4) };
   }, [historyData]);
 
   const handleSort = (column: typeof sortColumn) => {
@@ -468,10 +481,8 @@ export function LeaderboardPage() {
                       }}
                     />
                     <Legend />
-                    {/* Dynamic lines based on data */}
-                    {Object.keys(trendData[0] || {})
-                      .filter((key) => key !== 'month')
-                      .slice(0, 4)
+                    {/* Dynamic lines based on data — top 4 algorithms by latest F1 */}
+                    {topAlgKeys
                       .map((alg, idx) => (
                         <Line
                           key={alg}
