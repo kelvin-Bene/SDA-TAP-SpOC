@@ -386,18 +386,13 @@ async def health_check():
     except Exception:
         components["disk_space"] = "unknown"
 
-    # Orekit (Java) availability for state/residual metrics. Import alone is
-    # not enough — the JVM has to start and Orekit data has to be loadable, or
-    # evaluations fall back to F1-only. We do a cheap primitive call to prove
-    # end-to-end readiness without measurable cost.
+    # Orekit (Java) availability for state/residual metrics. The JVM starts
+    # lazily on first propagation via `orbit_propagation.warm_jvm()` — we
+    # don't start it here because that would cost 5-15s on every /health
+    # probe. Import success is sufficient to know the pipeline *can* run.
     try:
         import orekit_jpype  # noqa: F401
-        try:
-            from org.orekit.frames import FramesFactory  # type: ignore
-            FramesFactory.getEME2000()  # primitive no-op; raises if JVM/data missing
-            components["orekit"] = "ready"
-        except Exception as jvm_err:
-            components["orekit"] = f"import_ok_jvm_error:{type(jvm_err).__name__}"
+        components["orekit"] = "available"
     except ImportError:
         components["orekit"] = "unavailable"
 
