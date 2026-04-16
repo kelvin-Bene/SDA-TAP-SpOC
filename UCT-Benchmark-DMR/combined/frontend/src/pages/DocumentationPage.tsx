@@ -51,7 +51,7 @@ export function DocumentationPage() {
                 Quick start guide for the UCT Benchmark Platform
               </CardDescription>
             </CardHeader>
-            <CardContent className="prose dark:prose-invert max-w-none">
+            <CardContent className="prose dark:prose-invert max-w-none overflow-x-hidden [&_pre]:overflow-x-auto [&_pre]:max-w-full">
               <h3>Welcome to UCT Benchmark</h3>
               <p>
                 The UCT Benchmark Platform is a standardized framework
@@ -116,7 +116,7 @@ export function DocumentationPage() {
                 Understand the structure of benchmark datasets
               </CardDescription>
             </CardHeader>
-            <CardContent className="prose dark:prose-invert max-w-none">
+            <CardContent className="prose dark:prose-invert max-w-none overflow-x-hidden [&_pre]:overflow-x-auto [&_pre]:max-w-full">
               <h3>Dataset Structure</h3>
               <p>
                 Each benchmark dataset is provided as a JSON file containing two main sections:
@@ -183,7 +183,7 @@ export function DocumentationPage() {
                 Format your algorithm output for evaluation
               </CardDescription>
             </CardHeader>
-            <CardContent className="prose dark:prose-invert max-w-none">
+            <CardContent className="prose dark:prose-invert max-w-none overflow-x-hidden [&_pre]:overflow-x-auto [&_pre]:max-w-full">
               <h3>Submission Structure</h3>
               <p>
                 Your submission should be a JSON file containing your algorithm's track associations
@@ -239,7 +239,7 @@ export function DocumentationPage() {
                 Understanding how your algorithm is scored
               </CardDescription>
             </CardHeader>
-            <CardContent className="prose dark:prose-invert max-w-none">
+            <CardContent className="prose dark:prose-invert max-w-none overflow-x-hidden [&_pre]:overflow-x-auto [&_pre]:max-w-full">
               <h3>Binary Classification Metrics</h3>
               <p>
                 Track associations are evaluated as a binary classification problem:

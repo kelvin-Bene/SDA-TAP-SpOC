@@ -12,7 +12,14 @@ import { defineConfig, devices } from '@playwright/test';
  * Use `devices[...]` profiles over raw `viewport` so `hasTouch`, `isMobile`,
  * UA, and device pixel ratio are all set correctly — the `touch:` Tailwind
  * variant and any `useBreakpoint` / touch feature-detects rely on these.
+ *
+ * To run against a deployed URL (e.g. Railway prod):
+ *   PLAYWRIGHT_BASE_URL=https://frontend-production-6d80.up.railway.app npx playwright test
+ * When PLAYWRIGHT_BASE_URL is set, the local dev webServer is skipped.
  */
+const EXTERNAL_BASE_URL = process.env.PLAYWRIGHT_BASE_URL;
+const BASE_URL = EXTERNAL_BASE_URL || 'http://localhost:3000';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -21,16 +28,19 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // Only start the local dev server when we're pointing at localhost.
+  webServer: EXTERNAL_BASE_URL
+    ? undefined
+    : {
+        command: 'npm run dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
   projects: [
     {
       name: 'mobile-safari',

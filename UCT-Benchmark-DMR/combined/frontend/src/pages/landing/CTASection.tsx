@@ -24,8 +24,8 @@ export function CTASection() {
             <p className="text-muted-foreground max-w-xl mx-auto mb-8">
               Authenticate to browse datasets, submit algorithm results, and view evaluation metrics.
             </p>
-            <div className="flex flex-col xs:flex-row items-center justify-center gap-3">
-              <Button asChild size="lg" className="w-full xs:w-auto bg-gradient-cosmic hover:opacity-90 text-white border-0 px-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button asChild size="lg" className="w-full sm:w-auto bg-gradient-cosmic hover:opacity-90 text-white border-0 px-8">
                 <Link to="/login">
                   <LogIn className="h-4 w-4 mr-2" />
                   Sign In to UCT Benchmark
@@ -33,7 +33,7 @@ export function CTASection() {
               </Button>
               <a
                 href="https://frontend-demo-1542.up.railway.app/"
-                className="w-full xs:w-auto inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium h-11 px-8 border border-white/20 hover:bg-white/5 transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium h-11 px-8 border border-white/20 hover:bg-white/5 transition-colors"
               >
                 <Play className="h-4 w-4" />
                 Try Demo

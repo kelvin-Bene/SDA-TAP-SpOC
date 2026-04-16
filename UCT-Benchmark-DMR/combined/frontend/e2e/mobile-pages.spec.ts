@@ -7,7 +7,9 @@ import { test, expect, isMobile } from './fixtures';
  */
 test.describe('mobile-only page behavior', () => {
   // eslint-disable-next-line no-empty-pattern
-  test.skip(({}, testInfo) => !isMobile(testInfo), 'mobile-only tests');
+  test.beforeEach(({}, testInfo) => {
+    test.skip(!isMobile(testInfo), 'mobile-only tests');
+  });
 
   test('leaderboard renders cards instead of table', async ({ page }) => {
     await page.goto('/leaderboard');

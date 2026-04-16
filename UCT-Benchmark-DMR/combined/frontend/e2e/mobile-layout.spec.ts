@@ -36,7 +36,9 @@ for (const route of SMOKE_ROUTES) {
 
 test.describe('mobile sidebar drawer', () => {
   // eslint-disable-next-line no-empty-pattern
-  test.skip(({}, testInfo) => isDesktop(testInfo), 'sidebar is overlay drawer only below lg:');
+  test.beforeEach(({}, testInfo) => {
+    test.skip(isDesktop(testInfo), 'sidebar is overlay drawer only below lg:');
+  });
 
   test('toggle menu opens and closes the drawer', async ({ page }) => {
     await page.goto('/dashboard');
