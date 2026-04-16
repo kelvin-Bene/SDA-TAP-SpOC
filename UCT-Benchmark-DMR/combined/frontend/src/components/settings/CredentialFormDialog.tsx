@@ -56,14 +56,6 @@ const SERVICE_FORM_CONFIGS: Record<string, ServiceFormConfig> = {
     helpUrl: 'https://celestrak.org',
     helpText: 'Register at CelesTrak to obtain an API token.',
   },
-  orekit: {
-    service_name: 'orekit',
-    label: 'Orekit Data Path',
-    primaryLabel: 'Data Directory Path',
-    primaryPlaceholder: '/path/to/orekit-data',
-    helpUrl: 'https://gitlab.orekit.org/orekit/orekit-data',
-    helpText: 'Download the Orekit data folder and enter its path.',
-  },
 };
 
 interface CredentialFormDialogProps {

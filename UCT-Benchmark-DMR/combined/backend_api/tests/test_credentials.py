@@ -93,8 +93,7 @@ class TestCRUD:
         assert "esa" in names
         assert "nasa_earthdata" in names
         assert "spacetrack" in names
-        assert "orekit" in names
-        assert len(services) >= 5
+        assert len(services) >= 4
 
     def test_get_service(self, cred_service):
         info = cred_service.get_service("udl")

@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 ENV_VAR_MAP: dict[str, str] = {
     "udl": "UDL_TOKEN",
     "esa": "ESA_DISCOSWEBAPI_TOKEN",
-    "orekit": "OREKIT_DATA_PATH",
 }
 
 # Human-readable labels and descriptions for each service
@@ -36,10 +35,6 @@ SERVICE_METADATA: dict[str, dict[str, str]] = {
     "esa": {
         "label": "ESA DISCOSweb",
         "description": "European Space Agency space object catalogue",
-    },
-    "orekit": {
-        "label": "Orekit Data",
-        "description": "Local path to Orekit astrodynamics data files",
     },
 }
 
@@ -275,14 +270,12 @@ class CredentialService:
         # Call the appropriate validator
         from backend_api.utils.token_validation import (
             validate_esa_token,
-            validate_orekit_path,
             validate_udl_token,
         )
 
         validators = {
             "udl": lambda: validate_udl_token(primary),
             "esa": lambda: validate_esa_token(primary),
-            "orekit": lambda: validate_orekit_path(primary),
         }
 
         validator = validators.get(service_name)
