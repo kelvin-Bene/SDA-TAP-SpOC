@@ -8,11 +8,6 @@ import { version } from './package.json';
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version || 'unknown'),
-    // TEMPORARY — force React development build in prod for ONE deploy so
-    // we can read the real component stack for the OrbitViewer React error
-    // #31. Revert immediately after the fix lands; never ship dev React to
-    // real users (double the size, slower, warning-spammy).
-    'process.env.NODE_ENV': JSON.stringify('development'),
   },
   plugins: [react(), cesium()],
   resolve: {

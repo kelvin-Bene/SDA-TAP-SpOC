@@ -268,7 +268,6 @@ export function OrbitViewer({
             selectionIndicator={false}
             navigationHelpButton={false}
             fullscreenButton={false}
-            creditContainer={undefined}
           >
             <Clock
               startTime={JulianDate.fromDate(startTime)}
