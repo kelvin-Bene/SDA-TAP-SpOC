@@ -27,17 +27,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        // Split Cesium/resium into their own chunk so they only load on pages
-        // that lazy-import the globe (DatasetDetailPage, ResultsPage). Without
-        // this, any static import of the globe wrapper pulls ~1.4MB of Cesium
-        // into the landing-page bundle graph.
-        manualChunks: {
-          cesium: ['cesium', 'resium'],
-        },
-      },
-    },
+    // vite-plugin-cesium already externalises the Cesium runtime (copies
+    // Cesium assets + injects the CDN-style worker shims), so we cannot
+    // add cesium/resium to manualChunks — Rollup rejects externalised
+    // modules. The plugin's own chunk-split handles the lazy-load boundary;
+    // any React.lazy(() => import('./OrbitViewer')) call site gets the
+    // Cesium deps loaded in its own async chunk via the dynamic import graph.
   },
   test: {
     globals: true,
