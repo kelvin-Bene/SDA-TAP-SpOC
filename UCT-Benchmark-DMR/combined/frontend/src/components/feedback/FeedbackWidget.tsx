@@ -149,12 +149,13 @@ function FeedbackWidgetInner() {
 
   return (
     <>
-      {/* Floating trigger button */}
+      {/* Floating trigger button — sits above iOS home indicator via safe-area inset */}
       <Button
         onClick={handleOpen}
         size="icon"
         className={cn(
-          'fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg',
+          'fixed right-4 xs:right-6 z-40 h-12 w-12 rounded-full shadow-lg',
+          'bottom-[max(1rem,env(safe-area-inset-bottom))] xs:bottom-[max(1.5rem,env(safe-area-inset-bottom))]',
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'transition-transform hover:scale-105'
         )}
@@ -165,7 +166,7 @@ function FeedbackWidgetInner() {
 
       {/* Feedback dialog */}
       <Dialog open={open} onOpenChange={(v) => (v ? handleOpen() : handleClose())}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Send Feedback</DialogTitle>
             <DialogDescription>

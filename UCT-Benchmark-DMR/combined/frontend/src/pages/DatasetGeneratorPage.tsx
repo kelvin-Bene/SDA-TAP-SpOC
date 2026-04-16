@@ -548,7 +548,7 @@ export function DatasetGeneratorPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Generate Dataset</h1>
+          <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">Generate Dataset</h1>
           <p className="text-muted-foreground mt-1">
             Configure parameters to generate a custom benchmark dataset
           </p>
@@ -590,8 +590,12 @@ export function DatasetGeneratorPage() {
                         value={directCodeInput}
                         onChange={(e) => handleDirectCodeInput(e.target.value)}
                         placeholder="H50LEONEOPSSSS07"
-                        className="font-mono text-xl tracking-wider w-48"
+                        className="font-mono text-xl tracking-wider w-full sm:w-48"
                         maxLength={16}
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
                       />
                     ) : (
                       <span className="text-primary">{currentLegacyCode}</span>
@@ -624,38 +628,69 @@ export function DatasetGeneratorPage() {
           </Card>
         )}
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-8 overflow-x-auto">
-          {activeSteps.map((step, index) => (
-            <div key={step.id} className="flex items-center">
-              <div
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-full transition-colors',
-                  activeStep === step.id
-                    ? 'bg-primary text-primary-foreground'
-                    : activeStep > step.id
-                    ? 'bg-primary/20 text-primary'
-                    : 'bg-muted text-muted-foreground'
-                )}
-              >
-                {activeStep > step.id ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <step.icon className="h-4 w-4" />
-                )}
-                <span className="font-medium text-xs hidden sm:inline">{step.name}</span>
-              </div>
-              {index < activeSteps.length - 1 && (
+        {/* Progress Steps — compact text + bar on mobile; icon chain on sm+ */}
+        {(() => {
+          const activeIdx = Math.max(0, activeSteps.findIndex((s) => s.id === activeStep));
+          const currentName = activeSteps[activeIdx]?.name ?? '';
+          const pct = ((activeIdx + 1) / Math.max(1, activeSteps.length)) * 100;
+          return (
+            <>
+              {/* Mobile progress */}
+              <div className="sm:hidden space-y-2 mb-6">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">
+                    Step {activeIdx + 1} of {activeSteps.length}
+                  </span>
+                  <span className="text-muted-foreground truncate ml-2">{currentName}</span>
+                </div>
                 <div
-                  className={cn(
-                    'h-0.5 w-4 sm:w-8 mx-1',
-                    activeStep > step.id ? 'bg-primary' : 'bg-muted'
-                  )}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+                  className="h-2 bg-muted rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={activeIdx + 1}
+                  aria-valuemin={1}
+                  aria-valuemax={activeSteps.length}
+                >
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+              {/* Desktop icon chain */}
+              <div className="hidden sm:flex items-center justify-between mb-8 overflow-x-auto">
+                {activeSteps.map((step, index) => (
+                  <div key={step.id} className="flex items-center">
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-full transition-colors',
+                        activeStep === step.id
+                          ? 'bg-primary text-primary-foreground'
+                          : activeStep > step.id
+                          ? 'bg-primary/20 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {activeStep > step.id ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <step.icon className="h-4 w-4" />
+                      )}
+                      <span className="font-medium text-xs hidden sm:inline">{step.name}</span>
+                    </div>
+                    {index < activeSteps.length - 1 && (
+                      <div
+                        className={cn(
+                          'h-0.5 w-4 sm:w-8 mx-1',
+                          activeStep > step.id ? 'bg-primary' : 'bg-muted'
+                        )}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        })()}
 
         {/* Step Content */}
         <Card className={cn(hasUdlToken === false && 'relative')}>
@@ -964,7 +999,7 @@ export function DatasetGeneratorPage() {
                       <RadioGroup
                         value={legacyConfig.objectCount}
                         onValueChange={(v) => updateLegacyConfig('objectCount', v as ObjectCountLevel)}
-                        className="grid grid-cols-3 gap-4"
+                        className="grid grid-cols-1 xs:grid-cols-3 gap-3"
                       >
                         {(Object.entries(OBJECT_COUNT_LEVELS) as [ObjectCountLevel, { label: string; count: number; tolerance: number }][]).map(
                           ([value, { label, count, tolerance }]) => (
@@ -1043,7 +1078,7 @@ export function DatasetGeneratorPage() {
                         </div>
 
                         {/* Code Breakdown */}
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
                           <div className="rounded-lg border p-3 text-center">
                             <p className="font-mono text-lg">{legacyConfig.objectType}</p>
                             <p className="text-xs text-muted-foreground">Object Type</p>
@@ -2215,7 +2250,7 @@ export function DatasetGeneratorPage() {
                           {generateStandardWizardCode(config)}
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-5 gap-2">
                         {(() => {
                           const code = generateStandardWizardCode(config);
                           const segments = [

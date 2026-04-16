@@ -63,7 +63,7 @@ export function ProfilePage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
+        <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground mt-1">
           Manage your profile information
         </p>
@@ -98,6 +98,7 @@ export function ProfilePage() {
                   <Label htmlFor="username">Display Name</Label>
                   <Input
                     id="username"
+                    autoComplete="name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                   />
@@ -107,6 +108,7 @@ export function ProfilePage() {
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     value={user?.email ?? ''}
                     disabled
                     className="opacity-60"
@@ -121,6 +123,7 @@ export function ProfilePage() {
                     <Building2 className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
                     <Input
                       id="organization"
+                      autoComplete="organization"
                       value={organization}
                       onChange={(e) => setOrganization(e.target.value)}
                       className="flex-1"

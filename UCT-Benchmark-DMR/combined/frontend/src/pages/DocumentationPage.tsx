@@ -9,31 +9,31 @@ export function DocumentationPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
+        <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">Documentation</h1>
         <p className="text-muted-foreground mt-1">
           Learn how to use the UCT Benchmark Platform
         </p>
       </div>
 
       <Tabs defaultValue="getting-started" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-2 overflow-x-auto w-full justify-start">
-          <TabsTrigger value="getting-started" className="gap-2">
+        <TabsList className="w-full flex gap-2 overflow-x-auto scrollbar-hide snap-x md:flex-wrap md:overflow-visible h-auto justify-start">
+          <TabsTrigger value="getting-started" className="gap-2 shrink-0 snap-start">
             <Rocket className="h-4 w-4" />
             Getting Started
           </TabsTrigger>
-          <TabsTrigger value="dataset-format" className="gap-2">
+          <TabsTrigger value="dataset-format" className="gap-2 shrink-0 snap-start">
             <FileJson className="h-4 w-4" />
             Dataset Format
           </TabsTrigger>
-          <TabsTrigger value="submission-format" className="gap-2">
+          <TabsTrigger value="submission-format" className="gap-2 shrink-0 snap-start">
             <Code className="h-4 w-4" />
             Submission Format
           </TabsTrigger>
-          <TabsTrigger value="metrics" className="gap-2">
+          <TabsTrigger value="metrics" className="gap-2 shrink-0 snap-start">
             <BarChart3 className="h-4 w-4" />
             Evaluation Metrics
           </TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-2">
+          <TabsTrigger value="pipeline" className="gap-2 shrink-0 snap-start">
             <Workflow className="h-4 w-4" />
             Pipeline
           </TabsTrigger>
@@ -304,7 +304,11 @@ export function DocumentationPage() {
               <p className="text-sm text-muted-foreground">
                 The UCT processing pipeline follows five stages:
               </p>
-              <PipelineVisualizer />
+              <div className="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scrollbar-hide">
+                <div className="md:min-w-0 min-w-[640px]">
+                  <PipelineVisualizer />
+                </div>
+              </div>
               <p className="text-sm text-muted-foreground">
                 Click the info icon on each stage to learn more about what it does.
                 When running a benchmark, each stage lights up as the pipeline progresses

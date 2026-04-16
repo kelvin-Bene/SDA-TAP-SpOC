@@ -26,8 +26,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center px-4 lg:px-8">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 pt-safe">
+      <div className="flex h-14 sm:h-16 items-center gap-2 px-3 sm:px-4 lg:px-8">
         {/* Menu Button */}
         <Button
           variant="ghost"
@@ -45,7 +45,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <div className="h-9 w-9 rounded bg-white/90 p-0.5 flex items-center justify-center">
               <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-full w-full object-contain" />
             </div>
-            <div className="h-9 rounded bg-white/90 px-1 py-0.5 items-center justify-center hidden sm:flex">
+            <div className="h-9 rounded bg-white/90 px-1 py-0.5 items-center justify-center hidden md:flex">
               <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-full object-contain" />
             </div>
           </div>
@@ -94,7 +94,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <span className="sr-only">Notifications</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 glass border-white/10">
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={16}
+                  className="w-[min(20rem,calc(100vw-2rem))] glass border-white/10"
+                >
                   <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-white/10" />
                   <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
@@ -116,7 +121,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <span className="sr-only">User menu</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 glass border-white/10">
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={16}
+                  className="w-[min(14rem,calc(100vw-2rem))] glass border-white/10"
+                >
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none font-display">{user?.username ?? 'User'}</p>

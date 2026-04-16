@@ -74,9 +74,9 @@ export function SolutionSection() {
   const { ref, isInView } = useInView();
 
   return (
-    <section id="solution" className="py-24 sm:py-32 relative">
+    <section id="solution" className="py-16 sm:py-24 md:py-32 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={ref}>
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <SectionLabel>Common Task Framework</SectionLabel>
           <h2 className="font-display font-bold text-3xl sm:text-4xl mt-6 mb-4">The Solution</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">

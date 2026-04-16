@@ -4,6 +4,10 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      screens: {
+        xs: '375px',
+        touch: { raw: '(hover: none) and (pointer: coarse)' },
+      },
       colors: {
         // Space Theme Core
         'space-void': 'hsl(var(--space-void))',
@@ -86,6 +90,14 @@ export default {
         lg: '24px',
         xl: '32px',
         '2xl': '48px',
+      },
+      minHeight: {
+        dvh: '100dvh',
+        svh: '100svh',
+      },
+      height: {
+        dvh: '100dvh',
+        svh: '100svh',
       },
       borderRadius: {
         lg: 'var(--radius)',

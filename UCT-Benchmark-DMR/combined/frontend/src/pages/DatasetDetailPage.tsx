@@ -74,7 +74,7 @@ export function DatasetDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Dataset Not Found</h1>
+          <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">Dataset Not Found</h1>
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
@@ -106,7 +106,7 @@ export function DatasetDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{dataset.name}</h1>
+              <h1 className="text-2xl xs:text-3xl font-bold tracking-tight break-words">{dataset.name}</h1>
               <Badge variant={dataset.regime === 'LEO' ? 'leo' : dataset.regime === 'MEO' ? 'meo' : dataset.regime === 'GEO' ? 'geo' : 'heo'}>
                 {dataset.regime}
               </Badge>
@@ -142,7 +142,7 @@ export function DatasetDetailPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -225,30 +225,35 @@ export function DatasetDetailPage() {
             </div>
           ) : observations && observations.observations.length > 0 ? (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>RA</TableHead>
-                    <TableHead>Declination</TableHead>
-                    <TableHead>Sensor</TableHead>
-                    <TableHead>Track ID</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {observations.observations.map((obs, idx) => (
-                    <TableRow key={obs.id || idx}>
-                      <TableCell className="font-mono text-xs">
-                        {new Date(obs.ob_time).toISOString().replace('T', ' ').slice(0, 19)}
-                      </TableCell>
-                      <TableCell>{obs.ra.toFixed(4)}</TableCell>
-                      <TableCell>{obs.declination.toFixed(4)}</TableCell>
-                      <TableCell>{obs.sensor_name || '-'}</TableCell>
-                      <TableCell className="font-mono text-xs">{obs.track_id || '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {/* Observations are a read-only preview — horizontal scroll is acceptable on mobile */}
+              <div className="-mx-4 sm:mx-0 overflow-x-auto">
+                <div className="min-w-[560px] sm:min-w-0 px-4 sm:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>RA</TableHead>
+                        <TableHead>Declination</TableHead>
+                        <TableHead>Sensor</TableHead>
+                        <TableHead>Track ID</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {observations.observations.map((obs, idx) => (
+                        <TableRow key={obs.id || idx}>
+                          <TableCell className="font-mono text-xs">
+                            {new Date(obs.ob_time).toISOString().replace('T', ' ').slice(0, 19)}
+                          </TableCell>
+                          <TableCell>{obs.ra.toFixed(4)}</TableCell>
+                          <TableCell>{obs.declination.toFixed(4)}</TableCell>
+                          <TableCell>{obs.sensor_name || '-'}</TableCell>
+                          <TableCell className="font-mono text-xs">{obs.track_id || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground mt-3">
                 Showing {observations.observations.length} of {observations.total_count.toLocaleString()} observations
               </p>

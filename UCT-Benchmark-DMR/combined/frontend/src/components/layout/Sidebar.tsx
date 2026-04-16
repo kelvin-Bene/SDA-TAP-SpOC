@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubmissions } from '@/hooks/useSubmissions';
 
@@ -191,6 +191,17 @@ function RecentActivitySection() {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { isAuthenticated } = useAuthStore();
   const navItems = isAuthenticated ? authNavItems : publicNavItems;
+  const asideRef = useRef<HTMLElement>(null);
+
+  // Apply `inert` imperatively so the off-canvas drawer doesn't trap focus or
+  // leak into the a11y tree while closed. (React 18 types lack `inert`; DOM
+  // attribute set/remove is universally supported.)
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+    if (isOpen) el.removeAttribute('inert');
+    else el.setAttribute('inert', '');
+  }, [isOpen]);
 
   return (
     <>
@@ -204,8 +215,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
+        ref={asideRef}
+        aria-hidden={!isOpen}
         className={cn(
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-72 transition-transform duration-300 ease-in-out',
+          'fixed left-0 top-14 sm:top-16 z-40 h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] w-[min(18rem,calc(100vw-3rem))] sm:w-72 transition-transform duration-300 ease-in-out pb-safe',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

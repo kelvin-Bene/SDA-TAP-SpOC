@@ -96,17 +96,17 @@ export function SettingsPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-1">
           Manage credentials, connections, and application configuration
         </p>
       </div>
 
       <Tabs defaultValue="credentials" className="space-y-4">
-        <TabsList>
+        <TabsList className="grid grid-cols-2 w-full sm:w-auto sm:inline-grid">
           <TabsTrigger value="credentials" className="gap-2">
             <KeyRound className="h-4 w-4" />
-            Service Credentials
+            <span className="truncate">Service Credentials</span>
           </TabsTrigger>
           <TabsTrigger value="application" className="gap-2">
             <Monitor className="h-4 w-4" />
@@ -120,7 +120,7 @@ export function SettingsPage() {
             {/* Summary header */}
             <Card className="bg-card/50 border-white/10">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3">
                   <div>
                     <CardTitle className="text-lg">External Service Credentials</CardTitle>
                     <CardDescription>
@@ -130,7 +130,7 @@ export function SettingsPage() {
                   </div>
                   <Badge
                     variant={configuredCount === totalCount && totalCount > 0 ? 'success' : 'outline'}
-                    className="text-sm"
+                    className="w-fit text-sm"
                   >
                     {configuredCount}/{totalCount} configured
                   </Badge>

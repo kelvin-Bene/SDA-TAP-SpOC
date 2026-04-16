@@ -26,5 +26,13 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
     },
+  },
+  // Playwright e2e tests: `use` here is the fixture callback, not a React Hook.
+  // react-hooks/rules-of-hooks flags it as a false positive — disable for e2e files.
+  {
+    files: ['e2e/**/*.{ts,tsx}'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
   }
 );

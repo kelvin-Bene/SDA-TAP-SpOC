@@ -241,7 +241,7 @@ export function ResultsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
@@ -311,11 +311,11 @@ export function ResultsPage() {
 
       {/* Detailed Results */}
       <Tabs defaultValue="binary" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="binary">Binary Metrics</TabsTrigger>
-          <TabsTrigger value="state">State Metrics</TabsTrigger>
-          <TabsTrigger value="residuals">Residual Analysis</TabsTrigger>
-          <TabsTrigger value="satellites">Per-Satellite</TabsTrigger>
+        <TabsList className="w-full overflow-x-auto scrollbar-hide flex gap-1 h-auto md:grid md:grid-cols-4">
+          <TabsTrigger value="binary" className="shrink-0 snap-start">Binary</TabsTrigger>
+          <TabsTrigger value="state" className="shrink-0 snap-start">State</TabsTrigger>
+          <TabsTrigger value="residuals" className="shrink-0 snap-start">Residuals</TabsTrigger>
+          <TabsTrigger value="satellites" className="shrink-0 snap-start">Per-Satellite</TabsTrigger>
         </TabsList>
 
         {/* Binary Metrics Tab */}
@@ -328,25 +328,37 @@ export function ResultsPage() {
                 <CardDescription>Classification results for track associations</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-3 gap-1 xs:gap-2 text-center">
                   <div></div>
-                  <div className="text-sm font-medium text-muted-foreground">Predicted Pos</div>
-                  <div className="text-sm font-medium text-muted-foreground">Predicted Neg</div>
-
-                  <div className="text-sm font-medium text-muted-foreground text-right pr-2">Actual Pos</div>
-                  <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-4">
-                    <p className="text-2xl font-bold text-green-600">{results.truePositives}</p>
-                    <p className="text-xs text-muted-foreground">True Positive</p>
+                  <div className="text-[10px] xs:text-sm font-medium text-muted-foreground">
+                    <span className="xs:hidden">Pred +</span>
+                    <span className="hidden xs:inline">Predicted Pos</span>
                   </div>
-                  <div className="rounded-lg bg-red-100 dark:bg-red-900/30 p-4">
-                    <p className="text-2xl font-bold text-red-600">{results.falseNegatives}</p>
-                    <p className="text-xs text-muted-foreground">False Negative</p>
+                  <div className="text-[10px] xs:text-sm font-medium text-muted-foreground">
+                    <span className="xs:hidden">Pred −</span>
+                    <span className="hidden xs:inline">Predicted Neg</span>
                   </div>
 
-                  <div className="text-sm font-medium text-muted-foreground text-right pr-2">Actual Neg</div>
-                  <div className="rounded-lg bg-orange-100 dark:bg-orange-900/30 p-4">
-                    <p className="text-2xl font-bold text-orange-600">{results.falsePositives}</p>
-                    <p className="text-xs text-muted-foreground">False Positive</p>
+                  <div className="text-[10px] xs:text-sm font-medium text-muted-foreground text-right pr-1 xs:pr-2 self-center">
+                    <span className="xs:hidden">Act +</span>
+                    <span className="hidden xs:inline">Actual Pos</span>
+                  </div>
+                  <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-2 xs:p-3 sm:p-4">
+                    <p className="text-xl xs:text-2xl font-bold text-green-600">{results.truePositives}</p>
+                    <p className="text-[10px] xs:text-xs text-muted-foreground">True Positive</p>
+                  </div>
+                  <div className="rounded-lg bg-red-100 dark:bg-red-900/30 p-2 xs:p-3 sm:p-4">
+                    <p className="text-xl xs:text-2xl font-bold text-red-600">{results.falseNegatives}</p>
+                    <p className="text-[10px] xs:text-xs text-muted-foreground">False Negative</p>
+                  </div>
+
+                  <div className="text-[10px] xs:text-sm font-medium text-muted-foreground text-right pr-1 xs:pr-2 self-center">
+                    <span className="xs:hidden">Act −</span>
+                    <span className="hidden xs:inline">Actual Neg</span>
+                  </div>
+                  <div className="rounded-lg bg-orange-100 dark:bg-orange-900/30 p-2 xs:p-3 sm:p-4">
+                    <p className="text-xl xs:text-2xl font-bold text-orange-600">{results.falsePositives}</p>
+                    <p className="text-[10px] xs:text-xs text-muted-foreground">False Positive</p>
                   </div>
                   <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-4">
                     <p className="text-2xl font-bold text-blue-600">
@@ -479,7 +491,7 @@ export function ResultsPage() {
               </CardHeader>
               <CardContent>
                 {positionErrorData ? (
-                  <div className="min-w-[250px]">
+                  <div className="w-full">
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={positionErrorData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -511,7 +523,7 @@ export function ResultsPage() {
               <CardContent>
                 {residualData ? (
                   <>
-                    <div className="min-w-[250px]">
+                    <div className="w-full">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={residualData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -542,7 +554,7 @@ export function ResultsPage() {
               <CardContent>
                 {residualData ? (
                   <>
-                    <div className="min-w-[250px]">
+                    <div className="w-full">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={residualData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />

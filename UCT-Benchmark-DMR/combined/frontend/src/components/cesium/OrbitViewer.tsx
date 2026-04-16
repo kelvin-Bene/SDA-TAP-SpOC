@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Viewer, Entity, CameraFlyTo, Clock } from 'resium';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 import {
   Ion,
   Cartesian3,
@@ -110,6 +111,36 @@ export function OrbitViewer({
   const viewerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [multiplier, setMultiplier] = useState(100);
+  const isDesktop = useBreakpoint('md');
+
+  // Tune Cesium for the current viewport:
+  //   - Lower resolution scale, disable atmosphere/fog on mobile (halves GPU cost)
+  //   - Enable requestRenderMode on mobile (frame-throttled rendering)
+  //   - Softer inertia for touch gestures
+  useEffect(() => {
+    const viewer = viewerRef.current?.cesiumElement;
+    if (!viewer) return;
+    const scene = viewer.scene;
+    const cameraController = scene.screenSpaceCameraController;
+    cameraController.inertiaSpin = 0.5;
+    cameraController.inertiaZoom = 0.5;
+    cameraController.inertiaTranslate = 0.5;
+    if (isDesktop) {
+      viewer.resolutionScale = 1;
+      scene.requestRenderMode = false;
+      scene.fog.enabled = true;
+      scene.skyAtmosphere.show = true;
+      scene.globe.maximumScreenSpaceError = 2;
+    } else {
+      viewer.resolutionScale = 0.75;
+      scene.requestRenderMode = true;
+      scene.maximumRenderTimeChange = Infinity;
+      scene.fog.enabled = false;
+      scene.skyAtmosphere.show = false;
+      scene.globe.maximumScreenSpaceError = 8;
+    }
+    scene.requestRender();
+  }, [isDesktop]);
 
   // Convert satellite positions to Cesium SampledPositionProperty
   const createPositionProperty = (positions: Satellite['positions']) => {
@@ -174,9 +205,9 @@ export function OrbitViewer({
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3">
           <CardTitle className="text-lg">3D Orbit Visualization</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {['LEO', 'MEO', 'GEO', 'HEO'].map((regime) => (
               <Badge
                 key={regime}
@@ -192,23 +223,23 @@ export function OrbitViewer({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Controls */}
-        <div className="flex items-center gap-4 flex-wrap">
+        {/* Controls — wrap on mobile, slider goes full-width */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePlayPause}>
+            <Button variant="outline" size="touch" className="sm:h-10 sm:w-10" onClick={handlePlayPause}>
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
-            <Button variant="outline" size="icon" onClick={handleReset}>
+            <Button variant="outline" size="touch" className="sm:h-10 sm:w-10" onClick={handleReset}>
               <RotateCcw className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomIn}>
+            <Button variant="outline" size="touch" className="sm:h-10 sm:w-10" onClick={handleZoomIn}>
               <ZoomIn className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomOut}>
+            <Button variant="outline" size="touch" className="sm:h-10 sm:w-10" onClick={handleZoomOut}>
               <ZoomOut className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[300px]">
+          <div className="flex items-center gap-2 w-full order-last sm:order-none sm:flex-1 sm:min-w-[200px] sm:max-w-[300px] sm:w-auto">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Speed:</span>
             <Slider
               value={[multiplier]}
@@ -218,12 +249,12 @@ export function OrbitViewer({
               step={10}
               className="flex-1"
             />
-            <span className="text-sm font-mono w-12">{multiplier}x</span>
+            <span className="text-sm font-mono w-12 text-right">{multiplier}x</span>
           </div>
         </div>
 
         {/* Cesium Viewer */}
-        <div className="h-[400px] rounded-lg overflow-hidden border">
+        <div className="h-[320px] sm:h-[400px] md:h-[500px] rounded-lg overflow-hidden border [touch-action:none]">
           <Viewer
             ref={viewerRef}
             full={false}
@@ -306,9 +337,12 @@ export function OrbitViewer({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1 text-sm text-muted-foreground">
           <span>Showing {satellites.length} satellites</span>
-          <span>Click and drag to rotate • Scroll to zoom</span>
+          <span>
+            <span className="hidden md:inline">Click and drag to rotate • Scroll to zoom</span>
+            <span className="md:hidden">Drag to rotate • Pinch to zoom</span>
+          </span>
         </div>
       </CardContent>
     </Card>

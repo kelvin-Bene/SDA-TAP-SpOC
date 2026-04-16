@@ -14,7 +14,7 @@ export function MainLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-background space-bg">
+    <div className="min-h-dvh bg-background space-bg">
       {/* Animated starfield background */}
       <div className="starfield" aria-hidden="true" />
 
@@ -32,7 +32,7 @@ export function MainLayout() {
               sidebarOpen ? 'lg:ml-72' : 'lg:ml-0'
             )}
           >
-            <div className="container mx-auto px-4 py-8 lg:px-8">
+            <div className="container mx-auto px-4 py-6 sm:py-8 lg:px-8">
               <Outlet />
             </div>
           </main>

@@ -212,7 +212,12 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Clear Filters */}
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={onClear} className="gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClear}
+              className="w-full sm:w-auto gap-1 justify-center"
+            >
               <X className="h-4 w-4" />
               Clear Filters
             </Button>

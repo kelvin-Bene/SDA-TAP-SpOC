@@ -79,13 +79,13 @@ export function DatasetBrowserPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Datasets</h1>
+          <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">Datasets</h1>
           <p className="text-muted-foreground mt-1">
             Browse and download benchmark datasets for UCT algorithm evaluation
           </p>
         </div>
-        <Link to="/datasets/generate">
-          <Button className="gap-2">
+        <Link to="/datasets/generate" className="sm:w-auto">
+          <Button className="gap-2 w-full sm:w-auto">
             <Plus className="h-4 w-4" />
             Generate New
           </Button>

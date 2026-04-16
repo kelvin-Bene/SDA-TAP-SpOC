@@ -18,12 +18,12 @@ export function HeroSection() {
   return (
     <section
       id="mission"
-      className="relative flex flex-col pt-24 pb-16 overflow-hidden"
+      className="relative flex flex-col pt-20 sm:pt-24 pb-12 sm:pb-16 overflow-hidden"
     >
       {/* Hero content */}
       <div>
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Left column */}
             <div className="flex flex-col gap-6">
               <Badge
@@ -34,11 +34,11 @@ export function HeroSection() {
               </Badge>
 
               <h1 className="font-display font-bold tracking-tight">
-                <span className="block text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">UCT Benchmark</span>
-                <span className="block text-3xl sm:text-4xl lg:text-5xl mt-2">
+                <span className="block text-4xl xs:text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">UCT Benchmark</span>
+                <span className="block text-2xl xs:text-3xl sm:text-4xl lg:text-5xl mt-2">
                   Uncorrelated Track Processing
                 </span>
-                <span className="block text-3xl sm:text-4xl lg:text-5xl text-muted-foreground mt-1">
+                <span className="block text-2xl xs:text-3xl sm:text-4xl lg:text-5xl text-muted-foreground mt-1">
                   Benchmark Platform
                 </span>
               </h1>
@@ -84,10 +84,10 @@ export function HeroSection() {
       </div>
 
       {/* Stat strip */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-16">
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-10 sm:mt-16">
         <div
           ref={statsRef}
-          className="grid grid-cols-3 gap-6 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left"
+          className="grid grid-cols-1 xs:grid-cols-3 gap-4 sm:gap-6 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left"
         >
           {STATS.map((stat) => (
             <div key={stat.label} className="flex flex-col gap-1">

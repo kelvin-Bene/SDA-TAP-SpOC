@@ -20,6 +20,9 @@ const buttonVariants = cva(
         sm: 'h-9 rounded-md px-3',
         lg: 'h-11 rounded-md px-8',
         icon: 'h-10 w-10',
+        // Mobile-optimized 44px iOS HIG minimum; use for icon-only controls on
+        // touch surfaces (Header menu, OrbitViewer controls, FAB, etc.)
+        touch: 'h-11 w-11 min-w-[2.75rem] px-2',
       },
     },
     defaultVariants: {

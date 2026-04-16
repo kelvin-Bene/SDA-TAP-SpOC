@@ -157,13 +157,13 @@ export function MyDatasetsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Datasets</h1>
+          <h1 className="text-2xl xs:text-3xl font-bold tracking-tight">My Datasets</h1>
           <p className="text-muted-foreground mt-1">
             Manage your generated and saved datasets
           </p>
         </div>
-        <Link to="/datasets/generate">
-          <Button className="gap-2">
+        <Link to="/datasets/generate" className="sm:w-auto">
+          <Button className="gap-2 w-full sm:w-auto">
             <Plus className="h-4 w-4" />
             Generate New
           </Button>
@@ -171,7 +171,7 @@ export function MyDatasetsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Datasets</CardTitle>
@@ -221,8 +221,158 @@ export function MyDatasetsPage() {
               <p>No datasets yet. Generate one to get started.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
+            <>
+              {/* Mobile: card list */}
+              <ul className="md:hidden space-y-3" role="list">
+                {userDatasets.map((dataset) => (
+                  <li key={dataset.id}>
+                    <div
+                      className={cn(
+                        'rounded-lg border bg-card p-4',
+                        dataset.status === 'failed' && 'opacity-70',
+                        highlightId === dataset.id && 'animate-highlight-pulse'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-base break-words">{dataset.name}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="font-mono text-xs">
+                              v{dataset.version ?? 1}
+                            </Badge>
+                            <Badge
+                              variant={
+                                dataset.regime === 'LEO' ? 'leo'
+                                  : dataset.regime === 'MEO' ? 'meo'
+                                  : dataset.regime === 'GEO' ? 'geo'
+                                  : 'heo'
+                              }
+                              className="text-xs"
+                            >
+                              {dataset.regime}
+                            </Badge>
+                            <Badge
+                              variant={
+                                dataset.tier === 'T1' ? 'tier1'
+                                  : dataset.tier === 'T2' ? 'tier2'
+                                  : dataset.tier === 'T3' ? 'tier3'
+                                  : 'tier4'
+                              }
+                              className="text-xs"
+                            >
+                              {dataset.tier}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="shrink-0">
+                          {dataset.status === 'failed' ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <AlertCircle className="h-3 w-3" /> Failed
+                            </Badge>
+                          ) : dataset.status === 'generating' ? (
+                            <Badge variant="secondary" className="gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Generating
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-green-600 border-green-600/30">
+                              Available
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {dataset.status === 'failed' && dataset.errorMessage && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-red-500 cursor-pointer select-none">
+                            Show error
+                          </summary>
+                          <p className="text-xs text-red-500 mt-1 break-words whitespace-pre-wrap">
+                            {dataset.errorMessage}
+                          </p>
+                        </details>
+                      )}
+
+                      <dl className="mt-3 grid grid-cols-3 gap-2 text-center border-t pt-3">
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Objects</dt>
+                          <dd className="font-mono text-sm mt-0.5">
+                            {dataset.status === 'failed' ? '—' : dataset.objectCount}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Size</dt>
+                          <dd className="font-mono text-sm mt-0.5">
+                            {dataset.status === 'failed' || dataset.sizeBytes <= 0 ? '—' : formatFileSize(dataset.sizeBytes)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Created</dt>
+                          <dd className="text-xs text-muted-foreground mt-0.5">
+                            {formatDate(dataset.createdAt)}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2"
+                          onClick={() => handleView(dataset)}
+                          disabled={dataset.status === 'failed'}
+                        >
+                          <Eye className="h-4 w-4" /> View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2"
+                          onClick={() => handleDownload(dataset)}
+                          disabled={downloadingId === dataset.id || dataset.status === 'failed'}
+                        >
+                          {downloadingId === dataset.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                          Download
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2"
+                          onClick={() => handleShowVersions(dataset)}
+                        >
+                          <History className="h-4 w-4" /> Versions
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2"
+                          onClick={() => handleCopyId(dataset)}
+                        >
+                          <Copy className="h-4 w-4" /> Copy ID
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 gap-2 text-destructive"
+                            onClick={() => handleDeleteClick(dataset)}
+                            disabled={deleteDataset.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Desktop: full table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead scope="col">Name</TableHead>
@@ -345,9 +495,10 @@ export function MyDatasetsPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-            </div>
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

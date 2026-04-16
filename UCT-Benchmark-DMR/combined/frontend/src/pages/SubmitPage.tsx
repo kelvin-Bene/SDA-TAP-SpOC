@@ -321,11 +321,13 @@ export function SubmitPage() {
   };
 
   const scrollToFirstError = useCallback(() => {
-    // Wait for React to render the error messages, then scroll to the first one
+    // Wait for React to render the error messages, then scroll to the first one.
+    // Use block: 'start' + CSS scroll-margin (scroll-mt-20) so the sticky header
+    // doesn't cover the error target on mobile.
     requestAnimationFrame(() => {
       const firstError = document.querySelector('.text-destructive');
       if (firstError) {
-        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
   }, []);
@@ -442,7 +444,7 @@ export function SubmitPage() {
             <div
               {...getRootProps()}
               className={cn(
-                'border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors',
+                'border-2 border-dashed rounded-lg p-6 sm:p-12 text-center cursor-pointer transition-colors',
                 isDragActive
                   ? 'border-primary bg-primary/5'
                   : 'border-muted hover:border-primary/50 hover:bg-muted/50'
@@ -455,9 +457,16 @@ export function SubmitPage() {
                 </div>
                 <div>
                   <p className="font-medium">
-                    {isDragActive ? 'Drop your file here' : 'Drag & drop your submission file here'}
+                    {isDragActive ? (
+                      'Drop your file here'
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">Drag &amp; drop your submission file here</span>
+                        <span className="sm:hidden">Tap to choose file</span>
+                      </>
+                    )}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
                     or <span className="text-primary">browse files</span>
                   </p>
                 </div>
@@ -527,7 +536,7 @@ export function SubmitPage() {
             </div>
           )}
           {submitAttempted && !file && (
-            <p className="text-sm text-destructive mt-1">This field is required</p>
+            <p className="text-sm text-destructive mt-1 scroll-mt-20">This field is required</p>
           )}
         </CardContent>
       </Card>
@@ -562,7 +571,7 @@ export function SubmitPage() {
               </SelectContent>
             </Select>
             {submitAttempted && !datasetId && (
-              <p className="text-sm text-destructive mt-1">This field is required</p>
+              <p className="text-sm text-destructive mt-1 scroll-mt-20">This field is required</p>
             )}
           </div>
 
@@ -574,9 +583,13 @@ export function SubmitPage() {
               placeholder="e.g., MyUCTP"
               value={algorithmName}
               onChange={(e) => setAlgorithmName(e.target.value)}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
             {submitAttempted && !algorithmName && (
-              <p className="text-sm text-destructive mt-1">This field is required</p>
+              <p className="text-sm text-destructive mt-1 scroll-mt-20">This field is required</p>
             )}
           </div>
 
@@ -588,9 +601,13 @@ export function SubmitPage() {
               placeholder="e.g., v2.1"
               value={version}
               onChange={(e) => setVersion(e.target.value)}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
             {submitAttempted && !version && (
-              <p className="text-sm text-destructive mt-1">This field is required</p>
+              <p className="text-sm text-destructive mt-1 scroll-mt-20">This field is required</p>
             )}
           </div>
 

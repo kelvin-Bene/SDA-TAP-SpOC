@@ -89,17 +89,17 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 space-bg relative overflow-hidden">
+    <div className="min-h-dvh flex items-center justify-center p-4 space-bg relative overflow-hidden">
       {/* Animated starfield */}
       <div className="starfield" aria-hidden="true" />
 
       {/* Grid pattern overlay */}
       <div className="fixed inset-0 grid-pattern opacity-20 pointer-events-none" aria-hidden="true" />
 
-      {/* Floating orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-stellar-purple/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-      <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-cosmic-blue/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+      {/* Floating orbs — hidden on mobile to save GPU work and reduce motion */}
+      <div className="hidden sm:block motion-reduce:hidden absolute top-1/4 left-1/4 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
+      <div className="hidden sm:block motion-reduce:hidden absolute bottom-1/4 right-1/4 w-80 h-80 bg-stellar-purple/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      <div className="hidden sm:block motion-reduce:hidden absolute top-1/2 right-1/3 w-64 h-64 bg-cosmic-blue/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
 
       <Card className="w-full max-w-md relative z-10 glass border-white/10 shadow-2xl">
         <CardHeader className="text-center pb-2">
@@ -302,6 +302,7 @@ export function LoginPage() {
                   <Input
                     id="reset-email"
                     type="email"
+                    autoComplete="email"
                     placeholder="researcher@aerospace.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
