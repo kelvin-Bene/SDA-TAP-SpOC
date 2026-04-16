@@ -44,10 +44,28 @@ export function DatasetPreviewDialog({
     const obs = obsData?.observations ?? [];
     if (!obs.length) return null;
 
+    // Satellite number isn't always in a dedicated field — pull it from track_id
+    // ("track-{dataset}-{satNo}-{idx}") or id ("demo-{dataset}-{satNo}-{idx}")
+    // when sat_no / satellite_id / norad_id aren't present.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const extractSatNo = (o: any): string | null => {
+      if (o.sat_no) return String(o.sat_no);
+      if (o.satellite_id) return String(o.satellite_id);
+      if (o.norad_id) return String(o.norad_id);
+      const trackId = typeof o.track_id === 'string' ? o.track_id : '';
+      const trackMatch = trackId.match(/-(\d+)-\d+$/);
+      if (trackMatch) return trackMatch[1];
+      const rawId = typeof o.id === 'string' ? o.id : '';
+      const idMatch = rawId.match(/-(\d+)-\d+$/);
+      if (idMatch) return idMatch[1];
+      return null;
+    };
+
     // Observations per satellite
     const perSat: Record<string, number> = {};
     obs.forEach((o: any) => {
-      const key = o.sat_no ? `SAT-${o.sat_no}` : 'Unknown';
+      const satNo = extractSatNo(o);
+      const key = satNo ? `SAT-${satNo}` : 'Unknown';
       perSat[key] = (perSat[key] || 0) + 1;
     });
     const perSatData = Object.entries(perSat)
