@@ -96,23 +96,25 @@ export function SettingsPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-1">
           Manage credentials, connections, and application configuration
         </p>
       </div>
 
       <Tabs defaultValue="credentials" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="credentials" className="gap-2">
-            <KeyRound className="h-4 w-4" />
-            Service Credentials
-          </TabsTrigger>
-          <TabsTrigger value="application" className="gap-2">
-            <Monitor className="h-4 w-4" />
-            Application
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4">
+          <TabsList>
+            <TabsTrigger value="credentials" className="gap-2">
+              <KeyRound className="h-4 w-4" />
+              Service Credentials
+            </TabsTrigger>
+            <TabsTrigger value="application" className="gap-2">
+              <Monitor className="h-4 w-4" />
+              Application
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Service Credentials Tab */}
         <TabsContent value="credentials">
@@ -120,7 +122,7 @@ export function SettingsPage() {
             {/* Summary header */}
             <Card className="bg-card/50 border-white/10">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                   <div>
                     <CardTitle className="text-lg">External Service Credentials</CardTitle>
                     <CardDescription>
@@ -130,7 +132,7 @@ export function SettingsPage() {
                   </div>
                   <Badge
                     variant={configuredCount === totalCount && totalCount > 0 ? 'success' : 'outline'}
-                    className="text-sm"
+                    className="text-sm self-start sm:self-auto"
                   >
                     {configuredCount}/{totalCount} configured
                   </Badge>

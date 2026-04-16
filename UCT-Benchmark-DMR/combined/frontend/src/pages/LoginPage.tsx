@@ -25,7 +25,7 @@ export function LoginPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
   const handleDemoSSO = async () => {
     clearError();
@@ -100,31 +100,31 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 space-bg relative overflow-hidden">
+    <div className="min-h-screen sm:min-h-dvh flex items-center justify-center p-4 space-bg relative overflow-hidden">
       {/* Animated starfield */}
       <div className="starfield" aria-hidden="true" />
 
       {/* Grid pattern overlay */}
       <div className="fixed inset-0 grid-pattern opacity-20 pointer-events-none" aria-hidden="true" />
 
-      {/* Floating orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-stellar-purple/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-      <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-cosmic-blue/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+      {/* Floating orbs - hidden on mobile for perf */}
+      <div className="hidden sm:block motion-reduce:hidden absolute top-1/4 left-1/4 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
+      <div className="hidden sm:block motion-reduce:hidden absolute bottom-1/4 right-1/4 w-80 h-80 bg-stellar-purple/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      <div className="hidden sm:block motion-reduce:hidden absolute top-1/2 right-1/3 w-64 h-64 bg-cosmic-blue/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
 
       <Card className="w-full max-w-md relative z-10 glass border-white/10 shadow-2xl">
         <CardHeader className="text-center pb-2">
           {/* Organization logos */}
-          <div className="flex justify-center items-center gap-3 mb-6">
-            <div className="h-16 w-16 rounded-lg bg-white/90 p-1 flex items-center justify-center">
+          <div className="flex justify-center items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-lg bg-white/90 p-1 flex items-center justify-center">
               <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-full w-full object-contain" />
             </div>
-            <div className="h-14 rounded-lg bg-white/90 px-2 py-1 flex items-center justify-center">
+            <div className="h-11 sm:h-14 rounded-lg bg-white/90 px-2 py-1 flex items-center justify-center">
               <img src="/sda-tap-lab-logo.png" alt="SDA TAP Lab" className="h-full object-contain" />
             </div>
           </div>
 
-          <CardTitle ref={headingRef} tabIndex={-1} className="text-3xl font-display font-bold">
+          <CardTitle ref={headingRef} tabIndex={-1} className="text-2xl sm:text-3xl font-display font-bold">
             <span className="text-gradient-cosmic">UCT Benchmark</span>
           </CardTitle>
           <CardDescription className="text-base">
@@ -369,6 +369,7 @@ export function LoginPage() {
                   <Input
                     id="reset-email"
                     type="email"
+                    autoComplete="email"
                     placeholder="researcher@aerospace.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}

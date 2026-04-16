@@ -10,21 +10,21 @@ export function CTASection() {
   return (
     <>
       {/* CTA */}
-      <section id="access" className="py-24 sm:py-32 relative">
+      <section id="access" className="py-16 sm:py-24 lg:py-32 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={ref}>
           <div
             className={cn(
-              'glass border-white/10 rounded-2xl p-12 sm:p-16 text-center transition-all duration-700',
+              'glass border-white/10 rounded-2xl p-6 sm:p-12 lg:p-16 text-center transition-all duration-700',
               isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             )}
           >
-            <h2 className="font-display font-bold text-3xl sm:text-4xl mb-4">
+            <h2 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl mb-4">
               Access the Platform
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto mb-8">
               Authenticate to browse datasets, submit algorithm results, and view evaluation metrics.
             </p>
-            <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0 px-8">
+            <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0 w-full sm:w-auto sm:px-8">
               <Link to="/login">
                 <LogIn className="h-4 w-4 mr-2" />
                 Sign In to UCT Benchmark

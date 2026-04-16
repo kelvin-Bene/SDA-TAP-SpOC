@@ -71,32 +71,34 @@ export function ServiceCredentialCard({
 
   return (
     <Card className="bg-card/50 border-white/10 hover:border-white/20 transition-colors">
-      <CardContent className="p-5">
-        <div className="flex items-start gap-4">
-          {/* Icon */}
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-cyan/20 to-cosmic-blue/20 flex items-center justify-center shrink-0">
-            <Icon className="h-5 w-5 text-cosmic-cyan" />
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-medium text-sm">{service.label || service.service_name}</h3>
-              {getStatusBadge(service)}
-              {getValidationBadge(service)}
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start gap-4 min-w-0">
+            {/* Icon */}
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-cyan/20 to-cosmic-blue/20 flex items-center justify-center shrink-0">
+              <Icon className="h-5 w-5 text-cosmic-cyan" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-              {service.description}
-            </p>
-            {service.last_validated && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Last tested: {new Date(service.last_validated).toLocaleString()}
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-medium text-sm">{service.label || service.service_name}</h3>
+                {getStatusBadge(service)}
+                {getValidationBadge(service)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1">
+                {service.description}
               </p>
-            )}
+              {service.last_validated && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last tested: {new Date(service.last_validated).toLocaleString()}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
             <Button
               variant="ghost"
               size="icon"

@@ -140,6 +140,9 @@ export function CredentialFormDialog({
                 value={primary}
                 onChange={(e) => setPrimary(e.target.value)}
                 autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
                 className={!isPath ? 'pr-10' : ''}
               />
               {!isPath && (
@@ -166,7 +169,10 @@ export function CredentialFormDialog({
                   placeholder={config.secondaryPlaceholder}
                   value={secondary}
                   onChange={(e) => setSecondary(e.target.value)}
-                  autoComplete="off"
+                  autoComplete="new-password"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="pr-10"
                 />
                 <Button
@@ -195,12 +201,12 @@ export function CredentialFormDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
           <Button
             variant="outline"
             onClick={() => onTest(service.service_name)}
             disabled={isTesting}
-            className="mr-auto"
+            className="sm:mr-auto"
           >
             {isTesting ? (
               <>

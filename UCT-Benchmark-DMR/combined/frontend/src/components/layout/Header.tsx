@@ -27,7 +27,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center px-4 lg:px-8">
+      <div className="flex h-16 items-center px-4 lg:px-8 pl-safe pr-safe">
         {/* Menu Button */}
         <Button
           variant="ghost"
@@ -40,7 +40,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         </Button>
 
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 mr-8 group">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 mr-3 sm:mr-8 group">
           <div className="flex items-center gap-1.5 group-hover:scale-[1.02] transition-transform duration-300">
             <div className="h-9 w-9 rounded bg-white/90 p-0.5 flex items-center justify-center">
               <img src="/cfc-emblem.png" alt="Combat Forces Command" className="h-full w-full object-contain" />

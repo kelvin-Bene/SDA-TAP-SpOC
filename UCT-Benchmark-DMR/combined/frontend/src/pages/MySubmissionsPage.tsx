@@ -49,20 +49,20 @@ export function MySubmissionsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Submissions</h1>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">My Submissions</h1>
           <p className="text-muted-foreground mt-1">
             Track your algorithm submissions and view results
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => refetch()}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
-          <Link to="/submit">
-            <Button className="gap-2">
+          <Link to="/submit" className="w-full sm:w-auto">
+            <Button className="gap-2 w-full sm:w-auto">
               <Upload className="h-4 w-4" />
               New Submission
             </Button>
@@ -71,7 +71,7 @@ export function MySubmissionsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Submissions</CardTitle>

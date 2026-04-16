@@ -164,19 +164,19 @@ export function ResultsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">{title}</h1>
         </div>
         <Card>
           <CardContent className="pt-6 space-y-4">
             <p className="text-muted-foreground">{description}</p>
-            <div className="flex gap-3">
-              <Link to="/submit/my-submissions">
-                <Button variant="outline">Back to Submissions</Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link to="/submit/my-submissions" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto">Back to Submissions</Button>
               </Link>
               {!isSubmission404 && !is404 && (
                 <Button
                   onClick={() => refetchResults()}
-                  className="gap-2"
+                  className="gap-2 w-full sm:w-auto"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Try Again
@@ -204,16 +204,16 @@ export function ResultsPage() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-xl sm:text-3xl font-bold tracking-tight break-words min-w-0">
               {submission?.algorithmName || 'Submission'} {submission?.version || ''}
             </h1>
           </div>
-          <p className="text-muted-foreground ml-10">
+          <p className="text-muted-foreground sm:ml-10 text-sm sm:text-base">
             Results for {submission?.datasetName || `Dataset ${submission?.datasetId}`}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={handleDownloadReport} disabled={reportMutation.isPending}>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleDownloadReport} disabled={reportMutation.isPending}>
             {reportMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -221,7 +221,7 @@ export function ResultsPage() {
             )}
             Download Report
           </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExportCsv} disabled={exportMutation.isPending}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleExportCsv} disabled={exportMutation.isPending}>
             {exportMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -229,7 +229,7 @@ export function ResultsPage() {
             )}
             CSV
           </Button>
-          <Button className="gap-2" onClick={handleExport} disabled={exportMutation.isPending}>
+          <Button className="gap-2 w-full sm:w-auto" onClick={handleExport} disabled={exportMutation.isPending}>
             {exportMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -311,12 +311,14 @@ export function ResultsPage() {
 
       {/* Detailed Results */}
       <Tabs defaultValue="binary" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="binary">Binary Metrics</TabsTrigger>
-          <TabsTrigger value="state">State Metrics</TabsTrigger>
-          <TabsTrigger value="residuals">Residual Analysis</TabsTrigger>
-          <TabsTrigger value="satellites">Per-Satellite</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-max sm:w-full">
+            <TabsTrigger value="binary">Binary Metrics</TabsTrigger>
+            <TabsTrigger value="state">State Metrics</TabsTrigger>
+            <TabsTrigger value="residuals">Residual Analysis</TabsTrigger>
+            <TabsTrigger value="satellites">Per-Satellite</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Binary Metrics Tab */}
         <TabsContent value="binary" className="space-y-4">

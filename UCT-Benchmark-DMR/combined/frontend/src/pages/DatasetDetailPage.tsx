@@ -74,7 +74,7 @@ export function DatasetDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Dataset Not Found</h1>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Dataset Not Found</h1>
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
@@ -100,13 +100,13 @@ export function DatasetDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <div className="flex items-start sm:items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{dataset.name}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-3xl font-bold tracking-tight break-words">{dataset.name}</h1>
               <Badge variant={dataset.regime === 'LEO' ? 'leo' : dataset.regime === 'MEO' ? 'meo' : dataset.regime === 'GEO' ? 'geo' : 'heo'}>
                 {dataset.regime}
               </Badge>
@@ -142,7 +142,7 @@ export function DatasetDetailPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -192,7 +192,7 @@ export function DatasetDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <dl className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <dt className="text-muted-foreground">Created</dt>
               <dd className="font-medium">{formatDate(dataset.createdAt)}</dd>
@@ -225,6 +225,7 @@ export function DatasetDetailPage() {
             </div>
           ) : observations && observations.observations.length > 0 ? (
             <>
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -249,6 +250,7 @@ export function DatasetDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               <p className="text-xs text-muted-foreground mt-3">
                 Showing {observations.observations.length} of {observations.total_count.toLocaleString()} observations
               </p>
@@ -275,9 +277,9 @@ export function DatasetDetailPage() {
               {versions.map((v) => (
                 <div
                   key={v.id}
-                  className={`flex items-center justify-between rounded-lg border p-3 ${v.id === dataset.id ? 'border-primary bg-primary/5' : ''}`}
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3 ${v.id === dataset.id ? 'border-primary bg-primary/5' : ''}`}
                 >
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="font-mono">v{v.version ?? 1}</Badge>
                       <span className="font-medium text-sm">{v.name}</span>

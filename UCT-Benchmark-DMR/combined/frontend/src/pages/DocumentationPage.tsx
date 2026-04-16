@@ -9,7 +9,7 @@ export function DocumentationPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
+        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Documentation</h1>
         <p className="text-muted-foreground mt-1">
           Learn how to use the UCT Benchmark Platform
         </p>
@@ -124,7 +124,7 @@ export function DocumentationPage() {
               </p>
 
               <h4>Observations Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full text-xs sm:text-sm">
 {`{
   "observations": [
     {
@@ -144,7 +144,7 @@ export function DocumentationPage() {
               </pre>
 
               <h4>Truth Catalog Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full text-xs sm:text-sm">
 {`{
   "truthCatalog": [
     {
@@ -158,7 +158,7 @@ export function DocumentationPage() {
               </pre>
 
               <h4>Association Ground Truth</h4>
-              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full text-xs sm:text-sm">
 {`{
   "associations": {
     "trackId_001": "satId_25544",
@@ -191,7 +191,7 @@ export function DocumentationPage() {
               </p>
 
               <h4>Required Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full">
+              <pre className="bg-muted p-4 rounded-lg !overflow-x-auto max-w-full text-xs sm:text-sm">
 {`{
   "metadata": {
     "algorithmName": "string",

@@ -76,7 +76,7 @@ export function DatasetPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
+          <DialogTitle className="flex flex-wrap items-center gap-2 sm:gap-3">
             {dataset.name}
             <Badge variant={dataset.regime === 'LEO' ? 'leo' : dataset.regime === 'MEO' ? 'meo' : dataset.regime === 'GEO' ? 'geo' : 'heo'}>
               {dataset.regime}
@@ -91,17 +91,19 @@ export function DatasetPreviewDialog({
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          <TabsList className={`grid w-full ${hasVersionHistory ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="statistics">Statistics</TabsTrigger>
-            <TabsTrigger value="sample">Sample Data</TabsTrigger>
-            {hasVersionHistory && (
-              <TabsTrigger value="versions" className="gap-1">
-                <History className="h-3 w-3" />
-                Versions
-              </TabsTrigger>
-            )}
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className={`grid w-full ${hasVersionHistory ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="statistics">Statistics</TabsTrigger>
+              <TabsTrigger value="sample">Sample Data</TabsTrigger>
+              {hasVersionHistory && (
+                <TabsTrigger value="versions" className="gap-1">
+                  <History className="h-3 w-3" />
+                  Versions
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
@@ -129,7 +131,7 @@ export function DatasetPreviewDialog({
                 <p className="text-2xl font-semibold">{formatFileSize(dataset.sizeBytes)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground pt-4 border-t">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Created {formatDate(dataset.createdAt)}
@@ -162,7 +164,7 @@ export function DatasetPreviewDialog({
             ) : (
               <>
                 {/* Summary stats */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="rounded-lg border bg-muted/30 p-3 text-center">
                     <p className="text-xs text-muted-foreground">Objects</p>
                     <p className="text-lg font-bold">{dataset.objectCount}</p>
@@ -187,17 +189,19 @@ export function DatasetPreviewDialog({
                 {chartData.perSatData.length > 0 && (
                   <div>
                     <p className="text-sm font-medium mb-2">Observations per Object</p>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <BarChart data={chartData.perSatData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
-                        <XAxis dataKey="name" fontSize={10} stroke="hsl(222 20% 50%)" />
-                        <YAxis fontSize={10} stroke="hsl(222 20% 50%)" />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
-                        />
-                        <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <div className="h-[200px] sm:h-[240px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData.perSatData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                          <XAxis dataKey="name" fontSize={10} stroke="hsl(222 20% 50%)" />
+                          <YAxis fontSize={10} stroke="hsl(222 20% 50%)" />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
+                          />
+                          <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
 
@@ -205,17 +209,19 @@ export function DatasetPreviewDialog({
                 {chartData.sensorData.length > 0 && (
                   <div>
                     <p className="text-sm font-medium mb-2">Sensor Breakdown</p>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <BarChart data={chartData.sensorData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
-                        <XAxis type="number" fontSize={10} stroke="hsl(222 20% 50%)" />
-                        <YAxis dataKey="name" type="category" fontSize={10} stroke="hsl(222 20% 50%)" width={100} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
-                        />
-                        <Bar dataKey="value" fill="#06B6D4" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <div className="h-[200px] sm:h-[240px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData.sensorData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                          <XAxis type="number" fontSize={10} stroke="hsl(222 20% 50%)" />
+                          <YAxis dataKey="name" type="category" fontSize={10} stroke="hsl(222 20% 50%)" width={100} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'hsl(222 47% 5%)', borderColor: 'hsl(222 30% 18%)', fontSize: 12 }}
+                          />
+                          <Bar dataKey="value" fill="#06B6D4" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
               </>

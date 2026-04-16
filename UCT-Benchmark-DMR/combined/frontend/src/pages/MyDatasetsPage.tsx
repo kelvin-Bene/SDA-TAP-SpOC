@@ -155,15 +155,15 @@ export function MyDatasetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Datasets</h1>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">My Datasets</h1>
           <p className="text-muted-foreground mt-1">
             Manage your generated and saved datasets
           </p>
         </div>
-        <Link to="/datasets/generate">
-          <Button className="gap-2">
+        <Link to="/datasets/generate" className="w-full sm:w-auto">
+          <Button className="gap-2 w-full sm:w-auto">
             <Plus className="h-4 w-4" />
             Generate New
           </Button>
@@ -171,7 +171,7 @@ export function MyDatasetsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Datasets</CardTitle>
@@ -410,7 +410,7 @@ export function MyDatasetsPage() {
               and will permanently remove the dataset and all associated observations.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
             <Button variant="outline" onClick={() => setDatasetToDelete(null)}>
               Cancel
             </Button>

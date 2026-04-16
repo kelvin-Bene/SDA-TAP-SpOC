@@ -205,7 +205,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-72 transition-transform duration-300 ease-in-out',
+          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-[min(18rem,85vw)] lg:w-72 transition-transform duration-300 ease-in-out',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

@@ -14,7 +14,7 @@ export function MainLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-background space-bg">
+    <div className="min-h-screen sm:min-h-dvh bg-background space-bg">
       {/* Animated starfield background */}
       <div className="starfield" aria-hidden="true" />
 

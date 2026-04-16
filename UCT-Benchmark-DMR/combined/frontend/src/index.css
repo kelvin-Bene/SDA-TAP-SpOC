@@ -111,6 +111,27 @@
 
 /* === CUSTOM UTILITIES === */
 @layer utilities {
+  /* Touch & safe-area utilities (mobile) */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
+
+  /* Hide decorative hover affordances on touch-only devices */
+  @media (hover: none) {
+    .hover-only\:hidden { display: none !important; }
+  }
+
+  /* Prevent iOS rubber-band on fullscreen pages (use on body wrapper) */
+  .overscroll-none-safe {
+    overscroll-behavior: none;
+  }
+
   /* Gradient texts */
   .text-gradient-cosmic {
     color: hsl(var(--primary));
@@ -192,6 +213,14 @@
       linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
       linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+
+  /* Mobile: reduce grid-pattern density/opacity to cut paint cost on phones */
+  @media (max-width: 768px) {
+    .grid-pattern {
+      opacity: 0.4;
+      background-size: 60px 60px;
+    }
   }
 
   /* Dot pattern */

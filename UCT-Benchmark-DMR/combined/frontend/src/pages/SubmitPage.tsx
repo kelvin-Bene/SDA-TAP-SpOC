@@ -434,8 +434,8 @@ export function SubmitPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Submit Algorithm Results</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Submit Algorithm Results</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
           Upload your UCT algorithm results for evaluation against benchmark datasets
         </p>
       </div>
@@ -453,7 +453,7 @@ export function SubmitPage() {
             <div
               {...getRootProps()}
               className={cn(
-                'border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors',
+                'border-2 border-dashed rounded-lg p-6 sm:p-12 text-center cursor-pointer transition-colors',
                 isDragActive
                   ? 'border-primary bg-primary/5'
                   : 'border-muted hover:border-primary/50 hover:bg-muted/50'
@@ -480,19 +480,19 @@ export function SubmitPage() {
           ) : (
             <div className="space-y-4">
               {/* File Info */}
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-primary/10 p-2">
+              <div className="flex items-center justify-between rounded-lg border p-4 gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="rounded-lg bg-primary/10 p-2 shrink-0">
                     <FileJson className="h-6 w-6 text-primary" />
                   </div>
-                  <div>
-                    <p className="font-medium">{file.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{file.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {formatFileSize(file.size)}
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={clearFile}>
+                <Button variant="ghost" size="icon" onClick={clearFile} className="shrink-0">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -585,6 +585,9 @@ export function SubmitPage() {
               placeholder="e.g., MyUCTP"
               value={algorithmName}
               onChange={(e) => setAlgorithmName(e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
             {submitAttempted && !algorithmName && (
               <p className="text-sm text-destructive mt-1">This field is required</p>
@@ -599,6 +602,10 @@ export function SubmitPage() {
               placeholder="e.g., v2.1"
               value={version}
               onChange={(e) => setVersion(e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="text"
             />
             {submitAttempted && !version && (
               <p className="text-sm text-destructive mt-1">This field is required</p>
@@ -634,14 +641,14 @@ export function SubmitPage() {
       </Card>
 
       {/* Submit Button */}
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate(-1)}>
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+        <Button variant="outline" onClick={() => navigate(-1)} className="w-full sm:w-auto">
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           disabled={createSubmission.isPending}
-          className="gap-2"
+          className="gap-2 w-full sm:w-auto"
         >
           {createSubmission.isPending ? (
             <>

@@ -160,6 +160,10 @@ function FeedbackWidgetInner() {
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'transition-transform hover:scale-105'
         )}
+        style={{
+          bottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          left: 'max(1.5rem, env(safe-area-inset-left))',
+        }}
         aria-label="Report a bug"
       >
         <Bug className="h-5 w-5" />
@@ -182,7 +186,7 @@ function FeedbackWidgetInner() {
               <RadioGroup
                 value={severity}
                 onValueChange={(v) => setSeverity(v as FeedbackSeverity)}
-                className="flex gap-4"
+                className="flex flex-wrap gap-3 sm:gap-4"
               >
                 {SEVERITY_OPTIONS.map((opt) => {
                   const Icon = opt.icon;

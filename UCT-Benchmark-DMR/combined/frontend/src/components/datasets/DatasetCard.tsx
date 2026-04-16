@@ -169,7 +169,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
       />
 
       {/* Header */}
-      <div className="p-5 pb-3">
+      <div className="p-3 sm:p-5 pb-3">
         <div className="flex items-start justify-between gap-2 mb-3">
           <Link
             to={`/datasets/${dataset.id}`}
@@ -217,7 +217,7 @@ export function DatasetCard({ dataset, onPreview, onDownload }: DatasetCardProps
       </div>
 
       {/* Stats */}
-      <div className="px-5 pb-4">
+      <div className="px-3 sm:px-5 pb-4">
         <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <div className="flex items-center gap-2 min-w-0">
             <Satellite className={cn('h-4 w-4 shrink-0', regime.color)} />

@@ -74,7 +74,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
       <CardContent className="pt-6 space-y-4">
         {/* Search and Sort Row */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-4">
-          <div className="w-full sm:w-auto space-y-2 flex-1 min-w-[200px] max-w-[400px]">
+          <div className="w-full sm:w-auto space-y-2 flex-1 sm:min-w-[240px] sm:max-w-[400px]">
             <Label htmlFor="search-filter">Search</Label>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -86,11 +86,13 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
                   setLocalSearch(e.target.value);
                   debouncedSearchChange(e.target.value);
                 }}
-                className="pl-9"
+                className="w-full sm:w-auto pl-9"
+                inputMode="search"
+                autoComplete="off"
               />
             </div>
           </div>
-          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 sm:min-w-[180px]">
             <Label htmlFor="sort-filter">Sort By</Label>
             <Select
               value={filters.sortBy || 'created_at'}
@@ -98,7 +100,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
                 onFiltersChange({ ...filters, sortBy: value as FilterType['sortBy'] })
               }
             >
-              <SelectTrigger id="sort-filter">
+              <SelectTrigger id="sort-filter" className="w-full sm:w-auto">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -119,6 +121,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
               })
             }
             title={filters.sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            className="w-full sm:w-10"
           >
             <ArrowUpDown className="h-4 w-4" />
           </Button>
@@ -127,7 +130,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
         {/* Filter Dropdowns Row */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-4">
           {/* Regime Filter */}
-          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 sm:min-w-[180px]">
             <Label htmlFor="regime-filter">Orbital Regime</Label>
             <Select
               value={filters.regime || 'all'}
@@ -135,7 +138,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
                 onFiltersChange({ ...filters, regime: value as OrbitalRegime | 'all' })
               }
             >
-              <SelectTrigger id="regime-filter">
+              <SelectTrigger id="regime-filter" className="w-full sm:w-auto">
                 <SelectValue placeholder="Select regime" />
               </SelectTrigger>
               <SelectContent>
@@ -149,7 +152,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Tier Filter */}
-          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 sm:min-w-[180px]">
             <Label htmlFor="tier-filter">Data Tier</Label>
             <Select
               value={filters.tier || 'all'}
@@ -157,7 +160,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
                 onFiltersChange({ ...filters, tier: value as DataTier | 'all' })
               }
             >
-              <SelectTrigger id="tier-filter">
+              <SelectTrigger id="tier-filter" className="w-full sm:w-auto">
                 <SelectValue placeholder="Select tier" />
               </SelectTrigger>
               <SelectContent>
@@ -171,7 +174,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Sensor Filter */}
-          <div className="w-full sm:w-auto space-y-2 min-w-[180px]">
+          <div className="w-full sm:w-auto space-y-2 sm:min-w-[180px]">
             <Label htmlFor="sensor-filter">Sensor Type</Label>
             <Select
               value={filters.sensor || 'all'}
@@ -179,7 +182,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
                 onFiltersChange({ ...filters, sensor: value as SensorType | 'all' })
               }
             >
-              <SelectTrigger id="sensor-filter">
+              <SelectTrigger id="sensor-filter" className="w-full sm:w-auto">
                 <SelectValue placeholder="Select sensor" />
               </SelectTrigger>
               <SelectContent>
@@ -193,7 +196,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
           </div>
 
           {/* Object Count Range */}
-          <div className="w-full sm:w-auto space-y-2 min-w-[200px] flex-1 max-w-[300px]">
+          <div className="w-full sm:w-auto space-y-2 flex-1 sm:min-w-[200px] sm:max-w-[300px]">
             <Label>Object Count: {filters.objectCountRange?.min ?? 0} - {filters.objectCountRange?.max ?? 200}</Label>
             <Slider
               value={[filters.objectCountRange?.min ?? 0, filters.objectCountRange?.max ?? 200]}
@@ -212,7 +215,7 @@ export function DatasetFilters({ filters, onFiltersChange, onClear }: DatasetFil
 
           {/* Clear Filters */}
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={onClear} className="gap-1">
+            <Button variant="ghost" size="sm" onClick={onClear} className="gap-1 w-full sm:w-auto">
               <X className="h-4 w-4" />
               Clear Filters
             </Button>

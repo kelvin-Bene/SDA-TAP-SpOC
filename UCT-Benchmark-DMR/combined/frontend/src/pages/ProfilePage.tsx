@@ -63,7 +63,7 @@ export function ProfilePage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
+        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground mt-1">
           Manage your profile information
         </p>
@@ -80,8 +80,8 @@ export function ProfilePage() {
           <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
             <div className="space-y-6">
               {/* Avatar */}
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <User className="h-10 w-10 text-primary" />
                 </div>
                 <div>
@@ -93,13 +93,14 @@ export function ProfilePage() {
               <Separator />
 
               {/* Form Fields */}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="username">Display Name</Label>
                   <Input
                     id="username"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
+                    autoComplete="name"
                   />
                 </div>
                 <div className="space-y-2">
@@ -110,6 +111,8 @@ export function ProfilePage() {
                     value={user?.email ?? ''}
                     disabled
                     className="opacity-60"
+                    autoComplete="email"
+                    inputMode="email"
                   />
                   <p className="text-xs text-muted-foreground">
                     Email is managed by your authentication provider.
@@ -118,19 +121,20 @@ export function ProfilePage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="organization">Organization</Label>
                   <div className="flex gap-2">
-                    <Building2 className="h-10 w-10 text-muted-foreground p-2 border rounded-md" />
+                    <Building2 className="h-10 w-10 text-muted-foreground p-2 border rounded-md shrink-0" />
                     <Input
                       id="organization"
                       value={organization}
                       onChange={(e) => setOrganization(e.target.value)}
                       className="flex-1"
+                      autoComplete="organization"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="grid gap-4 sm:grid-cols-3 pt-4 border-t">
+              <div className="grid gap-4 grid-cols-1 xs:grid-cols-3 pt-4 border-t">
                 <div>
                   <p className="text-sm text-muted-foreground">Member Since</p>
                   <p className="font-medium">{memberSince}</p>
@@ -145,8 +149,8 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSaving}>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
                   {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

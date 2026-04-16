@@ -194,7 +194,7 @@ export function OrbitViewer({
       <CardContent className="space-y-4">
         {/* Controls */}
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={handlePlayPause}>
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
@@ -208,7 +208,7 @@ export function OrbitViewer({
               <ZoomOut className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[300px]">
+          <div className="flex items-center gap-2 flex-1 w-full sm:min-w-[200px] sm:max-w-[300px] sm:w-auto">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Speed:</span>
             <Slider
               value={[multiplier]}
@@ -223,7 +223,10 @@ export function OrbitViewer({
         </div>
 
         {/* Cesium Viewer */}
-        <div className="h-[400px] rounded-lg overflow-hidden border">
+        <div
+          className="h-[60vh] sm:h-[400px] rounded-lg overflow-hidden border"
+          style={{ touchAction: 'none' }}
+        >
           <Viewer
             ref={viewerRef}
             full={false}
@@ -238,6 +241,8 @@ export function OrbitViewer({
             navigationHelpButton={false}
             fullscreenButton={false}
             creditContainer={undefined}
+            requestRenderMode={true}
+            maximumRenderTimeChange={Infinity}
           >
             <Clock
               startTime={JulianDate.fromDate(startTime)}

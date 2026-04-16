@@ -4,6 +4,9 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      screens: {
+        'xs': '375px',
+      },
       colors: {
         // Space Theme Core
         'space-void': 'hsl(var(--space-void))',
@@ -86,6 +89,12 @@ export default {
         lg: '24px',
         xl: '32px',
         '2xl': '48px',
+        'touch': '44px',
+        'touch-lg': '48px',
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
       },
       borderRadius: {
         lg: 'var(--radius)',

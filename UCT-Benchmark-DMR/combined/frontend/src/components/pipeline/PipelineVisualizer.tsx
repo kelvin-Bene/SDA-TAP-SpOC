@@ -257,7 +257,7 @@ function StageNode({
         </span>
         <span
           className={cn(
-            'text-xs font-medium tracking-wide',
+            'text-xs sm:text-sm font-medium tracking-wide',
             isActive && 'text-cosmic-cyan',
             isCompleted && 'text-aurora-green/90',
             !isActive && !isCompleted && 'text-muted-foreground',
@@ -284,41 +284,45 @@ export function PipelineVisualizer({
   completedSteps = [],
 }: PipelineVisualizerProps) {
   return (
-    <div className="relative py-6 px-4 overflow-x-auto">
-      {/* Stage pipeline */}
-      <div className="flex items-center justify-center">
-        {steps.map((step, idx) => {
-          const isActive = activeStep === step.id;
-          const isCompleted = completedSteps.includes(step.id);
+    <div className="relative py-6 px-4">
+      {/* Mobile scroll-hint gradient on right edge */}
+      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden z-10" />
+      <div className="overflow-x-auto">
+        {/* Stage pipeline */}
+        <div className="flex items-center justify-center">
+          {steps.map((step, idx) => {
+            const isActive = activeStep === step.id;
+            const isCompleted = completedSteps.includes(step.id);
 
-          // Determine connecting line state: the line AFTER this step
-          const nextStep = steps[idx + 1];
-          const isNextActive = nextStep ? activeStep === nextStep.id : false;
-          const isLineCompleted = isCompleted;
-          // Line is "active" when the current step is completed and the next is active,
-          // or the current step is the active one
-          const isLineActive = (isCompleted && isNextActive) || isActive;
+            // Determine connecting line state: the line AFTER this step
+            const nextStep = steps[idx + 1];
+            const isNextActive = nextStep ? activeStep === nextStep.id : false;
+            const isLineCompleted = isCompleted;
+            // Line is "active" when the current step is completed and the next is active,
+            // or the current step is the active one
+            const isLineActive = (isCompleted && isNextActive) || isActive;
 
-          return (
-            <div key={step.id} className="flex items-start">
-              <StageNode
-                step={step}
-                index={idx}
-                isActive={isActive}
-                isCompleted={isCompleted}
-              />
+            return (
+              <div key={step.id} className="flex items-start">
+                <StageNode
+                  step={step}
+                  index={idx}
+                  isActive={isActive}
+                  isCompleted={isCompleted}
+                />
 
-              {idx < steps.length - 1 && (
-                <div className="flex items-center pt-5 sm:pt-6">
-                  <ConnectingLine
-                    completed={isLineCompleted}
-                    active={isLineActive}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
+                {idx < steps.length - 1 && (
+                  <div className="flex items-center pt-5 sm:pt-6">
+                    <ConnectingLine
+                      completed={isLineCompleted}
+                      active={isLineActive}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

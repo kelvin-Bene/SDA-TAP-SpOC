@@ -525,8 +525,8 @@ export function DatasetGeneratorPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Generate Dataset</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Generate Dataset</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Configure parameters to generate a custom benchmark dataset
           </p>
         </div>
@@ -543,28 +543,33 @@ export function DatasetGeneratorPage() {
         {mode === 'legacy' && (
           <Card className="bg-muted/50">
             <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
                   <Label className="text-sm text-muted-foreground">Current Dataset Code</Label>
-                  <div className="font-mono text-2xl tracking-wider mt-1">
+                  <div className="font-mono text-xl sm:text-2xl tracking-wider mt-1">
                     {codeInputMode === 'direct' ? (
                       <Input
                         value={directCodeInput}
                         onChange={(e) => handleDirectCodeInput(e.target.value)}
                         placeholder="H50LEONEOPSSSS07"
-                        className="font-mono text-xl tracking-wider w-48"
+                        className="font-mono text-base sm:text-xl tracking-wider w-full sm:w-48"
                         maxLength={16}
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        inputMode="text"
                       />
                     ) : (
-                      <span className="text-primary">{currentLegacyCode}</span>
+                      <span className="text-primary break-all">{currentLegacyCode}</span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <Button
                     variant={codeInputMode === 'wizard' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setCodeInputMode('wizard')}
+                    className="flex-1 sm:flex-none"
                   >
                     Use Wizard
                   </Button>
@@ -572,6 +577,7 @@ export function DatasetGeneratorPage() {
                     variant={codeInputMode === 'direct' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setCodeInputMode('direct')}
+                    className="flex-1 sm:flex-none"
                   >
                     Enter Code
                   </Button>
@@ -691,7 +697,7 @@ export function DatasetGeneratorPage() {
                     <RadioGroup
                       value={legacyConfig.orbitalRegime}
                       onValueChange={(v) => updateLegacyConfig('orbitalRegime', v as OrbitalRegime)}
-                      className="grid grid-cols-2 gap-4"
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
                     >
                       {[
                         { value: 'LEO', label: 'Low Earth Orbit', desc: 'a ≤ 8378 km (alt < 2000 km)' },
@@ -832,7 +838,7 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                              'flex flex-col items-center gap-1 rounded-lg border p-3 sm:p-4 cursor-pointer hover:bg-accent active:bg-accent/80 focus-within:border-primary',
                               legacyConfig.orbitCoverage === value && 'border-primary bg-primary/5'
                             )}
                           >
@@ -858,7 +864,7 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                              'flex flex-col items-center gap-1 rounded-lg border p-3 sm:p-4 cursor-pointer hover:bg-accent active:bg-accent/80 focus-within:border-primary',
                               legacyConfig.trackGap === value && 'border-primary bg-primary/5'
                             )}
                           >
@@ -884,7 +890,7 @@ export function DatasetGeneratorPage() {
                           <Label
                             key={value}
                             className={cn(
-                              'flex flex-col items-center gap-1 rounded-lg border p-4 cursor-pointer hover:bg-accent',
+                              'flex flex-col items-center gap-1 rounded-lg border p-3 sm:p-4 cursor-pointer hover:bg-accent active:bg-accent/80 focus-within:border-primary',
                               legacyConfig.observationCount === value && 'border-primary bg-primary/5'
                             )}
                           >
@@ -988,9 +994,9 @@ export function DatasetGeneratorPage() {
                     ) : (
                       <>
                         {/* Code Display */}
-                        <div className="text-center py-6 bg-muted/50 rounded-lg">
+                        <div className="text-center py-6 bg-muted/50 rounded-lg px-3">
                           <p className="text-sm text-muted-foreground mb-2">Your Dataset Code</p>
-                          <p className="font-mono text-4xl tracking-widest text-primary">{currentLegacyCode}</p>
+                          <p className="font-mono text-2xl xs:text-3xl sm:text-4xl tracking-widest sm:tracking-widest text-primary break-all">{currentLegacyCode}</p>
                         </div>
 
                         {/* Code Breakdown */}

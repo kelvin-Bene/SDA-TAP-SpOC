@@ -112,12 +112,12 @@ export function LeaderboardPage() {
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-stellar-purple/20 to-cosmic-blue/20 flex items-center justify-center">
-          <Trophy className="h-6 w-6 text-stellar-purple" />
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-stellar-purple/20 to-cosmic-blue/20 flex items-center justify-center shrink-0">
+          <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-stellar-purple" />
         </div>
-        <div>
-          <h1 className="text-3xl font-display font-bold tracking-tight">Leaderboard</h1>
-          <p className="text-muted-foreground">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-3xl font-display font-bold tracking-tight">Leaderboard</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Compare algorithm performance across submissions
           </p>
         </div>
@@ -128,7 +128,7 @@ export function LeaderboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
           {/* Second place */}
           {topThree[1] && (
-            <div className="relative mt-8">
+            <div className="relative order-2 md:order-1 mt-0 md:mt-8">
               <div className="relative overflow-hidden rounded-xl border border-white/10 bg-card p-5 text-center transition-all duration-300 hover:border-gray-400/30 group">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Medal className="h-10 w-10 text-gray-400 mx-auto mb-3" />
@@ -147,7 +147,7 @@ export function LeaderboardPage() {
 
           {/* First place */}
           {topThree[0] && (
-            <div className="relative">
+            <div className="relative order-1 md:order-2">
               <div className="relative overflow-hidden rounded-xl border border-yellow-500/30 bg-gradient-to-b from-yellow-500/10 to-card p-6 text-center transition-all duration-300 hover:border-yellow-500/50 hover:shadow-[0_0_30px_-5px_hsl(45_93%_47%_/_0.3)] group">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -169,7 +169,7 @@ export function LeaderboardPage() {
 
           {/* Third place */}
           {topThree[2] && (
-            <div className="relative mt-8">
+            <div className="relative order-3 md:order-3 mt-0 md:mt-8">
               <div className="relative overflow-hidden rounded-xl border border-white/10 bg-card p-5 text-center transition-all duration-300 hover:border-amber-600/30 group">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Award className="h-10 w-10 text-amber-600 mx-auto mb-3" />
@@ -189,15 +189,15 @@ export function LeaderboardPage() {
       )}
 
       {/* Filters */}
-      <div className="rounded-xl border border-white/10 bg-card p-5">
-        <div className="flex flex-wrap gap-4">
+      <div className="rounded-xl border border-white/10 bg-card p-4 sm:p-5">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">Orbital Regime</label>
             <Select
               value={filters.regime || 'all'}
               onValueChange={(v) => setFilters({ ...filters, regime: v as typeof filters.regime })}
             >
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/20">
+              <SelectTrigger className="w-full bg-white/5 border-white/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="glass border-white/10">
@@ -215,7 +215,7 @@ export function LeaderboardPage() {
               value={filters.tier || 'all'}
               onValueChange={(v) => setFilters({ ...filters, tier: v as typeof filters.tier })}
             >
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/20">
+              <SelectTrigger className="w-full bg-white/5 border-white/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="glass border-white/10">
@@ -233,7 +233,7 @@ export function LeaderboardPage() {
               value={filters.period || 'all'}
               onValueChange={(v) => setFilters({ ...filters, period: v as typeof filters.period })}
             >
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/20">
+              <SelectTrigger className="w-full bg-white/5 border-white/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="glass border-white/10">
@@ -249,7 +249,7 @@ export function LeaderboardPage() {
               value={filters.datasetId || 'all'}
               onValueChange={(v) => setFilters({ ...filters, datasetId: v })}
             >
-              <SelectTrigger className="w-[220px] bg-white/5 border-white/20">
+              <SelectTrigger className="w-full bg-white/5 border-white/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="glass border-white/10 max-h-[300px]">

@@ -39,10 +39,10 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Hero Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cosmic-cyan/5 via-transparent to-stellar-purple/5 p-6">
-        {/* Background decoration */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-stellar-purple/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cosmic-cyan/5 via-transparent to-stellar-purple/5 p-4 sm:p-6">
+        {/* Background decoration - hidden on mobile for perf */}
+        <div className="hidden sm:block absolute top-0 right-0 w-96 h-96 bg-cosmic-cyan/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="hidden sm:block absolute bottom-0 left-0 w-64 h-64 bg-stellar-purple/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
         <div className="relative z-10">
           <div className="flex items-center gap-2 text-cosmic-cyan text-sm font-medium mb-2">
@@ -51,23 +51,23 @@ export function DashboardPage() {
               ? 'Welcome'
               : 'Welcome back'}
           </div>
-          <h1 className="text-4xl font-display font-bold tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-4xl font-display font-bold tracking-tight mb-2">
             Good to see you, <span className="text-gradient-cosmic">{user?.username || 'researcher'}</span>
           </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl">
+          <p className="text-muted-foreground text-base sm:text-lg max-w-2xl">
             Track your algorithm performance, explore benchmark datasets, and climb the leaderboard.
           </p>
 
           {/* Quick action buttons */}
-          <div className="flex flex-wrap gap-3 mt-6">
-            <Link to="/datasets/generate">
-              <Button className="gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity shadow-glow-cyan">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
+            <Link to="/datasets/generate" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto gap-2 bg-gradient-to-r from-cosmic-cyan to-cosmic-blue hover:opacity-90 transition-opacity shadow-glow-cyan">
                 <Plus className="h-4 w-4" />
                 Generate Dataset
               </Button>
             </Link>
-            <Link to="/submit">
-              <Button variant="outline" className="gap-2 border-white/20 hover:bg-white/5 hover:border-white/30">
+            <Link to="/submit" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto gap-2 border-white/20 hover:bg-white/5 hover:border-white/30">
                 <Upload className="h-4 w-4" />
                 Submit Algorithm
               </Button>

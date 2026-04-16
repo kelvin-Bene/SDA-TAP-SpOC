@@ -79,7 +79,7 @@ export function DatasetBrowserPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Datasets</h1>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Datasets</h1>
           <p className="text-muted-foreground mt-1">
             Browse and download benchmark datasets for UCT algorithm evaluation
           </p>
@@ -100,7 +100,7 @@ export function DatasetBrowserPage() {
       />
 
       {/* Results Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <p className="text-sm text-muted-foreground">
           {isLoading ? (
             <span className="flex items-center gap-2">

@@ -34,11 +34,11 @@ export function HeroSection() {
               </Badge>
 
               <h1 className="font-display font-bold tracking-tight">
-                <span className="block text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">UCT Benchmark</span>
-                <span className="block text-3xl sm:text-4xl lg:text-5xl mt-2">
+                <span className="block text-4xl xs:text-5xl sm:text-6xl lg:text-7xl text-gradient-cosmic">UCT Benchmark</span>
+                <span className="block text-2xl xs:text-3xl sm:text-4xl lg:text-5xl mt-2">
                   Uncorrelated Track Processing
                 </span>
-                <span className="block text-3xl sm:text-4xl lg:text-5xl text-muted-foreground mt-1">
+                <span className="block text-2xl xs:text-3xl sm:text-4xl lg:text-5xl text-muted-foreground mt-1">
                   Benchmark Platform
                 </span>
               </h1>
@@ -47,11 +47,11 @@ export function HeroSection() {
                 The standardized evaluation framework for UCTP algorithms across all orbital regimes.
               </p>
 
-              <div className="flex flex-wrap gap-3 mt-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-2">
                 <Button
                   variant="outline"
                   size="lg"
-                  className="border-white/20 hover:bg-white/5"
+                  className="border-white/20 hover:bg-white/5 w-full sm:w-auto"
                   onClick={() =>
                     document.getElementById('problem')?.scrollIntoView({ behavior: 'smooth' })
                   }
@@ -59,7 +59,7 @@ export function HeroSection() {
                   <ArrowDown className="h-4 w-4 mr-2" />
                   Mission Briefing
                 </Button>
-                <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0">
+                <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0 w-full sm:w-auto">
                   <Link to="/login">
                     <LogIn className="h-4 w-4 mr-2" />
                     Access Platform
@@ -80,7 +80,7 @@ export function HeroSection() {
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-16">
         <div
           ref={statsRef}
-          className="grid grid-cols-3 gap-6 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left"
+          className="grid grid-cols-3 gap-3 xs:gap-6 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left"
         >
           {STATS.map((stat) => (
             <div key={stat.label} className="flex flex-col gap-1">
