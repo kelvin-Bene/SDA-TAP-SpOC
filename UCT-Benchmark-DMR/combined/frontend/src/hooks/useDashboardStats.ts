@@ -98,12 +98,19 @@ export function useDashboardStats() {
         trendPercentage = -10; // Placeholder negative trend
       }
 
+      // `stats.total_submissions` counts only completed submissions — that
+      // made the dashboard "Submissions" stat disagree with the "Recent
+      // Submissions" widget below it (which lists failed submissions too).
+      // Count from the submissions array we already fetched so the number
+      // matches what the user sees scrolling down.
+      const allSubmissionsCount = submissions.length;
+
       const dashboardStats: DashboardStats = {
         topRank: topEntry?.rank ?? 0,
         topAlgorithmName: topEntry?.algorithm_name || 'No submissions yet',
         topF1Score: topEntry?.f1_score ?? 0,
 
-        totalSubmissions: stats.total_submissions ?? 0,
+        totalSubmissions: allSubmissionsCount,
         processingCount,
         bestF1Score: stats.best_score ?? 0,
         bestDatasetName: bestSubmission?.dataset_name ?? null,

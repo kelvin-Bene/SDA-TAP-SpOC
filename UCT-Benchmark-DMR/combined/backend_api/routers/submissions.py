@@ -16,7 +16,10 @@ from backend_api.auth import CurrentUser
 from backend_api.middleware.auth import get_current_user
 from backend_api.middleware.rate_limit import limiter
 from backend_api.models import (
+    OrbitalRegime,
+    OrbitSatellite,
     SubmissionDetail,
+    SubmissionPredictionsResponse,
     SubmissionStatus,
     SubmissionSummary,
 )
@@ -312,6 +315,89 @@ async def get_submission(
         job_id=row_dict.get("job_id"),
         file_path=sanitized_file_path,
         error_message=row_dict.get("error_message"),
+    )
+
+
+@router.get("/{submission_id}/predictions", response_model=SubmissionPredictionsResponse)
+async def get_submission_predictions(
+    submission_id: str,
+    include: Optional[str] = None,
+    max_samples: int = 2000,
+    user: CurrentUser = Depends(get_current_user),
+    db: DatabaseManager = Depends(get_db),
+):
+    """Time-sampled predicted orbits from the UCTP file uploaded for this submission.
+
+    Only the submission owner (or admin) can read predictions — same RLS as
+    GET /submissions/{id}. Pass `?include=reference` to also return the
+    dataset's ground-truth reference orbits for side-by-side visualization.
+    """
+    if max_samples <= 0 or max_samples > 10000:
+        raise HTTPException(status_code=400, detail="max_samples must be in (0, 10000]")
+
+    try:
+        sub_id_int = int(submission_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid submission ID")
+
+    result = db.execute(
+        "SELECT id, dataset_id, user_id, file_path FROM submissions WHERE id = ? AND (user_id = ? OR ? = TRUE)",
+        (sub_id_int, user.id, user.is_admin),
+    )
+    row = result.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    cols = [d[0] for d in result.description]
+    row_dict = dict(zip(cols, row))
+
+    file_path_str = row_dict.get("file_path")
+    if not file_path_str:
+        raise HTTPException(
+            status_code=404,
+            detail="Submission has no UCTP file persisted (still queued or removed)",
+        )
+    uctp_path = Path(file_path_str)
+    if not uctp_path.exists():
+        raise HTTPException(
+            status_code=410,
+            detail="UCTP file is no longer available on disk",
+        )
+
+    from backend_api.services.orbit_propagation import (
+        propagate_predictions,
+        propagate_reference_orbits,
+    )
+
+    predicted_tracks = propagate_predictions(
+        uctp_path=uctp_path,
+        submission_id=sub_id_int,
+        max_samples=max_samples,
+    )
+
+    reference_tracks = None
+    if include and "reference" in include.lower():
+        dataset_id = row_dict.get("dataset_id")
+        if dataset_id is not None:
+            reference_tracks = propagate_reference_orbits(
+                dataset_id=int(dataset_id),
+                db=db,
+                max_samples=max_samples,
+            )
+
+    def _to_satellite(t) -> OrbitSatellite:
+        return OrbitSatellite(
+            id=t.id,
+            name=t.name,
+            regime=OrbitalRegime(t.regime),
+            positions=t.positions,
+            color=t.color,
+        )
+
+    return SubmissionPredictionsResponse(
+        submission_id=str(sub_id_int),
+        predicted=[_to_satellite(t) for t in predicted_tracks],
+        reference=[_to_satellite(t) for t in reference_tracks] if reference_tracks else None,
     )
 
 

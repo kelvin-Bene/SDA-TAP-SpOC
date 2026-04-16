@@ -2406,6 +2406,16 @@ def generateDataset(
     # =========================================================================
     # OPTIONAL: Apply event filtering (per Louis's 16-character code spec)
     # =========================================================================
+    # Map legacy 2-char event codes to canonical event_types table names. Used
+    # for the DB-first short-circuit below — if the ML labelling pipeline has
+    # already persisted events via /events/detect, reuse those rather than
+    # re-running TLE heuristics on every generation.
+    _EVENT_CODE_TO_TYPE = {
+        "MB": "MANEUVER",
+        "LL": "LONG_THRUST",
+        "BU": "BREAKUP",
+    }
+
     event_metadata = None
     if event_code and event_code != "NE":
         logger.info(f"Applying event filtering: code={event_code}")
@@ -2414,18 +2424,67 @@ def generateDataset(
             # Get list of satellite IDs
             current_sat_ids = list(obs_truth_data["satNo"].unique())
 
-            # Filter satellites by event code
+            # -- DB-first short-circuit --------------------------------------
+            # Check whether the ML labelling pipeline has already persisted
+            # matching events for these satellites in this window. If yes,
+            # those satellites are pre-matched and we skip the TLE heuristic
+            # for them. Purely additive — empty DB falls through to the
+            # existing TLE-heuristic path.
+            db_matched_sats: List[int] = []
+            db_event_count = 0
+            if _DATABASE_AVAILABLE and event_code in _EVENT_CODE_TO_TYPE:
+                try:
+                    from uct_benchmark.database.repository import EventRepository
+
+                    # Best-effort DB lookup. Default DatabaseManager() picks up
+                    # DATABASE_URL / defaults to DuckDB local file. If it fails
+                    # (no env, no schema), we silently fall through to the TLE
+                    # heuristic — preserving pre-cache behavior.
+                    db_cxn = DatabaseManager()
+                    db_cxn.initialize()
+                    event_repo = EventRepository(db_cxn)
+                    win_start = obs_truth_data["obTime"].min() if "obTime" in obs_truth_data.columns else None
+                    win_end = obs_truth_data["obTime"].max() if "obTime" in obs_truth_data.columns else None
+                    cached = event_repo.find_events_in_window(
+                        sat_nos=[int(s) for s in current_sat_ids],
+                        event_type=_EVENT_CODE_TO_TYPE[event_code],
+                        start_time=win_start,
+                        end_time=win_end,
+                    )
+                    if not cached.empty:
+                        hit_ids = set()
+                        for _, ev_row in cached.iterrows():
+                            for col in ("primary_sat_no", "secondary_sat_no"):
+                                val = ev_row.get(col)
+                                if val is not None and int(val) in current_sat_ids:
+                                    hit_ids.add(int(val))
+                        db_matched_sats = list(hit_ids)
+                        db_event_count = len(cached)
+                        logger.info(
+                            f"Event cache DB-hit: {db_event_count} {event_code} events cached "
+                            f"for {len(db_matched_sats)} satellites"
+                        )
+                except Exception as cache_err:
+                    logger.debug(f"Event cache lookup skipped ({cache_err}); falling through to TLE heuristic")
+
+            # -- Fallback: TLE heuristic on remaining satellites --------------
+            remaining_sat_ids = [s for s in current_sat_ids if s not in db_matched_sats]
             matching_sats, detected_events = filter_satellites_by_event_code(
                 tle_df=elset_truth_data,
-                satellite_ids=current_sat_ids,
+                satellite_ids=remaining_sat_ids if remaining_sat_ids else current_sat_ids,
                 event_code=event_code,
             )
+            # Merge DB-cached matches with TLE-heuristic matches
+            if db_matched_sats:
+                matching_sats = list({*matching_sats, *db_matched_sats})
 
             event_metadata = {
                 "event_code": event_code,
                 "matching_satellites": matching_sats,
                 "detected_events": len(detected_events),
                 "original_count": len(current_sat_ids),
+                "db_cache_hits": db_event_count,
+                "db_matched_satellites": len(db_matched_sats),
             }
 
             if matching_sats:

@@ -152,12 +152,18 @@ export const api = {
   getDatasetVersions: (id: string) =>
     apiClient.get(`/datasets/${id}/versions`),
 
+  getDatasetReferenceOrbits: (id: string, params?: { start?: string; end?: string; max_samples?: number }) =>
+    apiClient.get(`/datasets/${id}/reference-orbits`, { params }),
+
   // Submissions
   getSubmissions: (params?: Record<string, string>) =>
     apiClient.get('/submissions/', { params }),
 
   getSubmission: (id: string) =>
     apiClient.get(`/submissions/${id}`),
+
+  getSubmissionPredictions: (id: string, params?: { include?: string; max_samples?: number }) =>
+    apiClient.get(`/submissions/${id}/predictions`, { params }),
 
   createSubmission: (formData: FormData) =>
     apiClient.post('/submissions/', formData, {

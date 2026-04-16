@@ -126,12 +126,19 @@ async def get_results(
     # Rank is computed via a subquery over all completed submissions in the same
     # dataset so that RANK() OVER sees more than one row.  Submissions without
     # results (still processing) are included via LEFT JOIN and receive a NULL rank.
+    # Rank by composite score (mirror leaderboard.py:107-110) with graceful
+    # fallback to f1_score for legacy rows that predate composite persistence.
+    # This is Louis's Feb 19 ask: the leaderboard ordering should reflect the
+    # weighted combination of binary + state + residual, not F1 alone.
     result = db.execute(
         """
         WITH dataset_ranks AS (
             SELECT
                 s.id,
-                RANK() OVER (PARTITION BY s.dataset_id ORDER BY sr.f1_score DESC NULLS LAST) as rank
+                RANK() OVER (
+                    PARTITION BY s.dataset_id
+                    ORDER BY COALESCE(sr.test_composite_score, sr.composite_score, sr.f1_score) DESC NULLS LAST
+                ) as rank
             FROM submissions s
             INNER JOIN submission_results sr ON s.id = sr.submission_id
             WHERE s.dataset_id = (SELECT dataset_id FROM submissions WHERE id = ?)
@@ -153,6 +160,10 @@ async def get_results(
             sr.mahalanobis_distance,
             sr.ra_residual_rms_arcsec,
             sr.dec_residual_rms_arcsec,
+            sr.composite_score,
+            sr.train_composite_score,
+            sr.val_composite_score,
+            sr.test_composite_score,
             sr.raw_results,
             sr.processing_time_seconds,
             dr.rank
@@ -171,11 +182,14 @@ async def get_results(
 
     row_dict = dict(zip(columns, row))
 
-    # Parse raw results for satellite breakdown and histogram data
+    # Parse raw results for satellite breakdown, histogram data, and the
+    # composite-score breakdown (Louis Feb 19: "why did my score drop" UX).
     satellite_results = []
     ra_residual_histogram = None
     dec_residual_histogram = None
     position_error_histogram = None
+    composite_breakdown = None
+    split_breakdowns = None
     raw_results = row_dict.get("raw_results")
     if raw_results:
         try:
@@ -200,11 +214,18 @@ async def get_results(
             ra_residual_histogram = parsed.get("ra_residual_histogram")
             dec_residual_histogram = parsed.get("dec_residual_histogram")
             position_error_histogram = parsed.get("position_error_histogram")
+            # Composite scoring breakdown — shape defined in workers.py
+            # compute_composite_score. split_breakdowns keyed by train/validation/test.
+            composite_breakdown = parsed.get("composite_breakdown")
+            split_breakdowns = parsed.get("split_breakdowns")
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"Failed to parse raw_results JSON for submission {submission_id}: {e}")
 
     # Extract rank from the window function in the main query
     rank = row_dict.get("rank")
+
+    def _maybe_float(val):
+        return float(val) if val is not None else None
 
     return SubmissionResults(
         submission_id=str(row_dict["id"]),
@@ -223,6 +244,12 @@ async def get_results(
         mahalanobis_distance=row_dict.get("mahalanobis_distance"),
         ra_residual_rms_arcsec=row_dict.get("ra_residual_rms_arcsec"),
         dec_residual_rms_arcsec=row_dict.get("dec_residual_rms_arcsec"),
+        composite_score=_maybe_float(row_dict.get("composite_score")),
+        train_composite_score=_maybe_float(row_dict.get("train_composite_score")),
+        val_composite_score=_maybe_float(row_dict.get("val_composite_score")),
+        test_composite_score=_maybe_float(row_dict.get("test_composite_score")),
+        composite_breakdown=composite_breakdown,
+        split_breakdowns=split_breakdowns,
         satellite_results=satellite_results,
         ra_residual_histogram=ra_residual_histogram,
         dec_residual_histogram=dec_residual_histogram,

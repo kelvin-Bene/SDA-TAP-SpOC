@@ -30,6 +30,8 @@ from backend_api.models import (
     LegacyCodeValidation,
     LegacyDatasetCreate,
     OrbitalRegime,
+    OrbitSatellite,
+    ReferenceOrbitsResponse,
     SearchStrategy,
     SensorType,
 )
@@ -335,6 +337,87 @@ async def get_dataset(
         simulation_config=_safe_json_parse(row_dict.get("simulation_config")),
         version=int(row_dict.get("version") or 1),
         parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
+    )
+
+
+@router.get("/{dataset_id}/reference-orbits", response_model=ReferenceOrbitsResponse)
+async def get_dataset_reference_orbits(
+    dataset_id: str,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+    max_samples: int = 2000,
+    user: CurrentUser = Depends(get_current_user),
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Time-sampled reference orbits for this dataset's satellites.
+
+    Reference orbits are the answer key (per Apr 9 answer-key separation
+    feedback). Only the dataset owner or an admin can fetch them; all other
+    authenticated users get 403 so the frontend can hide the 3D section.
+
+    Query params:
+        start: ISO8601 start of time window (default: earliest reference epoch)
+        end:   ISO8601 end of time window (default: start + 24h)
+        max_samples: hard cap on total samples across all satellites (default 2000)
+    """
+    id_int = validate_dataset_id(dataset_id)
+    result = db.execute(
+        "SELECT id, user_id, status FROM datasets WHERE id = ?", (id_int,)
+    )
+    row = result.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    cols = [d[0] for d in result.description]
+    row_dict = dict(zip(cols, row))
+
+    if row_dict.get("user_id") != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Reference orbits are the dataset answer key; only the owner or an admin can view them",
+        )
+
+    if max_samples <= 0 or max_samples > 10000:
+        raise HTTPException(status_code=400, detail="max_samples must be in (0, 10000]")
+
+    from backend_api.services.orbit_propagation import propagate_reference_orbits
+
+    tracks = propagate_reference_orbits(
+        dataset_id=id_int,
+        db=db,
+        start=start,
+        end=end,
+        max_samples=max_samples,
+    )
+
+    if not tracks:
+        # Owner is authorized but no references have been persisted yet
+        # (dataset still generating, or pre-Phase-1 legacy dataset).
+        return ReferenceOrbitsResponse(
+            dataset_id=str(id_int),
+            start_time=(start or datetime.now(timezone.utc)).isoformat(),
+            end_time=(end or datetime.now(timezone.utc)).isoformat(),
+            satellites=[],
+        )
+
+    resolved_start = start or datetime.fromisoformat(tracks[0].positions[0]["time"].replace("Z", "+00:00"))
+    resolved_end = end or datetime.fromisoformat(tracks[0].positions[-1]["time"].replace("Z", "+00:00"))
+
+    return ReferenceOrbitsResponse(
+        dataset_id=str(id_int),
+        start_time=resolved_start.isoformat(),
+        end_time=resolved_end.isoformat(),
+        satellites=[
+            OrbitSatellite(
+                id=t.id,
+                name=t.name,
+                regime=OrbitalRegime(t.regime),
+                positions=t.positions,
+                color=t.color,
+            )
+            for t in tracks
+        ],
     )
 
 

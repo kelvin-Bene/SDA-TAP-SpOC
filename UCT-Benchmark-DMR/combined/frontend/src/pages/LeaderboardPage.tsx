@@ -587,14 +587,56 @@ export function LeaderboardPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{entry.team}</TableCell>
                       <TableCell>
-                        <span className={cn(
-                          'font-mono font-bold',
-                          idx === 0 && 'text-yellow-500',
-                          idx === 1 && 'text-gray-400',
-                          idx === 2 && 'text-amber-600'
-                        )}>
-                          {entry.compositeScore.toFixed(4)}
-                        </span>
+                        <TooltipProvider delayDuration={150}>
+                          <RankTooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn(
+                                  'font-mono font-bold cursor-help border-b border-dotted border-muted-foreground/40',
+                                  idx === 0 && 'text-yellow-500',
+                                  idx === 1 && 'text-gray-400',
+                                  idx === 2 && 'text-amber-600'
+                                )}
+                              >
+                                {entry.compositeScore.toFixed(4)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <div className="space-y-1.5 text-xs">
+                                <p className="font-semibold">Composite score breakdown (by split)</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <p className="text-muted-foreground uppercase">Train</p>
+                                    <p className="font-mono">
+                                      {entry.trainCompositeScore !== undefined
+                                        ? entry.trainCompositeScore.toFixed(4)
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground uppercase">Val</p>
+                                    <p className="font-mono">
+                                      {entry.valCompositeScore !== undefined
+                                        ? entry.valCompositeScore.toFixed(4)
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground uppercase">Test</p>
+                                    <p className="font-mono font-semibold">
+                                      {entry.testCompositeScore !== undefined
+                                        ? entry.testCompositeScore.toFixed(4)
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="text-muted-foreground pt-1 border-t border-white/10">
+                                  Rank uses the test split (held out during training, can't be cheated).
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </RankTooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell>
                         <span className="font-mono">

@@ -188,6 +188,11 @@ via direct SQL, and there's no cross-project dependency to maintain.
   ("I don't know if that necessarily helps advance the project towards our
   minimum success criterias"). Not on the roadmap.
 - **3D globe visualisation** — Mentioned by Aidan on Feb 19, implicitly
-  deprioritised by Louis. Not on the roadmap.
+  deprioritised by Louis. Shipped as of Apr 16, 2026 anyway at user's
+  direction, using the pre-existing `OrbitViewer` component. Integrated
+  on DatasetDetailPage (owner+admin only, per Apr 9 answer-key separation),
+  ResultsPage (own-submissions), and the public LandingPage hero
+  (desktop-only, static fixture `/demo-orbits.json`). Backend endpoints:
+  `GET /datasets/{id}/reference-orbits` and `GET /submissions/{id}/predictions`.
 - **Custom UCT processor** — Louis explicitly told David Xiao's team to
   focus their energies elsewhere (Feb 19, ~line 568). Not on the roadmap.

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,10 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronRight,
   Download,
   Satellite,
   Database,
   Calendar,
+  Globe,
   History,
   Loader2,
   AlertTriangle,
@@ -16,6 +20,8 @@ import {
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { downloadBlob } from '@/lib/downloadUtils';
 import { useDataset, useDatasetObservations, useDatasetVersions, useDownloadDataset } from '@/hooks/useDatasets';
+import { useDatasetReferenceOrbits } from '@/hooks/useDatasetReferenceOrbits';
+import { CesiumGlobe } from '@/components/cesium/CesiumGlobe';
 import { useToast } from '@/hooks/use-toast';
 
 export function DatasetDetailPage() {
@@ -27,6 +33,16 @@ export function DatasetDetailPage() {
   const { data: observations, isLoading: obsLoading } = useDatasetObservations(id ?? '', { limit: 20 });
   const { data: versions = [] } = useDatasetVersions(id ?? '');
   const downloadMutation = useDownloadDataset();
+
+  // 3D orbit preview: collapsed by default so Cesium chunk only loads on expand.
+  // Hook fetch is gated on `orbitsOpen` to avoid calling the endpoint for users
+  // who never open the section (403 non-owners would otherwise fire needlessly).
+  const [orbitsOpen, setOrbitsOpen] = useState(false);
+  const {
+    data: referenceOrbits,
+    isLoading: orbitsLoading,
+    forbidden: orbitsForbidden,
+  } = useDatasetReferenceOrbits(id, { enabled: orbitsOpen });
 
   const handleDownload = async () => {
     if (!dataset) return;
@@ -51,9 +67,11 @@ export function DatasetDetailPage() {
         title: 'Download failed',
         description: status === 404 && serverDetail
           ? serverDetail
-          : status === 400
-            ? serverDetail || 'This dataset is not available for download.'
-            : 'Failed to download dataset. The server may be unavailable.',
+          : status === 403
+            ? "You don't own this dataset. Only the creator can download it."
+            : status === 400
+              ? serverDetail || 'This dataset is not available for download.'
+              : 'Failed to download dataset. The server may be unavailable.',
         variant: 'destructive',
       });
     }
@@ -80,7 +98,16 @@ export function DatasetDetailPage() {
           <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
             <AlertTriangle className="h-12 w-12 text-muted-foreground" />
             <p className="text-muted-foreground text-center">
-              {error instanceof Error ? error.message : 'This dataset could not be found or you do not have access to it.'}
+              {(() => {
+                const status = (error as { response?: { status?: number } } | null)?.response?.status;
+                if (status === 404) {
+                  return `No dataset exists with ID "${id}". It may have been deleted, or the link may be incorrect.`;
+                }
+                if (status === 403) {
+                  return 'You do not have permission to view this dataset.';
+                }
+                return 'This dataset could not be loaded. Please try again later.';
+              })()}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => navigate(-1)}>
@@ -264,6 +291,69 @@ export function DatasetDetailPage() {
             </p>
           )}
         </CardContent>
+      </Card>
+
+      {/* 3D Orbit Preview — reference orbits are the dataset answer key,
+          so the backend gates this to the dataset owner + admins.
+          Non-owners will see the header but get a polite note on expand. */}
+      <Card>
+        <CardHeader>
+          <button
+            type="button"
+            onClick={() => setOrbitsOpen((v) => !v)}
+            className="flex w-full items-center gap-2 text-left hover:opacity-80 transition-opacity"
+            aria-expanded={orbitsOpen}
+            aria-controls="orbits-panel"
+          >
+            {orbitsOpen ? (
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            )}
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Globe className="h-4 w-4" />
+              3D Orbit Preview
+            </CardTitle>
+            <span className="text-xs text-muted-foreground ml-2">
+              (owner + admin only)
+            </span>
+          </button>
+        </CardHeader>
+        {orbitsOpen && (
+          <CardContent id="orbits-panel">
+            {orbitsLoading ? (
+              <div className="flex items-center justify-center h-[320px] sm:h-[400px] lg:h-[500px]">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : orbitsForbidden ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+                <AlertTriangle className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Reference orbits are the dataset answer key. Only the dataset
+                  owner or an admin can view the 3D preview.
+                </p>
+              </div>
+            ) : referenceOrbits && referenceOrbits.satellites.length > 0 ? (
+              <CesiumGlobe
+                satellites={referenceOrbits.satellites}
+                startTime={referenceOrbits.startTime}
+                endTime={referenceOrbits.endTime}
+                ariaLabel={`Reference orbits for dataset ${dataset.name}`}
+                fallback={
+                  <div className="flex items-center justify-center h-[320px] sm:h-[400px] text-sm text-muted-foreground">
+                    3D view unavailable in this browser. Reference orbits are
+                    still accessible via the API.
+                  </div>
+                }
+              />
+            ) : (
+              <p className="text-center py-8 text-muted-foreground text-sm">
+                No reference orbits are persisted for this dataset yet. If the
+                dataset is still generating, check back once it is available.
+              </p>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Version History */}

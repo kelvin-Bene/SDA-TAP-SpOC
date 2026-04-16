@@ -224,31 +224,37 @@ export function DatasetPreviewDialog({
           <TabsContent value="sample" className="mt-4">
             <div className="rounded-lg border bg-muted/50 p-4 font-mono text-xs overflow-x-auto">
               <pre>{`{
+  "dataset": {
+    "id": 155,
+    "name": "example-leo-t1",
+    "regime": "LEO",
+    "tier": "T1",
+    "observation_count": 1200,
+    "satellite_count": 3,
+    "calibration_quality": "GOOD",
+    "maneuver_during_gap": false,
+    "created_at": "2026-04-14T12:34:56Z"
+  },
   "observations": [
     {
-      "obsId": "obs_001",
-      "time": "2026-01-15T08:30:45.123Z",
+      "obTime": "2026-04-14T08:30:45.123Z",
       "ra": 145.234,
-      "dec": -23.456,
-      "raRate": 0.0012,
-      "decRate": -0.0008,
-      "sensorId": "SENSOR_01",
-      "trackId": "TRK_001"
-    },
-    ...
-  ],
-  "truthCatalog": [
-    {
-      "satId": "25544",
-      "epoch": "2026-01-15T00:00:00Z",
-      "state": [6800.0, 0.0, 0.0, 0.0, 7.5, 0.0]
+      "declination": -23.456,
+      "azimuth": 92.11,
+      "elevation": 47.80,
+      "senlat": 34.744,
+      "senlon": -120.573,
+      "senalt": 0.123,
+      "idSensor": "SENSOR_01",
+      "trackId": "TRK_001",
+      "split": "train"
     },
     ...
   ]
 }`}</pre>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Sample format showing observation and truth catalog structure
+              Sample format — state vectors and satellite IDs are not included in downloads (answer-key separation, Apr 9 2026).
             </p>
           </TabsContent>
 

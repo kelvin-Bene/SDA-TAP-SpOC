@@ -97,8 +97,8 @@ The implementation is **~97% aligned** with Louis's specifications from the tran
 | Residual metrics | Obs vs orbit | ✅ Great circle method | `residualMetrics.py` |
 | Propagator | Orekit high-fidelity | ✅ HF-120, NRLMSISE-00 | `tracktle.py` |
 | HAMR filter | A/M > 0.1 | ✅ Implemented | `objectTypeFiltering.py` |
-| Close (C) filter | Distance + velocity | ✅ <100km AND <100m/s | `objectTypeFiltering.py` |
-| Apparent (A) filter | Angular separation | ✅ <0.5° haversine | `objectTypeFiltering.py` |
+| Close (C) filter | Distance + velocity | ✅ <10km AND <10m/s (Apr 8 recal. per `UCT Labelling.xlsx`) | `objectTypeFiltering.py`, `settings.py:157-173` |
+| Apparent (A) filter | Angular separation | ✅ <30 arcsec (~0.00833°) (Apr 8 recal.) | `objectTypeFiltering.py`, `settings.py:157-173` |
 | Calibration satellites | Predefined list | ✅ 30 NORAD IDs | `settings.py:43-74` |
 | Regime coverage limits | LEO/MEO/GEO | ✅ TIER_5 detection | `windowSelection.py:461-471` |
 | Batch decay | Exponential formula | ✅ `_calculate_next_batch_size()` | `windowSelection.py:503` |

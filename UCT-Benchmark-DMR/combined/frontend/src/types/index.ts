@@ -338,6 +338,28 @@ export interface Submission {
   errorMessage?: string;
 }
 
+// Composite scoring breakdown — mirror of workers.compute_composite_score().
+// Louis Feb 19 ask: show *which* component cost a submission points.
+export interface CompositeBreakdown {
+  composite_score: number;
+  binary_component: number;
+  state_component: number | null;
+  state_source: 'mahalanobis_pscore' | 'position_rms_heuristic' | null;
+  residual_component: number | null;
+  weights_used: {
+    binary: number;
+    state: number;
+    residual: number;
+  };
+  fallback_reason: 'no_state' | 'no_residual' | 'no_state_or_residual' | null;
+}
+
+export interface SplitBreakdowns {
+  train?: CompositeBreakdown | null;
+  validation?: CompositeBreakdown | null;
+  test?: CompositeBreakdown | null;
+}
+
 export interface SubmissionResults {
   // Binary Metrics
   truePositives?: number;
@@ -359,6 +381,14 @@ export interface SubmissionResults {
   raResidualRmsArcsec?: number;
   decResidualRmsArcsec?: number;
 
+  // Composite scoring (Louis Feb 19 vision item)
+  compositeScore?: number;
+  trainCompositeScore?: number;
+  valCompositeScore?: number;
+  testCompositeScore?: number;
+  compositeBreakdown?: CompositeBreakdown;
+  splitBreakdowns?: SplitBreakdowns;
+
   // Per-satellite breakdown
   satelliteResults?: SatelliteResult[];
 
@@ -367,7 +397,7 @@ export interface SubmissionResults {
   decResidualHistogram?: HistogramData;
   positionErrorHistogram?: HistogramData;
 
-  // Rank info (computed by backend based on F1-score within the same dataset)
+  // Rank info (computed by backend — ranked by composite score with fallback to F1)
   rank?: number;
   previousRank?: number;
 }

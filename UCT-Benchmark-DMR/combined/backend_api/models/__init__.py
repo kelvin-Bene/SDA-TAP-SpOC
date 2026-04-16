@@ -647,6 +647,16 @@ class SubmissionResults(BaseModel):
     ra_residual_rms_arcsec: Optional[float] = None
     dec_residual_rms_arcsec: Optional[float] = None
 
+    # Composite scoring — Louis Feb 19: rank by the weighted combination of
+    # binary/state/residual, not F1 alone. composite_breakdown carries the
+    # per-component contributions so the UI can show *why* a score dropped.
+    composite_score: Optional[float] = None
+    train_composite_score: Optional[float] = None
+    val_composite_score: Optional[float] = None
+    test_composite_score: Optional[float] = None
+    composite_breakdown: Optional[Dict[str, Any]] = None
+    split_breakdowns: Optional[Dict[str, Any]] = None
+
     # Per-satellite breakdown
     satellite_results: List[SatelliteResult] = []
 
@@ -779,3 +789,48 @@ class SuccessResponse(BaseModel):
 
     message: str
     data: Optional[Any] = None
+
+
+# ============================================================
+# ORBIT VISUALIZATION (3D globe)
+# ============================================================
+
+
+class OrbitPosition(BaseModel):
+    """Single time-sampled position in EME2000 ECI frame (km)."""
+
+    time: str  # ISO8601 UTC
+    x: float
+    y: float
+    z: float
+
+
+class OrbitSatellite(BaseModel):
+    """One satellite's time-sampled track for the 3D globe."""
+
+    id: str
+    name: str
+    regime: OrbitalRegime
+    positions: List[OrbitPosition]
+    color: Optional[str] = None
+
+
+class ReferenceOrbitsResponse(BaseModel):
+    """Response for GET /datasets/{id}/reference-orbits.
+
+    Reference orbits are the dataset answer key. Endpoint is gated to the
+    dataset owner and admins only (see datasets.py ownership check).
+    """
+
+    dataset_id: str
+    start_time: str
+    end_time: str
+    satellites: List[OrbitSatellite]
+
+
+class SubmissionPredictionsResponse(BaseModel):
+    """Response for GET /submissions/{id}/predictions."""
+
+    submission_id: str
+    predicted: List[OrbitSatellite]
+    reference: Optional[List[OrbitSatellite]] = None

@@ -1552,6 +1552,60 @@ class EventRepository(BaseRepository):
         df = self.to_dataframe(query, (event_id,))
         return df.iloc[0] if len(df) > 0 else None
 
+    def find_events_in_window(
+        self,
+        sat_nos: List[int],
+        event_type: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> pd.DataFrame:
+        """
+        Bulk-query events for a set of satellites inside a time window.
+
+        Designed for dataset-generation-time filtering: if the ML labelling
+        pipeline has already persisted events for a satellite via /events/detect,
+        reuse those rather than re-running the TLE heuristic on every run. This
+        is the "DB-first" short-circuit for ``filter_satellites_by_event_code``.
+
+        Args:
+            sat_nos: NORAD catalog numbers to search
+            event_type: Optional event type name filter
+                        ('MANEUVER' | 'LONG_THRUST' | 'BREAKUP' | ...)
+            start_time: Inclusive start of window
+            end_time: Inclusive end of window
+
+        Returns:
+            DataFrame of matching events (empty if none persisted yet).
+        """
+        if not sat_nos:
+            return pd.DataFrame()
+
+        placeholders = ",".join("?" * len(sat_nos))
+        conditions = [f"(e.primary_sat_no IN ({placeholders}) OR e.secondary_sat_no IN ({placeholders}))"]
+        params: List = list(sat_nos) + list(sat_nos)
+
+        if event_type:
+            conditions.append("et.name = ?")
+            params.append(event_type)
+        if start_time:
+            conditions.append("e.event_time_end >= ?")
+            params.append(start_time)
+        if end_time:
+            conditions.append("e.event_time_start <= ?")
+            params.append(end_time)
+
+        where_clause = " AND ".join(conditions)
+        query = f"""
+            SELECT
+                e.*,
+                et.name as event_type_name
+            FROM events e
+            JOIN event_types et ON e.event_type_id = et.id
+            WHERE {where_clause}
+            ORDER BY e.event_time_start
+        """
+        return self.to_dataframe(query, tuple(params))
+
     def get_events_for_satellite(
         self,
         sat_no: int,

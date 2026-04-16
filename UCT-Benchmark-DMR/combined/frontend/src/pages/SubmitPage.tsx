@@ -70,8 +70,14 @@ export function SubmitPage() {
   const { data: datasets = [], isLoading: loadingDatasets } = useDatasets({ regime: 'all', tier: 'all' });
   const createSubmission = useCreateSubmission();
 
-  // Filter to only available datasets
-  const availableDatasets = datasets.filter((d) => d.id);
+  // Datasets generated before Apr 9, 2026 lack persisted reference state vectors
+  // (Phase 1 of the evaluation pipeline). Evaluation fails on them with
+  // "Dataset has no reference state vectors persisted." Hide them from the
+  // Submit dropdown until/unless a backfill lands — see BACKLOG.md Section D.
+  const EVAL_CUTOFF_MS = new Date('2026-04-09T00:00:00Z').getTime();
+  const availableDatasets = datasets.filter(
+    (d) => d.id && new Date(d.createdAt).getTime() >= EVAL_CUTOFF_MS
+  );
 
   const runValidation = async (uploadedFile: File) => {
     setIsValidating(true);

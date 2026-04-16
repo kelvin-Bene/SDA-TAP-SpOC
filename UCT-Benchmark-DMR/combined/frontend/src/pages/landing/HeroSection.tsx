@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { AnimatedCounter } from './components/AnimatedCounter';
 import { OrbitalGraphic } from './components/OrbitalGraphic';
+import { LandingGlobe } from './LandingGlobe';
 
 const STATS = [
   { target: 4, label: 'Orbital Regimes' },
@@ -75,9 +76,11 @@ export function HeroSection() {
               </div>
             </div>
 
-            {/* Right column - orbital graphic */}
+            {/* Right column - 3D globe on desktop, mobile stays on SVG
+                (kept hidden below lg: so we don't ship 1.4MB Cesium to 375px
+                viewports per the recent mobile-responsive commits). */}
             <div className="hidden lg:block">
-              <OrbitalGraphic />
+              <LandingGlobe fallback={<OrbitalGraphic />} />
             </div>
           </div>
         </div>

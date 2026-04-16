@@ -32,6 +32,8 @@ import {
 } from 'recharts';
 import { useState, useMemo } from 'react';
 import { useResults, useSubmission, useExportResults, useDownloadReport } from '@/hooks/useSubmissions';
+import { useSubmissionPredictions } from '@/hooks/useSubmissionPredictions';
+import { CesiumGlobe } from '@/components/cesium/CesiumGlobe';
 import { useToast } from '@/hooks/use-toast';
 
 export function ResultsPage() {
@@ -240,8 +242,36 @@ export function ResultsPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {/* Evaluation Failed banner — surfaces backend error instead of showing 0.0% as if algorithm scored nothing */}
+      {submission?.status === 'failed' && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+            <AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <CardTitle className="text-destructive text-base">Evaluation Failed</CardTitle>
+              <CardDescription className="text-destructive/80 mt-1">
+                {submission.errorMessage
+                  ? submission.errorMessage.split('\n')[0]
+                  : 'The evaluation pipeline encountered an error. Metrics below are not meaningful.'}
+              </CardDescription>
+              {submission.errorMessage?.includes('reference state vectors') && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  This dataset was generated before reference state vectors were persisted (pre-Apr 9, 2026).
+                  Please submit against a dataset created on or after that date.
+                </p>
+              )}
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Summary Cards — dimmed when submission failed so the 0.0% numbers don't look authoritative */}
+      <div
+        className={cn(
+          'grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4',
+          submission?.status === 'failed' && 'opacity-40 pointer-events-none'
+        )}
+      >
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
@@ -309,13 +339,152 @@ export function ResultsPage() {
         </Card>
       </div>
 
+      {/* Composite Score Breakdown — Louis Feb 19 vision: "why did my score drop?".
+           Shows binary/state/residual contributions and flags fallbacks (e.g.,
+           state missing because Orekit wasn't available). Only renders when the
+           backend returned a breakdown (evaluation actually ran). */}
+      {results.compositeBreakdown && submission?.status !== 'failed' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-base">Composite Score</CardTitle>
+                <CardDescription>
+                  Weighted combination of binary, state, and residual metrics (ranks the leaderboard).
+                </CardDescription>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-3xl font-bold">
+                  {((results.compositeScore ?? results.compositeBreakdown.composite_score) * 100).toFixed(1)}%
+                </p>
+                <p className="text-xs text-muted-foreground">composite</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {results.compositeBreakdown.fallback_reason && (
+              <div className="flex items-start gap-2 text-sm text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-md p-3">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  {results.compositeBreakdown.fallback_reason === 'no_state' &&
+                    'State component unavailable — composite reweighted across binary and residual. Common cause: Orekit not initialized for this submission.'}
+                  {results.compositeBreakdown.fallback_reason === 'no_residual' &&
+                    'Residual component unavailable — composite reweighted across binary and state.'}
+                  {results.compositeBreakdown.fallback_reason === 'no_state_or_residual' &&
+                    'State and residual components both unavailable — composite is binary (F1) only.'}
+                </span>
+              </div>
+            )}
+            {(() => {
+              const { binary_component, state_component, residual_component, weights_used, state_source } =
+                results.compositeBreakdown!;
+              const rows = [
+                {
+                  label: 'Binary',
+                  sublabel: 'F1 across TP/FP/FN',
+                  value: binary_component,
+                  weight: weights_used.binary,
+                  color: 'bg-primary',
+                },
+                {
+                  label: 'State',
+                  sublabel:
+                    state_source === 'mahalanobis_pscore'
+                      ? 'Mahalanobis p-score (χ²₆)'
+                      : state_source === 'position_rms_heuristic'
+                        ? 'Position RMS heuristic (Orekit unavailable)'
+                        : 'Unavailable',
+                  value: state_component,
+                  weight: weights_used.state,
+                  color: 'bg-cyan-500',
+                },
+                {
+                  label: 'Residual',
+                  sublabel: 'Great-circle RMS (arcsec)',
+                  value: residual_component,
+                  weight: weights_used.residual,
+                  color: 'bg-violet-500',
+                },
+              ];
+              return (
+                <div className="space-y-2.5">
+                  {rows.map((row) => {
+                    const contribution = row.value !== null ? row.value * row.weight : null;
+                    return (
+                      <div key={row.label} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <div>
+                            <span className="font-medium">{row.label}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{row.sublabel}</span>
+                          </div>
+                          <div className="text-right font-mono text-xs text-muted-foreground">
+                            {row.value !== null ? (
+                              <>
+                                {(row.value * 100).toFixed(1)}% × {row.weight.toFixed(2)} ={' '}
+                                <span className="text-foreground font-semibold">
+                                  {((contribution ?? 0) * 100).toFixed(1)}%
+                                </span>
+                              </>
+                            ) : (
+                              <span className="italic">not available</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn('h-full rounded-full transition-all', row.color)}
+                            style={{ width: `${(row.value ?? 0) * 100}%`, opacity: row.value !== null ? 1 : 0.2 }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            {results.splitBreakdowns &&
+              (results.trainCompositeScore !== undefined ||
+                results.valCompositeScore !== undefined ||
+                results.testCompositeScore !== undefined) && (
+                <div className="pt-3 mt-3 border-t grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wide">Train</p>
+                    <p className="font-mono font-semibold mt-0.5">
+                      {results.trainCompositeScore !== undefined
+                        ? `${(results.trainCompositeScore * 100).toFixed(1)}%`
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wide">Validation</p>
+                    <p className="font-mono font-semibold mt-0.5">
+                      {results.valCompositeScore !== undefined
+                        ? `${(results.valCompositeScore * 100).toFixed(1)}%`
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wide">Test (ranks leaderboard)</p>
+                    <p className="font-mono font-semibold mt-0.5">
+                      {results.testCompositeScore !== undefined
+                        ? `${(results.testCompositeScore * 100).toFixed(1)}%`
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+              )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Detailed Results */}
       <Tabs defaultValue="binary" className="space-y-4">
-        <TabsList className="w-full overflow-x-auto scrollbar-hide flex gap-1 h-auto md:grid md:grid-cols-4">
+        <TabsList className="w-full overflow-x-auto scrollbar-hide flex gap-1 h-auto md:grid md:grid-cols-5">
           <TabsTrigger value="binary" className="shrink-0 snap-start">Binary</TabsTrigger>
           <TabsTrigger value="state" className="shrink-0 snap-start">State</TabsTrigger>
           <TabsTrigger value="residuals" className="shrink-0 snap-start">Residuals</TabsTrigger>
           <TabsTrigger value="satellites" className="shrink-0 snap-start">Per-Satellite</TabsTrigger>
+          <TabsTrigger value="orbits" className="shrink-0 snap-start">Orbits</TabsTrigger>
         </TabsList>
 
         {/* Binary Metrics Tab */}
@@ -707,7 +876,85 @@ export function ResultsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Orbits tab — 3D view of predicted vs reference orbits. Predictions
+            from UCTP files are often sparse/gappy, so we render predicted and
+            reference in stacked panels behind a toggle rather than overlaying
+            them (overlay would read visually as systematic algorithm error). */}
+        <TabsContent value="orbits" className="space-y-4">
+          <OrbitsTabContent submissionId={submissionId ?? ''} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function OrbitsTabContent({ submissionId }: { submissionId: string }) {
+  const [view, setView] = useState<'predicted' | 'reference'>('predicted');
+  const { data, isLoading, notFound, gone, error } = useSubmissionPredictions(
+    submissionId,
+    { includeReference: true },
+  );
+
+  const active = view === 'predicted' ? data?.predicted : data?.reference;
+
+  if (!submissionId) return null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+        <CardTitle className="text-base sm:text-lg">3D Orbit Visualization</CardTitle>
+        <div className="inline-flex rounded-md border border-border p-0.5">
+          <Button
+            variant={view === 'predicted' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('predicted')}
+          >
+            Predicted
+          </Button>
+          <Button
+            variant={view === 'reference' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('reference')}
+            disabled={!data?.reference || data.reference.length === 0}
+          >
+            Reference
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-[320px] sm:h-[400px] lg:h-[500px]">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : notFound ? (
+          <p className="text-center py-8 text-sm text-muted-foreground">
+            UCTP file for this submission is not available (still queued or removed).
+          </p>
+        ) : gone ? (
+          <p className="text-center py-8 text-sm text-muted-foreground">
+            UCTP file has been removed from storage and cannot be visualized.
+          </p>
+        ) : error ? (
+          <p className="text-center py-8 text-sm text-muted-foreground">
+            Could not load orbit data: {error.message}
+          </p>
+        ) : active && active.length > 0 ? (
+          <CesiumGlobe
+            satellites={active}
+            ariaLabel={view === 'predicted' ? 'Predicted orbits' : 'Reference (ground truth) orbits'}
+            fallback={
+              <div className="flex items-center justify-center h-[320px] sm:h-[400px] text-sm text-muted-foreground">
+                3D view unavailable in this browser.
+              </div>
+            }
+          />
+        ) : (
+          <p className="text-center py-8 text-sm text-muted-foreground">
+            No {view} orbits available to display.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -19,7 +19,7 @@ The UCT Benchmark application captures approximately **75-80%** of the original 
 | Feature (from requirements) | Status | Notes |
 |---|---|---|
 | 16-character dataset code system | **IMPLEMENTED** | Full encoding/decoding in `types/index.ts` and `settings.py`. All 10 code fields mapped per Benchmarking Doc lines 289-367. |
-| Object Type filtering (H,C,A,U,N) | **PARTIAL** | HAMR (H), Unspecified (U), Calibration (N) implemented in `objectTypeFiltering.py`. Close (C) and Apparent (A) are stubs -- the original doc itself notes "not yet been implemented; these values are arbitrary." |
+| Object Type filtering (H,C,A,U,N) | **IMPLEMENTED** | HAMR (H), Unspecified (U), Calibration (N) implemented in `objectTypeFiltering.py`. Close (C) and Apparent (A) **recalibrated Apr 8 per `provided-materials/UCT Benchmarking/Misc/UCT Labelling.xlsx`** (commit 53c41a3): distance <10 km, velocity <10 m/s, angular <30 arcsec (~0.00833°). Original doc's arbitrary thresholds replaced. |
 | Target Object Percentage (50,10,01,UN) | **PARTIAL** | Schema supports it (DB `target_percentage` column), UI has it. Backend `basicScoringFunction.py` has only partial percentage selection logic. |
 | Orbital Regime (LEO,MEO,GEO,HEO,ALL,combos) | **IMPLEMENTED** | Semi-major axis thresholds match exactly (LEO < 8378 km, GEO >= 42164 km, HEO e >= 0.7) in `settings.py`. Combo regimes exist in types. |
 | Event Types (MB,BU,LL,NE) | **PARTIAL** | `eventDetection.py` has EventType enums and TLE discontinuity detection as proxy for maneuvers. No real event data source. Louis stated (Jan 22): "we would need a database of when objects are maneuvering... that's something we didn't have readily available." |
@@ -94,7 +94,7 @@ The UCT Benchmark application captures approximately **75-80%** of the original 
 | Documentation page | **IMPLEMENTED** | `DocumentationPage.tsx`. Value-add. |
 | Profile/API key management | **IMPLEMENTED** | `ProfilePage.tsx` for UDL/ESA token management. |
 | AI chatbot | **NOT IMPLEMENTED** | Correctly skipped. Louis (Feb 19): "I don't know if that necessarily helps advance the project towards our minimum success criterias." Dr. Cline: "icing on the cake." |
-| 3D Globe visualization | **NOT IMPLEMENTED** | Aidan (Feb 19, line 473) mentioned "a globe, sort of, just some interactive stuff." Not implemented -- low priority visual feature. |
+| 3D Globe visualization | **IMPLEMENTED (Apr 16, 2026)** | Aidan (Feb 19, line 473) mentioned "a globe, sort of, just some interactive stuff." Built out at user's direction despite Louis's implicit deprioritization — `OrbitViewer.tsx` wired into DatasetDetailPage (owner+admin gated to preserve answer-key separation per Apr 9 feedback), ResultsPage (own-submissions), and LandingPage hero (desktop, static fixture). Backend adds `/reference-orbits` and `/predictions` endpoints with Orekit propagation + disk cache. |
 
 ### Data Integrations
 
@@ -120,7 +120,7 @@ The UCT Benchmark application captures approximately **75-80%** of the original 
 
 5. **Non-Optical Sensor Support in Practice**: The schema supports radar/RF sensor types, but all actual data pipelines pull optical (EO) data only from the UDL. Louis acknowledged this (Jan 22): "working exclusively with optical observations for the time being."
 
-6. **3D Globe Visualization**: Mentioned by Aidan (Feb 19, line 473) as a UI enhancement. Not implemented but explicitly deprioritized by Louis.
+6. **3D Globe Visualization**: Mentioned by Aidan (Feb 19, line 473) as a UI enhancement. Implemented on Apr 16, 2026 at user's direction, behind strict answer-key gating on the dataset detail page to honour Louis's Apr 9 feedback — reference orbits are visible only to the dataset owner or an admin, never to other researchers.
 
 7. **End-to-End Evaluation in Production Without Orekit**: The evaluation pipeline (`run_evaluation_pipeline` in `workers.py`) imports `orbitAssociation`, `binaryMetrics`, `stateMetrics`. The full evaluation (state vector propagation, Mahalanobis distance, residual metrics) requires Orekit. Without Java/Orekit on the production server, evaluation is limited to binary metrics only.
 

@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { Submission, SubmissionForm, SubmissionResults } from '@/types';
+import type {
+  Submission,
+  SubmissionForm,
+  SubmissionResults,
+  CompositeBreakdown,
+  SplitBreakdowns,
+} from '@/types';
 
 // Response types from backend
 interface SubmissionResponse {
@@ -16,6 +22,7 @@ interface SubmissionResponse {
   job_id?: string;
   queue_position?: number;
   rank?: number;
+  error_message?: string;
 }
 
 interface HistogramResponse {
@@ -43,6 +50,12 @@ interface ResultsResponse {
   mahalanobis_distance?: number;
   ra_residual_rms_arcsec?: number;
   dec_residual_rms_arcsec?: number;
+  composite_score?: number | null;
+  train_composite_score?: number | null;
+  val_composite_score?: number | null;
+  test_composite_score?: number | null;
+  composite_breakdown?: CompositeBreakdown | null;
+  split_breakdowns?: SplitBreakdowns | null;
   satellite_results: Array<{
     satellite_id: string;
     status: string;
@@ -72,6 +85,7 @@ function transformSubmission(data: SubmissionResponse): Submission {
     createdAt: data.created_at,
     completedAt: data.completed_at,
     queuePosition: data.queue_position,
+    errorMessage: data.error_message,
     results: data.score !== undefined ? {
       f1Score: data.score,
       rank: data.rank ?? undefined,
@@ -104,6 +118,12 @@ function transformResults(data: ResultsResponse): SubmissionResults {
       velocityErrorKmS: sr.velocity_error_km_s,
       confidence: sr.confidence,
     })),
+    compositeScore: data.composite_score ?? undefined,
+    trainCompositeScore: data.train_composite_score ?? undefined,
+    valCompositeScore: data.val_composite_score ?? undefined,
+    testCompositeScore: data.test_composite_score ?? undefined,
+    compositeBreakdown: data.composite_breakdown ?? undefined,
+    splitBreakdowns: data.split_breakdowns ?? undefined,
     raResidualHistogram: data.ra_residual_histogram,
     decResidualHistogram: data.dec_residual_histogram,
     positionErrorHistogram: data.position_error_histogram,

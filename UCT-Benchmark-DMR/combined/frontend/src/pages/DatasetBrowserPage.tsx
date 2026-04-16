@@ -62,9 +62,11 @@ export function DatasetBrowserPage() {
           ? 'Network error — check your connection and try again.'
           : status === 404 && serverDetail
             ? serverDetail
-            : status === 400
-              ? serverDetail || 'This dataset is not available for download.'
-              : 'Failed to download dataset. The server may be unavailable.',
+            : status === 403
+              ? "You don't own this dataset. Only the creator can download it."
+              : status === 400
+                ? serverDetail || 'This dataset is not available for download.'
+                : 'Failed to download dataset. The server may be unavailable.',
         variant: 'destructive',
       });
     }

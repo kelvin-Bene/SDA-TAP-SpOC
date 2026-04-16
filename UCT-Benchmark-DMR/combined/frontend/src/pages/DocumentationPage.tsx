@@ -68,7 +68,8 @@ export function DocumentationPage() {
                 </li>
                 <li>
                   <strong>Download the Dataset</strong> - Once generated, download the dataset JSON file
-                  containing observations and the truth catalog.
+                  containing observations. The truth state vectors are the answer key and are retained
+                  server-side for evaluation (see Answer-Key Separation below).
                 </li>
                 <li>
                   <strong>Run Your Algorithm</strong> - Process the observations with your UCT algorithm
@@ -119,43 +120,52 @@ export function DocumentationPage() {
             <CardContent className="prose dark:prose-invert max-w-none overflow-x-hidden [&_pre]:overflow-x-auto [&_pre]:max-w-full">
               <h3>Dataset Structure</h3>
               <p>
-                Each benchmark dataset is provided as a JSON file containing two main sections:
-                observations and the truth catalog.
+                Each benchmark dataset is provided as a JSON file containing two top-level keys:
+                <code>dataset</code> (metadata) and <code>observations</code>. Truth state vectors
+                are the answer key and are retained server-side for evaluation — they are not
+                included in the download.
               </p>
 
               <h4>Observations Schema</h4>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
 {`{
+  "dataset": {
+    "id": number,
+    "name": "string",
+    "regime": "LEO | MEO | GEO | HEO",
+    "tier": "T1 | T2 | T3 | T4",
+    "observation_count": number,
+    "satellite_count": number,
+    "calibration_quality": "GOOD | FAIR | POOR",
+    "maneuver_during_gap": boolean,
+    "created_at": "ISO8601 datetime"
+  },
   "observations": [
     {
-      "obsId": "string",           // Unique observation identifier
-      "time": "ISO8601 datetime",  // Observation epoch
-      "ra": number,                // Right Ascension (degrees)
-      "dec": number,               // Declination (degrees)
-      "raRate": number,            // RA rate (deg/sec) - optional
-      "decRate": number,           // Dec rate (deg/sec) - optional
-      "raSigma": number,           // RA uncertainty (arcsec)
-      "decSigma": number,          // Dec uncertainty (arcsec)
-      "sensorId": "string",        // Sensor identifier
-      "trackId": "string"          // Track grouping identifier
+      "obTime": "ISO8601 datetime",  // Observation epoch
+      "ra": number,                   // Right Ascension (degrees)
+      "declination": number,          // Declination (degrees)
+      "azimuth": number,              // Azimuth (degrees)
+      "elevation": number,            // Elevation (degrees)
+      "senlat": number,               // Sensor latitude (degrees)
+      "senlon": number,               // Sensor longitude (degrees)
+      "senalt": number,               // Sensor altitude (km)
+      "idSensor": "string",           // Sensor identifier
+      "trackId": "string",            // Track grouping identifier (decorrelated)
+      "split": "train | val | test"   // Evaluation split
     }
   ]
 }`}
               </pre>
 
-              <h4>Truth Catalog Schema</h4>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
-{`{
-  "truthCatalog": [
-    {
-      "satId": "string",           // NORAD catalog ID or synthetic ID
-      "epoch": "ISO8601 datetime", // State epoch
-      "state": [x, y, z, vx, vy, vz], // ECI state vector (km, km/s)
-      "covariance": [...]          // 6x6 covariance matrix (optional)
-    }
-  ]
-}`}
-              </pre>
+              <h4>Answer-Key Separation</h4>
+              <p>
+                As of April 9, 2026, downloaded datasets contain observations only — truth state
+                vectors, satellite NORAD IDs, and object identifiers are withheld on the server
+                and used exclusively for evaluation. This ensures fair benchmarking: your algorithm
+                sees exactly what an operational system would see. Your processor output uploads via
+                the Submit page, and the evaluator compares it to the server-side answer key.
+              </p>
 
               <h4>Association Ground Truth</h4>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
