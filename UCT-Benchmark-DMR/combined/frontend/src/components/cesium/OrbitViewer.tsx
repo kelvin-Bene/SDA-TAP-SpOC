@@ -8,9 +8,6 @@ import {
   ClockRange,
   ClockStep,
   SampledPositionProperty,
-  PathGraphics,
-  PointGraphics,
-  LabelGraphics,
   Cartesian2,
   VerticalOrigin,
   HorizontalOrigin,
@@ -355,28 +352,25 @@ export function OrbitViewer({
                   key={satellite.id}
                   name={satellite.name}
                   position={positionProperty}
-                  point={
-                    new PointGraphics({
-                      pixelSize: 8,
-                      color: color,
-                      outlineColor: Color.WHITE,
-                      outlineWidth: 1,
-                      scaleByDistance: new NearFarScalar(1e7, 1.5, 1e9, 0.5),
-                    })
-                  }
+                  point={{
+                    pixelSize: 8,
+                    color: color,
+                    outlineColor: Color.WHITE,
+                    outlineWidth: 1,
+                    scaleByDistance: new NearFarScalar(1e7, 1.5, 1e9, 0.5),
+                  }}
                   path={
                     showGroundTracks
-                      ? new PathGraphics({
+                      ? {
                           resolution: 120,
                           material: color.withAlpha(0.5),
                           width: 2,
                           leadTime: 3600,
                           trailTime: 3600,
-                        })
+                        }
                       : undefined
                   }
-                  label={
-                    new LabelGraphics({
+                  label={{
                       text: satellite.name,
                       font: '12px sans-serif',
                       fillColor: Color.WHITE,
@@ -387,8 +381,7 @@ export function OrbitViewer({
                       horizontalOrigin: HorizontalOrigin.CENTER,
                       pixelOffset: new Cartesian2(0, -12),
                       scaleByDistance: new NearFarScalar(1e7, 1, 1e9, 0.3),
-                    })
-                  }
+                    }}
                 />
               );
             })}
