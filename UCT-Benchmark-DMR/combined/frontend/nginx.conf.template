@@ -65,8 +65,15 @@ server {
         proxy_set_header Host $host;
     }
 
-    # SPA fallback: all other routes serve index.html
+    # SPA fallback: all other routes serve index.html.
+    # Without an explicit Cache-Control, Railway's Fastly edge caches
+    # index.html for 1 year (its default), which means deploys of new
+    # asset-hash chunks are invisible to warm caches. Disable caching on
+    # the HTML entry point; assets under /assets/ stay immutable.
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
     }
 }
