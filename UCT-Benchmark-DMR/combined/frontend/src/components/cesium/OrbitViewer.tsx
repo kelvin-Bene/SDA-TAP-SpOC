@@ -1,15 +1,7 @@
-import { useRef, useState } from 'react';
-import {
-  Viewer,
-  Entity,
-  CameraFlyTo,
-  Clock,
-  PointGraphics,
-  PathGraphics,
-  LabelGraphics,
-} from 'resium';
+import { useEffect, useRef, useState } from 'react';
 import {
   Ion,
+  Viewer as CesiumViewer,
   Cartesian3,
   Color,
   JulianDate,
@@ -20,6 +12,7 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   NearFarScalar,
+  LabelStyle,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -187,6 +180,16 @@ const generateMockSatellites = (
   return generateSatellitesForRegime(regime, n, now);
 };
 
+function getCesiumRegimeColor(regime: string) {
+  switch (regime) {
+    case 'LEO': return Color.fromCssColorString('#3B82F6');
+    case 'MEO': return Color.fromCssColorString('#10B981');
+    case 'GEO': return Color.fromCssColorString('#F59E0B');
+    case 'HEO': return Color.fromCssColorString('#EF4444');
+    default: return Color.WHITE;
+  }
+}
+
 export function OrbitViewer({
   satellites,
   regime = 'mixed',
@@ -197,68 +200,122 @@ export function OrbitViewer({
   className,
 }: OrbitViewerProps) {
   const resolvedSatellites = satellites ?? generateMockSatellites(regime, objectCount);
-  const viewerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewerRef = useRef<CesiumViewer | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [multiplier, setMultiplier] = useState(100);
 
-  // Convert satellite positions to Cesium SampledPositionProperty
-  const createPositionProperty = (positions: Satellite['positions']) => {
-    const property = new SampledPositionProperty();
-    positions.forEach((pos) => {
-      const time = JulianDate.fromDate(pos.time);
-      const position = Cartesian3.fromElements(pos.x * 1000, pos.y * 1000, pos.z * 1000);
-      property.addSample(time, position);
+  // Initialize Cesium viewer on mount; destroy on unmount.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const viewer = new CesiumViewer(containerRef.current, {
+      timeline: false,
+      animation: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      selectionIndicator: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
     });
-    return property;
-  };
+    viewerRef.current = viewer;
+
+    // Clock
+    viewer.clock.startTime = JulianDate.fromDate(startTime);
+    viewer.clock.stopTime = JulianDate.fromDate(endTime);
+    viewer.clock.currentTime = JulianDate.fromDate(startTime);
+    viewer.clock.clockRange = ClockRange.LOOP_STOP;
+    viewer.clock.clockStep = ClockStep.SYSTEM_CLOCK_MULTIPLIER;
+    viewer.clock.multiplier = 100;
+    viewer.clock.shouldAnimate = true;
+
+    // Camera: pull back to view full globe
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(0, 0, 50_000_000),
+      duration: 0,
+    });
+
+    // Add each satellite as an entity
+    resolvedSatellites.forEach((sat) => {
+      const property = new SampledPositionProperty();
+      sat.positions.forEach((pos) => {
+        property.addSample(
+          JulianDate.fromDate(pos.time),
+          Cartesian3.fromElements(pos.x * 1000, pos.y * 1000, pos.z * 1000),
+        );
+      });
+      const color = sat.color
+        ? Color.fromCssColorString(sat.color)
+        : getCesiumRegimeColor(sat.regime);
+
+      viewer.entities.add({
+        id: sat.id,
+        name: sat.name,
+        position: property,
+        point: {
+          pixelSize: 8,
+          color,
+          outlineColor: Color.WHITE,
+          outlineWidth: 1,
+          scaleByDistance: new NearFarScalar(1e7, 1.5, 1e9, 0.5),
+        },
+        path: showGroundTracks
+          ? {
+              resolution: 120,
+              material: color.withAlpha(0.5),
+              width: 2,
+              leadTime: 3600,
+              trailTime: 3600,
+            }
+          : undefined,
+        label: {
+          text: sat.name,
+          font: '12px sans-serif',
+          fillColor: Color.WHITE,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -12),
+          scaleByDistance: new NearFarScalar(1e7, 1, 1e9, 0.3),
+        },
+      });
+    });
+
+    return () => {
+      if (!viewer.isDestroyed()) viewer.destroy();
+      viewerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePlayPause = () => {
-    if (viewerRef.current?.cesiumElement) {
-      const clock = viewerRef.current.cesiumElement.clock;
-      clock.shouldAnimate = !clock.shouldAnimate;
-      setIsPlaying(!isPlaying);
-    }
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.clock.shouldAnimate = !viewer.clock.shouldAnimate;
+    setIsPlaying(viewer.clock.shouldAnimate);
   };
 
   const handleReset = () => {
-    if (viewerRef.current?.cesiumElement) {
-      const clock = viewerRef.current.cesiumElement.clock;
-      clock.currentTime = JulianDate.fromDate(startTime);
-    }
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.clock.currentTime = JulianDate.fromDate(startTime);
   };
 
   const handleMultiplierChange = (value: number[]) => {
     setMultiplier(value[0]);
-    if (viewerRef.current?.cesiumElement) {
-      viewerRef.current.cesiumElement.clock.multiplier = value[0];
-    }
+    const viewer = viewerRef.current;
+    if (viewer) viewer.clock.multiplier = value[0];
   };
 
   const handleZoomIn = () => {
-    if (viewerRef.current?.cesiumElement) {
-      viewerRef.current.cesiumElement.camera.zoomIn(1000000);
-    }
+    viewerRef.current?.camera.zoomIn(1_000_000);
   };
 
   const handleZoomOut = () => {
-    if (viewerRef.current?.cesiumElement) {
-      viewerRef.current.cesiumElement.camera.zoomOut(1000000);
-    }
-  };
-
-  const getRegimeColor = (regime: string) => {
-    switch (regime) {
-      case 'LEO':
-        return Color.fromCssColorString('#3B82F6');
-      case 'MEO':
-        return Color.fromCssColorString('#10B981');
-      case 'GEO':
-        return Color.fromCssColorString('#F59E0B');
-      case 'HEO':
-        return Color.fromCssColorString('#EF4444');
-      default:
-        return Color.WHITE;
-    }
+    viewerRef.current?.camera.zoomOut(1_000_000);
   };
 
   return (
@@ -312,85 +369,12 @@ export function OrbitViewer({
           </div>
         </div>
 
-        {/* Cesium Viewer */}
+        {/* Cesium Viewer — vanilla Cesium mounted via useEffect (no resium) */}
         <div
+          ref={containerRef}
           className="h-[60vh] sm:h-[400px] rounded-lg overflow-hidden border"
           style={{ touchAction: 'none' }}
-        >
-          <Viewer
-            ref={viewerRef}
-            full={false}
-            style={{ height: '100%', width: '100%' }}
-            timeline={false}
-            animation={false}
-            baseLayerPicker={false}
-            geocoder={false}
-            homeButton={false}
-            sceneModePicker={false}
-            selectionIndicator={false}
-            navigationHelpButton={false}
-            fullscreenButton={false}
-          >
-            <Clock
-              startTime={JulianDate.fromDate(startTime)}
-              stopTime={JulianDate.fromDate(endTime)}
-              currentTime={JulianDate.fromDate(startTime)}
-              clockRange={ClockRange.LOOP_STOP}
-              clockStep={ClockStep.SYSTEM_CLOCK_MULTIPLIER}
-              multiplier={multiplier}
-              shouldAnimate={isPlaying}
-            />
-
-            <CameraFlyTo
-              destination={Cartesian3.fromDegrees(0, 0, 50000000)}
-              duration={0}
-            />
-
-            {resolvedSatellites.map((satellite) => {
-              const positionProperty = createPositionProperty(satellite.positions);
-              const color = satellite.color
-                ? Color.fromCssColorString(satellite.color)
-                : getRegimeColor(satellite.regime);
-
-              return (
-                <Entity
-                  key={satellite.id}
-                  name={satellite.name}
-                  position={positionProperty}
-                >
-                  <PointGraphics
-                    pixelSize={8}
-                    color={color}
-                    outlineColor={Color.WHITE}
-                    outlineWidth={1}
-                    scaleByDistance={new NearFarScalar(1e7, 1.5, 1e9, 0.5)}
-                  />
-                  {showGroundTracks && (
-                    <PathGraphics
-                      resolution={120}
-                      material={color.withAlpha(0.5)}
-                      width={2}
-                      leadTime={3600}
-                      trailTime={3600}
-                    />
-                  )}
-                  <LabelGraphics
-                    text={satellite.name}
-                    font="12px sans-serif"
-                    fillColor={Color.WHITE}
-                    outlineColor={Color.BLACK}
-                    outlineWidth={2}
-                    style={2}
-                    verticalOrigin={VerticalOrigin.BOTTOM}
-                    horizontalOrigin={HorizontalOrigin.CENTER}
-                    pixelOffset={new Cartesian2(0, -12)}
-                    scaleByDistance={new NearFarScalar(1e7, 1, 1e9, 0.3)}
-                  />
-                </Entity>
-              );
-            })}
-          </Viewer>
-        </div>
+        />
 
         {/* Legend */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
