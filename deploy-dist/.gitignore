@@ -1,4 +1,0 @@
-# Override parent repo's "dist/" ignore rule.
-# This directory IS the build output — dist/ must be included.
-!dist/
-!dist/**

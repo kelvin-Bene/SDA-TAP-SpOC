@@ -65,6 +65,7 @@ nul
 
 # ===== CI/CD Build Artifacts =====
 deploy-dist/
+deploy-dist/**
 
 # ===== Project Specific =====
 # Exclude data directory but include sample database for students without UDL access
@@ -78,6 +79,7 @@ validation/results/
 uv.lock
 poetry.lock
 *.playwright-mcp/
+.playwright-mcp/
 
 # Test / QA artifacts — these accumulate at repo root from Playwright MCP
 # runs, manual QA screenshotting, and DEMO_TEST_REPORT captures. Keep them
@@ -92,6 +94,7 @@ E[0-9]*-*.png
 F[0-9]*-*.png
 G[0-9]*-*.png
 test-screenshots/
+**/test-screenshots/
 snapshot-*.md
 DEMO_TEST_REPORT.md
 architecture-diagrams/

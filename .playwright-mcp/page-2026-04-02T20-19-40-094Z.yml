@@ -1,5 +1,0 @@
-- generic [ref=e2]:
-  - region "Notifications (F8)":
-    - list
-  - button "Send feedback" [ref=e5] [cursor=pointer]:
-    - img [ref=e6]

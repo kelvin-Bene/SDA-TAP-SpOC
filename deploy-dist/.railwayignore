@@ -1,5 +1,0 @@
-# Railway CLI uses this instead of .gitignore when present.
-# The root .gitignore has "dist/" which would exclude our build output.
-# Negate it explicitly so railway up includes dist/ in the upload.
-!dist/
-!dist/**

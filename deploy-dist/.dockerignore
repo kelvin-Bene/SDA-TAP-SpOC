@@ -1,6 +1,0 @@
-# Exclude only non-essential files from Docker build
-.git
-.gitignore
-.railwayignore
-.dockerignore
-railway.toml
