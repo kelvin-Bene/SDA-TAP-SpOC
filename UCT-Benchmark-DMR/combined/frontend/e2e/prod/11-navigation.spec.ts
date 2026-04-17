@@ -23,11 +23,11 @@ test.describe('Navigation (authenticated)', () => {
 
   for (const [url, expected] of routes) {
     test(`${url} renders`, async ({ page }) => {
-      // /docs does a cold-start content fetch that occasionally tips this
-      // test over the default 30s budget (QA_PROD_RUN_2026-04-17 M1).
-      if (url === '/docs') {
-        test.setTimeout(45_000);
-      }
+      // Each route runs three 15s waits in sequence (#root non-empty,
+      // spinner hidden, body text) which tips past Playwright's default
+      // 30s budget under cold-start. Raise the per-test budget to 45s
+      // for all routes (QA_PROD_RUN_2026-04-17 M1).
+      test.setTimeout(45_000);
       await gotoAndSettle(page, url);
       // Settings/Leaderboard/etc. fetch on mount — let spinners clear.
       await page

@@ -15,8 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend_api.jobs import Job, JobStatus, JobType
-from backend_api.jobs.db_job_manager import DatabaseJobManager
+from backend_api.jobs import DatabaseJobManager, Job, JobStatus, JobType
 
 
 # =============================================================================
