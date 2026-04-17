@@ -247,6 +247,10 @@ export interface Dataset {
   version?: number;
   parentId?: string;
   errorMessage?: string;
+  // True iff dataset_references rows exist; gates the Submit dropdown so
+  // evaluation can't be launched against datasets that would fail with
+  // "no reference state vectors persisted" (QA_PROD_RUN_2026-04-17 C1).
+  hasReferenceOrbits: boolean;
 }
 
 export interface DatasetFilters {

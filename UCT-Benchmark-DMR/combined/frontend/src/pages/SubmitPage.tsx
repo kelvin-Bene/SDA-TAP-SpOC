@@ -76,8 +76,12 @@ export function SubmitPage() {
   const { data: datasets = [], isLoading: loadingDatasets } = useDatasets({ regime: 'all', tier: 'all' });
   const createSubmission = useCreateSubmission();
 
-  // Filter to only available datasets
-  const availableDatasets = datasets.filter((d) => d.id);
+  // Gate the Submit dropdown on the authoritative eval-readiness signal
+  // (`has_reference_orbits` from the backend). This replaces the earlier
+  // date-based heuristic — some post-Apr-9 datasets still failed generation's
+  // reference-persistence step, so date alone was insufficient
+  // (QA_PROD_RUN_2026-04-17 C1).
+  const availableDatasets = datasets.filter((d) => d.id && d.hasReferenceOrbits);
 
   const runValidation = async (uploadedFile: File) => {
     setIsValidating(true);
