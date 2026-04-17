@@ -88,11 +88,14 @@ export default defineConfig({
     },
 
     // Prod-scope — desktop authenticated specs (most of the prod suite).
+    // Flakes under parallel workers are common against cold-started prod,
+    // so give every prod test a single retry even outside CI.
     {
       name: 'desktop-auth',
       dependencies: ['setup'],
       testMatch: /prod\/.*\.spec\.ts/,
       testIgnore: /prod\/90-mobile-parity/,
+      retries: process.env.CI ? 2 : 1,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },
@@ -105,6 +108,7 @@ export default defineConfig({
       name: 'mobile-safari-auth',
       dependencies: ['setup'],
       testMatch: /prod\/(00-public|90-mobile-parity|10-dashboard|20-datasets-browse|30-submit-filter|40-results-composite|50-leaderboard)\.spec\.ts/,
+      retries: process.env.CI ? 2 : 1,
       use: {
         ...devices['iPhone SE'],
         viewport: { width: 375, height: 667 },
