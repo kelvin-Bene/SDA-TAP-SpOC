@@ -422,6 +422,92 @@ class DatabaseJobManager(JobManager):
         except Exception:
             return None
 
+    def list_jobs(
+        self,
+        job_type: Optional[JobType] = None,
+        status: Optional[JobStatus] = None,
+        limit: int = 100,
+    ) -> List[Job]:
+        """List jobs from memory, merging in historical rows from the database.
+
+        In-memory jobs are the live source of truth and take precedence on id
+        collision. DB rows that are not in memory (aged out, or persisted
+        before a restart) are still returned so operators keep forensic
+        visibility on failed submissions (QA_PROD_RUN_2026-04-17 L4).
+        """
+        mem_jobs = super().list_jobs(job_type=job_type, status=status, limit=limit)
+        if self._db is None:
+            return mem_jobs
+
+        mem_ids = {j.id for j in mem_jobs}
+
+        try:
+            import json as _json
+
+            sql = (
+                "SELECT id, job_type, status, progress, result, error, metadata, "
+                "created_at, started_at, completed_at FROM jobs WHERE 1=1"
+            )
+            params: List[Any] = []
+            if job_type is not None:
+                sql += " AND job_type = ?"
+                params.append(job_type.value)
+            if status is not None:
+                sql += " AND status = ?"
+                params.append(status.value)
+            sql += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+
+            result = self._db.execute(sql, tuple(params))
+            columns = [desc[0] for desc in result.description]
+            rows = result.fetchall()
+        except Exception as e:
+            logger.warning(f"Job DB list failed (falling back to memory): {e}")
+            return mem_jobs
+
+        for row in rows:
+            row_dict = dict(zip(columns, row))
+            jid = row_dict["id"]
+            if jid in mem_ids:
+                continue
+
+            metadata: Dict[str, Any] = {}
+            if row_dict.get("metadata"):
+                try:
+                    raw = row_dict["metadata"]
+                    metadata = _json.loads(raw) if isinstance(raw, str) else (raw or {})
+                except (ValueError, TypeError):
+                    pass
+
+            job_result: Any = None
+            if row_dict.get("result"):
+                try:
+                    raw = row_dict["result"]
+                    job_result = _json.loads(raw) if isinstance(raw, str) else raw
+                except (ValueError, TypeError):
+                    pass
+
+            try:
+                job = Job(
+                    id=jid,
+                    job_type=JobType(row_dict["job_type"]),
+                    status=JobStatus(row_dict.get("status", "pending")),
+                    progress=row_dict.get("progress") or 0,
+                    result=job_result,
+                    error=row_dict.get("error"),
+                    created_at=row_dict.get("created_at") or datetime.now(timezone.utc),
+                    started_at=row_dict.get("started_at"),
+                    completed_at=row_dict.get("completed_at"),
+                    metadata=metadata,
+                )
+            except (ValueError, TypeError):
+                continue  # skip malformed rows
+
+            mem_jobs.append(job)
+
+        mem_jobs.sort(key=lambda j: j.created_at, reverse=True)
+        return mem_jobs[:limit]
+
 
 # Global job manager instance (singleton)
 _job_manager: Optional[JobManager] = None
