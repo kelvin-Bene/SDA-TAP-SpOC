@@ -287,9 +287,15 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
                 e_row["uct"] = True
                 nonassociated_orbits.append(e_row)
 
-    # Convert result lists to DataFrames
+    # Convert result lists to DataFrames. When the guard above returned an
+    # empty assignment (infeasible cost matrix), `associated_orbits` is [] and
+    # pd.DataFrame([]) has no columns — so sort_values(by="satNo") would
+    # crash with KeyError. Skip the sort when there's nothing to sort.
     associated_orbits = pd.DataFrame(associated_orbits)
-    associated_orbits = associated_orbits.sort_values(by="satNo", ascending=True)
+    if not associated_orbits.empty and "satNo" in associated_orbits.columns:
+        associated_orbits = associated_orbits.sort_values(
+            by="satNo", ascending=True
+        )
     nonassociated_orbits = pd.DataFrame(nonassociated_orbits)
 
     # Populate results dictionary
