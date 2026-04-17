@@ -101,6 +101,54 @@ test.describe('3D orbit globe visibility', () => {
     expect(has3dSection).toBe(true);
   });
 
+  test('owner sees a REAL Cesium canvas (not just the header) — guards against silent SVG fallback', async ({
+    page,
+    request,
+  }) => {
+    // The prior test only asserted the card header exists, which is also
+    // satisfied when CesiumGlobe's error boundary fires and renders the
+    // OrbitalGraphic SVG. A silent regression (commit 5b4276e) shipped
+    // broken globe rendering to prod for weeks under that loose assertion.
+    // This test expands the orbit card (if collapsed) and asserts that an
+    // actual <canvas> mounted inside a .cesium-widget — the definitive
+    // proof that resium/Cesium successfully rendered.
+    const jwt = await getJwt(page);
+    const ownedId = await findOwnedId(request, jwt);
+    if (!ownedId) {
+      test.skip(true, 'no owned datasets');
+      return;
+    }
+
+    await page.goto(`/datasets/${ownedId}`);
+    await expect(page.locator('#root')).not.toBeEmpty({ timeout: 15_000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    // Expand the 3D orbit card if collapsed.
+    const toggle = page.locator('button[aria-controls="orbits-panel"]').first();
+    if (await toggle.isVisible().catch(() => false)) {
+      const expanded = await toggle.getAttribute('aria-expanded');
+      if (expanded !== 'true') {
+        await toggle.click();
+      }
+    }
+
+    // Cesium lazy-loads a 1.4 MB chunk + Ion tiles; give it ample time.
+    const cesiumCanvas = page.locator(
+      'div.cesium-widget canvas, canvas.cesium-widget-canvas'
+    );
+    await expect(
+      cesiumCanvas.first(),
+      'Cesium canvas must mount when owner views a dataset with reference orbits'
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Also surface any React errors so a future regression is obvious.
+    const consoleErrors: string[] = [];
+    page.on('pageerror', (err) => consoleErrors.push(err.message));
+    await page.waitForTimeout(1500);
+    const r31 = consoleErrors.filter((m) => /React error #?31|Minified React error #31/i.test(m));
+    expect(r31, 'React error #31 must not fire during globe render').toEqual([]);
+  });
+
   test('non-owner dataset page does NOT render a 3D orbit section', async ({ page, request }) => {
     const jwt = await getJwt(page);
     const ownedId = await findOwnedId(request, jwt);
