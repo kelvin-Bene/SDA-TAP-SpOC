@@ -168,9 +168,10 @@ def residualMetrics(ref_obs, mode_df, propFunc, flag, flag2=False):
     # Define input args for row specifc calc
     args_list = [(row, ref_obs, propFunc, flag, flag2) for _, row in mode_df.iterrows()]
 
-    # Use parallel processing to find residuals relative to each state concurrently
-    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-        residual_results = list(executor.map(retrieveResiduals, args_list))
+    # Serial execution: Orekit/JPype in ProcessPoolExecutor subprocesses
+    # deadlocks on Railway (shared rationale with orbitAssociation.py /
+    # stateMetrics.py). Orekit is already loaded in this process.
+    residual_results = [retrieveResiduals(args) for args in args_list]
 
     # Output the total residuals data frame
     return pd.DataFrame(residual_results)

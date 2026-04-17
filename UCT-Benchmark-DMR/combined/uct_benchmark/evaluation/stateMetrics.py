@@ -66,9 +66,10 @@ def _propRef(ref_orbits, cand_orbits, propagator):
         for j in range(len(ref_orbits))
     ]
 
-    # Run propagation in parallel
-    with ProcessPoolExecutor() as executor:
-        results = list(executor.map(_propagate_single, args_list))
+    # Serial propagation (no ProcessPoolExecutor): Orekit / JPype is not
+    # fork-safe and subprocess JVM init deadlocks on Railway. Same rationale
+    # as orbitAssociation.py — Orekit is loaded in the main process already.
+    results = [_propagate_single(args) for args in args_list]
 
     # Separate results
     propagatedStates, propagatedCovs = zip(*results)
