@@ -42,6 +42,7 @@ interface DatasetResponse {
   version?: number;
   parent_id?: string;
   error_message?: string;
+  has_reference_orbits?: boolean;
 }
 
 // Transform backend response to frontend type
@@ -62,6 +63,7 @@ function transformDataset(data: DatasetResponse): Dataset {
     version: data.version,
     parentId: data.parent_id,
     errorMessage: data.error_message,
+    hasReferenceOrbits: data.has_reference_orbits === true,
   };
 }
 
