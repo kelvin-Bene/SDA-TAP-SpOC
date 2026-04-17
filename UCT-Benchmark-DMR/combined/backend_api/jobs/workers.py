@@ -1289,6 +1289,37 @@ def run_evaluation_pipeline(
         uctp_output = pd.DataFrame(submission_data)
         uctp_output["epoch"] = pd.to_datetime(uctp_output["epoch"])
         uctp_output = generateCov(uctp_output)
+
+        # Ensure cov_matrix is always present as a proper 6x6 float64 ndarray
+        # per row. generateCov may leave it missing / NaN when Orekit fails
+        # at module-load or when the submission has no cov/eqCov column.
+        # stateMetrics._compute_MD adds candidate cov_matrix to the
+        # propagated-truth cov; both must be broadcastable 6x6 arrays.
+        from uct_benchmark.utils.generateCov import _lower_triangular_to_symmetric
+
+        def _normalize_est_cov(raw):
+            if raw is None or (isinstance(raw, float) and np.isnan(raw)):
+                return np.eye(6, dtype=np.float64) * 1e-6
+            try:
+                arr = np.asarray(raw, dtype=float)
+            except (TypeError, ValueError):
+                return np.eye(6, dtype=np.float64) * 1e-6
+            if arr.ndim == 2 and arr.shape == (6, 6):
+                return arr.astype(np.float64)
+            if arr.ndim == 1 and arr.size == 21:
+                sym = _lower_triangular_to_symmetric(arr.tolist())
+                return (sym.astype(np.float64)
+                        if isinstance(sym, np.ndarray)
+                        else np.eye(6, dtype=np.float64) * 1e-6)
+            return np.eye(6, dtype=np.float64) * 1e-6
+
+        if "cov_matrix" not in uctp_output.columns:
+            uctp_output["cov_matrix"] = [
+                np.eye(6, dtype=np.float64) * 1e-6 for _ in range(len(uctp_output))
+            ]
+        else:
+            uctp_output["cov_matrix"] = uctp_output["cov_matrix"].apply(_normalize_est_cov)
+
         if "referenceFrame" in uctp_output.columns:
             non_j2000 = uctp_output[
                 ~uctp_output["referenceFrame"].isin(["J2000", "EME2000"])
