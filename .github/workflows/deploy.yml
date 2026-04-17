@@ -123,6 +123,13 @@ jobs:
           cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template deploy-dist/
           cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist/Dockerfile
           cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist/
+          # Railway CLI `railway up` walks up the tree and applies parent
+          # .gitignore patterns. Our root .gitignore excludes deploy-dist/,
+          # so without an explicit local .railwayignore the CLI uploads an
+          # empty tarball -> Railpack error "could not determine how to
+          # build the app". A local .railwayignore (even empty) stops the
+          # parent-walk.
+          : > deploy-dist/.railwayignore
       - name: Install Railway CLI
         run: npm i -g @railway/cli@4.36.0
       - name: Deploy
