@@ -9,6 +9,9 @@ import {
   ClockRange,
   ClockStep,
   SampledPositionProperty,
+  PathGraphics,
+  PointGraphics,
+  LabelGraphics,
   Cartesian2,
   VerticalOrigin,
   HorizontalOrigin,
@@ -287,49 +290,57 @@ export function OrbitViewer({
                 ? Color.fromCssColorString(satellite.color)
                 : getRegimeColor(satellite.regime);
 
-              // Pass Cesium option objects as plain descriptors, not class
-              // instances. Resium 1.18.x's Entity component under React 18's
-              // strict reconciliation rejects class instances passed to the
-              // point/path/label props (triggers React error #31 — element-
-              // shaped object as child) because its internal conversion tries
-              // to treat them as children of a sub-renderer. Plain option
-              // objects take the "description" path which just .set()s fields
-              // on the underlying Cesium entity.
+              // Pass point/path/label as concrete Cesium Graphics class
+              // instances — NOT plain option objects. Resium's Entity prop
+              // adapter constructs-or-passes-through based on instanceof
+              // check; plain objects take a path that makes React try to
+              // reconcile them as elements (keys $$typeof/type/key/ref/props
+              // look element-shaped at runtime after Cesium mutation),
+              // triggering minified React error #31 during render and
+              // collapsing the globe to the SVG fallback. The working
+              // `demo` branch uses the class-instance form and renders a
+              // real canvas; an earlier "fix" (5b4276e) switched to plain
+              // objects under a wrong diagnosis and silently regressed
+              // prod — the error-boundary-to-fallback path hides the bug.
               return (
                 <Entity
                   key={satellite.id}
                   name={satellite.name}
                   position={positionProperty}
-                  point={{
-                    pixelSize: 8,
-                    color: color,
-                    outlineColor: Color.WHITE,
-                    outlineWidth: 1,
-                    scaleByDistance: new NearFarScalar(1e7, 1.5, 1e9, 0.5),
-                  }}
+                  point={
+                    new PointGraphics({
+                      pixelSize: 8,
+                      color: color,
+                      outlineColor: Color.WHITE,
+                      outlineWidth: 1,
+                      scaleByDistance: new NearFarScalar(1e7, 1.5, 1e9, 0.5),
+                    })
+                  }
                   path={
                     showGroundTracks
-                      ? {
+                      ? new PathGraphics({
                           resolution: 120,
                           material: color.withAlpha(0.5),
                           width: 2,
                           leadTime: 3600,
                           trailTime: 3600,
-                        }
+                        })
                       : undefined
                   }
-                  label={{
-                    text: satellite.name,
-                    font: '12px sans-serif',
-                    fillColor: Color.WHITE,
-                    outlineColor: Color.BLACK,
-                    outlineWidth: 2,
-                    style: 2, // FILL_AND_OUTLINE
-                    verticalOrigin: VerticalOrigin.BOTTOM,
-                    horizontalOrigin: HorizontalOrigin.CENTER,
-                    pixelOffset: new Cartesian2(0, -12),
-                    scaleByDistance: new NearFarScalar(1e7, 1, 1e9, 0.3),
-                  }}
+                  label={
+                    new LabelGraphics({
+                      text: satellite.name,
+                      font: '12px sans-serif',
+                      fillColor: Color.WHITE,
+                      outlineColor: Color.BLACK,
+                      outlineWidth: 2,
+                      style: 2, // FILL_AND_OUTLINE
+                      verticalOrigin: VerticalOrigin.BOTTOM,
+                      horizontalOrigin: HorizontalOrigin.CENTER,
+                      pixelOffset: new Cartesian2(0, -12),
+                      scaleByDistance: new NearFarScalar(1e7, 1, 1e9, 0.3),
+                    })
+                  }
                 />
               );
             })}
