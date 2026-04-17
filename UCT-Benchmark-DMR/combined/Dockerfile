@@ -1,5 +1,8 @@
 # Backend Dockerfile: Java 17 (Orekit) + Python 3.12 (FastAPI)
-# Orekit data loaded from pip package (from_pip_library=True), no local copy needed.
+# Orekit data is loaded at runtime via setup_orekit_curdir(from_pip_library=True),
+# which prefers the `orekitdata` pip library but falls back to ./orekit-data.zip
+# in the working dir. The pip library isn't in pyproject.toml (would add a
+# 100MB+ git-based install), so we ship the 21MB zip from the repo instead.
 
 FROM eclipse-temurin:17-jre-jammy AS base
 
@@ -40,6 +43,12 @@ RUN apt-get purge -y --auto-remove gcc python3.12-dev software-properties-common
 
 # Cache-bust: any change to this value forces fresh COPY of app code
 ARG CACHEBUST=1
+
+# Copy Orekit data archive — required at runtime by every propagator
+# invocation. Without this, setup_orekit_curdir fails to locate data and
+# propagation silently raises, producing all-inf cost matrices and
+# zero-association evaluation results.
+COPY orekit-data.zip ./
 
 # Copy application code
 COPY uct_benchmark/ ./uct_benchmark/
