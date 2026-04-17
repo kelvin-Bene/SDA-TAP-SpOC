@@ -3,12 +3,21 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test p0-smoke",
+    "test:e2e:core": "playwright test p0-smoke p1-core-flows",
+    "test:e2e:depth": "playwright test p2-feature-depth",
+    "test:e2e:regress": "playwright test p3-regressions",
+    "test:e2e:cesium": "playwright test p3-regressions/cesium-",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report ../../playwright-report",
+    "install:browsers": "playwright install chromium"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "E2E tests for UCT Benchmark demo against Railway.",
   "devDependencies": {
     "@playwright/test": "^1.58.1"
   }

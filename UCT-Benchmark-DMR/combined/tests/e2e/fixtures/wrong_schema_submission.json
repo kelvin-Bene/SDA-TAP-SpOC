@@ -1,0 +1,7 @@
+[
+  {
+    "foo": "bar",
+    "not_a_state_vector": true,
+    "missing": ["idStateVector", "epoch", "xpos", "ypos", "zpos", "cov"]
+  }
+]
