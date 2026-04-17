@@ -287,16 +287,31 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
                 e_row["uct"] = True
                 nonassociated_orbits.append(e_row)
 
-    # Convert result lists to DataFrames. When the guard above returned an
-    # empty assignment (infeasible cost matrix), `associated_orbits` is [] and
-    # pd.DataFrame([]) has no columns — so sort_values(by="satNo") would
-    # crash with KeyError. Skip the sort when there's nothing to sort.
-    associated_orbits = pd.DataFrame(associated_orbits)
-    if not associated_orbits.empty and "satNo" in associated_orbits.columns:
-        associated_orbits = associated_orbits.sort_values(
-            by="satNo", ascending=True
-        )
-    nonassociated_orbits = pd.DataFrame(nonassociated_orbits)
+    # Convert result lists to DataFrames. Two edge cases from the infeasible-
+    # matrix guard (see try/except above on linear_sum_assignment):
+    #   1. `associated_orbits` is [] — pd.DataFrame([]) has no columns, so
+    #      sort_values(by="satNo") would crash with KeyError.
+    #   2. `nonassociated_orbits` = [Series] — pd.DataFrame(list_of_series)
+    #      can raise InvalidIndexError when the series carries list-valued
+    #      cells + certain index shapes. Rebuild from est directly via
+    #      reset_index, which is robust.
+    if associated_orbits:
+        associated_orbits = pd.DataFrame(associated_orbits).reset_index(drop=True)
+        if "satNo" in associated_orbits.columns:
+            associated_orbits = associated_orbits.sort_values(
+                by="satNo", ascending=True
+            )
+    else:
+        associated_orbits = pd.DataFrame()
+
+    if nonassociated_orbits:
+        # Collect the row positions we appended so we can slice est directly
+        # rather than round-tripping through a list of Series.
+        unassoc_positions = [i for i in range(n_est) if i not in assignment]
+        nonassociated_orbits = est.iloc[unassoc_positions].copy().reset_index(drop=True)
+        nonassociated_orbits["uct"] = True
+    else:
+        nonassociated_orbits = pd.DataFrame()
 
     # Populate results dictionary
     results["Associated Orbit Count"] = len(associated_orbits)
