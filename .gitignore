@@ -5,6 +5,10 @@ tmpclaude-*
 
 # Large files that exceed GitHub's 100MB limit
 *.zip
+# Exception: Orekit data bundle is needed by the backend Docker image at
+# runtime for ephemeris/covariance propagation. 21 MB — well under the
+# 100 MB GitHub limit.
+!UCT-Benchmark-DMR/combined/orekit-data.zip
 
 # Large JSON files from UDL queries
 provided-materials/SDA x SpOC UCT Processing/UDL Queries/*.json
