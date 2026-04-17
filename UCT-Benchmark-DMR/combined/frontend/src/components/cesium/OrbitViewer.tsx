@@ -48,9 +48,25 @@ interface OrbitViewerProps {
 // Mu for Earth (km^3/s^2)
 const MU_EARTH = 398600.4418;
 
+// Solve Kepler's equation M = E - e·sin(E) for the eccentric anomaly E
+// using Newton-Raphson iteration. Converges in a handful of iterations.
+function solveKepler(meanAnomaly: number, eccentricity: number): number {
+  // Normalize M to [-π, π] for better initial guess
+  const M = ((meanAnomaly + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  let E = eccentricity < 0.8 ? M : Math.PI;
+  for (let i = 0; i < 10; i++) {
+    const f = E - eccentricity * Math.sin(E) - M;
+    const fp = 1 - eccentricity * Math.cos(E);
+    const dE = f / fp;
+    E -= dE;
+    if (Math.abs(dE) < 1e-8) break;
+  }
+  return E;
+}
+
 // Build an orbit track over `duration` seconds for a circular or elliptical
-// Keplerian orbit. Approximates true-anomaly = mean-anomaly (eccentric-anomaly
-// iteration isn't needed for a visualization).
+// Keplerian orbit. Uses proper Kepler's equation solving so eccentric orbits
+// (HEO e≈0.72) render as real ellipses instead of limaçon-shaped approximations.
 function buildOrbit(
   baseTime: Date,
   semiMajorAxisKm: number,
@@ -63,17 +79,21 @@ function buildOrbit(
 ): Satellite['positions'] {
   const period = 2 * Math.PI * Math.sqrt(Math.pow(semiMajorAxisKm, 3) / MU_EARTH);
   const positions: Satellite['positions'] = [];
+  const a = semiMajorAxisKm;
+  const sqrt1me2 = Math.sqrt(Math.max(0, 1 - eccentricity * eccentricity));
+
+  const cosI = Math.cos(inclinationRad);
+  const sinI = Math.sin(inclinationRad);
+  const cosR = Math.cos(raanRad);
+  const sinR = Math.sin(raanRad);
+
   for (let t = 0; t <= duration; t += step) {
     const M = (2 * Math.PI * t) / period + phaseRad;
-    const r = semiMajorAxisKm * (1 - eccentricity * Math.cos(M));
-    // Position in orbital plane (x toward periapsis)
-    const xop = r * Math.cos(M);
-    const yop = r * Math.sin(M);
+    const E = solveKepler(M, eccentricity);
+    // Orbital-plane position with focus at origin (x toward periapsis)
+    const xop = a * (Math.cos(E) - eccentricity);
+    const yop = a * sqrt1me2 * Math.sin(E);
     // Rotate by inclination (around x-axis) then by RAAN (around z-axis)
-    const cosI = Math.cos(inclinationRad);
-    const sinI = Math.sin(inclinationRad);
-    const cosR = Math.cos(raanRad);
-    const sinR = Math.sin(raanRad);
     const xi = xop;
     const yi = yop * cosI;
     const zi = yop * sinI;
@@ -240,6 +260,23 @@ export function OrbitViewer({
       duration: 0,
     });
 
+    // Compute the longest satellite duration so the clock covers at least one full
+    // orbital period of every sat. Without this, GEO (24h period) would loop every
+    // 12h, making half the orbit invisible.
+    const maxDurationSec = resolvedSatellites.reduce((max, sat) => {
+      const first = sat.positions[0]?.time.getTime() ?? 0;
+      const last = sat.positions[sat.positions.length - 1]?.time.getTime() ?? 0;
+      return Math.max(max, (last - first) / 1000);
+    }, 0);
+
+    if (maxDurationSec > 0) {
+      viewer.clock.stopTime = JulianDate.addSeconds(
+        JulianDate.fromDate(startTime),
+        maxDurationSec,
+        new JulianDate(),
+      );
+    }
+
     // Add each satellite as an entity
     resolvedSatellites.forEach((sat) => {
       const property = new SampledPositionProperty();
@@ -252,6 +289,14 @@ export function OrbitViewer({
       const color = sat.color
         ? Color.fromCssColorString(sat.color)
         : getCesiumRegimeColor(sat.regime);
+
+      // Draw the full orbit path at all times. Previously the path was a 2-hour
+      // trailing window, which showed only ~30° of a GEO orbit (appearing as a
+      // straight line). Setting lead+trail to the sat's full sample duration
+      // makes the complete ellipse visible regardless of clock position.
+      const first = sat.positions[0]?.time.getTime() ?? 0;
+      const last = sat.positions[sat.positions.length - 1]?.time.getTime() ?? 0;
+      const satDurationSec = Math.max(1, (last - first) / 1000);
 
       viewer.entities.add({
         id: sat.id,
@@ -269,8 +314,8 @@ export function OrbitViewer({
               resolution: 120,
               material: color.withAlpha(0.5),
               width: 2,
-              leadTime: 3600,
-              trailTime: 3600,
+              leadTime: satDurationSec,
+              trailTime: satDurationSec,
             }
           : undefined,
         label: {
