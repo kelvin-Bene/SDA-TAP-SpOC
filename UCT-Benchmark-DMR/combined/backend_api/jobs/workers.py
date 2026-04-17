@@ -1799,14 +1799,17 @@ def run_evaluation_pipeline(
         logger.error(f"Evaluation failed for job {job_id}: {error_msg}")
         logger.debug(traceback.format_exc())
 
-        # Update submission status to failed
+        # Update submission status to failed. Persist error_message so the
+        # ResultsPage banner can surface actionable copy (e.g. "no reference
+        # state vectors persisted") instead of the generic fallback.
+        # QA_PROD_RUN_2026-04-17 H1.
         try:
             from backend_api.database import get_db
 
             db = get_db()
             db.execute(
-                "UPDATE submissions SET status = 'failed' WHERE id = ?",
-                (submission_id,),
+                "UPDATE submissions SET status = 'failed', error_message = ? WHERE id = ?",
+                (error_msg, submission_id),
             )
         except Exception as db_error:
             # Log the secondary failure - this is critical as the submission will be stuck

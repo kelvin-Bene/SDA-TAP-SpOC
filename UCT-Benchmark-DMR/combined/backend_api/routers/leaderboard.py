@@ -275,6 +275,15 @@ async def get_leaderboard_statistics(
 
     Returns:
         Aggregate stats including total submissions, unique algorithms, averages
+
+    Note:
+        `total_submissions` here counts only submissions with
+        `status = 'completed'` and a joined `submission_results` row. That is
+        intentional — the dashboard surfaces an all-status count separately via
+        `useDashboardStats`, which overrides this field with a plain list
+        length (see frontend/src/hooks/useDashboardStats.ts). Do not "fix"
+        this to count failed submissions here; the leaderboard math relies on
+        the completed-only denominator.
     """
     # Build base query
     base_query = """

@@ -438,6 +438,11 @@ class DatasetSummary(BaseModel):
     parent_id: Optional[str] = None
     # Error message for failed datasets
     error_message: Optional[str] = None
+    # Eval-readiness: true iff dataset_references rows exist for this dataset.
+    # Frontend uses this to gate the Submit dropdown so users cannot submit
+    # against legacy / partially-generated datasets that would fail with
+    # "no reference state vectors persisted" (QA_PROD_RUN_2026-04-17 C1).
+    has_reference_orbits: bool = False
 
     class Config:
         from_attributes = True

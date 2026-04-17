@@ -163,6 +163,7 @@ def _row_to_dataset_summary(row: tuple, columns: list) -> DatasetSummary:
         version=int(row_dict.get("version") or 1),
         parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
         error_message=row_dict.get("error_message"),
+        has_reference_orbits=bool(row_dict.get("has_reference_orbits")),
     )
 
 
@@ -203,8 +204,15 @@ async def list_datasets(
 
     _maybe_cleanup_stuck_datasets(db)
 
-    # Build query with optional filters
-    query = "SELECT * FROM datasets WHERE 1=1"
+    # Build query with optional filters.
+    # has_reference_orbits is computed via EXISTS subquery so the frontend can
+    # filter the Submit dropdown to eval-ready datasets only (C1).
+    query = (
+        "SELECT datasets.*, "
+        "EXISTS(SELECT 1 FROM dataset_references r WHERE r.dataset_id = datasets.id) "
+        "AS has_reference_orbits "
+        "FROM datasets WHERE 1=1"
+    )
     params = []
 
     if mine and current_user:
@@ -261,7 +269,14 @@ async def get_dataset(
         Detailed dataset information including satellites and parameters
     """
     id_int = validate_dataset_id(dataset_id)
-    result = db.execute("SELECT * FROM datasets WHERE id = ?", (id_int,))
+    # has_reference_orbits is computed via EXISTS subquery; see list_datasets (C1).
+    result = db.execute(
+        "SELECT datasets.*, "
+        "EXISTS(SELECT 1 FROM dataset_references r WHERE r.dataset_id = datasets.id) "
+        "AS has_reference_orbits "
+        "FROM datasets WHERE id = ?",
+        (id_int,),
+    )
     columns = [desc[0] for desc in result.description]
     row = result.fetchone()
 
@@ -337,6 +352,7 @@ async def get_dataset(
         simulation_config=_safe_json_parse(row_dict.get("simulation_config")),
         version=int(row_dict.get("version") or 1),
         parent_id=str(row_dict["parent_id"]) if row_dict.get("parent_id") else None,
+        has_reference_orbits=bool(row_dict.get("has_reference_orbits")),
     )
 
 
