@@ -140,6 +140,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <DropdownMenuItem
                     onClick={async () => {
                       await logout();
+                      // Demo branch: send users to the unified prod landing so they can
+                      // pick demo again or log in to the main environment.
+                      if (import.meta.env.VITE_DEMO_MODE === 'true') {
+                        window.location.href = 'https://frontend-production-6d80.up.railway.app/';
+                        return;
+                      }
                       navigate('/');
                     }}
                     className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"

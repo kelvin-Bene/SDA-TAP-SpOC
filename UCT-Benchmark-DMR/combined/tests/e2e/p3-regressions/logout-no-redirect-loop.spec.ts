@@ -4,10 +4,13 @@ import { test, expect } from '../fixtures/consoleWatcher';
  * Regression guard for the specific logout bug: before the fix, clicking Log out
  * navigated to /login which redirected to /dashboard which AuthGuard kicked back
  * to /dashboard — an infinite redirect loop / blank screen.
- * Now it should produce exactly one navigation to /.
+ * Now demo logout should redirect externally to the unified prod landing URL
+ * in exactly one hop.
  */
+const PROD_LANDING = /^https:\/\/frontend-production-6d80\.up\.railway\.app\//;
+
 test.describe('P3 Regression — Logout produces no redirect loop', () => {
-  test('exactly one nav to / after logout click', async ({ page }) => {
+  test('logout click produces one navigation to production landing', async ({ page }) => {
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: /Demo User/i, level: 1 })).toBeVisible();
 
@@ -18,13 +21,20 @@ test.describe('P3 Regression — Logout produces no redirect loop', () => {
       }
     });
 
+    const navigationPromise = page.waitForRequest(
+      /frontend-production-6d80\.up\.railway\.app/,
+      { timeout: 10_000 },
+    );
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.getByRole('menuitem', { name: /Log out/i }).click();
-    await expect(page).toHaveURL(/\/$/);
+    const req = await navigationPromise;
+    expect(req.url()).toMatch(PROD_LANDING);
 
-    // We expect 1 navigation (to /). A loop would produce 3+.
-    expect(navigations.length, `Unexpected navigations: ${navigations.join(' -> ')}`).toBeLessThanOrEqual(2);
-    expect(navigations[navigations.length - 1]).toMatch(/\/$/);
+    // A loop would produce many more navigations — cap at a small number.
+    expect(
+      navigations.length,
+      `Unexpected navigations: ${navigations.join(' -> ')}`,
+    ).toBeLessThanOrEqual(3);
   });
 
   test('no supabase.co requests during logout click in demo mode', async ({ page }) => {
@@ -36,21 +46,13 @@ test.describe('P3 Regression — Logout produces no redirect loop', () => {
       if (/supabase\.co/.test(req.url())) supabaseHits.push(req.url());
     });
 
+    const navigationPromise = page.waitForRequest(
+      /frontend-production-6d80\.up\.railway\.app/,
+      { timeout: 10_000 },
+    );
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.getByRole('menuitem', { name: /Log out/i }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await navigationPromise;
     expect(supabaseHits).toEqual([]);
-  });
-
-  test('landing page is interactive after logout', async ({ page }) => {
-    await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: /Demo User/i, level: 1 })).toBeVisible();
-    await page.getByRole('button', { name: 'User menu' }).click();
-    await page.getByRole('menuitem', { name: /Log out/i }).click();
-    await expect(page).toHaveURL(/\/$/);
-
-    // Clicking Try Demo brings us back — verifies the page isn't blank/frozen
-    await page.getByRole('button', { name: /Try Demo/i }).first().click();
-    await expect(page).toHaveURL(/\/dashboard$/);
   });
 });

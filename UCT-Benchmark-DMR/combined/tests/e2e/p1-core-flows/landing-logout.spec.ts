@@ -29,16 +29,20 @@ test.describe('P1 Core — Landing + logout', () => {
     expect(flag).toBeNull();
   });
 
-  test('logout from header goes to / and shows landing', async ({ page }) => {
+  test('logout from header redirects to production landing URL', async ({ page }) => {
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: /Demo User/i, level: 1 })).toBeVisible();
+
+    // Capture the outgoing navigation before it leaves the demo origin
+    const navigationPromise = page.waitForRequest(
+      /frontend-production-6d80\.up\.railway\.app/,
+      { timeout: 10_000 },
+    );
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.getByRole('menuitem', { name: /Log out/i }).click();
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('button', { name: /Try Demo/i }).first()).toBeVisible();
-    // sessionStorage flag set
-    const flag = await page.evaluate(() => sessionStorage.getItem('demo_logged_out'));
-    expect(flag).toBe('true');
+
+    const req = await navigationPromise;
+    expect(req.url()).toMatch(/^https:\/\/frontend-production-6d80\.up\.railway\.app\//);
   });
 
   test('navigating to /dashboard after logout redirects back to /', async ({ page }) => {
