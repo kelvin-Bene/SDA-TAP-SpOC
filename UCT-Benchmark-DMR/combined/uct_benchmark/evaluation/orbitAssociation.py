@@ -223,26 +223,23 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
         # Initialize cost matrix for assignment [n_est x n_truth]
         cost_matrix = np.zeros((n_est, n_truth))
 
-        # Parallel propagation and cost computation
-        with ProcessPoolExecutor() as executor:
-            futures = [
-                executor.submit(
-                    _compute_cost_column,
-                    j,
-                    truth_states[j],
-                    truth_covs[j],
-                    truth_epochs[j],
-                    [mass[j], area[j], drag[j], solar[j]],
-                    est_epochs,
-                    est_states,
-                    propagator,
-                )
-                for j in range(n_truth)
-            ]
-
-            for future in as_completed(futures):
-                j, errors = future.result()
-                cost_matrix[:, j] = errors
+        # Serial propagation (no ProcessPoolExecutor): Orekit / JPype are not
+        # fork-safe and the subprocess JVM initialization deadlocks on Railway's
+        # constrained memory + JAVA_TOOL_OPTIONS. Orekit is already loaded in
+        # this main process (per propagator.py:226-278), so the propagation
+        # cost of looping here is small compared to a cross-process respawn.
+        for j in range(n_truth):
+            _, errors = _compute_cost_column(
+                j,
+                truth_states[j],
+                truth_covs[j],
+                truth_epochs[j],
+                [mass[j], area[j], drag[j], solar[j]],
+                est_epochs,
+                est_states,
+                propagator,
+            )
+            cost_matrix[:, j] = errors
 
         # Solve assignment problem using the Hungarian algorithm. See TLE-mode
         # guard above for rationale: infeasible cost matrix -> 0 associations,
