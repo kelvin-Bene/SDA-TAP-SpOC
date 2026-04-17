@@ -197,6 +197,22 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
                 # No associated reference orbit
                 e_row["uct"] = True
                 nonassociated_orbits.append(e_row)
+
+        # TLE mode DataFrame conversion — kept on the list-of-Series path
+        # because TLE mode isn't exercised by the current eval pipeline;
+        # SV mode uses a more robust iloc-slice construction below.
+        if associated_orbits:
+            associated_orbits = pd.DataFrame(associated_orbits).reset_index(drop=True)
+            if "satNo" in associated_orbits.columns:
+                associated_orbits = associated_orbits.sort_values(
+                    by="satNo", ascending=True
+                )
+        else:
+            associated_orbits = pd.DataFrame()
+        if nonassociated_orbits:
+            nonassociated_orbits = pd.DataFrame(nonassociated_orbits).reset_index(drop=True)
+        else:
+            nonassociated_orbits = pd.DataFrame()
     else:
         # State vector columns (canonical names after normalization)
         state_cols = ["xpos", "ypos", "zpos", "xvel", "yvel", "zvel"]
@@ -265,50 +281,49 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
         # This replaces repeated np.where() calls in the loop with constant-time access
         assignment = dict(zip(row_ind, col_ind))
 
-        for i in range(n_est):
-            e_row = est.iloc[i].copy()
+        # Build associated/nonassociated DataFrames by slicing est directly
+        # instead of building a list of mutated Series and calling
+        # pd.DataFrame(list_of_series). The latter raises
+        # pandas.errors.InvalidIndexError on pandas 2.x when the row Series
+        # carry list-valued cells (grouped_ops, cov) — reproduced in prod.
+        assoc_positions = [i for i in range(n_est) if i in assignment]
+        unassoc_positions = [i for i in range(n_est) if i not in assignment]
 
-            if i in assignment:
-                # Matched with reference orbit (truth index is assignment[i])
-                j = assignment[i]
-                e_row["satNo"] = truth_satnos[j]
-                e_row["mass"] = mass[j]
-                e_row["crossSection"] = area[j]
-                e_row["dragCoeff"] = drag[j]
-                e_row["solarRadPressCoeff"] = solar[j]
-                e_row["error"] = cost_matrix[i, j]
-                e_row["uct"] = False
-                associated_orbits.append(e_row)
-            else:
-                # No associated reference orbit
-                e_row["uct"] = True
-                nonassociated_orbits.append(e_row)
-
-    # Convert result lists to DataFrames. Two edge cases from the infeasible-
-    # matrix guard (see try/except above on linear_sum_assignment):
-    #   1. `associated_orbits` is [] — pd.DataFrame([]) has no columns, so
-    #      sort_values(by="satNo") would crash with KeyError.
-    #   2. `nonassociated_orbits` = [Series] — pd.DataFrame(list_of_series)
-    #      can raise InvalidIndexError when the series carries list-valued
-    #      cells + certain index shapes. Rebuild from est directly via
-    #      reset_index, which is robust.
-    if associated_orbits:
-        associated_orbits = pd.DataFrame(associated_orbits).reset_index(drop=True)
-        if "satNo" in associated_orbits.columns:
+        if assoc_positions:
+            associated_orbits = est.iloc[assoc_positions].copy().reset_index(drop=True)
+            associated_orbits["satNo"] = [
+                truth_satnos[assignment[i]] for i in assoc_positions
+            ]
+            associated_orbits["mass"] = [
+                mass[assignment[i]] for i in assoc_positions
+            ]
+            associated_orbits["crossSection"] = [
+                area[assignment[i]] for i in assoc_positions
+            ]
+            associated_orbits["dragCoeff"] = [
+                drag[assignment[i]] for i in assoc_positions
+            ]
+            associated_orbits["solarRadPressCoeff"] = [
+                solar[assignment[i]] for i in assoc_positions
+            ]
+            associated_orbits["error"] = [
+                cost_matrix[i, assignment[i]] for i in assoc_positions
+            ]
+            associated_orbits["uct"] = False
             associated_orbits = associated_orbits.sort_values(
                 by="satNo", ascending=True
-            )
-    else:
-        associated_orbits = pd.DataFrame()
+            ).reset_index(drop=True)
+        else:
+            associated_orbits = pd.DataFrame()
 
-    if nonassociated_orbits:
-        # Collect the row positions we appended so we can slice est directly
-        # rather than round-tripping through a list of Series.
-        unassoc_positions = [i for i in range(n_est) if i not in assignment]
-        nonassociated_orbits = est.iloc[unassoc_positions].copy().reset_index(drop=True)
-        nonassociated_orbits["uct"] = True
-    else:
-        nonassociated_orbits = pd.DataFrame()
+        if unassoc_positions:
+            nonassociated_orbits = (
+                est.iloc[unassoc_positions].copy().reset_index(drop=True)
+            )
+            nonassociated_orbits["uct"] = True
+        else:
+            nonassociated_orbits = pd.DataFrame()
+    # end SV-mode block
 
     # Populate results dictionary
     results["Associated Orbit Count"] = len(associated_orbits)
