@@ -22,11 +22,17 @@ import {
   Loader2,
   FileJson,
   X,
+  Download,
+  Beaker,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn, formatFileSize } from '@/lib/utils';
 import { useDatasets } from '@/hooks/useDatasets';
 import { useCreateSubmission } from '@/hooks/useSubmissions';
 import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/api/client';
+
+const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
 interface ValidationStep {
   id: string;
@@ -65,6 +71,40 @@ export function SubmitPage() {
   ]);
 
   const { toast } = useToast();
+  const [downloadingQuality, setDownloadingQuality] = useState<'high' | 'medium' | 'low' | null>(null);
+
+  const handleDownloadSample = async (quality: 'high' | 'medium' | 'low') => {
+    if (!datasetId) {
+      toast({
+        title: 'Select a dataset first',
+        description: 'Please select a target dataset before downloading a sample file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setDownloadingQuality(quality);
+    try {
+      const response = await apiClient.get(
+        `/datasets/${datasetId}/sample-submission`,
+        { params: { quality }, responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `sample_uctp_dataset${datasetId}_${quality}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast({
+        title: 'Download failed',
+        description: 'Failed to download sample file. Please try again.',
+        variant: 'destructive',
+      });
+    }
+    setDownloadingQuality(null);
+  };
 
   // Use real API hooks
   const { data: datasets = [], isLoading: loadingDatasets } = useDatasets({ regime: 'all', tier: 'all' });
@@ -439,6 +479,52 @@ export function SubmitPage() {
           Upload your UCT algorithm results for evaluation against benchmark datasets
         </p>
       </div>
+
+      {/* Demo Mode: Sample UCTP Files */}
+      {isDemoMode && (
+        <Card className="border-cosmic-cyan/20 bg-cosmic-cyan/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Beaker className="h-5 w-5 text-cosmic-cyan" />
+              <CardTitle>Sample UCTP Files</CardTitle>
+            </div>
+            <CardDescription>
+              Don't have your own UCTP output? Pick a target dataset below, then download a sample and
+              submit it to walk through the evaluation flow.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {([
+                { quality: 'high' as const, label: 'High-Quality Sample', hint: 'close to ground truth' },
+                { quality: 'medium' as const, label: 'Medium-Quality Sample', hint: 'realistic errors & misses' },
+                { quality: 'low' as const, label: 'Low-Quality Sample', hint: 'many misses and false tracks' },
+              ]).map(({ quality, label, hint }) => (
+                <Button
+                  key={quality}
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => handleDownloadSample(quality)}
+                  disabled={downloadingQuality === quality || !datasetId}
+                >
+                  {downloadingQuality === quality ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {label}
+                  <Badge variant="secondary" className="ml-1 text-xs font-normal">{hint}</Badge>
+                </Button>
+              ))}
+            </div>
+            {!datasetId && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Select a target dataset below first to enable sample downloads.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* File Upload */}
       <Card>

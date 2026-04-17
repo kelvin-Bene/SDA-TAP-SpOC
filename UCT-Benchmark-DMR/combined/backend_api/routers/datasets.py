@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.responses import StreamingResponse
 from loguru import logger
 
@@ -970,6 +970,102 @@ async def delete_dataset(
     db.execute("DELETE FROM datasets WHERE id = ?", (id_int,))
 
     return {"message": f"Dataset '{dataset_name}' (ID: {dataset_id}) deleted successfully"}
+
+
+@router.get("/{dataset_id}/sample-submission")
+async def get_sample_submission(
+    dataset_id: str,
+    quality: str = "high",
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Generate a mock UCTP output file for demo mode.
+
+    Returns a downloadable JSON file with synthetic UCTP results at the
+    specified quality level. Observation IDs in `sourcedData` reference
+    real observations in the selected dataset so the evaluation flow works
+    end-to-end. Demo-mode only — returns 404 otherwise.
+
+    Args:
+        dataset_id: The dataset ID
+        quality: Quality level - 'high', 'medium', or 'low'
+    """
+    import random as _random
+
+    if not is_demo_mode():
+        raise HTTPException(status_code=404, detail="Not found")
+
+    id_int = validate_dataset_id(dataset_id)
+
+    rows = db.execute(
+        """
+        SELECT o.id, o.sat_no, o.ob_time, o.ra, o.declination
+        FROM observations o
+        JOIN dataset_observations dso ON o.id = dso.observation_id
+        WHERE dso.dataset_id = ?
+        ORDER BY o.ob_time
+        LIMIT 2000
+        """,
+        (id_int,),
+    ).fetchall()
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="No observations found for this dataset")
+
+    quality_params = {
+        "high":   {"match_rate": 0.95, "pos_err": 0.5,  "vel_err": 0.01},
+        "medium": {"match_rate": 0.75, "pos_err": 5.0,  "vel_err": 0.1},
+        "low":    {"match_rate": 0.50, "pos_err": 20.0, "vel_err": 0.5},
+    }
+    params = quality_params.get(quality, quality_params["medium"])
+    # Stable mapping so downloads are deterministic across process restarts
+    quality_seed = {"high": 1, "medium": 2, "low": 3}.get(quality, 2)
+    rng = _random.Random(id_int * 10 + quality_seed)
+
+    grouped: dict[int, list] = {}
+    for row in rows:
+        obs_id, sat_no, ob_time, ra, dec = row
+        grouped.setdefault(sat_no, []).append((obs_id, ob_time, ra, dec))
+
+    uctp_results: list[dict] = []
+    for sat_no, obs_list in grouped.items():
+        if rng.random() > params["match_rate"]:
+            continue
+        base_x = rng.uniform(-8000, 8000)
+        base_y = rng.uniform(-8000, 8000)
+        base_z = rng.uniform(-8000, 8000)
+        uctp_results.append({
+            "sourcedData": [obs[0] for obs in obs_list],
+            "epoch": obs_list[0][1] if isinstance(obs_list[0][1], str) else str(obs_list[0][1]),
+            "xpos": round(base_x + rng.gauss(0, params["pos_err"]), 6),
+            "ypos": round(base_y + rng.gauss(0, params["pos_err"]), 6),
+            "zpos": round(base_z + rng.gauss(0, params["pos_err"]), 6),
+            "xvel": round(rng.uniform(-7.5, 7.5) + rng.gauss(0, params["vel_err"]), 9),
+            "yvel": round(rng.uniform(-7.5, 7.5) + rng.gauss(0, params["vel_err"]), 9),
+            "zvel": round(rng.uniform(-7.5, 7.5) + rng.gauss(0, params["vel_err"]), 9),
+        })
+
+    if quality in ("low", "medium"):
+        num_fp = int(len(uctp_results) * (0.15 if quality == "medium" else 0.30))
+        for _ in range(num_fp):
+            uctp_results.append({
+                "sourcedData": [f"false-{rng.randint(10000, 99999)}"],
+                "epoch": str(rows[0][2]),
+                "xpos": round(rng.uniform(-10000, 10000), 6),
+                "ypos": round(rng.uniform(-10000, 10000), 6),
+                "zpos": round(rng.uniform(-10000, 10000), 6),
+                "xvel": round(rng.uniform(-8, 8), 9),
+                "yvel": round(rng.uniform(-8, 8), 9),
+                "zvel": round(rng.uniform(-8, 8), 9),
+            })
+
+    content = json.dumps(uctp_results, indent=2)
+    filename = f"sample_uctp_dataset{dataset_id}_{quality}.json"
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{dataset_id}/download")
