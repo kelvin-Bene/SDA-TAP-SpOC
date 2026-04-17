@@ -39,16 +39,26 @@ async function findOwnedId(request: APIRequestContext, jwt: string): Promise<str
 async function findUnownedId(
   request: APIRequestContext,
   jwt: string,
-  ownerId: string
+  _ownerId: string
 ): Promise<string | null> {
-  const res = await request.get(`${API_BASE}/api/v1/datasets?limit=20`, {
-    headers: { Authorization: `Bearer ${jwt}` },
-  });
-  const body = await res.json();
-  const items = Array.isArray(body) ? body : body.items ?? [];
-  const other = items.find((d: { id: number | string; user_id?: string; owner_id?: string }) => {
-    return String(d.id) !== ownerId && (d.user_id || d.owner_id);
-  });
+  // DatasetSummary does not expose user_id/owner_id, so the previous
+  // predicate never matched and this test always skipped
+  // (QA_PROD_RUN_2026-04-17 M6). Use set-difference between `?mine=true`
+  // and the unfiltered list: any id that's visible but not "mine" is
+  // necessarily owned by someone else.
+  const headers = { Authorization: `Bearer ${jwt}` };
+  const [mineRes, allRes] = await Promise.all([
+    request.get(`${API_BASE}/api/v1/datasets?mine=true&limit=50`, { headers }),
+    request.get(`${API_BASE}/api/v1/datasets?limit=50`, { headers }),
+  ]);
+  const mineBody = await mineRes.json();
+  const allBody = await allRes.json();
+  const mineItems = Array.isArray(mineBody) ? mineBody : mineBody.items ?? [];
+  const allItems = Array.isArray(allBody) ? allBody : allBody.items ?? [];
+  const mineIds = new Set<string>(mineItems.map((d: { id: number | string }) => String(d.id)));
+  const other = allItems.find(
+    (d: { id: number | string }) => !mineIds.has(String(d.id))
+  );
   return other ? String(other.id) : null;
 }
 

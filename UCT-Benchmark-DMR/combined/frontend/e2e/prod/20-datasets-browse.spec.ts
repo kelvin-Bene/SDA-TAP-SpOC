@@ -4,6 +4,10 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Datasets browser', () => {
+  // Cold-start of /datasets in prod occasionally pushes beforeEach past 30s
+  // (QA_PROD_RUN_2026-04-17 M2). 3x the default budget so flakes don't fail CI.
+  test.slow();
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/datasets');
     await expect(page.locator('#root')).not.toBeEmpty({ timeout: 15_000 });

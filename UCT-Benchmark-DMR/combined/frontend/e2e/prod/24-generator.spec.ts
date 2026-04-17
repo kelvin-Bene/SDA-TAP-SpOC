@@ -11,16 +11,22 @@ test.describe('Dataset generator', () => {
     await page.goto('/datasets');
     await expect(page.locator('#root')).not.toBeEmpty({ timeout: 15_000 });
 
-    const generateBtn = page
-      .getByRole('link', { name: /generate|new dataset/i })
+    // The "Generate Dataset" link lives in the sidebar (inside a collapsible
+    // Datasets group), so searching for a visible body-level link/button by
+    // accessible name misses it. Prefer a DOM-presence check on the href,
+    // which Playwright can click even when a parent needs to scroll/expand
+    // (QA_PROD_RUN_2026-04-17 M5).
+    const generateLink = page
+      .locator('a[href="/datasets/generate"]')
+      .or(page.getByRole('link', { name: /generate|new dataset/i }))
       .or(page.getByRole('button', { name: /generate|new dataset/i }))
       .first();
 
-    if (!(await generateBtn.isVisible().catch(() => false))) {
-      test.skip(true, 'Generate CTA not visible in browser viewport');
+    if ((await generateLink.count()) === 0) {
+      test.skip(true, 'Generate Dataset link not in DOM');
       return;
     }
-    await generateBtn.click();
+    await generateLink.click();
     await page.waitForTimeout(1500);
 
     const hasWizard =
