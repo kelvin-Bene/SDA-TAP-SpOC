@@ -113,6 +113,54 @@ def _is_nan(x: Any) -> bool:
     except Exception:
         return True
 
+
+def _check_epoch_sanity(
+    ref_obs,
+    uctp_output,
+    tolerance_days: int = 7,
+) -> None:
+    """Fail fast if UCTP estimated-orbit epochs fall nowhere near the dataset's
+    observation window.
+
+    Catches users who upload a UCTP generated against a different dataset. The
+    downstream orbit-association propagator otherwise burns ~10s trying to
+    close a months-wide gap before degrading to "0 associations" via the
+    linear_sum_assignment guard in orbitAssociation.py.
+
+    Uses pandas.Timedelta so it works for datetime64 columns or datetime
+    objects. Skips silently if either dataframe is empty (handled upstream).
+
+    Raises:
+        ValueError: if est epochs fall outside obs window by more than
+            tolerance_days on both sides.
+    """
+    import pandas as pd
+
+    if ref_obs is None or len(ref_obs) == 0:
+        return
+    if uctp_output is None or len(uctp_output) == 0:
+        return
+    if "obTime" not in ref_obs.columns or "epoch" not in uctp_output.columns:
+        return
+
+    obs_times = pd.to_datetime(ref_obs["obTime"])
+    est_epochs = pd.to_datetime(uctp_output["epoch"])
+    obs_start = obs_times.min()
+    obs_end = obs_times.max()
+    est_min = est_epochs.min()
+    est_max = est_epochs.max()
+    tolerance = pd.Timedelta(days=tolerance_days)
+
+    if est_max < obs_start - tolerance or est_min > obs_end + tolerance:
+        raise ValueError(
+            f"Submission epochs [{est_min} .. {est_max}] fall outside "
+            f"dataset observation window [{obs_start} .. {obs_end}] by "
+            f"more than {tolerance_days} days. This UCTP was likely "
+            f"generated against a different dataset — please verify the "
+            f"dataset selection and file match."
+        )
+
+
 # Regime-specific satellite NORAD IDs for auto-selection.
 # LEO satellites are loaded at runtime from settings.satIDs (the calibration list).
 # MEO/GEO/HEO lists contain well-known satellites in those regimes.
@@ -1361,6 +1409,15 @@ def run_evaluation_pipeline(
             non_ref_obs = None
         elif "source_norad_id" not in non_ref_obs.columns:
             non_ref_obs["source_norad_id"] = -1
+
+        # --------------------------------------------------------------
+        # 4b. Epoch sanity check. Fail fast with actionable copy if the
+        #     UCTP epochs fall outside the dataset's observation window by
+        #     more than 7 days — a strong signal the user uploaded a file
+        #     generated for a different dataset. The outer try/except at
+        #     L1175 catches and persists the message to error_message (H1).
+        # --------------------------------------------------------------
+        _check_epoch_sanity(ref_obs, uctp_output, tolerance_days=7)
 
         # --------------------------------------------------------------
         # 5. Load the reference state-vector DataFrame (ref_sv) by
