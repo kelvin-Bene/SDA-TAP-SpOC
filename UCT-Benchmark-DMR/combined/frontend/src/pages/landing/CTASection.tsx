@@ -3,17 +3,20 @@ import { Rocket, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
 
 const MAIN_URL = 'https://frontend-production-6d80.up.railway.app';
 
 export function CTASection() {
   const { ref, isInView } = useInView();
   const navigate = useNavigate();
+  const initialize = useAuthStore((s) => s.initialize);
 
-  const tryDemo = () => {
+  const tryDemo = async () => {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('demo_logged_out');
     }
+    await initialize();
     navigate('/dashboard');
   };
 

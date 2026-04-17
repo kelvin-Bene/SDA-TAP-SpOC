@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { AnimatedCounter } from './components/AnimatedCounter';
 import { OrbitalGraphic } from './components/OrbitalGraphic';
+import { useAuthStore } from '@/stores/authStore';
 
 const MAIN_URL = 'https://frontend-production-6d80.up.railway.app';
 
@@ -17,11 +18,13 @@ const STATS = [
 export function HeroSection() {
   const { ref: statsRef, isInView: statsVisible } = useInView({ threshold: 0.05 });
   const navigate = useNavigate();
+  const initialize = useAuthStore((s) => s.initialize);
 
-  const tryDemo = () => {
+  const tryDemo = async () => {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('demo_logged_out');
     }
+    await initialize();
     navigate('/dashboard');
   };
 
