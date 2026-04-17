@@ -116,24 +116,22 @@ jobs:
           VITE_CESIUM_ION_TOKEN: ${{ secrets.VITE_CESIUM_ION_TOKEN }}
           VITE_ENABLE_GLOBE: 'true'
       - name: Prepare deploy directory
+        # Build outside the repo tree so Railway CLI can't walk up into our
+        # root .gitignore (which excludes deploy-dist/ and causes `railway
+        # up` to upload an empty tarball, triggering Railpack's "could not
+        # determine how to build the app" error).
         run: |
-          rm -rf deploy-dist
-          mkdir -p deploy-dist
-          cp -r UCT-Benchmark-DMR/combined/frontend/dist deploy-dist/
-          cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template deploy-dist/
-          cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway deploy-dist/Dockerfile
-          cp UCT-Benchmark-DMR/combined/frontend/railway.toml deploy-dist/
-          # Railway CLI `railway up` walks up the tree and applies parent
-          # .gitignore patterns. Our root .gitignore excludes deploy-dist/,
-          # so without an explicit local .railwayignore the CLI uploads an
-          # empty tarball -> Railpack error "could not determine how to
-          # build the app". A local .railwayignore (even empty) stops the
-          # parent-walk.
-          : > deploy-dist/.railwayignore
+          rm -rf /tmp/railway-frontend
+          mkdir -p /tmp/railway-frontend
+          cp -r UCT-Benchmark-DMR/combined/frontend/dist /tmp/railway-frontend/
+          cp UCT-Benchmark-DMR/combined/frontend/nginx.conf.template /tmp/railway-frontend/
+          cp UCT-Benchmark-DMR/combined/frontend/Dockerfile.railway /tmp/railway-frontend/Dockerfile
+          cp UCT-Benchmark-DMR/combined/frontend/railway.toml /tmp/railway-frontend/
+          ls -la /tmp/railway-frontend/
       - name: Install Railway CLI
         run: npm i -g @railway/cli@4.36.0
       - name: Deploy
-        working-directory: ./deploy-dist
+        working-directory: /tmp/railway-frontend
         run: railway up --service frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
