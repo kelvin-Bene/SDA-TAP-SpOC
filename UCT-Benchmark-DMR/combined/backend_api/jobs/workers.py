@@ -1476,12 +1476,14 @@ def run_evaluation_pipeline(
                 return None
             if isinstance(raw, str):
                 raw = json.loads(raw)
-            arr = np.asarray(raw)
+            arr = np.asarray(raw, dtype=float)
             if arr.ndim == 2 and arr.shape == (6, 6):
-                return arr
+                return arr.astype(np.float64)
             if arr.ndim == 1 and arr.size == 21:
                 sym = _lower_triangular_to_symmetric(arr.tolist())
-                return sym if isinstance(sym, np.ndarray) else None
+                if isinstance(sym, np.ndarray):
+                    return sym.astype(np.float64)
+                return None
             logger.warning(
                 f"Unexpected truth covariance shape {arr.shape}; "
                 f"setting to None for this row"
@@ -1489,6 +1491,15 @@ def run_evaluation_pipeline(
             return None
 
         ref_sv["cov_matrix"] = ref_sv["cov_matrix"].apply(_normalize_truth_cov)
+
+        # Force state-vector columns to float64 so downstream
+        # np.random.multivariate_normal (in stateMetrics -> monteCarloPropagator)
+        # doesn't hit "Cannot cast ufunc 'add' output from dtype('O')".
+        for _col in ("xpos", "ypos", "zpos", "xvel", "yvel", "zvel"):
+            if _col in ref_sv.columns:
+                ref_sv[_col] = pd.to_numeric(ref_sv[_col], errors="coerce").astype(
+                    np.float64
+                )
 
         job_manager.update_job(job_id, progress=40)
 
