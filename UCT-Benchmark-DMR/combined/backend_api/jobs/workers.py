@@ -173,15 +173,25 @@ REGIME_SATELLITES = {
 
 
 def _convert_numpy_to_native(obj: Any) -> Any:
-    """Recursively convert numpy arrays and types to native Python types for JSON serialization."""
+    """Recursively convert numpy arrays and types to native Python types for JSON serialization.
+
+    NaN / +Inf / -Inf are coerced to None because PostgreSQL jsonb rejects
+    them (they're not valid JSON per RFC 8259). Applies to both python
+    floats and numpy floats.
+    """
+    import math
+
     import numpy as np
 
     if isinstance(obj, np.ndarray):
-        return obj.tolist()
+        return [_convert_numpy_to_native(x) for x in obj.tolist()]
     elif isinstance(obj, (np.integer, np.int64, np.int32)):
         return int(obj)
     elif isinstance(obj, (np.floating, np.float64, np.float32)):
-        return float(obj)
+        val = float(obj)
+        return None if (math.isnan(val) or math.isinf(val)) else val
+    elif isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
     elif isinstance(obj, np.bool_):
         return bool(obj)
     elif isinstance(obj, dict):
