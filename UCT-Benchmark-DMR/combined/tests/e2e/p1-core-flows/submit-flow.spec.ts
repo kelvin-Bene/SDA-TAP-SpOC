@@ -13,10 +13,16 @@ test.describe('P1 Core — Submit flow', () => {
     await page.goto('/submit');
     const fixturePath = path.resolve(__dirname, '..', 'fixtures', 'valid_submission.json');
 
-    // Use file chooser API
+    // Target the dropzone by its unique text; the Sample UCTP card now sits above
+    // the upload area so index-based selectors don't resolve to the dropzone anymore.
+    const dropzone = page
+      .getByText(/Drag & drop your submission file here/i)
+      .locator('..')
+      .locator('..');
+
     const [fileChooser] = await Promise.all([
       page.waitForEvent('filechooser'),
-      page.locator('.rounded-lg.border').first().click(),
+      dropzone.click(),
     ]);
     await fileChooser.setFiles(fixturePath);
 
