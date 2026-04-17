@@ -254,9 +254,11 @@ export function OrbitViewer({
     viewer.clock.multiplier = 100;
     viewer.clock.shouldAnimate = true;
 
-    // Camera: pull back to view full globe
+    // Camera: off-axis 3/4 view so equatorial orbits (GEO) and the inclined HEO
+    // plane are seen at an angle rather than edge-on. A lon=0, lat=30° vantage
+    // at ~120 Mm altitude keeps the whole GEO ring (42 Mm radius) in frame.
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(0, 0, 50_000_000),
+      destination: Cartesian3.fromDegrees(30, 25, 120_000_000),
       duration: 0,
     });
 
