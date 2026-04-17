@@ -24,7 +24,13 @@ test.describe('Navigation (authenticated)', () => {
   for (const [url, expected] of routes) {
     test(`${url} renders`, async ({ page }) => {
       await gotoAndSettle(page, url);
-      await expect(page.locator('body')).toContainText(expected, { timeout: 10_000 });
+      // Settings/Leaderboard/etc. fetch on mount — let spinners clear.
+      await page
+        .locator('[class*="animate-spin"]')
+        .first()
+        .waitFor({ state: 'hidden', timeout: 15_000 })
+        .catch(() => {});
+      await expect(page.locator('body')).toContainText(expected, { timeout: 15_000 });
     });
   }
 });
