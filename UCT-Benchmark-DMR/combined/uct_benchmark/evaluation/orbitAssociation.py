@@ -140,8 +140,25 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
                 j, errors = future.result()
                 cost_matrix[:, j] = errors
 
-        # Solve assignment problem using the Hungarian algorithm
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        # Solve assignment problem using the Hungarian algorithm. When every
+        # propagation into a truth column (or out of an est row) fails, the
+        # matrix is all-inf (or partial-inf with no feasible assignment) and
+        # scipy raises `ValueError: cost matrix is infeasible`. Swallow that
+        # and degrade to zero associations so the caller can record a
+        # completed (but zero-score) submission instead of crashing the whole
+        # evaluation job.
+        try:
+            row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        except ValueError as e:
+            inf_cells = int(np.isinf(cost_matrix).sum())
+            logger.warning(
+                f"orbitAssociation (TLE mode): cost matrix infeasible "
+                f"(n_est={n_est}, n_truth={n_truth}, "
+                f"inf_cells={inf_cells}/{cost_matrix.size}): {e}. "
+                f"Returning 0 associations (all {n_est} estimates as UCTs)."
+            )
+            row_ind = np.array([], dtype=int)
+            col_ind = np.array([], dtype=int)
 
         # Prepare associated and unassociated (bogus) output dataframes
         associated_orbits = []
@@ -227,8 +244,21 @@ def orbitAssociation(truth, est, propagator, elset_mode=False):
                 j, errors = future.result()
                 cost_matrix[:, j] = errors
 
-        # Solve assignment problem using the Hungarian algorithm
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        # Solve assignment problem using the Hungarian algorithm. See TLE-mode
+        # guard above for rationale: infeasible cost matrix -> 0 associations,
+        # not a 500.
+        try:
+            row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        except ValueError as e:
+            inf_cells = int(np.isinf(cost_matrix).sum())
+            logger.warning(
+                f"orbitAssociation (SV mode): cost matrix infeasible "
+                f"(n_est={n_est}, n_truth={n_truth}, "
+                f"inf_cells={inf_cells}/{cost_matrix.size}): {e}. "
+                f"Returning 0 associations (all {n_est} estimates as UCTs)."
+            )
+            row_ind = np.array([], dtype=int)
+            col_ind = np.array([], dtype=int)
 
         # Prepare associated and unassociated (bogus) output dataframes
         associated_orbits = []
