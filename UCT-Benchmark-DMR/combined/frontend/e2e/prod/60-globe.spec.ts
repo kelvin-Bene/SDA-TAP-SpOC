@@ -44,8 +44,12 @@ async function findUnownedId(
   // DatasetSummary does not expose user_id/owner_id, so the previous
   // predicate never matched and this test always skipped
   // (QA_PROD_RUN_2026-04-17 M6). Use set-difference between `?mine=true`
-  // and the unfiltered list: any id that's visible but not "mine" is
-  // necessarily owned by someone else.
+  // and the unfiltered list as a first pass, then verify true non-ownership
+  // by confirming `/reference-orbits` returns 403 (owner-gated). The
+  // set-difference alone is not sufficient because `?mine=true` sometimes
+  // under-reports (e.g. legacy datasets with special statuses), which can
+  // lead us to treat an actually-owned dataset as "other" and then fail
+  // downstream assertions about non-owner rendering.
   const headers = { Authorization: `Bearer ${jwt}` };
   const [mineRes, allRes] = await Promise.all([
     request.get(`${API_BASE}/api/v1/datasets?mine=true&limit=50`, { headers }),
@@ -56,10 +60,22 @@ async function findUnownedId(
   const mineItems = Array.isArray(mineBody) ? mineBody : mineBody.items ?? [];
   const allItems = Array.isArray(allBody) ? allBody : allBody.items ?? [];
   const mineIds = new Set<string>(mineItems.map((d: { id: number | string }) => String(d.id)));
-  const other = allItems.find(
+  const candidates = allItems.filter(
     (d: { id: number | string }) => !mineIds.has(String(d.id))
   );
-  return other ? String(other.id) : null;
+
+  for (const d of candidates) {
+    const refRes = await request.get(
+      `${API_BASE}/api/v1/datasets/${d.id}/reference-orbits`,
+      { headers }
+    );
+    // 403 = definitively not our dataset; that's what we want.
+    if (refRes.status() === 403) {
+      return String(d.id);
+    }
+    // 200 or 404 means we either secretly own it or it vanished — skip.
+  }
+  return null;
 }
 
 test.describe('3D orbit globe visibility', () => {
