@@ -1454,10 +1454,32 @@ def run_evaluation_pipeline(
                 f"linked state_vectors rows. Dataset is corrupt; re-generate."
             )
         ref_sv["epoch"] = pd.to_datetime(ref_sv["epoch"])
-        ref_sv["cov_matrix"] = ref_sv["cov_matrix"].apply(
-            lambda x: np.array(json.loads(x)) if isinstance(x, str)
-            else (np.array(x) if x is not None else None)
-        )
+
+        # Truth covariance is stored as a 21-element lower-triangular list
+        # for UDL-sourced state_vectors (the Benchmarking Doc §State Vector
+        # shape). monteCarloPropagator / stateMetrics need a 6x6 symmetric
+        # matrix — reconstruct here via the same helper used by generateCov
+        # on the submission side. Pass-through 6x6 inputs untouched.
+        from uct_benchmark.utils.generateCov import _lower_triangular_to_symmetric
+
+        def _normalize_truth_cov(raw):
+            if raw is None:
+                return None
+            if isinstance(raw, str):
+                raw = json.loads(raw)
+            arr = np.asarray(raw)
+            if arr.ndim == 2 and arr.shape == (6, 6):
+                return arr
+            if arr.ndim == 1 and arr.size == 21:
+                sym = _lower_triangular_to_symmetric(arr.tolist())
+                return sym if isinstance(sym, np.ndarray) else None
+            logger.warning(
+                f"Unexpected truth covariance shape {arr.shape}; "
+                f"setting to None for this row"
+            )
+            return None
+
+        ref_sv["cov_matrix"] = ref_sv["cov_matrix"].apply(_normalize_truth_cov)
 
         job_manager.update_job(job_id, progress=40)
 
