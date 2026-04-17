@@ -1,3 +1,7 @@
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 SDA[[:space:]]x[[:space:]]SpOC[[:space:]]UCT[[:space:]]Processing/UDL[[:space:]]Queries/*.json filter=lfs diff=lfs merge=lfs -text
+# Exception: orekit-data.zip must ship as a regular git blob so Railway's
+# Docker build context sees the real 21 MB file — LFS pointers aren't
+# followed during the build, which caused COPY orekit-data.zip to fail.
+UCT-Benchmark-DMR/combined/orekit-data.zip -filter -diff -merge text=binary
