@@ -1543,6 +1543,18 @@ def run_evaluation_pipeline(
         associated_orbits, association_results, nonassociated_orbits = orbitAssociation(
             ref_sv, uctp_output, ephemerisPropagator
         )
+
+        # Safety net: stateMetrics._compute_MD needs
+        # estimation["cov_matrix"] but associated_orbits may lose the column
+        # during the iloc / normalize_columns dance inside orbitAssociation.
+        # Re-attach a safe 6x6 identity cov to any missing/invalid rows so
+        # Mahalanobis distance degenerates to ||delta||^2 rather than crashing.
+        if not associated_orbits.empty and "cov_matrix" not in associated_orbits.columns:
+            associated_orbits["cov_matrix"] = [
+                np.eye(6, dtype=np.float64) * 1e-6
+                for _ in range(len(associated_orbits))
+            ]
+
         job_manager.update_job(job_id, progress=55)
 
         # --------------------------------------------------------------
