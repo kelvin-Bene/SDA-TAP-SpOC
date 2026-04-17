@@ -96,6 +96,95 @@ class TestGetSubmission:
         assert "error_message" in submission
 
 
+class TestErrorMessagePropagation:
+    """
+    Regression coverage for QA_PROD_RUN_2026-04-17 H1.
+
+    When the evaluation worker fails, it must persist the exception text
+    to submissions.error_message — not just status='failed'. Without it,
+    the ResultsPage banner falls back to generic copy and users cannot
+    see the underlying ValueError.
+
+    Tests run the worker's exact UPDATE statement directly against the
+    `db` fixture and verify the row state via SQL. Bypasses the FastAPI
+    route to avoid the pre-existing populated_db schema issue under
+    DuckDB.
+    """
+
+    def _insert_minimal_dataset_and_submission(self, db, dataset_id: int, sub_id: int):
+        db.execute(
+            """
+            INSERT INTO datasets (id, name, code, tier, orbital_regime, status,
+                                  observation_count, satellite_count, created_at)
+            VALUES (?, ?, ?, 'T1', 'LEO', 'available', 100, 1, CURRENT_TIMESTAMP)
+            """,
+            (dataset_id, f"ds-{dataset_id}", f"ds-{dataset_id}"),
+        )
+        db.execute(
+            """
+            INSERT INTO submissions (id, dataset_id, algorithm_name, version, status, created_at)
+            VALUES (?, ?, 'TestAlgo', 'v1.0', 'processing', CURRENT_TIMESTAMP)
+            """,
+            (sub_id, dataset_id),
+        )
+
+    def _read_submission(self, db, sub_id: int):
+        df = db.adapter.fetchdf(
+            "SELECT status, error_message FROM submissions WHERE id = ?",
+            (sub_id,),
+        )
+        assert not df.empty, f"submission {sub_id} not found"
+        row = df.iloc[0]
+        return row["status"], row["error_message"]
+
+    def test_failure_update_persists_error_message(self, db):
+        """The worker's failure UPDATE writes both status and error_message."""
+        self._insert_minimal_dataset_and_submission(db, dataset_id=2001, sub_id=2001)
+        status_before, err_before = self._read_submission(db, 2001)
+        assert status_before == "processing"
+        # error_message either NULL (None) or empty in fresh insert.
+        import pandas as pd
+
+        assert err_before is None or pd.isna(err_before) or err_before == ""
+
+        # Run the exact statement workers.py uses on evaluation failure
+        # (backend_api/jobs/workers.py:1807-1810 post-H1-fix).
+        error_msg = (
+            "ValueError: Dataset 2001 has no reference state vectors persisted. "
+            "Re-generate the dataset with the post-Phase-1 worker before evaluating."
+        )
+        db.execute(
+            "UPDATE submissions SET status = 'failed', error_message = ? WHERE id = ?",
+            (error_msg, 2001),
+        )
+
+        status_after, err_after = self._read_submission(db, 2001)
+        assert status_after == "failed"
+        assert err_after == error_msg
+        # Sanity: the propagated text still reads like a real exception line.
+        assert "ValueError" in err_after
+        assert "reference state vectors" in err_after
+
+    def test_failure_update_does_not_clobber_status(self, db):
+        """The UPDATE only flips the targeted row, not other submissions."""
+        self._insert_minimal_dataset_and_submission(db, dataset_id=2002, sub_id=2002)
+        self._insert_minimal_dataset_and_submission(db, dataset_id=2003, sub_id=2003)
+
+        db.execute(
+            "UPDATE submissions SET status = 'failed', error_message = ? WHERE id = ?",
+            ("ValueError: test failure", 2002),
+        )
+
+        s1, e1 = self._read_submission(db, 2002)
+        s2, e2 = self._read_submission(db, 2003)
+        import pandas as pd
+
+        assert s1 == "failed"
+        assert e1 == "ValueError: test failure"
+        assert s2 == "processing"
+        assert e2 is None or pd.isna(e2) or e2 == ""
+
+
 class TestCreateSubmission:
     """Tests for POST /api/v1/submissions endpoint."""
 

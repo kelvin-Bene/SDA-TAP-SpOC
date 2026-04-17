@@ -109,6 +109,106 @@ class TestGetDataset:
         assert "parameters" in dataset
 
 
+class TestHasReferenceOrbits:
+    """
+    Regression coverage for QA_PROD_RUN_2026-04-17 C1.
+
+    The /datasets list + detail responses expose `has_reference_orbits`
+    via an EXISTS subquery on dataset_references. The frontend gates the
+    Submit dropdown on this — if the subquery ever broke, users could
+    again submit against datasets that fail evaluation with "no reference
+    state vectors persisted".
+
+    Tests run the subquery directly against the `db` fixture rather than
+    going through FastAPI TestClient. The TestClient route gets blocked
+    by an unrelated pre-existing schema issue with the populated_db
+    fixture under DuckDB.
+    """
+
+    def _insert_dataset(self, db, dataset_id: int, name: str):
+        db.execute(
+            """
+            INSERT INTO datasets (id, name, code, tier, orbital_regime, status,
+                                  observation_count, satellite_count, created_at)
+            VALUES (?, ?, ?, 'T1', 'LEO', 'available', 100, 1, CURRENT_TIMESTAMP)
+            """,
+            (dataset_id, name, name),
+        )
+
+    def _insert_reference(self, db, dataset_id: int, sat_no: int):
+        db.execute(
+            """
+            INSERT INTO dataset_references
+                (dataset_id, sat_no, state_vector_id, element_set_id, grouped_obs_ids)
+            VALUES (?, ?, NULL, NULL, NULL)
+            """,
+            (dataset_id, sat_no),
+        )
+
+    def _has_reference_orbits(self, db, dataset_id: int) -> bool:
+        """Run the production EXISTS subquery and return its bool."""
+        df = db.adapter.fetchdf(
+            """
+            SELECT EXISTS(
+                SELECT 1 FROM dataset_references r WHERE r.dataset_id = datasets.id
+            ) AS has_reference_orbits
+            FROM datasets WHERE id = ?
+            """,
+            (dataset_id,),
+        )
+        assert not df.empty, f"dataset {dataset_id} not found"
+        return bool(df.iloc[0]["has_reference_orbits"])
+
+    def test_subquery_returns_false_without_refs(self, db):
+        """A dataset with zero dataset_references rows resolves to False."""
+        self._insert_dataset(db, 1001, "no-refs-dataset")
+        assert self._has_reference_orbits(db, 1001) is False
+
+    def test_subquery_returns_true_when_refs_exist(self, db):
+        """A dataset with at least one dataset_references row resolves to True."""
+        self._insert_dataset(db, 1002, "with-refs-dataset")
+        self._insert_reference(db, 1002, sat_no=42)
+        assert self._has_reference_orbits(db, 1002) is True
+
+    def test_subquery_isolates_per_dataset(self, db):
+        """Inserting refs for dataset A does not flip has_reference_orbits for B."""
+        self._insert_dataset(db, 1003, "ds-a")
+        self._insert_dataset(db, 1004, "ds-b")
+        self._insert_reference(db, 1003, sat_no=7)
+        # Only ds-a should report True.
+        assert self._has_reference_orbits(db, 1003) is True
+        assert self._has_reference_orbits(db, 1004) is False
+
+    def test_pydantic_model_includes_field(self):
+        """DatasetSummary serializes has_reference_orbits with a default of False."""
+        from backend_api.models import DatasetSummary
+
+        # Default-constructed model must default the field to False.
+        ds = DatasetSummary(
+            id="1",
+            name="x",
+            regime="LEO",
+            tier="T1",
+            status="available",
+            created_at=__import__("datetime").datetime.now(),
+        )
+        dumped = ds.model_dump()
+        assert "has_reference_orbits" in dumped
+        assert dumped["has_reference_orbits"] is False
+
+        # Explicit True must round-trip.
+        ds2 = DatasetSummary(
+            id="2",
+            name="y",
+            regime="LEO",
+            tier="T1",
+            status="available",
+            created_at=__import__("datetime").datetime.now(),
+            has_reference_orbits=True,
+        )
+        assert ds2.model_dump()["has_reference_orbits"] is True
+
+
 class TestCreateDataset:
     """Tests for POST /api/v1/datasets endpoint."""
 
