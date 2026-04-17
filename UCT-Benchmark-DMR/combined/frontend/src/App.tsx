@@ -6,6 +6,7 @@ import { ErrorBoundary, RouteErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackProvider } from '@/components/feedback/FeedbackProvider';
 import { AuthGuard } from '@/components/AuthGuard';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { useAuthStore } from '@/stores/authStore';
 
 // U2/P1: Lazy-load all page components for code splitting
 // Heavy deps (Cesium ~1.4MB, Recharts ~260KB) only load when needed
@@ -22,6 +23,7 @@ const DocumentationPage = lazy(() => import('@/pages/DocumentationPage').then(m 
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const LandingPage = lazy(() => import('@/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 
 function PageLoader() {
   return (
@@ -41,6 +43,13 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Root route: show landing page when logged out, redirect to dashboard when authenticated.
+function RootRoute() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <LazyRoute><LandingPage /></LazyRoute>;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -48,10 +57,10 @@ function App() {
         <FeedbackProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              {/* Demo mode: redirect root and legacy routes to dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/welcome" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+              {/* Root: landing page when logged out, dashboard when authenticated */}
+              <Route path="/" element={<RootRoute />} />
+              <Route path="/welcome" element={<Navigate to="/" replace />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
 
               {/* Single layout route — auth enforced per-route */}
               <Route element={<MainLayout />}>

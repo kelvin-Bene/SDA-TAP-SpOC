@@ -1,11 +1,25 @@
-import { Link } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Rocket, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { cn } from '@/lib/utils';
 
+const MAIN_URL = 'https://frontend-production-6d80.up.railway.app';
+
 export function CTASection() {
   const { ref, isInView } = useInView();
+  const navigate = useNavigate();
+
+  const tryDemo = () => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('demo_logged_out');
+    }
+    navigate('/dashboard');
+  };
+
+  const goToMain = () => {
+    window.location.href = MAIN_URL;
+  };
 
   return (
     <>
@@ -19,17 +33,30 @@ export function CTASection() {
             )}
           >
             <h2 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl mb-4">
-              Access the Platform
+              Choose Your Environment
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-              Authenticate to browse datasets, submit algorithm results, and view evaluation metrics.
+              Explore the platform instantly with the interactive demo, or sign in to the main environment with your credentials.
             </p>
-            <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0 w-full sm:w-auto sm:px-8">
-              <Link to="/login">
-                <LogIn className="h-4 w-4 mr-2" />
-                Sign In to UCT Benchmark
-              </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
+              <Button
+                size="lg"
+                className="bg-gradient-cosmic hover:opacity-90 text-white border-0 w-full sm:w-auto sm:px-8"
+                onClick={tryDemo}
+              >
+                <Rocket className="h-4 w-4 mr-2" />
+                Try Demo
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-white/20 hover:bg-white/5 w-full sm:w-auto sm:px-8"
+                onClick={goToMain}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Go to Main
+              </Button>
+            </div>
           </div>
         </div>
       </section>

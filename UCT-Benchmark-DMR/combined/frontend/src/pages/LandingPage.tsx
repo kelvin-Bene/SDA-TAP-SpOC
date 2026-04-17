@@ -6,7 +6,7 @@ import { CapabilitiesSection } from './landing/CapabilitiesSection';
 import { TiersSection } from './landing/TiersSection';
 import { CTASection } from './landing/CTASection';
 
-export default function LandingPage() {
+export function LandingPage() {
   return (
     <div className="min-h-screen space-bg text-foreground">
       <div className="starfield" />

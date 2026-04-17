@@ -1,10 +1,12 @@
-import { Link } from 'react-router-dom';
-import { ArrowDown, LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowDown, Rocket, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useInView } from '@/hooks/useInView';
 import { AnimatedCounter } from './components/AnimatedCounter';
 import { OrbitalGraphic } from './components/OrbitalGraphic';
+
+const MAIN_URL = 'https://frontend-production-6d80.up.railway.app';
 
 const STATS = [
   { target: 4, label: 'Orbital Regimes' },
@@ -14,6 +16,18 @@ const STATS = [
 
 export function HeroSection() {
   const { ref: statsRef, isInView: statsVisible } = useInView({ threshold: 0.05 });
+  const navigate = useNavigate();
+
+  const tryDemo = () => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('demo_logged_out');
+    }
+    navigate('/dashboard');
+  };
+
+  const goToMain = () => {
+    window.location.href = MAIN_URL;
+  };
 
   return (
     <section
@@ -49,21 +63,32 @@ export function HeroSection() {
 
               <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-2">
                 <Button
+                  size="lg"
+                  className="bg-gradient-cosmic hover:opacity-90 text-white border-0 w-full sm:w-auto"
+                  onClick={tryDemo}
+                >
+                  <Rocket className="h-4 w-4 mr-2" />
+                  Try Demo
+                </Button>
+                <Button
                   variant="outline"
                   size="lg"
                   className="border-white/20 hover:bg-white/5 w-full sm:w-auto"
+                  onClick={goToMain}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Go to Main
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="w-full sm:w-auto"
                   onClick={() =>
                     document.getElementById('problem')?.scrollIntoView({ behavior: 'smooth' })
                   }
                 >
                   <ArrowDown className="h-4 w-4 mr-2" />
                   Mission Briefing
-                </Button>
-                <Button asChild size="lg" className="bg-gradient-cosmic hover:opacity-90 text-white border-0 w-full sm:w-auto">
-                  <Link to="/login">
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Access Platform
-                  </Link>
                 </Button>
               </div>
             </div>

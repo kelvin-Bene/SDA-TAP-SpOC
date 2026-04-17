@@ -62,8 +62,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
   error: null,
 
   initialize: async () => {
-    // Demo mode: skip Supabase auth, auto-login as demo user
+    // Demo mode: skip Supabase auth, auto-login as demo user unless user explicitly logged out
     if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('demo_logged_out') === 'true') {
+        set({ user: null, session: null, isAuthenticated: false, isAdmin: false, isLoading: false });
+        return;
+      }
       set({
         user: { id: 'demo', username: 'Demo User', email: 'demo@uct-benchmark.org', organization: 'UCT Benchmark Demo', role: 'authenticated' as const, createdAt: new Date().toISOString(), submissionCount: 0 },
         session: null,
@@ -188,6 +192,20 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
 
   logout: async () => {
     set({ isLoading: true, error: null });
+    // Demo mode: skip Supabase mock call, mark explicit logout so initialize() doesn't re-auth
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('demo_logged_out', 'true');
+      }
+      set({
+        user: null,
+        session: null,
+        isAuthenticated: false,
+        isAdmin: false,
+        isLoading: false,
+      });
+      return;
+    }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
