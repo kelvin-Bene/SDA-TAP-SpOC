@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const NAV_LINKS = [
@@ -61,11 +60,15 @@ export function LandingNav() {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" className="bg-gradient-cosmic hover:opacity-90 text-white border-0">
-            <Link to="/login">
-              <LogIn className="h-4 w-4 mr-2" />
-              Get Started
-            </Link>
+          <Button
+            size="sm"
+            className="bg-gradient-cosmic hover:opacity-90 text-white border-0"
+            onClick={() =>
+              document.getElementById('access')?.scrollIntoView({ behavior: 'smooth' })
+            }
+          >
+            Get Started
+            <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
       </div>
