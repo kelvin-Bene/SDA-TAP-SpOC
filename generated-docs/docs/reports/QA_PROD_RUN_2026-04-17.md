@@ -168,3 +168,40 @@ All of these worked correctly on the run — encoded for posterity since each wa
 3. **Fix M1/M2 flakes** — small test-timeout bumps; prevents CI noise.
 4. **(After C1) re-run the full prod suite** — expect M3/M4 to un-skip and produce real assertions on the composite-score card.
 5. **File L1** as a separate ticket for post-demo.
+
+---
+
+## Resolution (2026-04-21)
+
+All findings from this report have been addressed. Both Option A (backfill) and Option B (eval-readiness filter) were implemented — dataset 158 was backfilled pre-demo, and the filter now prevents the class of failure from recurring on future datasets.
+
+### Findings closed
+
+| # | Severity | Status | Fix commits | Notes |
+|---|---|---|---|---|
+| C1 | 🔴 Critical | **Fixed** | `559db9d` (backend) + `21e4699` (frontend) + `a5eda35` (backfill script) | Backend exposes `has_reference_orbits` via EXISTS subquery on `dataset_references` in `/datasets` list + detail. Frontend plumbs the boolean through the `Dataset` interface and replaces the date-only `EVAL_CUTOFF_MS` heuristic in `SubmitPage.tsx`. `scripts/backfill_dataset_references.py` was used to repair dataset 158 pre-demo (retained as a general ops tool). |
+| H1 | 🟠 High | **Fixed** | `559db9d` | `backend_api/jobs/workers.py:1945-1954` now runs `UPDATE submissions SET status='failed', error_message = ? WHERE id = ?` on job failure. ResultsPage banner now surfaces the underlying `ValueError` text instead of the generic fallback. |
+| M1 | 🟡 Medium | **Fixed** | `84bd0d3`, `e814720` | Test-level timeout bumps + tighter waits on `/docs` and `/datasets` specs. |
+| M2 | 🟡 Medium | **Fixed** | `84bd0d3`, `e814720` | Same fix batch as M1. |
+| M3 | 🟡 Medium | **Resolved downstream of C1** | (auto-resolved) | Once C1 was fixed and a completed submission landed, the leaderboard tooltip test un-skipped and now exercises the hover path. |
+| M4 | 🟡 Medium | **Resolved downstream of C1** | (auto-resolved) | Composite-score card tests now have a populated `composite_breakdown` to assert against. |
+| M5 | 🟡 Medium | **Fixed** | `84bd0d3` | Selector broadened to include sidebar `a[href="/datasets/generate"]`. |
+| M6 | 🟡 Medium | **Fixed** | `84bd0d3`, `dea79aa`, `40c4995` | Non-owner 3D-orbit spec now asserts "no interactive globe" rather than "no header", and `findUnownedId` uses an ownership cross-check instead of probing optional `user_id`/`owner_id` fields. |
+| L1 | 🔵 Low | **Fixed** | `559db9d` | `apiIntegration.py` attribute typos corrected: `avg_orbital_coverage` → `avg_coverage`, `avg_track_gap` → `avg_track_gap_periods`. Stops producing `performance_metadata.error` on every dataset generation. |
+| L3 | 🔵 Low | **Documented as intentional** | `559db9d` | Added a docstring on `get_leaderboard_statistics` explaining that only completed submissions count, so a future reader doesn't "fix" it to include failed submissions. |
+| L4 | 🔵 Low | **Fixed** | `559db9d` | `DatabaseJobManager.list_jobs` now merges in-memory and DB rows (deduped by id) so historical jobs survive in-memory eviction and operators retain forensic visibility. |
+
+### Residual items (intentionally left open)
+
+- **L2** (dataset 153 empty `satellites: []` on `/reference-orbits`): expected — the dataset predates the Phase-1 reference-persistence worker. Tracked in `BACKLOG.md` Section D (reference data backfill for legacy datasets). Non-blocking.
+- **L5** (feedback endpoint `403 Admin access required` for GET but POST is public): API semantics are asymmetric by design (users can submit but not list). No UX issue observed. Tracked if it surfaces.
+
+### Downstream prod validation
+
+After the fix batch landed, the post-Apr-17 verification run (driven by `scripts/seed_demo_submission.py`, introduced in `0879bdd`) achieved:
+
+- **First completed submission in prod history**: submission 44 against dataset 158, `composite_score = 1.0`.
+- **79/79 e2e specs green** on desktop-auth + mobile-safari-auth.
+- **Chain of 8 latent eval-pipeline bugs surfaced** — the seed helper pushed farther through the pipeline than any prior real submission, exposing cov-matrix shape/dtype mismatches, empty-DataFrame sort traps, SV-mode iloc rebuild issues, and NaN/Inf JSON serialization failures. All addressed in the v2.0.2 release (see `CHANGELOG.md`).
+
+The end-to-end demo flow (generate → download → submit → evaluate → view results → leaderboard) is confirmed working in production.

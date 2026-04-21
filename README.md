@@ -1,6 +1,8 @@
-# SDA TAP Lab & SpOC UCT Processing Project
+# SDA TAP Lab & UCT Benchmark Project
 
-A collaborative project between the **Space Domain Awareness (SDA) Tools, Applications, & Processing (TAP) Lab** and the **Space Operations Command (SpOC)** to develop a fully automated data annotation pipeline for processing Uncorrelated Tracks (UCTs) within the Common Task Framework (CTF).
+A collaborative project between the **Space Domain Awareness (SDA) Tools, Applications, & Processing (TAP) Lab** and the **Combat Forces Command (CFC)** to develop a fully automated data annotation pipeline for processing Uncorrelated Tracks (UCTs) within the Common Task Framework (CTF).
+
+> **Naming note**: The platform was originally scoped as "SpOC UCT Processing" (Space Operations Command). The v2.0.0 rebrand (Apr 2026) renamed the platform to **UCT Benchmark** under the **Combat Forces Command (CFC)** banner. Both names appear in older docs — they refer to the same project.
 
 ## Repository Structure
 
@@ -67,6 +69,9 @@ generated-docs/
 - [Getting Started](./generated-docs/docs/getting-started.md) - Installation and setup guide
 - [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) - Current state of all components
 - [Architecture](./generated-docs/docs/technical/ARCHITECTURE.md) - Code structure overview
+- [Vision Alignment Audit](./generated-docs/docs/reports/VISION_ALIGNMENT_AUDIT.md) - How the implementation maps to Louis Caves's transcripts (authoritative)
+- [Backlog](./UCT-Benchmark-DMR/combined/BACKLOG.md) - Deferred work tracked against Louis's vision
+- [Changelog](./UCT-Benchmark-DMR/combined/CHANGELOG.md) - Release history
 
 ### 3. `provided-materials/` - Reference Materials
 **Materials provided to us** - do not modify.
@@ -111,18 +116,29 @@ Build a **Web-hosted User Interface** where algorithm developers can:
 
 ---
 
-## Current Status (January 2026)
+## Current Status (April 2026)
 
-**Overall Progress: ~60%**
+**Overall Progress: ~90%** — v2.0.2 deployed to production on Railway.
 
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Foundation (APIs, Evaluation, Propagators) | Complete | 95% |
 | Data Pipeline (T1-T3, Downsampling, Database) | Complete | 85% |
 | Web Platform (UI, Backend, Auth) | Complete | 95% |
-| Event Labelling | Not Started | 0% |
+| Production Deployment (Railway, Docker, NGINX) | Live | 95% |
+| Composite Scoring + 3D Globe UI | Complete | 90% |
+| Event Labelling | Infrastructure only | 15% |
 
-See [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md) for detailed breakdown.
+**First completed submission in prod history** landed 2026-04-17 (submission 44 against dataset 158, `composite_score=1.0`). 79/79 end-to-end tests green on desktop-auth + mobile-safari-auth.
+
+See [Project Status](./generated-docs/docs/planning/PROJECT_STATUS.md), [Vision Alignment Audit](./generated-docs/docs/reports/VISION_ALIGNMENT_AUDIT.md), and [Backlog](./UCT-Benchmark-DMR/combined/BACKLOG.md) for detailed breakdowns.
+
+### Production URLs
+
+- **Frontend**: https://frontend-production-6d80.up.railway.app
+- **Backend**: https://backend-production-4b02.up.railway.app (`/health` for status)
+
+Auto-deploys from `master` via GitHub Actions. See [DEPLOYMENT.md](./UCT-Benchmark-DMR/combined/DEPLOYMENT.md) for the full pipeline.
 
 ---
 
@@ -162,7 +178,7 @@ npm install
 npm run dev
 ```
 
-Access the application at http://localhost:5173
+Access the application at http://localhost:3000 (frontend dev server — see `frontend/vite.config.ts`).
 
 ---
 

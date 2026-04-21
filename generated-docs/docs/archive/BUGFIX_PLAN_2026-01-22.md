@@ -1,3 +1,7 @@
+> **ARCHIVED 2026-04-21** — This plan is from **2026-01-22** (3+ months old). Item-level status is no longer tracked here; fresh triage against the current code should start from [`UCT-Benchmark-DMR/combined/BACKLOG.md`](../../../UCT-Benchmark-DMR/combined/BACKLOG.md) and [`reports/QA_PROD_RUN_2026-04-17.md`](../reports/QA_PROD_RUN_2026-04-17.md). Preserved here as historical record of the early-2026 bug hunt.
+
+---
+
 # Bug Fix Implementation Plan
 
 This document outlines the detailed plan to fix the top 5 functional bugs identified in the code review.

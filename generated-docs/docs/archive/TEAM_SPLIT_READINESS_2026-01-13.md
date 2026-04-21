@@ -1,3 +1,7 @@
+> **ARCHIVED 2026-04-21** — This document is a pre-split blocker analysis from **2026-01-13**. Its "NOT STARTED / CRITICAL BLOCKER" claims for the Web UI and Centralized Database no longer reflect reality — both shipped months ago (v2.0.0, Apr 2026). For the current project state see [`planning/PROJECT_STATUS.md`](../planning/PROJECT_STATUS.md) and [`reports/VISION_ALIGNMENT_AUDIT.md`](../reports/VISION_ALIGNMENT_AUDIT.md). Preserved here as historical record of where the project started.
+
+---
+
 # Team Split Readiness Report
 
 **Date:** January 13, 2026

@@ -482,7 +482,7 @@ All pipeline parameters are configurable in `uct_benchmark/settings.py`.
 | `dataManipulation.py` | T1/T2 downsampling functions |
 | `simulateObservations.py` | T3 simulation functions |
 | `basicScoringFunction.py` | Data quality scoring |
-| `windowCheck.py` | Time window selection |
+| `windowSelection.py` | Time window selection |
 | `settings.py` | All configuration parameters |
 
 ---

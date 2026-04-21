@@ -79,7 +79,7 @@ UCT-Benchmark-DMR/combined/
 │   │   ├── basicScoringFunction.py  # Data quality scoring
 │   │   ├── dataManipulation.py      # Data transformation utilities
 │   │   ├── readData.py              # Data loading utilities
-│   │   └── windowCheck.py           # Window selection algorithm
+│   │   └── windowSelection.py       # Window selection algorithm
 │   │
 │   ├── database/               # Database layer
 │   │   ├── __init__.py
@@ -202,7 +202,7 @@ def loadDataset(input_path) -> tuple:
 
 ---
 
-### 2. Window Selection (`data/windowCheck.py`)
+### 2. Window Selection (`data/windowSelection.py`)
 
 Implements intelligent window selection for finding high-quality data windows.
 

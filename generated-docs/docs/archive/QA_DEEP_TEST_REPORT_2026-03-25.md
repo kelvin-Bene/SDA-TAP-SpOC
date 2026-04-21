@@ -1,3 +1,7 @@
+> **ARCHIVED 2026-04-21** — This report is from **2026-03-25** and is **superseded by** [`reports/QA_PROD_RUN_2026-04-17.md`](../reports/QA_PROD_RUN_2026-04-17.md). The critical/high bugs (B1 dataset download 500, B2 results page Not Found, B3 server path leakage) were all fixed in the Apr 16 `f2fdd50` batch. The remaining UX items (B4–B6) carry forward in [`UCT-Benchmark-DMR/combined/BACKLOG.md`](../../../UCT-Benchmark-DMR/combined/BACKLOG.md). Preserved here as historical record.
+
+---
+
 # UCT Benchmark - Deep QA Test Report (Round 2)
 
 **Date:** 2026-03-25

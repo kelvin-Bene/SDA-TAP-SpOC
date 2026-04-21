@@ -2,7 +2,73 @@
 
 All notable changes to the UCT Benchmark project.
 
-## [2.0.1] - 2026-04-10
+## [2.0.2] - 2026-04-20
+
+### Vision Alignment (Apr 16)
+
+- **Composite score breakdown** (`f2fdd50`): ResultsPage shows Binary × w1 + State × w2 + Residual × w3 with per-component bars, state-source badge (Mahalanobis p-score vs. position-RMS heuristic), and fallback banner when Orekit unavailable. Closes the last gap from Lewis's Feb 19 "you lose points there" philosophy — users now *see* why a score dropped.
+- **Leaderboard composite tooltip**: train/val/test split breakdown on hover, noting only test ranks count.
+- **Rank ordering**: ResultsPage ORDER BY now mirrors `COALESCE(test_composite_score, composite_score, f1_score)`.
+- **3D globe integration**: `OrbitViewer` on DatasetDetailPage (owner+admin gated per Louis's Apr 9 answer-key separation), ResultsPage (own-submissions), LandingPage hero (desktop-only static fixture). Backend: `GET /datasets/{id}/reference-orbits`, `GET /submissions/{id}/predictions` with Orekit + disk cache.
+- **Event filter DB-first**: `generateDataset()` queries persisted events before TLE heuristic; new `EventRepository.find_events_in_window`.
+- **Docs sync**: C/A object-filter thresholds (10 km / 10 m/s / 0.00833° per Louis's `UCT Labelling.xlsx`, Apr 8 recalibration) updated in `VISION_ALIGNMENT_AUDIT.md` and `TRANSCRIPT_ALIGNMENT_PLAN.md`.
+
+### QA Prod Findings 2026-04-17 (`559db9d`, `21e4699`, `a5eda35`)
+
+- **C1 (Critical, Fixed)**: evaluation pipeline failed on every post-Apr-9 dataset. Backend exposes `has_reference_orbits` via EXISTS subquery; frontend gates the Submit dropdown on the boolean instead of the date-only `EVAL_CUTOFF_MS` heuristic.
+- **H1 (High, Fixed)**: `submission.error_message` now persisted on job failure so the ResultsPage banner surfaces the real error text.
+- **L1 (Fixed)**: `WindowEvaluation` attribute typos (`avg_orbital_coverage` → `avg_coverage`, `avg_track_gap` → `avg_track_gap_periods`).
+- **L4 (Fixed)**: `DatabaseJobManager.list_jobs` merges in-memory + DB rows for forensic visibility.
+- **Backfill tool** (`a5eda35`): `scripts/backfill_dataset_references.py` to repair datasets missing reference rows without full regeneration.
+
+See `docs/reports/QA_PROD_RUN_2026-04-17.md` for the full finding list + `## Resolution (2026-04-21)` section.
+
+### Eval Pipeline Hardening — Chain of 8 Latent Bugs (Apr 17–18)
+
+Surfaced by `scripts/seed_demo_submission.py` (new helper — see below) pushing farther through the pipeline than any prior real submission:
+
+- `f62a197` guard `orbitAssociation` against infeasible cost matrix.
+- `20295f2` guard empty-DataFrame sort after infeasible-matrix fallback.
+- `d0a222d` fail-fast epoch sanity check on submission epochs.
+- `3d328a3` / `092449e` rebuild SV-mode associated DataFrame via iloc-slice.
+- `16db3b5` serialize stateMetrics + residualMetrics SV-mode pools.
+- `6661622` serial cost-column computation in SV mode to unblock Orekit.
+- `6d8ebdd` convert truth covariance from 21-element lower-triangular to 6×6.
+- `c27ae8f` / `b35c2da` / `6f4a4f1` force float64 and guarantee 6×6 shape on truth, UCTP, and `associated_orbits` covariances.
+- `f3d522b` convert NaN/Inf to null in results JSON serialization.
+
+### Deploy Hygiene (Apr 17)
+
+- `51b56ba` / `e959d09` / `d9c38c3` `orekit-data.zip` un-LFS'd + tracked normally so Railway Docker build can `COPY` it.
+- `487f078` / `cc2b506` Railway CLI deploys stage frontend dir in `/tmp` with empty `.railwayignore` to escape repo-root `.gitignore`.
+- `236dea0` disable CDN caching on SPA `index.html`.
+
+### Frontend Globe Rescue (Apr 18–19)
+
+- `5b4276e` / `41bcd74` Cesium entity graphics marshaling (revert plain-object props to `Graphics` class instances).
+- `7cbf1bd` drop `creditContainer={undefined}` Viewer prop.
+- **`12c2f2b` pin `resium` to `1.18.3`** — 1.18.4+ targets React 19 internals and silently crashes hidden behind ErrorBoundary/SVG fallback. Do not bump until the React 18 → 19 migration.
+
+### Tooling
+
+- **`scripts/seed_demo_submission.py`** (`0879bdd`): realistic demo submission helper — fetches truth state + observation IDs, adds Gaussian noise, builds a valid UCTP record, posts via authenticated API, polls to terminal. Produced submission 44 (`composite_score=1.0`) — first completed submission in prod history — and surfaced the 8-bug chain above.
+
+### Testing
+
+- `3ea3c64` backend regression coverage for QA C1, H1, L4.
+- `84bd0d3` fix e2e M1/M2/M5/M6 + harden C1/H1 guardrails.
+- `5c88360` / `c5f64af` / `dea79aa` / `40c4995` / `e814720` prod-spec flake hardening.
+
+### Production Validation
+
+After the v2.0.2 batch landed, end-to-end verification on the prod deploy:
+- **79/79 e2e specs green** on desktop-auth + mobile-safari-auth.
+- **First completed submission in prod history**: submission 44 against dataset 158, composite_score = 1.0.
+- **Full flow confirmed**: generate → download → submit → evaluate → view results → leaderboard.
+
+---
+
+## [2.0.1] - 2026-04-09
 
 ### Vision Alignment
 - **Answer-key separation**: Moved answer keys to separate download-protected endpoint per Louis's Apr 9 feedback

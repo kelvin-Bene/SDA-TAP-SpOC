@@ -203,7 +203,7 @@ Retrieves Two-Line Element sets for each satellite.
 
 ### Step 6: Window Selection Algorithm (Optional)
 
-**File**: `uct_benchmark/data/windowCheck.py` — `find_optimal_window()`
+**File**: `uct_benchmark/data/windowSelection.py` — `find_optimal_window()`
 
 Enabled when `use_window_selection=True`. Uses a bisecting search to find the optimal sub-window within the fetched observation batch.
 
@@ -614,8 +614,7 @@ Creates PDF report containing:
 |-------|------|---------|
 | 1 | `Create_Dataset.py` | Main driver for dataset creation |
 | 1 | `apiIntegration.py` | API calls, pipeline orchestration, data saving |
-| 1 | `windowCheck.py` | Window selection algorithm |
-| 1 | `windowTools.py` | GUI and code generation |
+| 1 | `windowSelection.py` | Window selection algorithm (`find_optimal_window()`) |
 | 1 | `basicScoringFunction.py` | Data quality scoring |
 | 1 | `dataManipulation.py` | **T1/T2 Downsampling** (3-stage pipeline) |
 | 1 | `simulateObservations.py` | **T3 Simulation** (epoch selection + obs generation) |

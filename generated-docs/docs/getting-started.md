@@ -76,9 +76,10 @@ This guide provides step-by-step instructions for setting up the UCT (Uncorrelat
    ```bash
    pip install pandas numpy loguru requests
    pip install orekit-jpype  # Orbital mechanics
-   pip install solara ipywidgets  # GUI components
-   pip install customtkinter  # Legacy GUI support
+   pip install solara ipywidgets  # Optional notebook widgets (not required for the web frontend)
    ```
+
+   Note: the original `customtkinter` desktop GUI was retired in v2.0.0 and replaced by the React web frontend (see "Running the Web Application" below). Do **not** install `customtkinter` — it is no longer imported anywhere in the codebase.
 
 4. **Install in development mode**
    ```bash
@@ -194,13 +195,7 @@ print('Orekit integration successful')
 
 The primary UI is the React web frontend (see "Running the Web Application" below).
 
-```bash
-# Test legacy tkinter GUI (optional CLI tool - requires display)
-python -c "
-import customtkinter
-print('CustomTkinter GUI available')
-"
-```
+The legacy `customtkinter` GUI has been retired; there is no separate GUI dependency to verify. The current UI is the React web frontend in `UCT-Benchmark-DMR/combined/frontend/`.
 
 ### 4. Run Demo Pipeline
 

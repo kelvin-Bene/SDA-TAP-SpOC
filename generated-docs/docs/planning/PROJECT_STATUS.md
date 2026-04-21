@@ -4,7 +4,7 @@
 purpose: Authoritative source for project status - component completion percentages and implementation state
 status: active
 related_files: [planning/INTEGRATED_ROADMAP.md, planning/FUTURE_IMPLEMENTATIONS.md, planning/SDA_TAP_LAB_PLAN.md, planning/SPOC_PLAN.md]
-last_updated: 2026-04-14
+last_updated: 2026-04-21
 -->
 
 > **This is the authoritative source** for project status information. All other documents should reference this file for current progress percentages and component status.
@@ -13,9 +13,22 @@ last_updated: 2026-04-14
 
 The UCT Benchmarking project has made significant progress on core infrastructure but requires substantial work to reach production readiness. As noted by tech lead Lewis in the initial project meeting, the pipeline **still needs validation with actual UCT processor output** - current testing uses random/simulated data to validate algorithms work, but real-world validation with Aerospace Corp's UCTP (via Patrick Ramsey) is pending.
 
-**Overall Progress: ~90% Complete** *(Updated 2026-04-14)*
+**Overall Progress: ~90% Complete** *(Updated 2026-04-21)*
 
 > **Important Note**: Progress percentages reflect code completion, not validation status. The evaluation report "looks sporadic because it's just random data to validate that the algorithm works. This is not actually representative of a UCT processor." - Lewis
+
+> **On the differing progress figures across docs**: this file tracks *code completeness* (~90%). `VISION_ALIGNMENT_AUDIT.md` tracks *stakeholder-vision alignment* (~78%, weighted by how closely each feature matches Louis's transcripts). `TRANSCRIPT_ALIGNMENT_PLAN.md` tracks *transcript-literal gap closure* (100% — the 2 items identified in Jan were both fixed). `TRANSITION_DOCUMENT.md` (~85%) reports as of 2026-04-10; this file is more recent. All four are internally consistent within their own scope.
+
+### Recent Updates (2026-04-21)
+
+- ✅ **v2.0.2 Release**: Composite score visibility + 3D globe + QA prod rehab + eval pipeline hardening
+- ✅ **Composite Score UI**: ResultsPage breakdown card + leaderboard tooltip shipped per Louis's Feb 19 "you lose points there" philosophy
+- ✅ **3D Orbit Globe**: `OrbitViewer` integrated on DatasetDetail/ResultsPage/LandingPage with owner+admin gating
+- ✅ **QA Prod Rehab 2026-04-17**: C1 (eval pipeline demo blocker) + H1 (error_message propagation) + L1/L3/L4 all resolved; see `reports/QA_PROD_RUN_2026-04-17.md` Resolution section
+- ✅ **Eval Pipeline Hardening**: Chain of 8 latent bugs surfaced + fixed (cov matrix shapes, float64 dtypes, SV-mode DataFrame iloc, NaN/Inf JSON serialization)
+- ✅ **First Completed Prod Submission**: submission 44 against dataset 158, composite_score=1.0; 79/79 e2e green
+- ✅ **`scripts/seed_demo_submission.py`**: realistic demo helper; drove the post-Apr-17 pipeline verification
+- ✅ **Frontend Globe Stability**: `resium` pinned to 1.18.3 (1.18.4+ targets React 19 internals)
 
 ### Recent Updates (2026-04-14)
 - ✅ **Production Deployment**: Deployed on Railway with Docker + NGINX reverse proxy
@@ -115,13 +128,13 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 
 ---
 
-#### 2. Window Selection (`uct_benchmark/data/windowCheck.py`)
+#### 2. Window Selection (`uct_benchmark/data/windowSelection.py`)
 **Status: COMPLETE (90%)**
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Main driver | Done | `windowMain()` |
-| Threshold checking | Done | `windowCheck()` |
+| Threshold checking | Done | `_is_criteria_impossible()` (includes TIER_5 cases) |
 | Bisection search | Done | `bisect()` |
 | Sliding window | Done | `slide()` |
 | Batch pulling | Done | `batchPull()` |
@@ -243,21 +256,11 @@ The UCT Benchmarking project has made significant progress on core infrastructur
 
 ---
 
-#### 8. GUI (`uct_benchmark/data/windowTools.py`)
-**Status: PARTIAL (75%)**
+#### 8. GUI — retired in v2.0.0
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Dataset code GUI | Done | CustomTKinter |
-| Parameter configuration | Done | |
-| Code generation | Done | `codeGenerator()` |
-| Session persistence | Done | DuckDB |
+The original `customtkinter` desktop GUI (`uct_benchmark/data/windowTools.py`) was retired in the v2.0.0 rebrand and replaced by the React web frontend. See **#12 Web UI** below for the current implementation (`frontend/src/pages/DatasetGeneratorPage.tsx` provides the multi-step wizard with all 10 dataset code parameters; `MyDatasetsPage.tsx` provides dataset management; `useGenerationJob` hook provides progress indicators and error surfacing).
 
-**Remaining Work:**
-- [ ] Multi-dataset management in GUI
-- [ ] Progress indicators
-- [ ] Error message display
-- [ ] Configuration saving/loading
+Functionally superior to the desktop GUI per `VISION_ALIGNMENT_AUDIT.md` — directly addresses Louis's stated goal (Jan 22): "Ideally we want this to be a software package that can run on remote servers."
 
 <!-- /AI_SECTION -->
 
@@ -517,7 +520,7 @@ Implemented components:
 | File | Issue | Action Needed |
 |------|-------|---------------|
 | `Create_Dataset.py` | T4 not implemented | Implement T4 tier processing (low priority) |
-| `windowCheck.py` | Error handling gaps | Add try/except blocks |
+| `windowSelection.py` | Error handling gaps | Add try/except blocks |
 | `apiIntegration.py` | No retry logic | Add exponential backoff |
 
 ### Medium Priority

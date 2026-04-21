@@ -59,8 +59,7 @@ The SDA TAP Lab team is responsible for the **upstream** portion of the pipeline
 
 #### Key Code Responsibilities
 - `uct_benchmark/api/apiIntegration.py` - API integration module
-- `uct_benchmark/data/windowCheck.py` - Window selection logic
-- `uct_benchmark/data/windowTools.py` - Window utilities
+- `uct_benchmark/data/windowSelection.py` - Window selection logic (`find_optimal_window()`, bisection + sliding window)
 - `uct_benchmark/data/basicScoringFunction.py` - Data quality scoring
 - `uct_benchmark/Create_Dataset.py` - Dataset creation driver
 

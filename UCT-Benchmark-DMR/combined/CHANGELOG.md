@@ -1,5 +1,58 @@
 # Changelog
 
+## v2.0.2 (2026-04-20)
+
+### Added
+
+- **Composite score visibility** (`f2fdd50`): Results page now shows a per-component breakdown (Binary × w1 + State × w2 + Residual × w3) with bars and a state-source badge (Mahalanobis p-score vs. position-RMS heuristic). Fallback banner when Orekit is unavailable. Closes the remaining Louis-vision gap from the Feb 19 transcript — the leaderboard ranks by composite, and users can now see *why* a score dropped instead of asking.
+- **Leaderboard composite tooltip** (`f2fdd50`): train/val/test breakdown shown on hover, with a note that only test ranks (can't be cheated).
+- **Rank ordering** (`f2fdd50`): ResultsPage ORDER BY now mirrors the leaderboard's `COALESCE(test_composite_score, composite_score, f1_score)`.
+- **3D globe integration** (`f2fdd50`): `OrbitViewer` wired into DatasetDetailPage (owner+admin gated to preserve answer-key separation), ResultsPage (own-submissions only), and LandingPage hero (desktop-only static fixture). New backend endpoints: `GET /datasets/{id}/reference-orbits` and `GET /submissions/{id}/predictions` with Orekit propagation + disk cache.
+- **Event filter DB-first short-circuit** (`f2fdd50`): `generateDataset()` now queries persisted events from `/events/detect` before the TLE heuristic runs. New `EventRepository.find_events_in_window` for bulk lookup.
+- **`has_reference_orbits` filter** (`559db9d`, `21e4699`): backend exposes the boolean via EXISTS subquery on `dataset_references`; frontend `Dataset` interface maps `hasReferenceOrbits` and `SubmitPage` gates the dropdown on it. Replaces the date-only `EVAL_CUTOFF_MS` heuristic that was letting post-Apr-9 datasets without reference state vectors through to the evaluator.
+- **`scripts/backfill_dataset_references.py`** (`a5eda35`): mirrors the reference-linking step from `run_dataset_generation` so a dataset that successfully generated observations but failed to write `dataset_references` can be repaired without full regeneration. Used pre-demo to repair dataset 158; retained as a general ops tool. Supports `--dry-run`; reads `DATABASE_URL` from `.env`.
+- **`scripts/seed_demo_submission.py`** (`0879bdd`): realistic demo submission helper — fetches truth state + observation IDs for a dataset, adds Gaussian noise, builds a valid UCTP record, posts it via the authenticated submissions API, and polls until terminal. Drove the Apr-17 prod verification that produced the first completed submission in prod history (submission 44, `composite_score=1.0`) and surfaced the chain of 8 latent eval-pipeline bugs below.
+- **Regression test coverage** (`3ea3c64`): backend tests for QA C1, H1, L4 so the fixes are guarded in CI.
+
+### Fixed
+
+**QA prod findings 2026-04-17** (`559db9d`):
+- **C1** (demo blocker): evaluation pipeline failed on every post-Apr-9 dataset because `SubmitPage`'s date-only filter let datasets without persisted reference state vectors through. See the Added section above for the structural fix.
+- **H1**: `submission.error_message` is now persisted alongside `status='failed'` on job failure (`workers.py:1945-1954`), so the ResultsPage banner surfaces the underlying `ValueError` text instead of generic fallback copy.
+- **L1**: `apiIntegration.py` `WindowEvaluation` attribute typos — `avg_orbital_coverage` → `avg_coverage`, `avg_track_gap` → `avg_track_gap_periods`. Stops producing `performance_metadata.error` on every dataset generation.
+- **L4**: `DatabaseJobManager.list_jobs` now merges in-memory and DB rows (deduped by id) so historical jobs survive in-memory eviction and operators retain forensic visibility.
+
+**Eval pipeline hardening — chain of 8 latent bugs surfaced by seed_demo_submission.py** (Apr 17–18):
+- `f62a197` guard `orbitAssociation` against infeasible cost matrix.
+- `20295f2` guard empty-DataFrame sort after infeasible-matrix fallback.
+- `d0a222d` fail-fast epoch sanity check on submission epochs.
+- `3d328a3` / `092449e` rebuild SV-mode associated DataFrame via iloc-slice (not list-of-Series).
+- `16db3b5` serialize stateMetrics + residualMetrics SV-mode pools.
+- `6661622` serial cost-column computation in SV mode to unblock Orekit.
+- `6d8ebdd` convert truth covariance from 21-element lower-triangular to 6×6.
+- `c27ae8f` force truth state/cov to float64 for `multivariate_normal`.
+- `b35c2da` guarantee UCTP `cov_matrix` is 6×6 float64 post-`generateCov`.
+- `6f4a4f1` safety-net `cov_matrix` on `associated_orbits` post-assoc.
+- `f3d522b` convert NaN/Inf to null in results JSON serialization (was crashing `JSONResponse`).
+
+**Frontend globe rescue** (Apr 18–19):
+- `5b4276e` / `41bcd74` Cesium entity graphics marshaled correctly (reverted from plain-object props back to `Graphics` class instances per Cesium's React error #31 guidance).
+- `7cbf1bd` dropped `creditContainer={undefined}` Viewer prop (Cesium strict type-check).
+- **`12c2f2b` pinned `resium` to `1.18.3`** — 1.18.4+ targets React 19 internals and silently crashes hidden behind our ErrorBoundary/SVG fallback. Upgrade blocked until React 18 → 19 migration.
+- `236dea0` disable CDN caching on SPA `index.html` so the globe fix actually ships to users.
+
+**Deploy hygiene** (Apr 17):
+- `51b56ba` / `e959d09` / `d9c38c3` `orekit-data.zip` un-LFS'd + tracked normally so Railway's Docker build can `COPY` it.
+- `487f078` / `cc2b506` Railway CLI deploys now stage the frontend dir in `/tmp` and use an empty `.railwayignore` so the CLI doesn't walk into the repo-root `.gitignore`.
+
+**e2e test stability** (Apr 17):
+- `84bd0d3` fixed M1/M2/M5/M6 + hardened C1/H1 guardrails per QA prod 2026-04-17 findings.
+- `5c88360` prod projects get 1 retry locally, 2 in CI.
+- `c5f64af` stabilize post-QA regressions.
+- `dea79aa` non-owner globe asserts no interactive globe, not no header.
+- `40c4995` `findUnownedId` uses ownership cross-check instead of probing optional `user_id`/`owner_id` fields.
+- `e814720` tighten waits on leaderboard/navigation/orbits specs.
+
 ## v2.0.1 (2026-04-09)
 
 ### Fixed

@@ -1,3 +1,7 @@
+> **ARCHIVED 2026-04-21** — This report is from **2026-03-25** and overlaps heavily with `archive/QA_DEEP_TEST_REPORT_2026-03-25.md`. Both are **superseded by** [`reports/QA_PROD_RUN_2026-04-17.md`](../reports/QA_PROD_RUN_2026-04-17.md) (with its 2026-04-21 Resolution section). Preserved here as historical record.
+
+---
+
 # UCT Benchmark - Comprehensive QA Test Results
 
 **Date**: 2026-03-25
