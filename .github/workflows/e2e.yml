@@ -23,11 +23,11 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        working-directory: ./UCT-Benchmark-DMR/combined
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        working-directory: ./UCT-Benchmark-DMR/combined
+        working-directory: ./UCT-Benchmark-DMR/combined/frontend
         run: npx playwright test --reporter=html
         env:
           CI: true
@@ -37,5 +37,5 @@ jobs:
         if: always()
         with:
           name: e2e-report
-          path: UCT-Benchmark-DMR/combined/test-results/
+          path: UCT-Benchmark-DMR/combined/frontend/test-results/
           retention-days: 14

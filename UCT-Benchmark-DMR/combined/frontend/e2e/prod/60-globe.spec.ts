@@ -28,12 +28,44 @@ async function getJwt(page: import('@playwright/test').Page): Promise<string> {
 }
 
 async function findOwnedId(request: APIRequestContext, jwt: string): Promise<string | null> {
-  const res = await request.get(`${API_BASE}/api/v1/datasets?mine=true&limit=1`, {
+  // Returns the first owned dataset regardless of reference-orbit status.
+  // Used by the generic "3D section renders" tests that don't need real data.
+  const res = await request.get(`${API_BASE}/api/v1/datasets?mine=true&limit=50`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
   const body = await res.json();
   const items = Array.isArray(body) ? body : body.items ?? [];
   return items.length > 0 ? String(items[0].id) : null;
+}
+
+async function findOwnedIdWithReferenceOrbits(
+  request: APIRequestContext,
+  jwt: string
+): Promise<string | null> {
+  // Used by the strict Cesium-canvas-mount test. The backend's summary
+  // `has_reference_orbits` is a weak EXISTS check on `dataset_references`
+  // that returns `true` even when the row has NULL foreign keys (see
+  // BACKLOG.md Section D — pre-Phase-1 datasets). So we verify by actually
+  // calling `/reference-orbits` and requiring `satellites.length > 0`
+  // before accepting a dataset as valid fixture for globe rendering.
+  const res = await request.get(`${API_BASE}/api/v1/datasets?mine=true&limit=50`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  const body = await res.json();
+  const items = Array.isArray(body) ? body : body.items ?? [];
+  for (const d of items) {
+    const r = await request.get(
+      `${API_BASE}/api/v1/datasets/${d.id}/reference-orbits`,
+      { headers: { Authorization: `Bearer ${jwt}` } }
+    );
+    if (!r.ok()) continue;
+    const payload = await r.json().catch(() => null);
+    const sats = payload?.satellites;
+    if (Array.isArray(sats) && sats.length > 0) {
+      return String(d.id);
+    }
+  }
+  return null;
 }
 
 async function findUnownedId(
@@ -112,10 +144,18 @@ test.describe('3D orbit globe visibility', () => {
     // This test expands the orbit card (if collapsed) and asserts that an
     // actual <canvas> mounted inside a .cesium-widget — the definitive
     // proof that resium/Cesium successfully rendered.
+    //
+    // Requires a dataset whose /reference-orbits returns non-empty
+    // `satellites` — without real data the viewer mounts but never shows
+    // a canvas, which is indistinguishable from a silent crash and would
+    // fail this test for the wrong reason. See findOwnedIdWithReferenceOrbits.
     const jwt = await getJwt(page);
-    const ownedId = await findOwnedId(request, jwt);
+    const ownedId = await findOwnedIdWithReferenceOrbits(request, jwt);
     if (!ownedId) {
-      test.skip(true, 'no owned datasets');
+      test.skip(
+        true,
+        'no owned dataset has real reference orbits — generate one as the test user or backfill to exercise this guard'
+      );
       return;
     }
 
