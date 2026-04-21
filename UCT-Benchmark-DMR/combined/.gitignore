@@ -14,6 +14,9 @@ __pycache__/
 *.duckdb
 *.duckdb.wal
 
+# Runtime caches (regenerated on first call — see eventDetection.fetch_breakup_events_combined)
+uct_benchmark/cache/
+
 # Uploads
 data/uploads/
 

@@ -1,14 +1,16 @@
 # UCT Benchmark - Vision Alignment Audit Report
 
-**Date:** 2026-04-02 (Updated)
-**Auditor:** Claude Opus 4.6 (1M context)
+**Date:** 2026-04-21 (content current through v2.0.2)
+**Auditor(s):** Claude Opus 4.6 (original audit, 2026-04-02) + Claude Opus 4.7 (updates through 2026-04-21, including Apr 8 threshold recalibration, Apr 16 composite-score + 3D globe, and Apr 17 end-to-end prod verification)
 **Scope:** Complete comparison of original requirements (Benchmarking Documentation, transcripts, reference code) vs. actual implementation
 
 ---
 
 ## Executive Summary
 
-The UCT Benchmark application captures approximately **75-80%** of the original vision described by Louis Caves and the AFRL Scholars team. The core evaluation pipeline (orbit association, binary metrics, state metrics, residual metrics) is **substantially implemented and algorithm-correct**. The dataset generation pipeline is largely implemented with all key algorithms present. The web platform (UI, authentication, leaderboard) goes **beyond** what was originally requested and represents a significant value-add. The primary gaps are operational rather than conceptual: Orekit dependency in production, event data sourcing, and a composite scoring system that was discussed but not formally implemented.
+The UCT Benchmark application captures approximately **~85%** of the original vision described by Louis Caves and the AFRL Scholars team (up from 75-80% at the Apr 2 baseline, reflecting closures through v2.0.2). The core evaluation pipeline (orbit association, binary metrics, state metrics, residual metrics) is **substantially implemented and algorithm-correct**. The dataset generation pipeline is largely implemented with all key algorithms present. The web platform (UI, authentication, leaderboard) goes **beyond** what was originally requested and represents a significant value-add.
+
+**What closed between Apr 2 and Apr 21:** (1) composite scoring now implemented and surfaced in the UI (Apr 8 + Apr 16, commits `f2fdd50`); (2) 3D orbit globe shipped with owner-gated visibility to preserve answer-key separation (Apr 16); (3) Orekit now reliably available in production after `orekit-data.zip` was un-LFS'd and shipped in the Docker image (Apr 17, commits `51b56ba` / `e959d09` / `d9c38c3`); (4) **first completed end-to-end submission in prod history** on 2026-04-17 — submission 44 against dataset 158, composite_score=1.0 — with 79/79 e2e specs green, surfacing + fixing a chain of 8 latent eval-pipeline bugs. The primary remaining gap is event data sourcing (the ML event-labeling team output was never integrated — acknowledged in the original Benchmarking Doc as "the ML Model is not operating").
 
 ---
 
@@ -122,7 +124,7 @@ The UCT Benchmark application captures approximately **75-80%** of the original 
 
 6. **3D Globe Visualization**: Mentioned by Aidan (Feb 19, line 473) as a UI enhancement. Implemented on Apr 16, 2026 at user's direction, behind strict answer-key gating on the dataset detail page to honour Louis's Apr 9 feedback — reference orbits are visible only to the dataset owner or an admin, never to other researchers.
 
-7. **End-to-End Evaluation in Production Without Orekit**: The evaluation pipeline (`run_evaluation_pipeline` in `workers.py`) imports `orbitAssociation`, `binaryMetrics`, `stateMetrics`. The full evaluation (state vector propagation, Mahalanobis distance, residual metrics) requires Orekit. Without Java/Orekit on the production server, evaluation is limited to binary metrics only.
+7. ~~**End-to-End Evaluation in Production Without Orekit**~~: **RESOLVED (2026-04-17)**. `orekit-data.zip` is now un-LFS'd and `COPY`'d into the backend Docker image (commits `51b56ba` / `e959d09` / `d9c38c3`). Production `/health` reports `orekit: available`. End-to-end evaluation confirmed working on 2026-04-17 via `scripts/seed_demo_submission.py` (commit `0879bdd`) — submission 44 against dataset 158 produced `composite_score=1.0` with full state and residual metrics, not just binary. The seed helper pushed farther through the pipeline than any prior real submission and surfaced a chain of 8 latent cov-matrix / DataFrame / NaN-serialization bugs, all fixed in v2.0.2.
 
 ---
 
@@ -298,12 +300,12 @@ The individual metrics are all implemented. What is missing is a **composite sco
 | **Data I/O Formats** | 95% | JSON schemas match documentation exactly for EO obs, TLEs, UCTP output. |
 | **Web Platform (UI/UX)** | 90% | Exceeds original scope. Auth, multi-user, leaderboard, submission tracking. |
 | **UCTP Output Validation** | 95% | Validates both SV and TLE formats. Accepts field name aliases. Covariance format checking. |
-| **External Integrations** | 75% | UDL, ESA, Space-Track all working. Orekit fragile in production. ML labeling absent. |
+| **External Integrations** | 90% | UDL, ESA, Space-Track all working. Orekit now reliably available in production (v2.0.2 deploy hygiene). ML labeling still absent (external blocker). |
 | **Scoring/Ranking System** | 60% | Individual metrics correct. Missing composite weighted score for leaderboard. |
 | **Event Labeling** | 15% | Infrastructure only. No real event data source. Doc noted ML model "not operating." |
 | **Sensor Diversity** | 30% | Optical only in practice per Louis's own statement. |
 
-**Overall Alignment: ~78%**
+**Overall Alignment: ~85%** *(bumped from 78% on 2026-04-21 — reflects composite scoring, 3D globe, Orekit-in-prod, and end-to-end verification closures from v2.0.1/v2.0.2)*
 
 ---
 
@@ -313,7 +315,7 @@ The individual metrics are all implemented. What is missing is a **composite sco
 
 1. **Implement Composite Scoring for Leaderboard**: Create a weighted scoring function combining F1 score, position RMS, and residual RMS into a single ranking metric. Add a `composite_score` column to `submission_results`. Louis explicitly described this multi-metric evaluation (Feb 19, lines 541-561). This is the most impactful gap in terms of the project's stated purpose.
 
-2. **Ensure Orekit Availability in Production**: The evaluation pipeline is the core value proposition. Without Orekit, submissions can only be scored on binary metrics (observation correlation), not on state accuracy (orbit estimation quality) or residual metrics. This eliminates 2 of the 3 evaluation categories.
+2. ~~**Ensure Orekit Availability in Production**~~: **RESOLVED (2026-04-17)**. `orekit-data.zip` is shipped in the backend Docker image (previously was LFS-tracked, which broke Railway's Docker `COPY`). Production `/health` now reports `orekit: available`. All three evaluation categories (binary, state, residual) run end-to-end in prod.
 
 ### Priority 2: Important but Acknowledged Limitations
 
@@ -321,7 +323,7 @@ The individual metrics are all implemented. What is missing is a **composite sco
 
 4. **Accept Sensor Limitation**: Louis explicitly stated optical-only was the plan until the pipeline was proven. The schema is ready for radar/RF when data becomes available.
 
-5. **Verify End-to-End Pipeline**: A submission should be uploaded, evaluated, and a PDF report generated in production. This is the MVP that Louis described (Jan 22): "they can upload their solution... we'll take their solution and we'll take the data set... and that's where we calculate the evaluation metrics."
+5. ~~**Verify End-to-End Pipeline**~~: **CONFIRMED (2026-04-17)**. Submission 44 against dataset 158 ran through generate → download → submit → evaluate → view results → leaderboard successfully in production (`composite_score=1.0`). 79/79 end-to-end specs pass on desktop-auth + mobile-safari-auth. First completed submission in prod history. Residual work: PDF report generation in the web flow (backend `generatePDF.py` exists but isn't wired into a user-facing download button yet).
 
 ### Priority 3: Enhancements
 
