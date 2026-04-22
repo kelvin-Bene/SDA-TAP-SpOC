@@ -1,5 +1,17 @@
 name: E2E Tests (Non-blocking)
 
+# Runs the prod-scope Playwright suite against the live Railway deployment.
+# Requires two repo secrets:
+#   PLAYWRIGHT_TEST_EMAIL    — email of the test user
+#   PLAYWRIGHT_TEST_PASSWORD — password of that user
+# (see frontend/e2e/auth.setup.ts). If the secrets are missing, the setup
+# project throws loudly and every auth-gated spec fails with a clear
+# "PLAYWRIGHT_TEST_EMAIL and PLAYWRIGHT_TEST_PASSWORD must be set" message.
+#
+# Still flagged continue-on-error: true until we've observed two consecutive
+# all-green runs with real secrets. Flip off in the Phase 3.3 follow-up
+# (see generated-docs/docs/planning/V2.0.3_WORKLIST.md).
+
 on:
   push:
     branches: [master]
@@ -24,13 +36,26 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: ./UCT-Benchmark-DMR/combined/frontend
-        run: npx playwright install --with-deps chromium
+        # chromium for desktop-auth + webkit for mobile-safari-auth.
+        # Without webkit, the mobile-parity specs fail on
+        # `browserType.launch: Executable doesn't exist`.
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: Run E2E tests
+      - name: Run E2E tests (prod scope)
         working-directory: ./UCT-Benchmark-DMR/combined/frontend
-        run: npx playwright test --reporter=html
+        # Only run the prod-scope projects — they hit the deployed Railway
+        # URLs directly and don't need a local dev server or backend running
+        # in CI. The dev-scope projects (default `desktop`, `mobile-safari`,
+        # etc.) require `npm run dev` + a live backend, which CI doesn't
+        # provide. Setup logs in once via auth.setup.ts and saves the
+        # storageState both auth projects then reuse.
+        run: npx playwright test --project=setup --project=desktop-auth --project=mobile-safari-auth --reporter=html
         env:
           CI: true
+          PLAYWRIGHT_BASE_URL: https://frontend-production-6d80.up.railway.app
+          PLAYWRIGHT_API_URL: https://backend-production-4b02.up.railway.app
+          PLAYWRIGHT_TEST_EMAIL: ${{ secrets.PLAYWRIGHT_TEST_EMAIL }}
+          PLAYWRIGHT_TEST_PASSWORD: ${{ secrets.PLAYWRIGHT_TEST_PASSWORD }}
 
       - name: Upload E2E report
         uses: actions/upload-artifact@v4
