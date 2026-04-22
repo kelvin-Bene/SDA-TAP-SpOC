@@ -35,17 +35,32 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Proxy API requests to backend
-    # BACKEND_URL is set via environment variable:
-    #   Docker Compose: http://backend:8000
-    #   Railway: http://backend.railway.internal:8000
+    # Proxy API requests to backend.
+    #
+    # The backend URL used to come from ${BACKEND_URL} via envsubst so a single
+    # template could serve Docker Compose (http://backend:8000), Railway
+    # production (http://backend.railway.internal:8000), and Railway demo.
+    # That stopped working on 2026-04-22 when Railway's internal DNS
+    # (`backend.railway.internal` via resolver 127.0.0.11) started failing to
+    # resolve for the frontend container — returning 502 on every /api/ and
+    # /health request for the better part of an hour with no platform
+    # workaround short of switching the URL entirely.
+    #
+    # Using the public backend URL (backend-production-4b02.up.railway.app)
+    # bypasses Railway's internal networking entirely and uses public DNS,
+    # which is always working. Tradeoff: ~50-100ms added latency per request
+    # (public edge TLS handshake + routing) vs the guarantee that the
+    # frontend proxy survives Railway private-network hiccups. Revert to
+    # ${BACKEND_URL}/api/ once Railway's internal DNS is confirmed stable
+    # across multiple backend redeploys.
     location /api/ {
-        set $backend ${BACKEND_URL};
-        proxy_pass $backend/api/;
-        proxy_set_header Host $host;
+        proxy_pass https://backend-production-4b02.up.railway.app/api/;
+        proxy_set_header Host backend-production-4b02.up.railway.app;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_ssl_server_name on;
+        proxy_ssl_name backend-production-4b02.up.railway.app;
 
         # Long timeout for dataset generation and evaluation jobs
         proxy_read_timeout 300s;
@@ -60,9 +75,10 @@ server {
 
     # Proxy health check to backend
     location /health {
-        set $backend ${BACKEND_URL};
-        proxy_pass $backend/health;
-        proxy_set_header Host $host;
+        proxy_pass https://backend-production-4b02.up.railway.app/health;
+        proxy_set_header Host backend-production-4b02.up.railway.app;
+        proxy_ssl_server_name on;
+        proxy_ssl_name backend-production-4b02.up.railway.app;
     }
 
     # SPA fallback: all other routes serve index.html.
