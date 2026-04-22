@@ -1,5 +1,72 @@
 # Changelog
 
+## v2.0.3 (2026-04-22)
+
+### Fixed — 3D globe in production
+
+The v2.0.2 `VISION_ALIGNMENT_AUDIT` claimed the 3D globe was working in
+prod. It wasn't — first visual verification revealed `/reference-orbits`
+failing with `Propagation failed for sat N: Attempt to create Java
+package 'java' without jvm`, the Results page Orbits tab falsely
+blocking Reference mode, and nginx → backend 502s from Railway internal
+DNS outages. Six-commit fix train landed the feature end-to-end:
+
+- **`d81e150`** — Eager `warm_jvm()` at FastAPI lifespan startup
+  (`main.py`) + `/predictions` graceful degrade when UCTP file gone
+  (`submissions.py`). With `include=reference`, we now return 200 with
+  `predicted:[]` and `reference:[…]` instead of 410, so the Results
+  page Reference view renders for historical submissions whose UCTP
+  files have been cleaned from storage.
+- **`189695f`** — `orekit.initVM()` must run BEFORE `from
+  orekit_jpype.pyhelpers import setup_orekit_curdir` in
+  `ephemerisPropagator` + `monteCarloPropagator`. The pyhelpers module
+  executes `from java.io import File` at import time, which fails
+  without a running JVM. `TLEpropagator` already had the correct
+  ordering — which is why eval workers happened to work (they hit TLE
+  propagation first, seeding the sys.modules cache). Web-path globe
+  endpoints tripped the broken order on the first call in the process.
+- **`7698337`** — `nginx.conf.template` hardcoded to proxy
+  `/api/` + `/health` to the public backend URL
+  (`backend-production-4b02.up.railway.app`). Railway's internal DNS
+  (`backend.railway.internal` via resolver 127.0.0.11) stopped
+  resolving on 2026-04-22 for ~an hour, 502'ing every proxied request.
+  Public URL survives that class of outage at ~50-100ms per-request
+  latency cost. Revert to `${BACKEND_URL}` once internal networking
+  confirmed stable across multiple redeploys.
+- **`5eb6f0b`** — Backend `SecurityHeadersMiddleware` sets
+  `Cache-Control: no-store, no-cache, must-revalidate, private` +
+  `Pragma: no-cache` on `/api/*` and `/health` responses. Frontend
+  axios client sends `Cache-Control: no-cache` with each request.
+  Together these bust stuck browser 410 caches (per RFC 7234 §4.2.2
+  browsers cache 4xx responses indefinitely when no Cache-Control is
+  set — which is how a single transient backend error can persist in
+  a client session).
+- **`f817ea8`** — CORS `allow_headers` extended with `Cache-Control`
+  + `Pragma`. Without this the axios header above triggered preflight
+  failures and all `/api/` calls 400'd.
+- **`ae7a8b1`** — `VISION_ALIGNMENT_AUDIT.md` Priority 2 #2 + Missing
+  Features #7 + Priority 2 #5 promoted back to RESOLVED after
+  Claude-in-Chrome visual confirmation (1101×499 Cesium canvas
+  mounting on `/results/47` with real satellite tracks).
+
+### Prod verification
+
+- `GET /api/v1/datasets/153/reference-orbits` → 200, `satellites:[1]`
+- `GET /api/v1/datasets/158/reference-orbits` → 403 (correct
+  owner-gate behavior; was 502 pre-fix)
+- `GET /api/v1/submissions/47/predictions?include=reference` → 200,
+  `predicted:[]` `reference:[1]`
+- Prod Playwright: **85/92 passed, 0 failed, 7 skipped**
+  (intentional fixture-skip)
+- Claude-in-Chrome: Orbits tab → Reference toggle → Cesium canvas
+  renders with "Showing 1 satellites", full viewer UI (regime pills,
+  time slider, zoom/rotate hints)
+
+### Alignment bump
+
+Overall Alignment 82% → **87%**. External Integrations 85% → **92%**.
+See `reports/VISION_ALIGNMENT_AUDIT.md`.
+
 ## v2.0.2 (2026-04-20)
 
 ### Added

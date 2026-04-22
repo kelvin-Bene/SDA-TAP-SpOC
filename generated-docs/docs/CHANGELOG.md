@@ -2,6 +2,57 @@
 
 All notable changes to the UCT Benchmark project.
 
+## [2.0.3] - 2026-04-22
+
+### 3D Globe — End-to-End Working in Production
+
+The v2.0.2 audit prematurely marked Orekit-in-prod and end-to-end
+globe rendering as RESOLVED. First actual visual verification caught
+a silent failure chain that took six commits to unwind:
+
+- **`d81e150`** — Eager `warm_jvm()` at FastAPI startup + `/predictions`
+  graceful degrade when UCTP file is gone. With `include=reference`,
+  200 with `predicted:[]` + `reference:[...]` replaces the prior 410.
+- **`189695f`** — `orekit.initVM()` reordered to run BEFORE
+  `from orekit_jpype.pyhelpers import setup_orekit_curdir` in both
+  `ephemerisPropagator` and `monteCarloPropagator`. `pyhelpers` does
+  `from java.io import File` at module-load time — needs the JVM up.
+  `TLEpropagator` already had the correct pattern.
+- **`7698337`** — nginx proxy hardcoded to public backend URL
+  (`backend-production-4b02.up.railway.app`). Railway's internal DNS
+  for `backend.railway.internal` started 502'ing on 2026-04-22;
+  public URL bypass is reliable at a minor latency cost.
+- **`5eb6f0b`** — Backend `Cache-Control: no-store` on `/api/*` +
+  frontend axios `Cache-Control: no-cache` request-side header. Busts
+  stuck browser caches of 410 responses (RFC 7234 §4.2.2 default
+  behavior makes 4xx cacheable forever absent Cache-Control).
+- **`f817ea8`** — CORS `allow_headers` extended with `Cache-Control`
+  + `Pragma`. Without this the preceding commit broke preflight.
+- **`ae7a8b1`** — `VISION_ALIGNMENT_AUDIT.md` claims promoted back
+  to RESOLVED after verification.
+
+### Verified on prod
+
+- Authenticated curl:
+  - `/api/v1/datasets/153/reference-orbits` → 200 with `satellites:[1]`
+    (sat 42915, 100 propagated positions)
+  - `/api/v1/datasets/158/reference-orbits` → 403 (correct non-owner
+    gate; was 502 pre-fix)
+  - `/api/v1/submissions/47/predictions?include=reference` → 200 with
+    `predicted:[]` + `reference:[1]` (SAT-26360 MEO, 120 positions)
+  - `/api/v1/submissions/47/predictions` (no reference) → 410 (contract
+    preserved)
+- Prod Playwright: 85 passed / 7 skipped / 0 failed (up from 83/8/1)
+- Claude-in-Chrome visual: `.cesium-widget canvas` 1101×500 mounts for
+  owner on `/results/47` → Orbits tab → Reference toggle, with real
+  satellite tracks rendering and full Cesium viewer UI.
+
+### Alignment
+
+Overall Alignment: 82% → **87%**. External Integrations: 85% → **92%**.
+
+---
+
 ## [2.0.2] - 2026-04-20
 
 ### Vision Alignment (Apr 16)

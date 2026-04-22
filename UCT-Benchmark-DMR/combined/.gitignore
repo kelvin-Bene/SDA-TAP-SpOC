@@ -14,8 +14,12 @@ __pycache__/
 *.duckdb
 *.duckdb.wal
 
-# Runtime caches (regenerated on first call — see eventDetection.fetch_breakup_events_combined)
+# Runtime caches (regenerated on first call):
+#   - uct_benchmark/cache/: eventDetection.fetch_breakup_events_combined
+#   - cache/: backend_api/services/orbit_propagation.py (orbit_viz disk cache,
+#     written relative to CWD when the backend runs from combined/)
 uct_benchmark/cache/
+cache/
 
 # Uploads
 data/uploads/
