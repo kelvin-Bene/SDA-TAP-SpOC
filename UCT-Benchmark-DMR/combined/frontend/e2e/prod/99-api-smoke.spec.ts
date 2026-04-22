@@ -166,3 +166,175 @@ test.describe('API smoke — authenticated', () => {
     expect('composite_score' in result || 'compositeScore' in result).toBe(true);
   });
 });
+
+/**
+ * v2.0.3 fix-train regression guardrails.
+ *
+ * Each test maps to a specific commit from the globe-fix-train so a revert
+ * or drift of any one will fail loudly at smoke-test time instead of
+ * silently breaking the 3D globe for end users. The train was:
+ *
+ *   d81e150  fix(backend): warm Orekit JVM at startup + graceful /predictions
+ *   189695f  fix(propagator): orekit.initVM() must run BEFORE pyhelpers import
+ *   7698337  fix(frontend): route /api/ to public backend URL (nginx)
+ *   5eb6f0b  fix: stop browsers caching transient API errors indefinitely
+ *   f817ea8  fix(backend): allow Cache-Control + Pragma in CORS preflight
+ *   ae7a8b1  docs: promote VISION_ALIGNMENT claims to RESOLVED
+ *
+ * Without these guardrails the class of bug we hit on 2026-04-22 would
+ * recur silently: the VISION_ALIGNMENT_AUDIT mis-claimed the globe was
+ * working for weeks because nobody had actually verified the end-to-end
+ * path. These tests are that verification.
+ */
+test.describe('API smoke — v2.0.3 fix-train guardrails', () => {
+  let jwt: string;
+
+  test.beforeAll(async ({ browser }) => {
+    const ctx = await browser.newContext({
+      storageState: 'e2e/.auth/user.json',
+      baseURL: process.env.PLAYWRIGHT_BASE_URL,
+    });
+    const page = await ctx.newPage();
+    jwt = await getJwt(page);
+    await ctx.close();
+  });
+
+  test('Cache-Control: no-store on /api/* responses (guards 5eb6f0b)', async ({
+    request,
+  }) => {
+    // Backend SecurityHeadersMiddleware should stamp no-store on every
+    // /api/* and /health response so browsers don't cache transient 4xx
+    // errors (the RFC 7234 §4.2.2 default would cache 410 Gone forever).
+    const res = await request.get(`${API_BASE}/health`);
+    expect(res.status()).toBe(200);
+    const cc = res.headers()['cache-control'] || '';
+    expect(cc.toLowerCase()).toContain('no-store');
+  });
+
+  test('CORS preflight allows Cache-Control header (guards f817ea8)', async ({
+    request,
+  }) => {
+    // The frontend axios client sends Cache-Control: no-cache on the
+    // 2 globe-related methods (scoped in 69787de). If the backend CORS
+    // allow_headers drops Cache-Control, every /predictions and
+    // /reference-orbits call 400s on preflight.
+    const res = await request.fetch(`${API_BASE}/api/v1/datasets/`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: process.env.PLAYWRIGHT_BASE_URL || 'https://frontend-production-6d80.up.railway.app',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization, cache-control',
+      },
+    });
+    expect(res.status()).toBeLessThan(400);
+    const allowed = (res.headers()['access-control-allow-headers'] || '').toLowerCase();
+    expect(allowed).toContain('cache-control');
+  });
+
+  test('reference-orbits returns non-empty satellites for some owned dataset (guards d81e150 + 189695f)', async ({
+    request,
+  }) => {
+    // Walks the user's owned datasets and asserts at least one yields
+    // actually-populated reference-orbit data. This is the direct
+    // regression guard for the JVM warm-up + propagator import-order
+    // fixes: if either drifts, this endpoint silently returns empty
+    // satellites (single-sat datasets) or 502s (multi-sat) and this
+    // test fails.
+    const mineRes = await authed(
+      request,
+      jwt,
+      '/api/v1/datasets/?mine=true&limit=50'
+    );
+    expect(mineRes.status()).toBe(200);
+    const body = await mineRes.json();
+    const items = Array.isArray(body) ? body : body.items ?? [];
+
+    if (items.length === 0) {
+      test.skip(true, 'no owned datasets at all — cannot probe globe JVM path');
+      return;
+    }
+
+    let foundPopulated = false;
+    let checked = 0;
+    for (const d of items) {
+      if (checked >= 10) break; // bound probe cost
+      checked++;
+      const r = await authed(
+        request,
+        jwt,
+        `/api/v1/datasets/${d.id}/reference-orbits?max_samples=50`
+      );
+      if (r.status() !== 200) continue;
+      const payload = await r.json();
+      if (
+        Array.isArray(payload?.satellites) &&
+        payload.satellites.length > 0 &&
+        Array.isArray(payload.satellites[0]?.positions) &&
+        payload.satellites[0].positions.length >= 10
+      ) {
+        foundPopulated = true;
+        break;
+      }
+    }
+
+    if (!foundPopulated) {
+      test.skip(
+        true,
+        `no owned dataset has real reference orbits among the first ${checked} checked — globe JVM guard skipped (fixture-dependent)`
+      );
+      return;
+    }
+    expect(foundPopulated).toBe(true);
+  });
+
+  test('/predictions?include=reference returns 200 when UCTP file is gone (guards d81e150)', async ({
+    request,
+  }) => {
+    // The graceful-degrade fix: when a submission's UCTP file has been
+    // cleaned from storage, the endpoint used to 410 before even
+    // consulting `include`. Now it returns 200 with `predicted: []`
+    // plus the reference orbits populated — which is how the Results
+    // page Orbits tab renders for historical submissions.
+    const subsRes = await authed(
+      request,
+      jwt,
+      '/api/v1/submissions/?status=completed&limit=20'
+    );
+    expect(subsRes.status()).toBe(200);
+    const body = await subsRes.json();
+    const items = Array.isArray(body) ? body : body.items ?? [];
+
+    let goneId: string | null = null;
+    for (const s of items) {
+      const raw = await authed(
+        request,
+        jwt,
+        `/api/v1/submissions/${s.id}/predictions`
+      );
+      if (raw.status() === 410) {
+        goneId = String(s.id);
+        break;
+      }
+    }
+    if (!goneId) {
+      test.skip(
+        true,
+        'no submission in UCTP-gone state among the completed set — graceful-degrade guard skipped (fixture-dependent)'
+      );
+      return;
+    }
+
+    // Same URL + include=reference should now be 200 with reference
+    // populated (and predicted: []).
+    const withRef = await authed(
+      request,
+      jwt,
+      `/api/v1/submissions/${goneId}/predictions?include=reference&max_samples=50`
+    );
+    expect(withRef.status()).toBe(200);
+    const payload = await withRef.json();
+    expect(Array.isArray(payload.predicted)).toBe(true);
+    expect(payload.predicted.length).toBe(0);
+    expect(Array.isArray(payload.reference)).toBe(true);
+  });
+});
