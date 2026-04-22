@@ -97,10 +97,19 @@ export function StatCard({
         )}
       />
 
-      {/* Background gradient */}
+      {/* Background gradient glow.
+          translate-y-1/2 / translate-x-1/2 WAS here to half-clip the halo off
+          the top-right corner, but on iPhone SE (375px viewport) that pushed
+          the 128px halo's bounding box to x=422 — 47px past the viewport.
+          Webkit counts that in scrollWidth even though the parent's
+          overflow-hidden visually clips it, which flagged a horizontal-overflow
+          failure in the prod Playwright mobile-parity spec (see
+          90-mobile-parity.spec.ts:14). Dropping the translates keeps the halo
+          contained within the card — the blur + gradient still produces the
+          glow effect. */}
       <div
         className={cn(
-          'absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity -translate-y-1/2 translate-x-1/2 bg-gradient-to-br',
+          'absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br',
           styles.gradient
         )}
       />
