@@ -89,6 +89,23 @@ done
 echo "  ✓ done. Images present:"
 docker images | grep -E "sda-tap-spoc|ollama|REPOSITORY" || true
 
+# Try to pull the latest ollama image so gemma4 and other recent models
+# work reliably. This is the preferred path when the Spark has internet
+# (~3 GB one-time download). If pull fails (offline install), fall back to
+# tagging the bundled 0.14.1 as :latest so docker compose can find it —
+# this fallback MAY not run gemma4 at runtime (see compose file comment).
+echo
+echo "→ Stage 2a: Ensuring ollama:latest is available..."
+if docker pull ollama/ollama:latest 2>/dev/null; then
+    echo "  ✓ pulled ollama/ollama:latest (gemma4 will work)"
+else
+    echo "  WARN: could not pull ollama/ollama:latest (no internet?)"
+    echo "        Tagging bundled 0.14.1 as :latest for offline install."
+    echo "        NOTE: 0.14.1 may not run gemma4:e4b — if LLM features fail,"
+    echo "        connect to internet and rerun install-on-spark.sh."
+    docker tag ollama/ollama:0.14.1 ollama/ollama:latest
+fi
+
 # ---------------------------------------------------------------------------
 # Stage 2.5: Restore the Ollama model volume (Phase 2 AI features)
 # ---------------------------------------------------------------------------
@@ -96,7 +113,9 @@ docker images | grep -E "sda-tap-spoc|ollama|REPOSITORY" || true
 # The model weights live in a Docker named volume called dgx_ollama_models
 # (declared in docker-compose.dgx.yml). prepare-package.sh tarred the staging
 # directory into models/ollama-models.tar; here we untar it into the volume
-# using a one-shot alpine container as the conduit.
+# using the already-loaded local/sda-tap-spoc-backend:dgx image as the tar
+# conduit (backend is eclipse-temurin:17-jre-jammy which ships with tar).
+# This avoids needing to pull alpine from Docker Hub — fully offline.
 #
 # The model is OPTIONAL — if the package doesn't include a models/ tarball,
 # the AI features will return 503 from the LLM endpoints but the rest of
@@ -107,11 +126,16 @@ echo "→ Stage 2.5/6: Restoring Ollama model volume (Phase 2)..."
 if [[ -f "$PACKAGE_DIR/models/ollama-models.tar" ]]; then
     docker volume create dgx_ollama_models >/dev/null
     echo "  → untarring $(du -h "$PACKAGE_DIR/models/ollama-models.tar" 2>/dev/null | cut -f1) into dgx_ollama_models volume..."
+    # Use local/sda-tap-spoc-backend:dgx (already loaded in Stage 2) as the tar
+    # conduit. The backend image is eclipse-temurin:17-jre-jammy-based (Ubuntu)
+    # which ships with tar. This avoids needing to pull alpine:latest from
+    # Docker Hub — keeps the install fully offline-capable.
     docker run --rm \
         -v dgx_ollama_models:/dst \
         -v "$PACKAGE_DIR/models:/src:ro" \
-        alpine:latest \
-        tar -C /dst -xf /src/ollama-models.tar
+        --entrypoint tar \
+        local/sda-tap-spoc-backend:dgx \
+        -C /dst -xf /src/ollama-models.tar
     echo "  ✓ Ollama model restored to dgx_ollama_models volume"
 else
     echo "  WARN: no models/ollama-models.tar in package — AI features will not work"

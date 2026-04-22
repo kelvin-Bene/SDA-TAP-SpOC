@@ -117,11 +117,11 @@ services:
   # restore in install-on-spark.sh stage 2.5. This keeps the Ollama image
   # small (~800 MB) and the model swap-able without rebuilding.
   ollama:
-    # 0.14.1 is the newest stable tag as of April 2026 that knows about
-    # qwen3.5 and the other recent Ollama library entries. Ollama's
-    # 0.6.0 returns a 412 "please upgrade" when asked to pull qwen3.5
-    # because the manifest format changed after 0.10.
-    image: ollama/ollama:0.14.1
+    # Use :latest so gemma4 (released April 2026) and any future model the
+    # operator pulls will work. install-on-spark.sh tries to pull :latest
+    # on first install; if offline it falls back to tagging the bundled
+    # 0.14.1 as :latest, with a caveat that gemma4 may not run on 0.14.1.
+    image: ollama/ollama:latest
     profiles:
       - gpu
     environment:
