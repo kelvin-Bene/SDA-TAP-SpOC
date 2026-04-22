@@ -94,8 +94,12 @@ def warm_jvm() -> None:
         ephemerisPropagator(state, epoch, [epoch + timedelta(seconds=60)])
         _JVM_WARMED = True
         logger.info("Orekit JVM warmed up for orbit_propagation service")
-    except Exception as e:  # pragma: no cover - infrastructure warm-up
-        logger.warning("Orekit JVM warm-up failed (will lazy-init on first request): %s", e)
+    except Exception:  # pragma: no cover - infrastructure warm-up
+        # Use logger.exception so the traceback reaches Railway logs — the
+        # prior bare `warning(..., e)` swallowed the real cause (JPype/JVM
+        # init details, missing orekit-data, etc.), leaving us debugging
+        # blind when `/reference-orbits` quietly returned empty satellites.
+        logger.exception("Orekit JVM warm-up failed (will lazy-init on first request)")
 
 
 def _read_cache(path: Path) -> Optional[list[SatelliteTrack]]:

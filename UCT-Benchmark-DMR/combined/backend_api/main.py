@@ -168,6 +168,27 @@ async def lifespan(app: FastAPI):
     job_manager = init_job_manager(db=db)
     logger.info("Job manager initialized (with DB persistence)")
 
+    # Warm Orekit JVM eagerly so /reference-orbits and /predictions don't
+    # race to lazy-init in the request path. In prod we observed the first
+    # `orekit.initVM()` call failing silently when triggered from a uvicorn
+    # request thread (Propagation failed for sat NNN: "Attempt to create
+    # Java package 'java' without jvm"), which left the class loader
+    # poisoned for the rest of the process and made every subsequent
+    # /reference-orbits response either empty (single-sat) or 502
+    # (multi-sat). Eval workers were unaffected because they ran inside
+    # ThreadPoolExecutor threads that paid the init cost themselves.
+    # Calling warm_jvm here forces the one-time init to happen during
+    # container boot, before the first HTTP request.
+    try:
+        from backend_api.services.orbit_propagation import warm_jvm
+        warm_jvm()
+        logger.info("Orekit JVM warmed at startup")
+    except Exception as e:
+        # Deliberately not re-raising — we still want the app to serve
+        # non-globe endpoints even if warm-up fails. The real traceback
+        # is logged by warm_jvm's own logger.exception.
+        logger.error(f"Orekit JVM warm-up failed at startup: {e}")
+
     yield
 
     # Shutdown

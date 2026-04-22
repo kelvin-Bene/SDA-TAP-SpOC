@@ -352,13 +352,21 @@ async def get_submission_predictions(
     row_dict = dict(zip(cols, row))
 
     file_path_str = row_dict.get("file_path")
-    if not file_path_str:
-        raise HTTPException(
-            status_code=404,
-            detail="Submission has no UCTP file persisted (still queued or removed)",
-        )
-    uctp_path = Path(file_path_str)
-    if not uctp_path.exists():
+    uctp_path = Path(file_path_str) if file_path_str else None
+    uctp_gone = uctp_path is None or not uctp_path.exists()
+
+    # Only hard-fail when reference wasn't requested. If the client passed
+    # `?include=reference` we can still return the dataset's reference
+    # orbits even when the UCTP predictions file has been cleaned from
+    # storage — that's strictly more useful than a 410 that blocks BOTH
+    # the Predicted and Reference views on the Results page Orbits tab.
+    want_reference = bool(include) and "reference" in include.lower()
+    if uctp_gone and not want_reference:
+        if not file_path_str:
+            raise HTTPException(
+                status_code=404,
+                detail="Submission has no UCTP file persisted (still queued or removed)",
+            )
         raise HTTPException(
             status_code=410,
             detail="UCTP file is no longer available on disk",
@@ -369,14 +377,16 @@ async def get_submission_predictions(
         propagate_reference_orbits,
     )
 
-    predicted_tracks = propagate_predictions(
-        uctp_path=uctp_path,
-        submission_id=sub_id_int,
-        max_samples=max_samples,
-    )
+    predicted_tracks = []
+    if not uctp_gone:
+        predicted_tracks = propagate_predictions(
+            uctp_path=uctp_path,
+            submission_id=sub_id_int,
+            max_samples=max_samples,
+        )
 
     reference_tracks = None
-    if include and "reference" in include.lower():
+    if want_reference:
         dataset_id = row_dict.get("dataset_id")
         if dataset_id is not None:
             reference_tracks = propagate_reference_orbits(
