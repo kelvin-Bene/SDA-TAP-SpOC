@@ -1468,12 +1468,6 @@ def run_evaluation_pipeline(
         #    dataset generation, see Phase 1 persistence block).
         # --------------------------------------------------------------
         ref_refs = db.datasets.get_dataset_references(dataset_id)
-        if ref_refs.empty:
-            raise ValueError(
-                f"Dataset {dataset_id} has no reference state vectors persisted. "
-                f"Re-generate the dataset with the post-Phase-1 worker before "
-                f"evaluating, or ask an admin to backfill dataset_references."
-            )
 
         ref_sv = db.adapter.fetchdf(
             """
@@ -1498,12 +1492,44 @@ def run_evaluation_pipeline(
             """,
             (dataset_id,),
         )
+
+        # DGX local edition ships a subset seed dataset (observations +
+        # satellite catalog only — no truth state vectors). Surface the
+        # missing-truth case as a zero-score completed submission so the
+        # demo flow (upload → leaderboard) keeps working. Cloud still raises
+        # with the original, actionable error message.
         if ref_sv.empty:
-            raise ValueError(
-                f"Dataset {dataset_id} has dataset_references entries but no "
-                f"linked state_vectors rows. Dataset is corrupt; re-generate."
-            )
-        ref_sv["epoch"] = pd.to_datetime(ref_sv["epoch"])
+            if os.getenv("LOCAL_DGX_MODE", "").lower() == "true":
+                logger.warning(
+                    f"DGX local: dataset {dataset_id} has no truth state vectors — "
+                    f"producing zero-score completed submission for demo."
+                )
+                # Build empty DataFrame with the schema downstream code expects
+                # so ref_sv["col"] accesses return empty Series instead of
+                # KeyError. The cherry-picked infeasible-cost-matrix guard in
+                # orbitAssociation (f62a197) + the stateMetrics/residualMetrics
+                # empty-output fallbacks already in this worker cascade this
+                # through to composite_score=0 with status="completed".
+                ref_sv = pd.DataFrame(columns=[
+                    "satNo", "epoch",
+                    "xpos", "ypos", "zpos", "xvel", "yvel", "zvel",
+                    "cov_matrix",
+                    "mass", "crossSection", "dragCoeff", "solarRadPressCoeff",
+                ])
+            elif ref_refs.empty:
+                raise ValueError(
+                    f"Dataset {dataset_id} has no reference state vectors persisted. "
+                    f"Re-generate the dataset with the post-Phase-1 worker before "
+                    f"evaluating, or ask an admin to backfill dataset_references."
+                )
+            else:
+                raise ValueError(
+                    f"Dataset {dataset_id} has dataset_references entries but no "
+                    f"linked state_vectors rows. Dataset is corrupt; re-generate."
+                )
+
+        if not ref_sv.empty:
+            ref_sv["epoch"] = pd.to_datetime(ref_sv["epoch"])
 
         # Truth covariance is stored as a 21-element lower-triangular list
         # for UDL-sourced state_vectors (the Benchmarking Doc §State Vector
@@ -1590,7 +1616,15 @@ def run_evaluation_pipeline(
         #    velocity errors via flat RMS across satellites, and average
         #    Mahalanobis distance (per Louis Feb 19 "states are off").
         # --------------------------------------------------------------
-        state_df = stateMetrics(ref_sv, associated_orbits, monteCarloPropagator)
+        # stateMetrics crashes on empty associated_orbits (accesses
+        # associated_orbits["epoch"] in _propRef without a column guard).
+        # Skip the call and use the zero-score fallback when nothing was
+        # associated — this happens naturally on DGX when the seed dataset
+        # has no truth state vectors and orbitAssociation returns empty.
+        if ref_sv.empty or associated_orbits.empty:
+            state_df = None
+        else:
+            state_df = stateMetrics(ref_sv, associated_orbits, monteCarloPropagator)
         if state_df is None or state_df.empty:
             state_results: Dict[str, Any] = {
                 "position_rms_km": 0.0,

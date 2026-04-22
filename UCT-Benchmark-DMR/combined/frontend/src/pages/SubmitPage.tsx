@@ -81,7 +81,15 @@ export function SubmitPage() {
   // date-based heuristic — some post-Apr-9 datasets still failed generation's
   // reference-persistence step, so date alone was insufficient
   // (QA_PROD_RUN_2026-04-17 C1).
-  const availableDatasets = datasets.filter((d) => d.id && d.hasReferenceOrbits);
+  //
+  // DGX local edition: the bundled DGX_SEED_SAMPLE dataset ships without
+  // truth state vectors (observations + satellite catalog only — enough for
+  // a compelling demo). On DGX we skip the gate so the student can upload
+  // to the seed dataset. The cloud path still enforces the gate.
+  const isLocalDgx = import.meta.env.VITE_LOCAL_DGX_MODE === 'true';
+  const availableDatasets = isLocalDgx
+    ? datasets.filter((d) => d.id)
+    : datasets.filter((d) => d.id && d.hasReferenceOrbits);
 
   const runValidation = async (uploadedFile: File) => {
     setIsValidating(true);
