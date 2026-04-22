@@ -8,9 +8,10 @@ name: E2E Tests (Non-blocking)
 # project throws loudly and every auth-gated spec fails with a clear
 # "PLAYWRIGHT_TEST_EMAIL and PLAYWRIGHT_TEST_PASSWORD must be set" message.
 #
-# Still flagged continue-on-error: true until we've observed two consecutive
-# all-green runs with real secrets. Flip off in the Phase 3.3 follow-up
-# (see generated-docs/docs/planning/V2.0.3_WORKLIST.md).
+# continue-on-error: true is intentional (per 2026-04-22 decision in
+# generated-docs/docs/planning/V2.0.3_WORKLIST.md §3.3) — this workflow
+# is informational signal, not a merge gate. Flip it off if that policy
+# changes later.
 
 on:
   push:
