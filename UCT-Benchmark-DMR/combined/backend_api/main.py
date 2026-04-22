@@ -219,7 +219,7 @@ _is_production = bool(os.getenv("CORS_ORIGINS"))
 
 app = FastAPI(
     title="UCT Benchmark API",
-    version="2.0.0",
+    version="2.0.3",
     description="Backend API for the UCT Benchmark platform",
     lifespan=lifespan,
     docs_url=None if _is_production else "/docs",
