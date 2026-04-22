@@ -351,7 +351,12 @@ app.add_middleware(
     allow_origins=cors_origins,
     allow_credentials=_cors_explicit,  # Only allow credentials when origins are explicitly configured
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    # Cache-Control is on this list because the frontend axios client sends
+    # `Cache-Control: no-cache` on every request (see frontend/src/api/client.ts)
+    # to bust browser HTTP caches of stale 410 responses. Without it here,
+    # preflight OPTIONS 400s and every API call fails with CORS — regression
+    # briefly shipped on 2026-04-22.
+    allow_headers=["Authorization", "Cache-Control", "Content-Type", "Accept", "Origin", "Pragma", "X-Requested-With"],
 )
 
 # Security headers middleware (S6) — inner to CORS so CORS headers are always present
