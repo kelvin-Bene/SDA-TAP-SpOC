@@ -7,20 +7,18 @@ export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    // Pair with the backend's `Cache-Control: no-store` middleware
-    // (backend_api/main.py SecurityHeadersMiddleware). This request-side
-    // header tells the browser to revalidate any cached API response
-    // against the server before using it, which is what un-busts stuck
-    // 410s that pre-fix browsers may have cached indefinitely (4xx
-    // responses are cacheable by default per RFC 7234 §4.2.2 when no
-    // Cache-Control is set). Without this header on requests, old
-    // cached error states can keep rendering in the UI even after the
-    // server stops serving them — which is exactly what happened on
-    // 2026-04-22 with the Results page Orbits tab after we shipped the
-    // /predictions graceful-degrade fix.
-    'Cache-Control': 'no-cache',
   },
 });
+
+// Cache-Control: no-cache is added to specific GET methods that previously
+// returned cacheable 4xx responses (getSubmissionPredictions,
+// getDatasetReferenceOrbits) — see the exports below. The backend's
+// SecurityHeadersMiddleware sets Cache-Control: no-store on all /api/*
+// responses now, so new requests don't produce cacheable errors; the
+// per-request header is only for busting browser caches that still hold
+// pre-fix 410s for those specific URLs. Applying it globally (as we did
+// briefly in 5eb6f0b/f817ea8) forced a CORS preflight on every GET —
+// which worked but added ~50ms latency to every authenticated read.
 
 // Request interceptor for auth token - uses Supabase session JWT
 apiClient.interceptors.request.use(
@@ -165,7 +163,12 @@ export const api = {
     apiClient.get(`/datasets/${id}/versions`),
 
   getDatasetReferenceOrbits: (id: string, params?: { start?: string; end?: string; max_samples?: number }) =>
-    apiClient.get(`/datasets/${id}/reference-orbits`, { params }),
+    // Cache-Control: no-cache busts pre-2026-04-22 browser caches holding
+    // stuck error responses for this endpoint. See apiClient comment above.
+    apiClient.get(`/datasets/${id}/reference-orbits`, {
+      params,
+      headers: { 'Cache-Control': 'no-cache' },
+    }),
 
   // Submissions
   getSubmissions: (params?: Record<string, string>) =>
@@ -175,7 +178,12 @@ export const api = {
     apiClient.get(`/submissions/${id}`),
 
   getSubmissionPredictions: (id: string, params?: { include?: string; max_samples?: number }) =>
-    apiClient.get(`/submissions/${id}/predictions`, { params }),
+    // Cache-Control: no-cache busts pre-2026-04-22 browser caches holding
+    // stuck 410 responses for this endpoint. See apiClient comment above.
+    apiClient.get(`/submissions/${id}/predictions`, {
+      params,
+      headers: { 'Cache-Control': 'no-cache' },
+    }),
 
   createSubmission: (formData: FormData) =>
     apiClient.post('/submissions/', formData, {
