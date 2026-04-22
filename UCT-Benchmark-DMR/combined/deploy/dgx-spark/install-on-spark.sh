@@ -89,22 +89,9 @@ done
 echo "  ✓ done. Images present:"
 docker images | grep -E "sda-tap-spoc|ollama|REPOSITORY" || true
 
-# Try to pull the latest ollama image so gemma4 and other recent models
-# work reliably. This is the preferred path when the Spark has internet
-# (~3 GB one-time download). If pull fails (offline install), fall back to
-# tagging the bundled 0.14.1 as :latest so docker compose can find it —
-# this fallback MAY not run gemma4 at runtime (see compose file comment).
-echo
-echo "→ Stage 2a: Ensuring ollama:latest is available..."
-if docker pull ollama/ollama:latest 2>/dev/null; then
-    echo "  ✓ pulled ollama/ollama:latest (gemma4 will work)"
-else
-    echo "  WARN: could not pull ollama/ollama:latest (no internet?)"
-    echo "        Tagging bundled 0.14.1 as :latest for offline install."
-    echo "        NOTE: 0.14.1 may not run gemma4:e4b — if LLM features fail,"
-    echo "        connect to internet and rerun install-on-spark.sh."
-    docker tag ollama/ollama:0.14.1 ollama/ollama:latest
-fi
+# Ollama 0.20.5 is bundled in images/ollama.tar (Stage 2 loaded it above).
+# This is the version NVIDIA+Ollama officially benchmarked on DGX Spark
+# GB10 with Llama 3.1 8B — no internet pull needed. No tag gymnastics.
 
 # ---------------------------------------------------------------------------
 # Stage 2.5: Restore the Ollama model volume (Phase 2 AI features)

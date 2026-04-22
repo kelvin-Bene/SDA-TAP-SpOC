@@ -117,11 +117,11 @@ services:
   # restore in install-on-spark.sh stage 2.5. This keeps the Ollama image
   # small (~800 MB) and the model swap-able without rebuilding.
   ollama:
-    # Use :latest so gemma4 (released April 2026) and any future model the
-    # operator pulls will work. install-on-spark.sh tries to pull :latest
-    # on first install; if offline it falls back to tagging the bundled
-    # 0.14.1 as :latest, with a caveat that gemma4 may not run on 0.14.1.
-    image: ollama/ollama:latest
+    # Pinned to 0.20.5 — matches the image bundled in images/ollama.tar and
+    # the version NVIDIA+Ollama officially benchmarked on DGX Spark (GB10).
+    # Llama 3.1 8B (our OLLAMA_MODEL default) is NVIDIA's reference Spark
+    # model — see https://ollama.com/blog/nvidia-spark-performance.
+    image: ollama/ollama:0.20.5
     profiles:
       - gpu
     environment:
