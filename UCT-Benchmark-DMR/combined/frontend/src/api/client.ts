@@ -7,6 +7,18 @@ export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    // Pair with the backend's `Cache-Control: no-store` middleware
+    // (backend_api/main.py SecurityHeadersMiddleware). This request-side
+    // header tells the browser to revalidate any cached API response
+    // against the server before using it, which is what un-busts stuck
+    // 410s that pre-fix browsers may have cached indefinitely (4xx
+    // responses are cacheable by default per RFC 7234 §4.2.2 when no
+    // Cache-Control is set). Without this header on requests, old
+    // cached error states can keep rendering in the UI even after the
+    // server stops serving them — which is exactly what happened on
+    // 2026-04-22 with the Results page Orbits tab after we shipped the
+    // /predictions graceful-degrade fix.
+    'Cache-Control': 'no-cache',
   },
 });
 

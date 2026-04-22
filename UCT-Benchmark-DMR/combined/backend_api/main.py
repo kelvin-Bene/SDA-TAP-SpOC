@@ -266,6 +266,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
             )
+        # Prevent browser HTTP caching of API and /health responses. Without this,
+        # browsers apply default HTTP caching rules — which treat 410 Gone (and
+        # other 4xx "permanent" status codes) as cacheable-forever. That's how
+        # a single transient backend error can "stick" to a browser session and
+        # keep showing stale error UI even after the backend is fixed. We saw
+        # this on 2026-04-22: the Results page's Orbits tab kept rendering
+        # "UCTP file has been removed from storage" for a specific submission
+        # long after the /predictions endpoint was fixed to return 200 when
+        # include=reference is passed, because the browser's HTTP cache was
+        # serving the pre-fix 410 response without a network round-trip.
+        path = request.url.path
+        if path.startswith("/api/") or path == "/health" or path.startswith("/health/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+            response.headers["Pragma"] = "no-cache"
         return response
 
 
