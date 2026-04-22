@@ -67,11 +67,20 @@ def monteCarloPropagator(
         covariance = 1e9 * covariance
         convertFlag = True
 
-    # Set up orekit environment, import orekit classes
+    # Set up orekit environment, import orekit classes.
+    # IMPORTANT: initVM() MUST run before importing from orekit_jpype.pyhelpers.
+    # The pyhelpers module executes `from java.io import File` at module load
+    # time, which requires a running JVM. If this import fires first (as it
+    # used to in this function), we hit "Attempt to create Java package 'java'
+    # without jvm" on the very first propagation call in any process, which
+    # broke /reference-orbits on prod uvicorn workers until the boot-time
+    # warm_jvm() landed. See TLEpropagator() below for the correct pattern.
     import orekit_jpype as orekit
-    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
     orekit.initVM()
+
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
+
     setup_orekit_curdir(from_pip_library=True)
 
     # orekit class imports
@@ -270,11 +279,20 @@ def ephemerisPropagator(
         stateVector = stateVector * 1000
         convertFlag = True
 
-    # Set up orekit environment, import orekit classes
+    # Set up orekit environment, import orekit classes.
+    # IMPORTANT: initVM() MUST run before importing from orekit_jpype.pyhelpers.
+    # The pyhelpers module executes `from java.io import File` at module load
+    # time, which requires a running JVM. If this import fires first (as it
+    # used to in this function), we hit "Attempt to create Java package 'java'
+    # without jvm" on the very first propagation call in any process, which
+    # broke /reference-orbits on prod uvicorn workers until the boot-time
+    # warm_jvm() landed. See TLEpropagator() below for the correct pattern.
     import orekit_jpype as orekit
-    from orekit_jpype.pyhelpers import setup_orekit_curdir
 
     orekit.initVM()
+
+    from orekit_jpype.pyhelpers import setup_orekit_curdir
+
     setup_orekit_curdir(from_pip_library=True)
 
     # orekit class imports

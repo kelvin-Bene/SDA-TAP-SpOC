@@ -181,13 +181,26 @@ async def lifespan(app: FastAPI):
     # container boot, before the first HTTP request.
     try:
         from backend_api.services.orbit_propagation import warm_jvm
+        from backend_api.services import orbit_propagation as _op
         warm_jvm()
-        logger.info("Orekit JVM warmed at startup")
+        # warm_jvm() swallows exceptions internally (logger.exception) so it
+        # never raises; we have to check the flag to know whether it actually
+        # succeeded. Without this, the "warmed at startup" info log fires
+        # even when JVM init silently failed — which is what happened before
+        # the propagator.py import-order fix.
+        if _op._JVM_WARMED:
+            logger.info("Orekit JVM warmed at startup")
+        else:
+            logger.error(
+                "Orekit JVM warm-up at startup reported failure — globe "
+                "endpoints (/reference-orbits, /predictions) will fail or "
+                "return empty. See the logger.exception traceback above."
+            )
     except Exception as e:
-        # Deliberately not re-raising — we still want the app to serve
-        # non-globe endpoints even if warm-up fails. The real traceback
-        # is logged by warm_jvm's own logger.exception.
-        logger.error(f"Orekit JVM warm-up failed at startup: {e}")
+        # Defensive: warm_jvm should never raise, but if something goes
+        # wrong at import time we still want the app to serve non-globe
+        # endpoints rather than failing to boot.
+        logger.error(f"Orekit JVM warm-up import failed at startup: {e}")
 
     yield
 
